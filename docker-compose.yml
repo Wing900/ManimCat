@@ -1,5 +1,5 @@
-# Docker Compose for Manim Video Generator (Motia Edition)
-# Production-ready with Redis for horizontal scaling
+# Docker Compose for ManimCat
+# Production-ready with Redis for task queue and state management
 
 version: '3.8'
 
@@ -20,17 +20,17 @@ services:
       start_period: 5s
     command: redis-server --appendonly yes
 
-  manim-generator:
+  manimcat:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: manim-video-generator
+    container_name: manimcat
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - USE_REDIS=true
-      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1-nano}
       - DISPLAY=:99

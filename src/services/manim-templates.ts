@@ -3,6 +3,10 @@
  * Pre-built templates for common mathematical visualizations
  */
 
+import { createLogger } from '../utils/logger'
+
+const logger = createLogger('ManimTemplates')
+
 export interface TemplateMapping {
   keywords: string[];
   generator: () => string;
@@ -201,7 +205,7 @@ export function selectTemplate(concept: string): { code: string; templateName: s
     try {
       return { code: bestMatch(), templateName: bestTemplateName };
     } catch (error) {
-      console.error('Error generating template:', error);
+      logger.error('Error generating template', { error });
       return null;
     }
   }

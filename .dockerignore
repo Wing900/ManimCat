@@ -3,7 +3,6 @@ node_modules/
 
 # Build output (will be created in builder stage)
 dist/
-.motia/
 
 # Environment files (use Docker env vars instead)
 .env
@@ -42,3 +41,7 @@ CHANGELOG.md
 # Docker files (no need to copy into image)
 docker-compose.yml
 Dockerfile
+
+# Frontend (if separate)
+frontend/
+motia/

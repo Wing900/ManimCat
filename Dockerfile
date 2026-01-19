@@ -1,7 +1,6 @@
-# Motia Manim Video Generator - Production Dockerfile
-# Simplified for local testing and production deployment
+# ManimCat - Production Dockerfile
 
-# Stage 1: Build the Motia application
+# Stage 1: Build the application
 FROM node:20-bookworm AS builder
 
 WORKDIR /app
@@ -10,19 +9,17 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY tsconfig.json ./
 
-# Install motia globally and dependencies
-RUN npm install -g motia@latest && \
-    npm ci --omit=dev
+# Install dependencies
+RUN npm ci --omit=dev
 
 # Copy source code
 COPY src/ ./src/
 COPY public/ ./public/
-COPY motia.config.ts ./
 
 # Build the application
 RUN npm run build
 
-# Stage 2: Production image - Use Python base and add Node.js
+# Stage 2: Production image
 FROM python:3.11-slim-bookworm
 
 # Set environment variables
@@ -30,11 +27,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV MPLBACKEND=Agg
-ENV XDG_RUNTIME_DIR=/tmp/runtime-motia
+ENV XDG_RUNTIME_DIR=/tmp/runtime-manimcat
 ENV DISPLAY=:99
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV USE_REDIS=false
 
 # Install Node.js 20.x
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -75,9 +71,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir manim==0.18.0 numpy scipy pillow
 
-# Install Motia CLI globally
-RUN npm install -g motia@latest
-
 # Create app user
 RUN useradd -m -u 1000 node && \
     mkdir -p /app && \
@@ -93,10 +86,9 @@ COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/package.json ./
-COPY --from=builder --chown=node:node /app/motia.config.ts ./
 
 # Create necessary directories
-RUN mkdir -p /app/public/videos /app/tmp /app/.motia && \
+RUN mkdir -p /app/public/videos /app/tmp && \
     chmod -R 755 /app/public /app/tmp
 
 # Expose port
@@ -106,5 +98,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# Start Xvfb and Motia
+# Start Xvfb and Express server
 CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset & npm run start"]
