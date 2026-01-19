@@ -1,9 +1,6 @@
 # Dependencies
 node_modules/
-.claude/
 .cursor/
-node_modules/
-
 
 # Build output
 dist/
@@ -30,3 +27,18 @@ Thumbs.db
 # Temp files
 tmp/
 *.tmp
+
+# AI/Dev tools
+.claude/
+
+# MD files (except README)
+*.md
+!README.md
+!frontend/README.md
+!static/gifs/README.md
+
+# Flow type files
+*.flow
+
+# Batch scripts
+*.bat
