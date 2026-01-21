@@ -1,5 +1,5 @@
 /**
- * Job Status Route
+ * 任务状态路由
  * 迁移自 src/api/job-status.step.ts
  *
  * 主要改动：
@@ -12,14 +12,14 @@
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../middlewares/error-handler'
 import { createLogger } from '../utils/logger'
-import { getJobResult, getBullJobStatus } from '../services/job-store'
+import { getJobResult, getBullJobStatus, getJobStage } from '../services/job-store'
 
 const router = express.Router()
 const logger = createLogger('JobStatusRoute')
 
 /**
  * GET /api/jobs/:jobId
- * Check animation generation job status
+ * 检查动画生成任务状态
  * 响应格式与前端 api.ts JobResult 类型完全兼容
  */
 router.get(
@@ -29,23 +29,28 @@ router.get(
 
     if (!jobId) {
       return res.status(400).json({
-        error: 'Job ID required',
+        error: '需要任务 ID',
         details: { jobId }
       })
     }
 
-    logger.info('Checking status for job', { jobId })
+    logger.info('检查任务状态', { jobId })
 
     // 首先从 Bull 队列检查任务状态
     const bullJobStatus = await getBullJobStatus(jobId)
 
     if (bullJobStatus === 'active' || bullJobStatus === 'waiting' || bullJobStatus === 'delayed') {
       // 任务还在队列中或正在处理
-      logger.info('Job is in queue or processing', { jobId, bullJobStatus })
+      logger.info('任务在队列中或正在处理', { jobId, bullJobStatus })
+
+      // 获取当前处理阶段
+      const stage = await getJobStage(jobId)
+
       return res.status(200).json({
         jobId,
         status: bullJobStatus === 'waiting' || bullJobStatus === 'delayed' ? 'queued' : 'processing',
-        message: 'Animation is being generated...'
+        stage: stage || 'analyzing',
+        message: '正在生成动画...'
       })
     }
 
@@ -55,23 +60,23 @@ router.get(
     if (!result) {
       // 任务不存在或已经清理
       if (bullJobStatus === null) {
-        logger.info('Job not found', { jobId })
+        logger.info('未找到任务', { jobId })
         return res.status(404).json({
-          error: 'Job not found',
+          error: '未找到任务',
           details: { jobId }
         })
       }
       // 任务还在处理中
-      logger.info('Job still processing', { jobId })
+      logger.info('任务仍在处理中', { jobId })
       return res.status(200).json({
         jobId,
         status: 'processing' as const,
-        message: 'Animation is being generated...'
+        message: '正在生成动画...'
       })
     }
 
     if (result.status === 'completed') {
-      logger.info('Job completed successfully', { jobId })
+      logger.info('任务成功完成', { jobId })
       return res.status(200).json({
         jobId,
         status: 'completed' as const,
@@ -84,8 +89,8 @@ router.get(
       })
     }
 
-    // Job failed
-    logger.info('Job failed', { jobId, error: result.data.error })
+    // 任务失败
+    logger.info('任务失败', { jobId, error: result.data.error })
     return res.status(200).json({
       jobId,
       status: 'failed' as const,

@@ -1,5 +1,5 @@
 /**
- * Health Check Route
+ * 健康检查路由
  * 迁移自 src/api/health.step.ts
  *
  * 增强功能：
@@ -21,7 +21,7 @@ const logger = createLogger('HealthRoute')
 
 /**
  * GET /health
- * Health check endpoint for monitoring
+ * 健康检查端点，用于监控
  */
 router.get(
   '/health',
@@ -32,7 +32,7 @@ router.get(
       await redisClient.ping()
       redisHealthy = true
     } catch (error) {
-      logger.error('Redis health check failed', { error })
+      logger.error('Redis 健康检查失败', { error })
     }
 
     // 检查队列健康

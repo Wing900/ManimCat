@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 interface LoadingSpinnerProps {
-  stage: 'analyzing' | 'generating' | 'rendering' | 'still-rendering';
+  stage: 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
   jobId?: string;
   onCancel?: () => void;
 }
@@ -12,6 +12,7 @@ interface LoadingSpinnerProps {
 const STAGE_TEXT: Record<LoadingSpinnerProps['stage'], { text: string; sub: string }> = {
   analyzing: { text: '分析概念中', sub: '检测 LaTeX 和匹配模板' },
   generating: { text: '生成代码中', sub: '创建动画脚本' },
+  refining: { text: 'AI 完善中', sub: '正在优化生成结果...' },
   rendering: { text: '渲染动画中', sub: '这可能需要一些时间' },
   'still-rendering': { text: '仍在渲染中', sub: '复杂动画需要更长时间' },
 };

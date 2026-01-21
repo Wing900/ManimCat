@@ -1,6 +1,6 @@
 /**
- * Manim Code Templates
- * Pre-built templates for common mathematical visualizations
+ * Manim 代码模板库
+ * 常见数学可视化的预构建模板
  */
 
 import { createLogger } from '../utils/logger'
@@ -12,30 +12,30 @@ export interface TemplateMapping {
   generator: () => string;
 }
 
-// LaTeX command patterns for detection
+// 用于检测的 LaTeX 命令模式
 const LATEX_COMMAND_HINTS = [
   '\\frac', '\\sum', '\\int', '\\sqrt', '\\alpha', '\\beta',
   '\\pi', '\\sin', '\\cos', '\\tan', '\\left', '\\right',
 ];
 
 /**
- * Check if text is likely a LaTeX expression
+ * 检查文本是否可能是 LaTeX 表达式
  */
 export function isLikelyLatex(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
 
-  // Check for common LaTeX delimiters
+  // 检查常见的 LaTeX 分隔符
   if (['$$', '$', '\\(', '\\)', '\\[', '\\]'].some(d => t.includes(d))) {
     return true;
   }
 
-  // Check for LaTeX commands
+  // 检查 LaTeX 命令
   if (LATEX_COMMAND_HINTS.some(cmd => t.includes(cmd))) {
     return true;
   }
 
-  // Check for superscript/subscript patterns
+  // 检查上标/下标模式
   if ((t.includes('^') || t.includes('_')) && !t.slice(0, 3).trim().includes(' ')) {
     return true;
   }
@@ -44,11 +44,11 @@ export function isLikelyLatex(text: string): boolean {
 }
 
 /**
- * Clean LaTeX expression by removing delimiters
+ * 清理 LaTeX 表达式，移除分隔符
  */
 export function cleanLatex(text: string): string {
   let t = text.trim();
-  // Remove common delimiters
+  // 移除常见的分隔符
   t = t.replace(/^\$+|\$+$/g, '');
   t = t.replace(/^\\\(|\\\)$/g, '');
   t = t.replace(/^\\\[|\\\]$/g, '');
@@ -56,7 +56,7 @@ export function cleanLatex(text: string): string {
 }
 
 /**
- * Generate Manim code for a LaTeX expression
+ * 为 LaTeX 表达式生成 Manim 代码
  */
 export function generateLatexSceneCode(expr: string): string {
   const cleanedExpr = cleanLatex(expr);
@@ -73,7 +73,7 @@ class MainScene(Scene):
 }
 
 /**
- * Template mappings with keywords and generators
+ * 模板映射（关键词和生成器）
  */
 export const templateMappings: Record<string, TemplateMapping> = {
   pythagorean: {
@@ -127,8 +127,8 @@ export const templateMappings: Record<string, TemplateMapping> = {
 };
 
 /**
- * Calculate match score for a template
- * Returns a score between 0 and 1, with higher being better
+ * 计算模板的匹配分数
+ * 返回 0 到 1 之间的分数，越高越好
  */
 export function calculateMatchScore(concept: string, keywords: string[]): number {
   const lowerConcept = concept.toLowerCase().trim();
@@ -150,20 +150,20 @@ export function calculateMatchScore(concept: string, keywords: string[]): number
     }
   }
 
-  // Calculate percentage of keyword words matched
+  // 计算匹配的关键词单词百分比
   const keywordScore = totalKeywordWords > 0 ? matchedKeywords / totalKeywordWords : 0;
 
-  // Strong penalty for complex queries that are likely more specific than template
+  // 对于复杂查询给予强惩罚（这些查询可能比模板更具体）
   const conceptComplexity = words.length;
   let complexityPenalty = 1.0;
 
   if (conceptComplexity > 8) {
-    complexityPenalty = 0.4;  // Very complex queries - 60% penalty
+    complexityPenalty = 0.4;  // 非常复杂的查询 - 60% 惩罚
   } else if (conceptComplexity > 5) {
-    complexityPenalty = 0.6;  // Moderately complex - 40% penalty
+    complexityPenalty = 0.6;  // 中等复杂度 - 40% 惩罚
   }
 
-  // Additional penalty if concept has words not in any keywords (likely specific requirements)
+  // 如果概念中有不在任何关键词中的单词，给予额外惩罚（可能是特定要求）
   const allKeywordWords = keywords.flatMap(k => k.toLowerCase().split(/\s+/));
   const unmatchedWords = words.filter(w => !allKeywordWords.some(kw => w.includes(kw) || kw.includes(w)));
   const specificityPenalty = unmatchedWords.length > 3 ? 0.8 : 1.0;
@@ -172,15 +172,15 @@ export function calculateMatchScore(concept: string, keywords: string[]): number
 }
 
 /**
- * Template match threshold - set high to prefer AI generation for unique outputs
- * 0.75 requires very strong keyword match to use template
+ * 模板匹配阈值 - 设置得很高以优先考虑 AI 生成（获得独特的输出）
+ * 0.75 要求非常强的关键词匹配才能使用模板
  */
 export const TEMPLATE_MATCH_THRESHOLD = 0.75;
 
 /**
- * Select appropriate template based on concept keywords
- * Only returns a template if confidence is very high (>0.75)
- * This ensures most queries go to AI for unique animations
+ * 根据概念关键词选择合适的模板
+ * 只有在置信度非常高（>0.75）时才返回模板
+ * 这确保大多数查询会交给 AI 以获得独特的动画
  */
 export function selectTemplate(concept: string): { code: string; templateName: string } | null {
   const lowerConcept = concept.toLowerCase().trim();
@@ -199,13 +199,13 @@ export function selectTemplate(concept: string): { code: string; templateName: s
     }
   }
 
-  // Only use template if confidence is very high (>75% match)
-  // This ensures complex/specific queries go to AI for unique outputs
+  // 只有在置信度非常高（>75% 匹配）时才使用模板
+  // 这确保复杂/特定的查询会交给 AI 以获得独特的输出
   if (bestMatch && bestScore > TEMPLATE_MATCH_THRESHOLD) {
     try {
       return { code: bestMatch(), templateName: bestTemplateName };
     } catch (error) {
-      logger.error('Error generating template', { error });
+      logger.error('生成模板时出错', { error });
       return null;
     }
   }
@@ -214,7 +214,7 @@ export function selectTemplate(concept: string): { code: string; templateName: s
 }
 
 /**
- * Get template match info without generating code (for logging/debugging)
+ * 获取模板匹配信息而不生成代码（用于日志/调试）
  */
 export function getTemplateMatchInfo(concept: string): { bestTemplate: string; bestScore: number; threshold: number } {
   const lowerConcept = concept.toLowerCase().trim();
@@ -232,20 +232,20 @@ export function getTemplateMatchInfo(concept: string): { bestTemplate: string; b
   return { bestTemplate, bestScore, threshold: TEMPLATE_MATCH_THRESHOLD };
 }
 
-// --- Template Generators ---
+// --- 模板生成器 ---
 
 export function generatePythagoreanCode(): string {
   return `from manim import *
 
 class MainScene(Scene):
     def construct(self):
-        # Create triangle
+        # 创建三角形
         triangle = Polygon(
             ORIGIN, RIGHT*3, UP*4,
             color=WHITE
         )
 
-        # Add labels using Text instead of MathTex
+        # 使用 Text 替代 MathTex 添加标签
         a = Text("a", font_size=36).next_to(triangle, DOWN)
         b = Text("b", font_size=36).next_to(triangle, RIGHT)
         c = Text("c", font_size=36).next_to(
@@ -253,11 +253,11 @@ class MainScene(Scene):
             UP+RIGHT
         )
 
-        # Add equation using MathTex
+        # 使用 MathTex 添加等式
         equation = MathTex(r"a^2 + b^2 = c^2").scale(1.1)
         equation.to_edge(UP)
 
-        # Create the animation
+        # 创建动画
         self.play(Create(triangle))
         self.play(Write(a), Write(b), Write(c))
         self.play(Write(equation))
@@ -270,38 +270,38 @@ export function generateDerivativeCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Create coordinate system
+        # 创建坐标系
         axes = Axes(
             x_range=[-2, 2],
             y_range=[-1, 2],
             axis_config={"include_tip": True}
         )
 
-        # Add custom labels
+        # 添加自定义标签
         x_label = Text("x").next_to(axes.x_axis.get_end(), RIGHT)
         y_label = Text("y").next_to(axes.y_axis.get_end(), UP)
 
-        # Create function
+        # 创建函数
         def func(x):
             return x**2
 
         graph = axes.plot(func, color=BLUE)
 
-        # Create derivative function
+        # 创建导数函数
         def deriv(x):
             return 2*x
 
         derivative = axes.plot(deriv, color=RED)
 
-        # Create labels
+        # 创建标签
         func_label = Text("f(x) = x^2").set_color(BLUE)
         deriv_label = Text("f'(x) = 2x").set_color(RED)
 
-        # Position labels
+        # 定位标签
         func_label.to_corner(UL)
         deriv_label.next_to(func_label, DOWN)
 
-        # Create animations
+        # 创建动画
         self.play(Create(axes), Write(x_label), Write(y_label))
         self.play(Create(graph), Write(func_label))
         self.wait()
@@ -315,24 +315,24 @@ export function generateIntegralCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Create coordinate system
+        # 创建坐标系
         axes = Axes(
             x_range=[-2, 2],
             y_range=[-1, 2],
             axis_config={"include_tip": True}
         )
 
-        # Add custom labels
+        # 添加自定义标签
         x_label = Text("x").next_to(axes.x_axis.get_end(), RIGHT)
         y_label = Text("y").next_to(axes.y_axis.get_end(), UP)
 
-        # Create function
+        # 创建函数
         def func(x):
             return x**2
 
         graph = axes.plot(func, color=BLUE)
 
-        # Create area
+        # 创建面积
         area = axes.get_area(
             graph,
             x_range=[0, 1],
@@ -340,15 +340,15 @@ class MainScene(Scene):
             opacity=0.3
         )
 
-        # Create labels
+        # 创建标签
         func_label = Text("f(x) = x^2").set_color(BLUE)
         integral_label = Text("Area = 1/3").set_color(YELLOW)
 
-        # Position labels
+        # 定位标签
         func_label.to_corner(UL)
         integral_label.next_to(func_label, DOWN)
 
-        # Create animations
+        # 创建动画
         self.play(Create(axes), Write(x_label), Write(y_label))
         self.play(Create(graph), Write(func_label))
         self.wait()
@@ -363,13 +363,13 @@ import numpy as np
 
 class MainScene(ThreeDScene):
     def construct(self):
-        # Configure the scene
+        # 配置场景
         self.set_camera_orientation(phi=75 * DEGREES, theta=30 * DEGREES)
 
-        # Create axes
+        # 创建坐标轴
         axes = ThreeDAxes()
 
-        # Create surface
+        # 创建曲面
         def func(x, y):
             return np.sin(x) * np.cos(y)
 
@@ -381,12 +381,12 @@ class MainScene(ThreeDScene):
             checkerboard_colors=[BLUE_D, BLUE_E]
         )
 
-        # Add custom labels
+        # 添加自定义标签
         x_label = Text("x").next_to(axes.x_axis.get_end(), RIGHT)
         y_label = Text("y").next_to(axes.y_axis.get_end(), UP)
         z_label = Text("z").next_to(axes.z_axis.get_end(), OUT)
 
-        # Create animations
+        # 创建动画
         self.begin_ambient_camera_rotation(rate=0.2)
         self.play(Create(axes), Write(x_label), Write(y_label), Write(z_label))
         self.play(Create(surface))
@@ -402,13 +402,13 @@ import numpy as np
 
 class MainScene(ThreeDScene):
     def construct(self):
-        # Configure the scene
+        # 配置场景
         self.set_camera_orientation(phi=75 * DEGREES, theta=30 * DEGREES)
 
-        # Create axes
+        # 创建坐标轴
         axes = ThreeDAxes()
 
-        # Create sphere
+        # 创建球体
         sphere = Surface(
             lambda u, v: np.array([
                 np.cos(u) * np.cos(v),
@@ -420,12 +420,12 @@ class MainScene(ThreeDScene):
             checkerboard_colors=[BLUE_D, BLUE_E]
         )
 
-        # Add custom labels
+        # 添加自定义标签
         x_label = Text("x").next_to(axes.x_axis.get_end(), RIGHT)
         y_label = Text("y").next_to(axes.y_axis.get_end(), UP)
         z_label = Text("z").next_to(axes.z_axis.get_end(), OUT)
 
-        # Create animations
+        # 创建动画
         self.begin_ambient_camera_rotation(rate=0.2)
         self.play(Create(axes), Write(x_label), Write(y_label), Write(z_label))
         self.play(Create(sphere))
@@ -440,7 +440,7 @@ export function generateCubeCode(): string {
 
 class MainScene(ThreeDScene):
     def construct(self):
-        # Set up the scene
+        # 设置场景
         self.set_camera_orientation(phi=75 * DEGREES, theta=30 * DEGREES)
         axes = ThreeDAxes(
             x_range=[-3, 3],
@@ -448,20 +448,20 @@ class MainScene(ThreeDScene):
             z_range=[-3, 3]
         )
 
-        # Create cube
+        # 创建立方体
         cube = Cube(side_length=2, fill_opacity=0.7, stroke_width=2)
         cube.set_color(BLUE)
 
-        # Labels for sides
+        # 面的标签
         a_label = Text("a", font_size=36).set_color(YELLOW)
         a_label.next_to(cube, RIGHT)
 
-        # Surface area formula
+        # 表面积公式
         area_formula = Text(
             "A = 6a^2"
         ).to_corner(UL)
 
-        # Add everything to scene
+        # 将所有内容添加到场景
         self.add(axes)
         self.play(Create(cube))
         self.wait()
@@ -470,7 +470,7 @@ class MainScene(ThreeDScene):
         self.play(Write(area_formula))
         self.wait()
 
-        # Rotate camera for better view
+        # 旋转相机以获得更好的视角
         self.begin_ambient_camera_rotation(rate=0.2)
         self.wait(5)
         self.stop_ambient_camera_rotation()
@@ -482,7 +482,7 @@ export function generateMatrixCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Create matrices
+        # 创建矩阵
         matrix_a = VGroup(
             Text("2  1"),
             Text("1  3")
@@ -495,24 +495,24 @@ class MainScene(Scene):
         ).arrange(DOWN)
         matrix_b.add(SurroundingRectangle(matrix_b))
 
-        # Create multiplication symbol and equals sign
+        # 创建乘号和等号
         times = Text("x")
         equals = Text("=")
 
-        # Create result matrix
+        # 创建结果矩阵
         result = VGroup(
             Text("4"),
             Text("7")
         ).arrange(DOWN)
         result.add(SurroundingRectangle(result))
 
-        # Position everything
+        # 定位所有内容
         equation = VGroup(
             matrix_a, times, matrix_b,
             equals, result
         ).arrange(RIGHT)
 
-        # Create step-by-step calculations
+        # 创建逐步计算
         calc1 = Text("= [2(1) + 1(2)]")
         calc2 = Text("= [2 + 2]")
         calc3 = Text("= [4]")
@@ -520,7 +520,7 @@ class MainScene(Scene):
         calcs = VGroup(calc1, calc2, calc3).arrange(DOWN)
         calcs.next_to(equation, DOWN, buff=1)
 
-        # Create animations
+        # 创建动画
         self.play(Create(matrix_a))
         self.play(Create(matrix_b))
         self.play(Write(times), Write(equals))
@@ -539,7 +539,7 @@ export function generateEigenvalueCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Create matrix and vector
+        # 创建矩阵和向量
         matrix = VGroup(
             Text("2  1"),
             Text("1  2")
@@ -552,29 +552,29 @@ class MainScene(Scene):
         ).arrange(DOWN)
         vector.add(SurroundingRectangle(vector))
 
-        # Create lambda and equation
+        # 创建 lambda 和等式
         lambda_text = Text("lambda")
         equation = Text("Av = lambda v")
 
-        # Position everything
+        # 定位所有内容
         group = VGroup(matrix, vector, lambda_text, equation).arrange(RIGHT)
         group.to_edge(UP)
 
-        # Create characteristic equation steps
+        # 创建特征方程步骤
         char_eq = Text("det(A - lambda I) = 0")
         expanded = Text("|2-lambda  1|")
         expanded2 = Text("|1  2-lambda|")
         solved = Text("(2-lambda)^2 - 1 = 0")
         result = Text("lambda = 1, 3")
 
-        # Position steps
+        # 定位步骤
         steps = VGroup(
             char_eq, expanded, expanded2,
             solved, result
         ).arrange(DOWN)
         steps.next_to(group, DOWN, buff=1)
 
-        # Create animations
+        # 创建动画
         self.play(Create(matrix), Create(vector))
         self.play(Write(lambda_text), Write(equation))
         self.wait()
@@ -592,15 +592,15 @@ export function generateComplexCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Set up plane
+        # 设置平面
         plane = ComplexPlane()
         self.play(Create(plane))
 
-        # Create complex number
+        # 创建复数
         z = 3 + 2j
         dot = Dot([3, 2, 0], color=YELLOW)
 
-        # Create vector and labels
+        # 创建向量和标签
         vector = Arrow(
             ORIGIN, dot.get_center(),
             buff=0, color=YELLOW
@@ -612,7 +612,7 @@ class MainScene(Scene):
             [3, 0, 0], [3, 2, 0], color=RED
         )
 
-        # Add labels
+        # 添加标签
         z_label = Text("z = 3 + 2i", font_size=36)
         z_label.next_to(dot, UR)
         re_label = Text("Re(z) = 3", font_size=36)
@@ -620,7 +620,7 @@ class MainScene(Scene):
         im_label = Text("Im(z) = 2", font_size=36)
         im_label.next_to(im_line, RIGHT)
 
-        # Animations
+        # 动画
         self.play(Create(vector))
         self.play(Write(z_label))
         self.wait()
@@ -642,34 +642,34 @@ import numpy as np
 
 class MainScene(Scene):
     def construct(self):
-        # Create differential equation
+        # 创建微分方程
         eq = MathTex(r"\\frac{dy}{dx} + 2y = e^x")
 
-        # Solution steps
+        # 解题步骤
         step1 = MathTex(r"y = e^{-2x}\\int e^x \\cdot e^{2x} dx")
         step2 = MathTex(r"y = e^{-2x}\\int e^{3x} dx")
         step3 = MathTex(r"y = e^{-2x} \\cdot \\frac{1}{3}e^{3x} + Ce^{-2x}")
         step4 = MathTex(r"y = \\frac{1}{3}e^x + Ce^{-2x}")
 
-        # Arrange equations
+        # 排列方程
         VGroup(
             eq, step1, step2, step3, step4
         ).arrange(DOWN, buff=0.5)
 
-        # Create graph
+        # 创建图形
         axes = Axes(
             x_range=[-2, 2],
             y_range=[-2, 2],
             axis_config={"include_tip": True}
         )
 
-        # Plot particular solution (C=0)
+        # 绘制特解（C=0）
         graph = axes.plot(
             lambda x: (1/3)*np.exp(x),
             color=YELLOW
         )
 
-        # Animations
+        # 动画
         self.play(Write(eq))
         self.wait()
         self.play(Write(step1))
@@ -681,7 +681,7 @@ class MainScene(Scene):
         self.play(Write(step4))
         self.wait()
 
-        # Show graph
+        # 显示图形
         self.play(
             FadeOut(VGroup(eq, step1, step2, step3, step4))
         )
@@ -695,24 +695,24 @@ export function generateTrigCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Create coordinate plane
+        # 创建坐标平面
         plane = NumberPlane(
             x_range=[-4, 4],
             y_range=[-2, 2],
             axis_config={"include_tip": True}
         )
 
-        # Add custom labels
+        # 添加自定义标签
         x_label = Text("x").next_to(plane.x_axis.get_end(), RIGHT)
         y_label = Text("y").next_to(plane.y_axis.get_end(), UP)
 
-        # Create unit circle
+        # 创建单位圆
         circle = Circle(radius=1, color=BLUE)
 
-        # Create angle tracker
+        # 创建角度追踪器
         theta = ValueTracker(0)
 
-        # Create dot that moves around circle
+        # 创建在圆上移动的点
         dot = always_redraw(
             lambda: Dot(
                 circle.point_at_angle(theta.get_value()),
@@ -720,7 +720,7 @@ class MainScene(Scene):
             )
         )
 
-        # Create lines to show sine and cosine
+        # 创建显示正弦和余弦的线条
         x_line = always_redraw(
             lambda: Line(
                 start=[circle.point_at_angle(theta.get_value())[0], 0, 0],
@@ -737,18 +737,18 @@ class MainScene(Scene):
             )
         )
 
-        # Create labels
+        # 创建标签
         sin_label = Text("sin(theta)").next_to(x_line).set_color(GREEN)
         cos_label = Text("cos(theta)").next_to(y_line).set_color(RED)
 
-        # Add everything to scene
+        # 将所有内容添加到场景
         self.play(Create(plane), Write(x_label), Write(y_label))
         self.play(Create(circle))
         self.play(Create(dot))
         self.play(Create(x_line), Create(y_line))
         self.play(Write(sin_label), Write(cos_label))
 
-        # Animate angle
+        # 动画角度
         self.play(
             theta.animate.set_value(2*PI),
             run_time=4,
@@ -763,18 +763,18 @@ export function generateQuadraticCode(): string {
 
 class MainScene(Scene):
     def construct(self):
-        # Create coordinate system
+        # 创建坐标系
         axes = Axes(
             x_range=[-4, 4],
             y_range=[-2, 8],
             axis_config={"include_tip": True}
         )
 
-        # Add custom labels
+        # 添加自定义标签
         x_label = Text("x").next_to(axes.x_axis.get_end(), RIGHT)
         y_label = Text("y").next_to(axes.y_axis.get_end(), UP)
 
-        # Create quadratic function
+        # 创建二次函数
         def func(x):
             return x**2
 
@@ -784,10 +784,10 @@ class MainScene(Scene):
             x_range=[-3, 3]
         )
 
-        # Create labels and equation
+        # 创建标签和方程
         equation = Text("f(x) = x^2").to_corner(UL)
 
-        # Create dot and value tracker
+        # 创建点和值追踪器
         x = ValueTracker(-3)
         dot = always_redraw(
             lambda: Dot(
@@ -799,7 +799,7 @@ class MainScene(Scene):
             )
         )
 
-        # Create lines to show x and y values
+        # 创建显示 x 和 y 值的线条
         v_line = always_redraw(
             lambda: axes.get_vertical_line(
                 axes.input_to_graph_point(
@@ -819,13 +819,13 @@ class MainScene(Scene):
             )
         )
 
-        # Add everything to scene
+        # 将所有内容添加到场景
         self.play(Create(axes), Write(x_label), Write(y_label))
         self.play(Create(graph))
         self.play(Write(equation))
         self.play(Create(dot), Create(v_line), Create(h_line))
 
-        # Animate x value
+        # 动画 x 值
         self.play(
             x.animate.set_value(3),
             run_time=6,
@@ -841,10 +841,10 @@ import numpy as np
 
 class MainScene(Scene):
     def construct(self):
-        # Create title
+        # 创建标题
         title = Text("Mathematical Visualization", font_size=36).to_edge(UP)
 
-        # Create axes
+        # 创建坐标轴
         axes = Axes(
             x_range=[-5, 5, 1],
             y_range=[-3, 3, 1],
@@ -853,44 +853,44 @@ class MainScene(Scene):
             y_length=6
         )
 
-        # Add labels
+        # 添加标签
         x_label = Text("x", font_size=24).next_to(axes.x_axis.get_end(), RIGHT)
         y_label = Text("y", font_size=24).next_to(axes.y_axis.get_end(), UP)
 
-        # Create function graphs
+        # 创建函数图形
         sin_graph = axes.plot(lambda x: np.sin(x), color=BLUE)
         cos_graph = axes.plot(lambda x: np.cos(x), color=RED)
 
-        # Create labels for functions
+        # 创建函数标签
         sin_label = Text("sin(x)", font_size=24, color=BLUE).next_to(sin_graph, UP)
         cos_label = Text("cos(x)", font_size=24, color=RED).next_to(cos_graph, DOWN)
 
-        # Create dot to track movement
+        # 创建移动的点
         moving_dot = Dot(color=YELLOW)
         moving_dot.move_to(axes.c2p(-5, 0))
 
-        # Create path for dot to follow
+        # 创建点的路径
         path = VMobject()
         path.set_points_smoothly([
             axes.c2p(x, np.sin(x))
             for x in np.linspace(-5, 5, 100)
         ])
 
-        # Animate everything
+        # 动画所有内容
         self.play(Write(title))
         self.play(Create(axes), Write(x_label), Write(y_label))
         self.play(Create(sin_graph), Write(sin_label))
         self.play(Create(cos_graph), Write(cos_label))
         self.play(Create(moving_dot))
 
-        # Animate dot following the sine curve
+        # 动画点沿正弦曲线移动
         self.play(
             MoveAlongPath(moving_dot, path),
             run_time=3,
             rate_func=linear
         )
 
-        # Final pause
+        # 最后暂停
         self.wait()
 `;
 }
