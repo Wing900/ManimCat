@@ -6,6 +6,7 @@ interface ApiConfig {
   apiUrl: string;
   apiKey: string;
   model: string;
+  manimcatApiKey: string;
 }
 
 interface TestResult {
@@ -34,19 +35,27 @@ function loadConfig(): ApiConfig {
     try {
       return JSON.parse(saved) as ApiConfig;
     } catch {
-      return { apiUrl: '', apiKey: '', model: '' };
+      return { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' };
     }
   }
-  return { apiUrl: '', apiKey: '', model: '' };
+  // 同时检查单独存储的 ManimCat API Key
+  const manimcatKey = localStorage.getItem('manimcat_api_key') || '';
+  return { apiUrl: '', apiKey: '', model: '', manimcatApiKey: manimcatKey };
 }
 
 /** 保存配置到 localStorage */
 function saveConfig(config: ApiConfig): void {
   localStorage.setItem('manimcat_api_config', JSON.stringify(config));
+  // 单独保存 ManimCat API Key（用于 api.ts 的 getAuthHeaders）
+  if (config.manimcatApiKey) {
+    localStorage.setItem('manimcat_api_key', config.manimcatApiKey);
+  } else {
+    localStorage.removeItem('manimcat_api_key');
+  }
 }
 
 export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
-  const [config, setConfig] = useState<ApiConfig>({ apiUrl: '', apiKey: '', model: '' });
+  const [config, setConfig] = useState<ApiConfig>({ apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' });
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [showDetails, setShowDetails] = useState(false);
 
@@ -161,6 +170,23 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
 
         {/* 表单 */}
         <div className="space-y-5">
+          <div className="relative">
+            <label
+              htmlFor="manimcatApiKey"
+              className="absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary transition-all"
+            >
+              ManimCat API 密钥
+            </label>
+            <input
+              id="manimcatApiKey"
+              type="password"
+              value={config.manimcatApiKey}
+              onChange={(e) => setConfig({ ...config, manimcatApiKey: e.target.value })}
+              placeholder="留空则跳过认证（仅开发环境）"
+              className="w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all"
+            />
+          </div>
+
           <div className="relative">
             <label
               htmlFor="apiUrl"

@@ -5,14 +5,29 @@ import type { GenerateRequest, GenerateResponse, JobResult, ApiError } from '../
 const API_BASE = '/api';
 
 /**
+ * 获取 API 请求头（包含认证信息）
+ */
+function getAuthHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  // 从 localStorage 获取用户配置的 API Key
+  const apiKey = localStorage.getItem('manimcat_api_key');
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  return headers;
+}
+
+/**
  * 提交动画生成请求
  */
 export async function generateAnimation(request: GenerateRequest, signal?: AbortSignal): Promise<GenerateResponse> {
   const response = await fetch(`${API_BASE}/generate`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(request),
     signal,
   });
@@ -29,7 +44,10 @@ export async function generateAnimation(request: GenerateRequest, signal?: Abort
  * 查询任务状态
  */
 export async function getJobStatus(jobId: string, signal?: AbortSignal): Promise<JobResult> {
-  const response = await fetch(`${API_BASE}/jobs/${jobId}`, { signal });
+  const response = await fetch(`${API_BASE}/jobs/${jobId}`, {
+    headers: getAuthHeaders(),
+    signal,
+  });
 
   if (!response.ok) {
     const error: ApiError = await response.json();

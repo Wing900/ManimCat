@@ -17,6 +17,7 @@ import { storeJobStage } from '../services/job-store'
 import { createLogger } from '../utils/logger'
 import { ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
+import { authMiddleware } from '../middlewares/auth.middleware'
 import type { GenerateRequest, GenerateResponse } from '../types'
 
 const router = express.Router()
@@ -35,7 +36,7 @@ const bodySchema = z.object({
  * POST /api/generate
  * 提交视频生成任务
  */
-router.post('/generate', asyncHandler(async (req, res) => {
+router.post('/generate', authMiddleware, asyncHandler(async (req, res) => {
   // 使用 Zod schema 验证请求体
   const { concept, quality, forceRefresh, code } = bodySchema.parse(req.body)
 

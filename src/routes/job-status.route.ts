@@ -11,6 +11,7 @@
 
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../middlewares/error-handler'
+import { authMiddleware } from '../middlewares/auth.middleware'
 import { createLogger } from '../utils/logger'
 import { getJobResult, getBullJobStatus, getJobStage } from '../services/job-store'
 
@@ -24,6 +25,7 @@ const logger = createLogger('JobStatusRoute')
  */
 router.get(
   '/jobs/:jobId',
+  authMiddleware,
   asyncHandler(async (req: Request, res: Response) => {
     const { jobId } = req.params
 

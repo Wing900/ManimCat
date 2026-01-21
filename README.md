@@ -1,80 +1,127 @@
-- 本项目由二开而来
-- 重构Motia为Express.js框架
+## 前言
+
+很荣幸在这里介绍我的新项目ManimCat，它是~一只猫~
+
+本项目由[manim-video-generator](https://github.com/rohitg00/manim-video-generator)二开而来，在此感谢原作者。
+
+ ManimCat 是一个基于 AI 的数学动画生成平台，致力于让数学教师使用manim代码生成视频应用到课堂与教学之中。
+
+用户只需输入自然语言描述，系统便会通过 AI 自动生成 Manim 代码并渲染出精美的数学可视化视频，支持 LaTeX 公式、模板化生成以及代码错误自动修复，让复杂概念的动态展示变得触手可及。
+
+## 技术
+
+### 技术栈
+
+**后端**
+- Express.js 4.18.0 + TypeScript 5.9.3
+- Bull 4.16.5 + ioredis 5.9.2（Redis 任务队列）
+- OpenAI SDK 4.50.0
+- Zod 3.23.0（数据验证）
+
+**前端**
+- React 19.2.0 + TypeScript 5.9.3
+- Vite 7.2.4
+- TailwindCSS 3.4.19
+- react-syntax-highlighter 16.1.0
+
+**系统依赖**
+- Python 3.11
+- Manim Community Edition 0.18.0
+- LaTeX（texlive）
+- ffmpeg + Xvfb
+
+**部署**
+- Docker + Docker Compose
+- Redis 7
+
+### 技术路线
+
+```
+用户请求 → POST /api/generate
+           ↓
+       [认证中间件]
+           ↓
+       [Bull 任务队列]
+           ↓
+    ┌─────────────────────────┐
+    │  视频生成处理器        │
+    ├─────────────────────────┤
+    │ 1. 检查概念缓存       │
+    │ 2. 分析概念           │
+    │    - LaTeX检测        │
+    │    - 模板匹配         │
+    │    - AI生成           │
+    │ 3. 生成代码           │
+    │ 4. 渲染视频           │
+    │    - AI代码修复       │
+    │ 5. 存储结果到Redis    │
+    └─────────────────────────┘
+           ↓
+      前端轮询状态
+           ↓
+    GET /api/jobs/:jobId
+```
+
+
+
+## 贡献
+
+我对原作品进行了一些修改和重构，使其更符合我的设计想法：
+
+ 1. 框架架构重构
+
+  - 原项目：使用 Motia 事件驱动框架
+  - 重构后：改为 Express.js + Bull 任务队列架构
+
+  2. 前后端分离
+
+  - 原项目：单体应用，前端是原生 public/index.html
+  - 重构后：前后端分离，React + TypeScript + Vite 独立前端
+
+  3. 存储方案升级
+
+  - 原项目：内存存储
+  - 重构后：Redis 存储（任务结果、状态、缓存，支持持久化）
+
+  4. 任务队列系统
+
+  - 原项目：Motia Event Steps 流程
+  - 重构后：Bull + Redis 任务队列，支持重试、超时、指数退避
+
+  5. 前端技术栈
+
+  - 原项目：原生 HTML/JS
+  - 重构后：React 19 + TailwindCSS + react-syntax-highlighter
+
+  6. 项目结构
+
+  - 原项目：motia/src/{api,events,services}/
+  - 重构后：
+    src/{config,middlewares,routes,services,queues,prompts,types,utils}/
+    frontend/src/{components,hooks,lib,types}/
+
+  7. 新增功能
+
+  - CORS 配置中间件
+  - 前端主题切换、设置模态框等组件
+
+- 增加对第三方oai格式的请求支持
+- 支持第三方自定义api
+
 - 增加重试机制，增加前后端状态查询
 - 重构UI，重构提示词
-- 删除了预设例子 
 
 - 增加对第三方oai格式的请求支持
 - 支持第三方自定义api
 - 优化提示词管理系统
-- 
 
-  🔒 安全性问题
+  ## 现状
 
-  1. 认证中间件未使用 (src/middlewares/auth.middleware.ts)
+目前仍在完善项目，这只是第一个预览版本。我将致力于设计出更好的提示词与fallback流程。目标是可以对一道高考数学题进行完整的可视化。以下是建设的计划：
 
-    - 已实现的 authMiddleware 从未应用到任何路由
-    - 任何人都可以调用 API，无访问控制
-  2. 无速率限制
+- 优化提示词，生成更长篇幅的Manim代码和更精准的效果
+- 增加调度和重试功能
+- 增加一定的验证页面，以防止滥用
+- 增加自定义模式功能，使用不同提示词生成不同视频
+- 增加迭代功能，延长生成代码和视频长度
 
-    - /api/generate 和 /api/jobs/:id 容易被滥用
-    - 可能导致 OpenAI API 成本失控
-  3. 输入验证不足 (src/routes/generate.route.ts:38)
-    concept: z.string().min(1)  // 只检查最小长度，无上限
-
-    - concept 字段可接受极长输入，可能导致内存溢出
-  4. UUID 格式未验证 (src/routes/job-status.route.ts:9)
-
-    - jobId 不验证是否为有效 UUID，可能被滥用
-  5. 环境变量配置不完整 (src/config/app.ts:15)
-    const required = ['OPENAI_API_KEY']
-
-    - 只验证 OPENAI_API_KEY，其他依赖（如 REDIS_HOST）无验证
-  6. 错误信息泄露 (src/middlewares/error-handler.ts:42)
-
-    - 开发环境返回完整错误堆栈，生产环境可能泄露敏感信息
-
-  ⚡ 可靠性问题
-
-  1. Redis 单点故障
-
-    - 无Redis集群或哨兵配置
-    - Redis重启可能导致任务丢失
-  2. 视频文件无限增长
-
-    - public/videos/ 目录无清理机制
-    - 长期运行会占用大量磁盘空间
-  3. 临时文件残留风险 (src/queues/processors/video.processor.ts:185)
-    const tempDir = path.join(os.tmpdir(), `manim-${jobId}`)
-
-    - 异常情况下临时目录可能未清理
-  4. 轮询超时固定 (frontend/src/hooks/useGeneration.ts:50)
-    const MAX_POLL_COUNT = 120  // 硬编码 2 分钟
-
-    - 复杂动画渲染时间可能超过 2 分钟
-
-  🎯 架构设计问题
-
-  1. 前后端类型不同步风险
-
-    - frontend/src/types/api.ts 和 src/types/index.ts 分别定义相同类型
-    - 容易出现不一致
-  2. AI 修复重试硬编码 (src/services/ai-code-fix.ts:7)
-    export const MAX_RETRIES = 3
-
-    - 重试次数和策略不可配置
-  3. 队列 worker 数量未配置
-
-    - 默认单 worker，高并发下成为瓶颈
-
-  📝 其他问题
-
-  1. 缺少监控和日志聚合
-
-    - 只有基础 console.log，无结构化日志
-    - 无 metrics/trace 支持
-  2. 健康检查不完整 (src/routes/health.route.ts:34)
-
-    - 只检查连接状态，不检查 Manim/ffmpeg 是否可用
-
-  3. .env.example 缺少重要变量
