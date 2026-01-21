@@ -1,73 +1,70 @@
 /**
- * OpenAI 客户端服务
- * 处理基于 AI 的 Manim 代码生成
- * 使用 GPT-4.1 nano - OpenAI 最快的模型（95.9 tokens/sec，首 token <5s）
- * 支持通过 CUSTOM_API_URL 和 CUSTOM_API_KEY 环境变量使用自定义 API 端点
+ * Manim Code Generation Prompts
+ * 提示词管理 - 与代码逻辑分离，便于维护
+ *
+ * 结构说明：
+ * - system/  : system prompt 模板
+ * - user/    : user prompt 模板
+ * - templates/: 通用模板片段
  */
 
-import OpenAI from 'openai'
-import crypto from 'crypto'
-import { createLogger } from '../utils/logger'
+// =====================
+// System Prompts
+// =====================
 
-const logger = createLogger('OpenAIClient')
+export const SYSTEM_PROMPTS = {
+  /** 首次代码生成时的 system prompt */
+  codeGeneration: `你是一位 Manim 动画专家，专注于通过动态动画深度解读数学概念。
+严格按照提示词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。`,
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'glm-4-flash'
-const AI_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
-const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
+  /** 代码修复/重试时的 system prompt（包含规范层） */
+  codeFix: `你是一位 Manim 动画专家，专注于通过动态动画深度解读数学概念。
+严格按照提示词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。
 
-const CUSTOM_API_URL = process.env.CUSTOM_API_URL?.trim()
+## 规范层
 
-let openaiClient: OpenAI | null = null
+### 严禁行为
 
-try {
-  if (CUSTOM_API_URL) {
-    openaiClient = new OpenAI({
-      baseURL: CUSTOM_API_URL,
-      apiKey: process.env.OPENAI_API_KEY
-    })
-  } else {
-    openaiClient = new OpenAI()
-  }
-} catch (error) {
-  logger.warn('OpenAI 客户端初始化失败', { error })
+- **严禁解释**：禁止在代码前后添加任何类似 "Sure, here is your code" 的废话。
+- **严禁 Markdown**：禁止使用 Markdown 语法包装代码。
+- **严禁旧语法**：禁止使用 \`ShowCreation\`, \`TextMobject\`, \`TexMobject\`, \`number_scale_val\`。
+
+### 错误纠正
+
+- **索引陷阱**：严禁对 \`MathTex\` 使用 \`[i]\` 索引。
+- **配置字典**：严禁直接在 \`Axes\` 初始化中传入视觉参数，必须封装在 \`axis_config\` 中。
+
+## 技术原则
+
+- **动态更新**：对于涉及数值变化的过程，优先使用 \`ValueTracker\` 和 \`always_redraw\`。
+- **公式操作规范**：禁止使用硬编码索引，必须通过 \`substrings_to_isolate\` 配合 \`get_part_by_tex\` 来操作公式的特定部分。
+- **坐标系一致性**：所有图形必须通过 \`axes.c2p\` 映射到坐标轴上，严禁脱离坐标系的自由定位。`
 }
 
-/**
- * 基于概念和时间戳生成唯一种子
- * 这有助于确保相似概念产生不同的输出
- */
-function generateUniqueSeed(concept: string): string {
-  const timestamp = Date.now()
-  const randomPart = crypto.randomBytes(4).toString('hex')
-  return crypto.createHash('md5').update(`${concept}-${timestamp}-${randomPart}`).digest('hex').slice(0, 8)
-}
+// =====================
+// API Index
+// =====================
 
-/**
- * 生成用于生成唯一 Manim 代码的优化 prompt
- * 包含变化指令以避免重复输出
- */
-function generateManimPrompt(concept: string, seed: string): string {
-  // API 索引表
-  const apiIndex = `# Manim API 索引表（AI 专用）。注意：所有 Mobjects 都接受 'global_vmobject_params'。每个类只列出独特参数。
+export const API_INDEX = `# Manim API Index for AI. NOTE: All Mobjects accept 'global_vmobject_params'. Only unique args are listed per class.
 
-# --- 全局与场景 ---
+# --- Global & Scene ---
 global_vmobject_params = ["background_image", "background_stroke_color", "background_stroke_opacity", "background_stroke_width", "cap_style", "close_new_points", "color", "dim", "fill_color", "fill_opacity", "joint_type", "make_smooth_after_applying_functions", "n_points_per_cubic_curve", "name", "pre_function_handle_to_anchor_scale_factor", "shade_in_3d", "sheen_direction", "sheen_factor", "stroke_color", "stroke_opacity", "stroke_width", "target", "tolerance_for_point_equality", "z_index"]
 scene_classes = ["Scene", "ThreeDScene"]
 Scene_args = ["always_update_mobjects", "camera_class", "random_seed", "renderer", "skip_animations"]
 Scene_methods = ["add", "add_foreground_mobject", "add_foreground_mobjects", "add_mobjects_from_animations", "add_sound", "add_subcaption", "add_updater", "begin_animations"]
 ThreeDScene_args = ["always_update_mobjects", "ambient_camera_rotation", "camera_class", "default_angled_camera_orientation_kwargs", "random_seed", "renderer", "skip_animations"]
-ThreeDScene_methods = ["add", "add_fixed_in_frame_mobjects", "add_fixed_orientation_mobjects", "add_foreground_mobject", "add_foreground_mobjects", "add_mobjects_from_animations", "add_sound", "add_subcaption"]
+ThreeDScene_methods = ["add", "add_fixed_in_frame_mobjects", "add_fixed_orientation_mobjects", "add_foreground_mobject", "add_foreground_mobjects", "add_sound", "add_subcaption"]
 
-# --- Mobjects: 坐标系 ---
+# --- Mobjects: Coordinate Systems ---
 coord_classes = ["Axes", "NumberLine", "NumberPlane"]
 Axes_unique_args = ["axis", "axis_config", "dimension", "tips", "vmobjects", "x_axis_config", "x_length", "x_range", "y_axis_config", "y_length", "y_range"]
 Axes_methods = ["add", "add_background_rectangle", "add_coordinates", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves"]
-NumberLine_unique_args = ["buff", "decimal_number_config", "end", "exclude_origin_tick", "font_size", "include_numbers", "include_ticks", "include_tip", "label_constructor", "label_direction", "length", "line_to_number_buff", "longer_tick_multiple", "normal_vector", "numbers_to_exclude", "numbers_to_include", "numbers_with_elongated_ticks", "path_arc", "rotation", "scaling", "start", "tick_size", "tip_height", "tip_length", "tip_shape", "tip_style", "tip_width", "unit_size", "x_range"]
+NumberLine_unique_args = ["buff", "decimal_number_config", "end", "exclude_origin_tick", "font_size", "include_numbers", "include_ticks", "include_tip", "label_constructor", "label_direction", "length", "line_to_number_buff", "longer_tick_multiple", "normal_vector", "numbers_to_exclude", "numbers_to_include", "numbers_with_elongated_ticks", "path_arc", "rotation", "scaling", "start", "tick_size", "tip_height", "tip_length", "tip_style", "tip_width", "unit_size", "x_range"]
 NumberLine_methods = ["add", "add_background_rectangle", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves", "add_labels"]
 NumberPlane_unique_args = ["axis_config", "background_line_style", "dimension", "faded_line_ratio", "faded_line_style", "tips", "vmobjects", "x_axis_config", "x_length", "x_range", "y_axis_config", "y_length", "y_range"]
 NumberPlane_methods = ["add", "add_background_rectangle", "add_coordinates", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves"]
 
-# --- Mobjects: 几何图形 ---
+# --- Mobjects: Geometry (Shapes) ---
 shape_classes = ["Circle", "Square", "Rectangle", "Line", "Arrow", "Dot", "Brace"]
 Circle_unique_args = ["angle", "arc_center", "normal_vector", "num_components", "radius", "start_angle", "tip_length", "tip_style"]
 Square_unique_args = ["grid_xstep", "grid_ystep", "height", "mark_paths_closed", "side_length", "vertex_groups", "vertices", "width"]
@@ -78,7 +75,7 @@ Dot_unique_args = ["angle", "arc_center", "normal_vector", "num_components", "po
 Brace_unique_args = ["buff", "direction", "long_lines", "mobject", "path_obj", "sharpness", "should_remove_null_curves", "should_subdivide_sharp_curves"]
 shape_common_methods = ["add", "add_background_rectangle", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves", "add_line_to"]
 
-# --- Mobjects: 数学与文本 ---
+# --- Mobjects: Math & Text ---
 math_text_classes = ["Tex", "MathTex", "Text", "DecimalNumber"]
 Tex_unique_args = ["arg_separator", "file_name", "font_size", "height", "opacity", "organize_left_to_right", "path_string_config", "should_center", "substrings_to_isolate", "svg_default", "tex_environment", "tex_string", "tex_strings", "tex_template", "tex_to_color_map", "use_svg_cache", "width"]
 MathTex_unique_args = ["arg_separator", "file_name", "font_size", "height", "opacity", "organize_left_to_right", "path_string_config", "should_center", "substrings_to_isolate", "svg_default", "tex_environment", "tex_string", "tex_strings", "tex_template", "tex_to_color_map", "use_svg_cache", "width"]
@@ -86,7 +83,7 @@ Text_unique_args = ["disable_ligatures", "file_name", "font", "font_size", "grad
 DecimalNumber_unique_args = ["digit_buff_per_font_unit", "edge_to_fix", "font_size", "group_with_commas", "include_background_rectangle", "include_sign", "mob_class", "num_decimal_places", "number", "show_ellipsis", "unit", "unit_buff_per_font_unit"]
 math_text_common_methods = ["add", "add_background_rectangle", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves", "add_line_to"]
 
-# --- 动画 ---
+# --- Animations ---
 anim_classes = ["Create", "Write", "FadeIn", "FadeOut", "Transform", "ReplacementTransform"]
 common_anim_args = ["_on_finish", "introducer", "lag_ratio", "mobject", "name", "rate_func", "remover", "reverse_rate_function", "run_time", "suspend_mobject_updating", "use_override"]
 Write_unique_args = ["reverse", "stroke_color", "stroke_width", "vmobject"]
@@ -96,12 +93,20 @@ Transform_unique_args = ["path_arc", "path_arc_axis", "path_arc_centers", "path_
 ReplacementTransform_unique_args = ["path_arc", "path_arc_axis", "path_arc_centers", "path_func", "replace_mobject_with_target_in_scene", "target_mobject"]
 common_anim_methods = ["begin", "clean_up_from_scene", "copy", "create_starting_mobject", "finish", "get_all_families_zipped", "get_all_mobjects"]
 
-# --- 逻辑与更新器 ---
+# --- Logic & Updaters ---
 logic_classes_and_functions = ["ValueTracker", "always_redraw"]
-ValueTracker_args = ["["color", "dim", "name", "target", "value", "z_index"]
+ValueTracker_args = ["color", "dim", "name", "target", "value", "z_index"]
 ValueTracker_methods = ["add", "add_updater", "align_data"]
 always_redraw_args = ["func"]`
 
+// =====================
+// User Prompt Templates
+// =====================
+
+/**
+ * 生成首次代码时的用户 prompt
+ */
+export function generateCodeGenerationPrompt(concept: string, seed: string): string {
   return `## 目标层
 
 ### 输入预期
@@ -111,16 +116,16 @@ always_redraw_args = ["func"]`
 
 ### 产出要求
 
-- **纯代码输出**：**严禁**输出 Markdown 代码块标识符（如 \`\`\`python），**严禁**包含任何解释性文字。输出内容应能直接作为 \`.py\` 文件运行。
+- **纯代码输出**：**严禁**输出 Markdown 代码块标识符符（如 \`\`\`python），**严禁**包含任何解释性文字。输出内容应能直接作为 \`.py\` 文件运行。
 - **结构规范**：核心类名固定为 \`MainScene\`（若为 3D 场景则继承自 \`ThreeDScene\`）。
 - **逻辑表达**：必须通过动态动画（不仅仅是静态展示）来深度解读 \`${concept}\` 的数学内涵。
 
-## 知识层
+## 知�识层
 
 ### API 索引表
 
 \`\`\`python
-${apiIndex}
+${API_INDEX}
 \`\`\`
 
 ### 环境背景
@@ -135,7 +140,7 @@ ${apiIndex}
 1. **深度概念解读**：首先分析 \`${concept}\` 的核心逻辑。它是一个公式的推导？还是一个几何性质的证明？
 2. **视觉隐喻设计**：根据概念选择最能直观表达其内涵的图形（如：导数对应切线，积分对应面积）。
 3. **理性配色方案 (Rational Coloring)**：
-   - **逻辑关联性**：具有相同数学含义的元素必须使用相同或相近的颜色。
+   - **逻辑关联性**：具有相同数学!含义的元素必须使用相同或相近的颜色。
    - **视觉对比度**：重点强调的元素（如目标结论）使用高饱和度颜色（如 \`YELLOW\` 或 \`PURE_RED\`），辅助元素使用低对比度颜色（如 \`GRAY\` 或 \`BLUE_E\`）。
 4. **代码实现**：对照 API 索引表，确保每个方法的参数合法。
 
@@ -143,7 +148,7 @@ ${apiIndex}
 
 - **动态更新**：对于涉及数值变化的过程，优先使用 \`ValueTracker\` 和 \`always_redraw\`。
 - **公式操作规范**：禁止使用硬编码索引，必须通过 \`substrings_to_isolate\` 配合 \`get_part_by_tex\` 来操作公式的特定部分。
-- **坐标系一致性**：所有图形必须通过 \`axes.c2p\` 映射到坐标轴上，严禁脱离坐标系的自由定位。
+- **坐标系一致性**：所有图形必须通过 \`axes.c2p\` 映射到坐标轴上，严禁脱离坐标系的!自由定位。
 
 ## 规范层
 
@@ -171,87 +176,79 @@ ${apiIndex}
 }
 
 /**
- * 从 AI 响应中提取代码（处理 markdown 代码块）
+ * 生成代码修复时的用户 prompt
  */
-function extractCodeFromResponse(text: string): string {
-  if (!text) return ''
+export function generateCodeFixPrompt(
+  concept: string,
+  errorMessage: string,
+  brokenCode: string,
+  attempt: number
+): string {
+  return `## 目标层
 
-  // 尝试匹配带语言标识的代码块
+### 输入预期
+
+- **概念**：${concept}
+- **错误信息**（第 ${attempt} 次尝试）：${errorMessage}
+
+### 产出要求
+
+- **修复代码**：修复以下失败的代码，确保它能正常运行。
+- **纯代码输出**：严禁输出 Markdown 代码块标识符，严禁包含任何解释性文字。
+- **结构规范**：核心类名固定为 \`MainScene\`（若为 3D 场景则继承自 \`ThreeDScene\`）。
+
+## 知识层
+
+### API 索引表
+
+\`\`\`python
+${API_INDEX}
+\`\`\`
+
+## 行为层
+
+### 修复原则
+
+1. **分析错误**：根据错误信息找出代码中的问题
+2. **针对性修复**：只修复有问题的部分，保持其他代码不变
+3. **确保可运行**：修复后的代码必须是完整的、可运行的 Manim 代码
+
+## 规范层
+
+### 严禁行为
+
+- **严禁解释**：只输出代码，不要解释
+- **严禁 Markdown**：不要使用代码块标记
+- **严禁旧语法**：禁止使用 \`ShowCreation\`, \`TextMobject\`, \`TexMobject\`
+
+### 技术原则
+
+- **动态更新**：涉及数值变化时使用 \`ValueTracker\`
+- **坐标系**：所有图形通过 \`axes.c2p\` 映射到坐标轴
+- **公式操作**：使用 \`substrings_to_isolate\` 配合 \`get_part_by_tex\` 操作公式
+
+---
+
+失败的代码：
+\`\`\`python
+${brokenCode}
+\`\`\`
+
+请修复上述代码，只输出修复后的完整 Python 代码，不要任何解释。`
+}
+
+// =====================
+// Prompt Builder Utilities
+// =====================
+
+/**
+ * 从 AI 响应中提取代码
+ */
+export function extractCodeFromResponse(text: string): string {
+  if (!text) return ''
   const match = text.match(/```(?:python)?\n([\s\S]*?)```/i)
   if (match) {
     return match[1].trim()
   }
-
   return text.trim()
-}
-
-/**
- * 使用 OpenAI 生成 Manim 代码
- * 使用较高的温度以获得多样化的输出，并为每次请求使用唯一种子
- */
-export async function generateAIManimCode(concept: string): Promise<string> {
-  if (!openaiClient) {
-    logger.warn('OpenAI 客户端不可用')
-    return ''
-  }
-
-  try {
-    const seed = generateUniqueSeed(concept)
-
-    const systemPrompt = `你是一位 Manim 动画专家，专注于通过动态动画深度解读数学概念。
-严格按照提示词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。`
-
-    const userPrompt = generateManimPrompt(concept, seed)
-
-    const response = await openaiClient.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: AI_TEMPERATURE,
-      max_tokens: MAX_TOKENS
-    })
-
-    const content = response.choices[0]?.message?.content || ''
-    if (!content) {
-      logger.warn('AI 返回空内容')
-      return ''
-    }
-
-    // 调试：打印 AI 响应
-    console.log('=== AI 响应（原始）===')
-    console.log(content)
-    console.log('=== AI 响应结束 ===')
-
-    return extractCodeFromResponse(content)
-  } catch (error) {
-    logger.error('AI 生成失败', { error })
-    if (error instanceof OpenAI.APIError) {
-      // OpenAI API 错误详情
-      logger.error('OpenAI API 错误详情', {
-        status: error.status,
-        code: error.code,
-        type: error.type,
-        message: error.message,
-        headers: error.headers,
-        cause: error.cause
-      })
-    } else if (error instanceof Error) {
-      // 其他错误
-      logger.error('错误详情', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      })
-    }
-    return ''
-  }
-}
-
-/**
- * 检查 OpenAI 客户端是否可用
- */
-export function isOpenAIAvailable(): boolean {
-  return openaiClient !== null
 }

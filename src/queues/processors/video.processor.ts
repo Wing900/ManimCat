@@ -23,7 +23,7 @@ import * as os from 'os'
 import crypto from 'crypto'
 import { videoQueue } from '../../config/bull'
 import { redisClient, REDIS_KEYS, generateRedisKey } from '../../config/redis'
-import { storeJobResult } from '../../services/job-store'
+import { storeJobResult, storeJobStage } from '../../services/job-store'
 import {
   isLikelyLatex,
   selectTemplate,
@@ -33,6 +33,7 @@ import {
   TEMPLATE_MATCH_THRESHOLD
 } from '../../services/manim-templates'
 import { generateAIManimCode } from '../../services/openai-client'
+import { executeRetryLogic, isCodeFixEnabled } from '../../services/ai-code-fix'
 import { isCachingEnabled, normalizeConcept, generateConceptHash } from '../../services/concept-cache'
 import { createLogger } from '../../utils/logger'
 import type { VideoJobData, JobResult, VideoQuality, GenerationType } from '../../types'
@@ -55,36 +56,79 @@ const QUALITY_FLAGS: Record<string, string> = {
  */
 videoQueue.process(async (job) => {
   const data = job.data as VideoJobData
-  const { jobId, concept, quality, forceRefresh = false, timestamp } = data
+  const { jobId, concept, quality, forceRefresh = false, timestamp, preGeneratedCode } = data
 
-  logger.info('Processing video job', { jobId, concept, quality })
+  logger.info('Processing video job', { jobId, concept, quality, hasPreGeneratedCode: !!preGeneratedCode })
+
+  // 阶段时长追踪
+  const timings: Record<string, number> = {}
 
   try {
+    // 如果有预生成代码，跳过缓存和 AI 生成阶段，直接渲染
+    if (preGeneratedCode) {
+      logger.info('Using pre-generated code from frontend', { jobId, codeLength: preGeneratedCode.length })
+
+      // 直接进入渲染阶段
+      const renderStart = Date.now()
+      const renderResult = await renderVideoStep(jobId, concept, quality, {
+        manimCode: preGeneratedCode,
+        usedAI: true, // 标记为 AI 生成（虽然来自前端自定义 API）
+        generationType: 'custom-api'
+      }, timings)
+      timings.render = Date.now() - renderStart
+
+      // 存储结果
+      const storeStart = Date.now()
+      await storeResultStep(renderResult)
+      timings.store = Date.now() - storeStart
+      timings.total = timings.cache + timings.analyze + timings.generate + timings.render + timings.store
+
+      logger.info('Job completed (pre-generated code)', { jobId, timings })
+      return { success: true, source: 'custom-api', timings }
+    }
+
     // Step 1: 检查缓存
+    const cacheStart = Date.now()
     const cacheResult = await checkCacheStep(jobId, concept, quality, forceRefresh)
+    timings.cache = Date.now() - cacheStart
 
     if (cacheResult.hit) {
       // 缓存命中 - 直接处理缓存结果
       await handleCacheHitStep(jobId, concept, quality, cacheResult.data!)
-      return { success: true, source: 'cache' }
+      logger.info('Job completed (cache hit)', { jobId, timings })
+      return { success: true, source: 'cache', timings }
     }
 
     // Step 2: 分析概念
+    const analyzeStart = Date.now()
     const analyzeResult = await analyzeConceptStep(jobId, concept, quality)
+    timings.analyze = Date.now() - analyzeStart
 
     // Step 3: 生成代码
+    const generateStart = Date.now()
     const codeResult = await generateCodeStep(jobId, concept, quality, analyzeResult)
+    timings.generate = Date.now() - generateStart
 
     // Step 4: 渲染视频
-    const renderResult = await renderVideoStep(jobId, concept, quality, codeResult)
+    const renderStart = Date.now()
+    const renderResult = await renderVideoStep(jobId, concept, quality, codeResult, timings)
+    timings.render = Date.now() - renderStart
 
     // Step 5: 存储结果
+    const storeStart = Date.now()
     await storeResultStep(renderResult)
+    timings.store = Date.now() - storeStart
 
-    return { success: true, source: 'generation' }
+    // 总时长
+    const totalStart = timings.cache + timings.analyze + timings.generate + timings.render + timings.store
+    timings.total = timings.cache + timings.analyze + timings.generate + timings.render + timings.store
+
+    logger.info('Job completed', { jobId, source: 'generation', timings })
+
+    return { success: true, source: 'generation', timings }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('Job failed', { jobId, error: errorMessage })
+    logger.error('Job failed', { jobId, error: errorMessage, timings })
 
     // 存储失败结果
     await storeJobResult(jobId, {
@@ -249,7 +293,8 @@ async function renderVideoStep(
   jobId: string,
   concept: string,
   quality: string,
-  codeResult: { manimCode: string; usedAI: boolean; generationType: string }
+  codeResult: { manimCode: string; usedAI: boolean; generationType: string },
+  timings: Record<string, number>
 ): Promise<{
   jobId: string
   concept: string
@@ -260,7 +305,7 @@ async function renderVideoStep(
   videoUrl: string
 }> {
   const { manimCode, usedAI, generationType } = codeResult
-  logger.info('Rendering video', { jobId, quality })
+  logger.info('Rendering video', { jobId, quality, usedAI })
 
   // 创建临时目录
   const tempDir = path.join(os.tmpdir(), `manim-${jobId}`)
@@ -273,28 +318,64 @@ async function renderVideoStep(
     fs.mkdirSync(mediaDir, { recursive: true })
     fs.mkdirSync(outputDir, { recursive: true })
 
-    // 写入代码文件
-    fs.writeFileSync(codeFile, manimCode, 'utf-8')
+    // 渲染函数 - 供重试逻辑使用
+    const renderCode = async (code: string) => {
+      logger.info('Rendering code', { jobId, codeLength: code.length })
 
-    // 构建命令
-    const qualityFlag = QUALITY_FLAGS[quality] || '-ql'
-    const args = [
-      'render',
-      qualityFlag,
-      '--format', 'mp4',
-      '--media_dir', mediaDir,
-      codeFile,
-      'MainScene'
-    ]
+      // 写入代码文件
+      fs.writeFileSync(codeFile, code, 'utf-8')
 
-    logger.info('Running manim', { jobId, command: `manim ${args.join(' ')}` })
+      // 构建命令
+      const qualityFlag = QUALITY_FLAGS[quality] || '-ql'
+      const args = [
+        'render',
+        qualityFlag,
+        '--format', 'mp4',
+        '--media_dir', mediaDir,
+        codeFile,
+        'MainScene'
+      ]
 
-    // 执行 manim
-    const result = await runManimCommand(args, tempDir, jobId)
+      logger.info('Running manim', { jobId, command: `manim ${args.join(' ')}` })
 
-    if (!result.success) {
-      logger.error('Manim render failed', { jobId, stderr: result.stderr, stdout: result.stdout })
-      throw new Error(result.stderr || 'Manim render failed')
+      // 执行 manim
+      return await runManimCommand(args, tempDir, jobId)
+    }
+
+    // 决定是否使用重试逻辑（仅对 AI 生成的代码）
+    let finalCode = manimCode
+    let renderResult: { success: boolean; stderr: string; stdout: string }
+
+    if (usedAI && isCodeFixEnabled()) {
+      logger.info('Using AI retry logic', { jobId })
+
+      // AI 重试详细计时
+      const retryStart = Date.now()
+
+      const retryResult = await executeRetryLogic(manimCode, concept, renderCode)
+      
+      timings.retry = Date.now() - retryStart
+
+      finalCode = retryResult.code
+      renderResult = {
+        success: retryResult.success,
+        stderr: retryResult.lastError || '',
+        stdout: ''
+      }
+
+      if (!retryResult.success) {
+        throw new Error(`Code fix failed after ${retryResult.attempts} attempts: ${retryResult.lastError}`)
+      }
+
+      logger.info('Retry completed successfully', { jobId, attempts: retryResult.attempts })
+    } else {
+      logger.info('Using single render attempt', { jobId, reason: usedAI ? 'code_fix_disabled' : 'not_ai_generated' })
+      renderResult = await renderCode(manimCode)
+
+      if (!renderResult.success) {
+        logger.error('Manim render failed', { jobId, stderr: renderResult.stderr, stdout: renderResult.stdout })
+        throw new Error(renderResult.stderr || 'Manim render failed')
+      }
     }
 
     // 查找生成的视频文件
@@ -313,7 +394,7 @@ async function renderVideoStep(
     return {
       jobId,
       concept,
-      manimCode,
+      manimCode: finalCode,
       usedAI,
       generationType,
       quality,

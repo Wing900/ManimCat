@@ -2,10 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus } from '../lib/api';
-import type { GenerateRequest, JobResult } from '../types/api';
-
-/** 处理阶段 */
-type ProcessingStage = 'analyzing' | 'generating' | 'rendering' | 'still-rendering';
+import { loadCustomConfig, generateWithCustomApi } from '../lib/custom-ai';
+import type { GenerateRequest, JobResult, ProcessingStage } from '../types/api';
 
 interface UseGenerationReturn {
   status: 'idle' | 'processing' | 'completed' | 'error';
@@ -50,6 +48,8 @@ export function useGeneration(): UseGenerationReturn {
       setStage('analyzing');
     } else if (count < 15) {
       setStage('generating');
+    } else if (count < 25) {
+      setStage('refining');
     } else if (count < 60) {
       setStage('rendering');
     } else {
@@ -81,7 +81,12 @@ export function useGeneration(): UseGenerationReturn {
           setStatus('error');
           setError(data.error || '生成失败');
         } else {
-          updateStage(pollCountRef.current);
+          // 使用后端返回的 stage，如果没有则使用前端估算的 fallback
+          if (data.stage) {
+            setStage(data.stage);
+          } else {
+            updateStage(pollCountRef.current);
+          }
         }
 
         // 超时检查
@@ -111,8 +116,30 @@ export function useGeneration(): UseGenerationReturn {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await generateAnimation(request, abortControllerRef.current.signal);
-      startPolling(response.jobId);
+      // 检查是否有自定义 AI 配置
+      const customConfig = loadCustomConfig();
+
+      if (customConfig) {
+        // 使用自定义 AI 生成代码
+        setStage('generating');
+        const code = await generateWithCustomApi(
+          request.concept,
+          customConfig,
+          abortControllerRef.current.signal
+        );
+
+        // 发送代码到后端渲染
+        setStage('rendering');
+        const response = await generateAnimation(
+          { ...request, code },
+          abortControllerRef.current.signal
+        );
+        startPolling(response.jobId);
+      } else {
+        // 使用后端 AI
+        const response = await generateAnimation(request, abortControllerRef.current.signal);
+        startPolling(response.jobId);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;

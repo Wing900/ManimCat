@@ -6,11 +6,16 @@ export type Quality = 'low' | 'medium' | 'high';
 /** 任务状态 */
 export type JobStatus = 'processing' | 'completed' | 'failed';
 
+/** 处理阶段 */
+export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
+
 /** 生成请求 */
 export interface GenerateRequest {
   concept: string;
   quality?: Quality;
   forceRefresh?: boolean;
+  /** 预生成的代码（使用自定义 AI 时） */
+  code?: string;
 }
 
 /** 生成响应 */
@@ -25,6 +30,7 @@ export interface GenerateResponse {
 export interface JobResult {
   jobId: string;
   status: JobStatus;
+  stage?: ProcessingStage;
   message?: string;
   success?: boolean;
   video_url?: string;

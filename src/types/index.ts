@@ -14,6 +14,11 @@ export type VideoQuality = 'low' | 'medium' | 'high'
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
 
 /**
+ * 处理阶段
+ */
+export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering'
+
+/**
  * 生成类型
  */
 export type GenerationType = 'template' | 'ai' | 'cached'
@@ -27,6 +32,8 @@ export interface VideoJobData {
   quality: VideoQuality
   forceRefresh?: boolean
   timestamp: string
+  /** 预生成的代码（使用自定义 AI 时） */
+  preGeneratedCode?: string
 }
 
 /**
@@ -101,6 +108,7 @@ export interface GenerateResponse {
 export interface JobStatusProcessingResponse {
   status: 'processing' | 'queued'
   jobId: string
+  stage: ProcessingStage
   message: string
 }
 
