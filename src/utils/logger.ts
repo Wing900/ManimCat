@@ -38,11 +38,54 @@ function formatTimestamp(): string {
 }
 
 /**
+ * 安全的 JSON 序列化，处理大对象和循环引用
+ */
+function safeStringify(obj: any, maxLength?: number): string {
+  try {
+    const seen = new WeakSet()
+    const json = JSON.stringify(obj, (key, value) => {
+      // 处理循环引用
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular]'
+        }
+        seen.add(value)
+      }
+      return value
+    }, 2)
+    
+    // 如果指定了最大长度且超出，则截断
+    if (maxLength && json.length > maxLength) {
+      return json.slice(0, maxLength) + `...(truncated, total ${json.length} chars)`
+    }
+    
+    return json
+  } catch (error) {
+    return '[Serialization Error]'
+  }
+}
+
+/**
  * 格式化日志消息
  */
 function formatMessage(level: string, message: string, meta?: any): string {
   const timestamp = formatTimestamp()
-  const metaStr = meta ? ` ${JSON.stringify(meta)}` : ''
+  
+  // 智能处理 meta 数据
+  let metaStr = ''
+  if (meta) {
+    // 对于大文本字段，不进行截断（如 AI 响应、代码等）
+    const largeTextFields = ['content', 'code', 'response', 'aiResponse', 'manimCode', 'stdout', 'stderr', 'output']
+    const hasLargeText = largeTextFields.some(field => field in meta)
+    
+    if (hasLargeText) {
+      // 包含大文本，使用更大的限制或不限制
+      metaStr = ` ${safeStringify(meta)}`
+    } else {
+      // 普通元数据，可以适当限制
+      metaStr = ` ${safeStringify(meta, 5000)}`
+    }
+  }
   
   if (appConfig.logging.pretty) {
     // 开发环境：带颜色的格式

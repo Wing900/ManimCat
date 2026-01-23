@@ -9,6 +9,16 @@
 export type VideoQuality = 'low' | 'medium' | 'high'
 
 /**
+ * 视频配置
+ */
+export interface VideoConfig {
+  /** 默认质量 */
+  quality: VideoQuality
+  /** 帧率 */
+  frameRate: number
+}
+
+/**
  * 任务状态
  */
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
@@ -24,6 +34,15 @@ export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'renderi
 export type GenerationType = 'template' | 'ai' | 'cached'
 
 /**
+ * 自定义 API 配置
+ */
+export interface CustomApiConfig {
+  apiUrl: string
+  apiKey: string
+  model: string
+}
+
+/**
  * 视频生成任务数据
  */
 export interface VideoJobData {
@@ -34,6 +53,10 @@ export interface VideoJobData {
   timestamp: string
   /** 预生成的代码（使用自定义 AI 时） */
   preGeneratedCode?: string
+  /** 自定义 API 配置（用于代码修复） */
+  customApiConfig?: CustomApiConfig
+  /** 视频配置 */
+  videoConfig?: VideoConfig
 }
 
 /**

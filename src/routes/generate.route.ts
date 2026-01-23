@@ -7,6 +7,7 @@
  * - 移除 Motia handler 包装，使用 Express Router
  * - emit() 改为 videoQueue.add()
  * - Zod 验证保持不变
+ * - 有预生成代码时不使用认证（前端已通过自定义 API 认证）
  */
 
 import express from 'express'
@@ -18,7 +19,7 @@ import { createLogger } from '../utils/logger'
 import { ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
-import type { GenerateRequest, GenerateResponse } from '../types'
+import type { GenerateRequest, GenerateResponse, VideoConfig } from '../types'
 
 const router = express.Router()
 const logger = createLogger('GenerateRoute')
@@ -29,16 +30,33 @@ const bodySchema = z.object({
   quality: z.enum(['low', 'medium', 'high']).optional().default('low'),
   forceRefresh: z.boolean().optional().default(false),
   /** 预生成的代码（使用自定义 AI 时） */
-  code: z.string().optional()
+  code: z.string().optional(),
+  /** 自定义 API 配置（用于代码修复） */
+  customApiConfig: z.object({
+    apiUrl: z.string(),
+    apiKey: z.string(),
+    model: z.string()
+  }).optional(),
+  /** 视频配置 */
+  videoConfig: z.object({
+    quality: z.enum(['low', 'medium', 'high']).optional(),
+    frameRate: z.number().int().min(1).max(120).optional(),
+    timeout: z.number().optional()
+  }).optional()
 })
 
 /**
- * POST /api/generate
- * 提交视频生成任务
+ * 处理视频生成请求的核心逻辑
  */
-router.post('/generate', authMiddleware, asyncHandler(async (req, res) => {
-  // 使用 Zod schema 验证请求体
-  const { concept, quality, forceRefresh, code } = bodySchema.parse(req.body)
+async function handleGenerateRequest(req: express.Request, res: express.Response) {
+  let parsed;
+  try {
+    parsed = bodySchema.parse(req.body);
+  } catch (error: any) {
+    throw error;
+  }
+
+  const { concept, quality, forceRefresh, code, customApiConfig, videoConfig } = parsed;
 
   // 清理输入
   const sanitizedConcept = concept.trim().replace(/\s+/g, ' ')
@@ -55,13 +73,14 @@ router.post('/generate', authMiddleware, asyncHandler(async (req, res) => {
     concept: sanitizedConcept,
     quality,
     forceRefresh,
-    hasPreGeneratedCode: !!code
+    hasPreGeneratedCode: !!code,
+    videoConfig
   })
 
   // 设置初始阶段
   await storeJobStage(jobId, code ? 'rendering' : 'analyzing')
 
-  // 添加任务到 Bull 队列（替代原来的 emit）
+  // 添加任务到 Bull 队列
   await videoQueue.add(
     {
       jobId,
@@ -69,16 +88,17 @@ router.post('/generate', authMiddleware, asyncHandler(async (req, res) => {
       quality,
       forceRefresh,
       preGeneratedCode: code,
+      customApiConfig,
+      videoConfig,
       timestamp: new Date().toISOString()
     },
     {
-      jobId // 使用 jobId 作为任务 ID，方便后续查询
+      jobId
     }
   )
 
   logger.info('动画请求已加入队列', { jobId })
 
-  // 返回 202 Accepted
   const response: GenerateResponse = {
     success: true,
     jobId,
@@ -87,6 +107,29 @@ router.post('/generate', authMiddleware, asyncHandler(async (req, res) => {
   }
 
   res.status(202).json(response)
-}))
+}
+
+/**
+ * 条件认证中间件
+ * 如果请求包含预生成代码，跳过认证
+ */
+function optionalAuthMiddleware(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) {
+  // 如果有预生成代码，跳过认证（因为 AI 调用已在前端完成）
+  if (req.body?.code) {
+    return next()
+  }
+  // 否则使用完整认证
+  return authMiddleware(req, res, next)
+}
+
+/**
+ * POST /api/generate
+ * 提交视频生成任务
+ */
+router.post('/generate', optionalAuthMiddleware, asyncHandler(handleGenerateRequest))
 
 export default router

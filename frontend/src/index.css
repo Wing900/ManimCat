@@ -1,6 +1,3 @@
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css');
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-lite-webfont@1.1.0/style.css');
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-tc-webfont@1.0.0/style.css');
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.1.0/style.css');
 
 @tailwind base;

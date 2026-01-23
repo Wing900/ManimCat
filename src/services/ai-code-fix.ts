@@ -1,16 +1,17 @@
 /**
  * AI 代码修复服务
- * 处理渲染失败时的 Manim 代码重试和修复
+ * 处理渲染失败时的 Manim 代码完善和修复
  *
  * 架构设计：
  * - 单一职责：修复损坏的 Manim 代码
- * - 清晰的重试尝试日志记录
- * - 可配置的最大重试次数
+ * - 清晰的完善尝试日志记录
+ * - 可配置的最大完善次数
  */
 
-import { generateAIManimCode, isOpenAIAvailable } from './openai-client'
+import { isOpenAIAvailable } from './openai-client'
 import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
+import type { CustomApiConfig } from '../types'
 
 const logger = createLogger('AICodeFix')
 
@@ -22,6 +23,7 @@ const ENABLE_CODE_FIX = process.env.ENABLE_AI_CODE_FIX !== 'false'
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'glm-4-flash'
 const AI_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
 const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
+const OPENAI_TIMEOUT = parseInt(process.env.OPENAI_TIMEOUT || '60000', 10) // 60 秒
 
 const CUSTOM_API_URL = process.env.CUSTOM_API_URL?.trim()
 
@@ -29,19 +31,41 @@ const CUSTOM_API_URL = process.env.CUSTOM_API_URL?.trim()
 let openaiClient: OpenAI | null = null
 
 try {
+  const baseConfig = {
+    timeout: OPENAI_TIMEOUT,
+    defaultHeaders: {
+      'User-Agent': 'ManimCat/1.0'
+    }
+  }
+
   if (CUSTOM_API_URL) {
     openaiClient = new OpenAI({
+      ...baseConfig,
       baseURL: CUSTOM_API_URL,
       apiKey: process.env.OPENAI_API_KEY
     })
   } else {
-    openaiClient = new OpenAI()
+    openaiClient = new OpenAI(baseConfig)
   }
 } catch (error) {
   logger.warn('OpenAI 客户端初始化失败', { error })
 }
 
-// API 索引表（用于重试时的完整 prompt）
+/**
+ * 创建自定义 OpenAI 客户端
+ */
+function createCustomClient(config: CustomApiConfig): OpenAI {
+  return new OpenAI({
+    baseURL: config.apiUrl.trim().replace(/\/+$/, ''),
+    apiKey: config.apiKey,
+    timeout: OPENAI_TIMEOUT,
+    defaultHeaders: {
+      'User-Agent': 'ManimCat/1.0'
+    }
+  })
+}
+
+// API 索引表（用于完善时的完整 prompt）
 const API_INDEX = `# Manim API 索引表（AI 专用）。注意：所有 Mobjects 都接受 'global_vmobject_params'。每个类只列出独特参数。
 
 # --- 全局与场景 ---
@@ -96,7 +120,7 @@ ValueTracker_args = ["color", "dim", "name", "target", "value", "z_index"]
 ValueTracker_methods = ["add", "add_updater", "align_data"]
 always_redraw_args = ["func"]`
 
-// 重试时的 system prompt（与首次生成一致）
+// 完善时的 system prompt（与首次生成一致）
 const RETRY_SYSTEM_PROMPT = `你是一位 Manim 动画专家，专注于通过动态动画深度解读数学概念。
 严格按照提示词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。
 
@@ -124,6 +148,7 @@ export interface FixCodeOptions {
   brokenCode: string
   errorMessage: string
   attempt: number
+  customApiConfig?: CustomApiConfig
 }
 
 export interface FixCodeResult {
@@ -139,21 +164,44 @@ export interface FixCodeResult {
 function extractErrorMessage(stderr: string): string {
   if (!stderr) return '未知错误'
 
+  // 统一换行符
+  const normalized = stderr.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
   // 尝试提取 Python 语法错误
-  const syntaxMatch = stderr.match(/SyntaxError:.+/)
+  const syntaxMatch = normalized.match(/SyntaxError:.+/)
   if (syntaxMatch) return syntaxMatch[0].trim()
 
+  // 尝试提取 ValueError（如 LaTeX 错误）- 提取整行
+  const valueErrorMatch = normalized.match(/ValueError:[^\n]+/)
+  if (valueErrorMatch) {
+    const errorLine = valueErrorMatch[0].trim()
+    // 如果是 LaTeX 错误，返回更具体的消息
+    if (errorLine.includes('latex error') || errorLine.includes('latex')) {
+      return 'LaTeX 编译错误：无法渲染数学公式，请检查公式语法'
+    }
+    return errorLine
+  }
+
   // 尝试提取 Python 跟踪信息
-  const tracebackMatch = stderr.match(/File ".+?\.py".+?\n.+?\n.+/s)
+  const tracebackMatch = normalized.match(/Traceback \(most recent call last\):[\s\S]+?(?=\n\n|$)/s)
   if (tracebackMatch) return tracebackMatch[0].trim()
 
+  // 尝试提取 File 错误
+  const fileErrorMatch = normalized.match(/File ".+?\.py".+?\n.+?\n.+/s)
+  if (fileErrorMatch) return fileErrorMatch[0].trim()
+
+  // 如果 stderr 很长，提取最后 500 字符
+  if (normalized.length > 500) {
+    return '...' + normalized.slice(-500).trim()
+  }
+
   // 返回最后一行非空内容
-  const lines = stderr.split('\n').filter(l => l.trim())
-  return lines[lines.length - 1] || stderr.trim()
+  const lines = normalized.split('\n').filter(l => l.trim())
+  return lines[lines.length - 1] || normalized.trim()
 }
 
 /**
- * 检查错误是否可重试
+ * 检查错误是否可完善
  * 某些错误（如缺少依赖）AI 无法修复
  */
 function isRetryableError(errorMessage: string): boolean {
@@ -182,15 +230,21 @@ function extractCodeFromResponse(text: string): string {
  * 使用 AI 修复损坏的 Manim 代码 - 现在使用完整的 system prompt
  */
 export async function fixCode(options: FixCodeOptions): Promise<FixCodeResult> {
-  const { attempt, concept, brokenCode, errorMessage } = options
+  const { attempt, concept, brokenCode, errorMessage, customApiConfig } = options
 
   logger.info('尝试修复代码', {
     attempt,
     maxRetries: MAX_RETRIES,
-    error: errorMessage
+    error: errorMessage,
+    hasCustomApi: !!customApiConfig,
+    brokenCodeLength: brokenCode.length,
+    errorMessageLength: errorMessage.length
   })
 
-  if (!openaiClient) {
+  // 使用自定义 API 或默认客户端
+  const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
+
+  if (!client) {
     logger.warn('OpenAI 客户端不可用')
     return {
       success: false,
@@ -199,6 +253,8 @@ export async function fixCode(options: FixCodeOptions): Promise<FixCodeResult> {
       reason: 'OpenAI 客户端不可用'
     }
   }
+
+  logger.info('开始调用 AI API 进行修复', { attempt })
 
   try {
     // 构建完整的用户 prompt，包含 API 索引表
@@ -254,7 +310,15 @@ ${brokenCode}
 
 请修复上述代码，只输出修复后的完整 Python 代码，不要任何解释。`
 
-    const response = await openaiClient.chat.completions.create({
+    logger.info('发送 AI 请求', {
+      attempt,
+      model: OPENAI_MODEL,
+      temperature: AI_TEMPERATURE,
+      max_tokens: MAX_TOKENS,
+      promptLength: userPrompt.length
+    })
+
+    const response = await client.chat.completions.create({
       model: OPENAI_MODEL,
       messages: [
         { role: 'system', content: RETRY_SYSTEM_PROMPT },
@@ -265,9 +329,20 @@ ${brokenCode}
     })
 
     const content = response.choices[0]?.message?.content || ''
-    
+
+    // 记录完整的 AI 修复响应
+    logger.info('收到 AI 修复响应', {
+      attempt,
+      responseLength: content.length,
+      response: content
+    })
+
     if (!content || content.length < 50) {
-      logger.warn('AI 返回空内容或代码过短', { attempt })
+      logger.warn('AI 返回空内容或代码过短', {
+        attempt,
+        contentLength: content.length,
+        content
+      })
       return {
         success: false,
         code: brokenCode,
@@ -280,7 +355,9 @@ ${brokenCode}
 
     logger.info('代码修复尝试完成', {
       attempt,
-      codeLength: fixedCode.length
+      originalCodeLength: brokenCode.length,
+      fixedCodeLength: fixedCode.length,
+      code: fixedCode
     })
 
     return {
@@ -289,43 +366,65 @@ ${brokenCode}
       attempt
     }
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error)
-    logger.error('代码修复尝试失败', { attempt, error: errMsg })
     if (error instanceof OpenAI.APIError) {
-      logger.error('OpenAI API 错误详情', {
+      logger.error('OpenAI API 错误（代码修复）', {
+        attempt,
+        concept,
         status: error.status,
         code: error.code,
         type: error.type,
         message: error.message,
-        headers: error.headers
+        headers: JSON.stringify(error.headers),
+        cause: error.cause
+      })
+    } else if (error instanceof Error) {
+      logger.error('代码修复尝试失败', {
+        attempt,
+        concept,
+        errorName: error.name,
+        errorMessage: error.message,
+        isTimeout: error.message.includes('timeout') || error.message.includes('Timeout'),
+        stack: error.stack
+      })
+    } else {
+      logger.error('代码修复尝试失败（未知错误）', {
+        attempt,
+        concept,
+        error: String(error)
       })
     }
+
+    const errorResult = error instanceof Error ? error.message : String(error)
     return {
       success: false,
       code: brokenCode,
       attempt,
-      reason: errMsg
+      reason: errorResult
     }
   }
 }
 
 /**
- * 执行代码渲染的重试逻辑
+ * 执行代码渲染的完善逻辑
  * 返回最终使用的代码（修复后的或原始的）
  */
 export async function executeRetryLogic(
   initialCode: string,
   concept: string,
   renderer: (code: string) => Promise<{ success: boolean; stderr: string; stdout: string }>,
-  onRetryStart?: () => Promise<void>
+  onRetryStart?: () => Promise<void>,
+  customApiConfig?: CustomApiConfig,
+  onRenderStart?: () => Promise<void>
 ): Promise<{ code: string; success: boolean; attempts: number; lastError?: string }> {
   if (!ENABLE_CODE_FIX) {
-    logger.info('AI 代码修复已禁用，使用原始代码')
+    logger.info('AI 代码完善已禁用，使用原始代码')
+    if (onRenderStart) await onRenderStart()
     const result = await renderer(initialCode)
     return { code: initialCode, success: result.success, attempts: 1, lastError: result.success ? undefined : result.stderr }
   }
 
   let currentCode = initialCode
+  if (onRenderStart) await onRenderStart()
   let lastResult = await renderer(initialCode)
 
   logger.info('初始渲染结果', {
@@ -340,13 +439,18 @@ export async function executeRetryLogic(
 
   const errorMessage = extractErrorMessage(lastResult.stderr)
 
-  // 检查错误是否可重试
+  logger.info('提取的错误消息', {
+    error: errorMessage,
+    stderrLength: lastResult.stderr.length
+  })
+
+  // 检查错误是否可完善
   if (!isRetryableError(errorMessage)) {
-    logger.warn('错误不可重试，跳过 AI 修复', { error: errorMessage })
+    logger.warn('错误不可完善，跳过 AI 修复', { error: errorMessage })
     return { code: currentCode, success: false, attempts: 1, lastError: errorMessage }
   }
 
-  // 通知开始重试（更新 stage 为 refining）
+  // 通知开始完善（更新 stage 为 refining）
   if (onRetryStart) {
     try {
       await onRetryStart()
@@ -355,9 +459,9 @@ export async function executeRetryLogic(
     }
   }
 
-  // 使用 AI 修复进行重试
+  // 使用 AI 修复进行完善
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    logger.info(`开始第 ${attempt} 次重试`, {
+    logger.info(`开始第 ${attempt} 次完善`, {
       maxRetries: MAX_RETRIES,
       error: errorMessage
     })
@@ -366,20 +470,30 @@ export async function executeRetryLogic(
       concept,
       brokenCode: currentCode,
       errorMessage,
-      attempt
+      attempt,
+      customApiConfig
+    })
+
+    logger.info('AI 修复结果', {
+      attempt,
+      success: fixResult.success,
+      reason: fixResult.reason,
+      codeLength: fixResult.code.length
     })
 
     if (!fixResult.success) {
-      logger.warn('修复尝试失败，将重试', { attempt })
+      logger.warn('修复尝试失败，将继续完善', { attempt, reason: fixResult.reason })
       continue
     }
 
     // 使用修复后的代码尝试渲染
     currentCode = fixResult.code
+    logger.info('开始渲染修复后的代码', { attempt, codeLength: currentCode.length })
     lastResult = await renderer(currentCode)
+    logger.info('修复后代码渲染结果', { attempt, success: lastResult.success })
 
     if (lastResult.success) {
-      logger.info('代码修复成功', {
+      logger.info('代码完善成功', {
         attempt,
         totalAttempts: attempt + 1
       })
@@ -394,8 +508,8 @@ export async function executeRetryLogic(
     })
   }
 
-  // 所有重试用尽
-  logger.error('所有重试尝试已用尽', {
+  // 所有完善尝试已用尽
+  logger.error('所有完善尝试已用尽', {
     totalAttempts: MAX_RETRIES + 1,
     finalError: extractErrorMessage(lastResult.stderr)
   })
@@ -404,14 +518,14 @@ export async function executeRetryLogic(
 }
 
 /**
- * 检查代码修复是否启用
+ * 检查代码完善是否启用
  */
 export function isCodeFixEnabled(): boolean {
   return ENABLE_CODE_FIX
 }
 
 /**
- * 获取最大重试次数配置
+ * 获取最大完善次数配置
  */
 export function getMaxRetries(): number {
   return MAX_RETRIES

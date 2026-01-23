@@ -1,0 +1,131 @@
+# ManimCat - HuggingFace Spaces Dockerfile
+# 专为 HuggingFace Spaces 环境优化的 Docker 配置
+
+# Stage 1: Build frontend
+FROM node:20-bookworm AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install frontend dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build frontend
+RUN npm run build
+
+# Stage 2: Build backend
+FROM node:20-bookworm AS backend-builder
+
+WORKDIR /app
+
+# Copy backend package files
+COPY package.json package-lock.json* ./
+COPY tsconfig.json ./
+
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
+
+# Copy backend source
+COPY src/ ./src/
+
+# Build backend
+RUN npm run build:backend
+
+# Stage 3: Production image
+FROM python:3.11-slim-bookworm
+
+# Set environment variables for HuggingFace Spaces
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MPLBACKEND=Agg \
+    XDG_RUNTIME_DIR=/tmp/runtime-manimcat \
+    DISPLAY=:99 \
+    NODE_ENV=production \
+    PORT=7860 \
+    REDIS_HOST=localhost \
+    REDIS_PORT=6379
+
+# Install system dependencies including Redis
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Node.js setup
+    ca-certificates \
+    curl \
+    gnupg \
+    # Build tools
+    build-essential \
+    pkg-config \
+    # Redis server (内置在同一容器中)
+    redis-server \
+    # Manim dependencies
+    libcairo2-dev \
+    libpango1.0-dev \
+    libgif-dev \
+    libopenblas-dev \
+    gfortran \
+    ffmpeg \
+    xvfb \
+    # LaTeX packages
+    texlive-latex-base \
+    texlive-fonts-recommended \
+    texlive-latex-recommended \
+    cm-super \
+    dvipng \
+    dvisvgm && \
+    # Install Node.js
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    # Cleanup
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Manim and Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir manim==0.18.0 numpy scipy pillow && \
+    rm -rf /root/.cache
+
+# Create app user and directories
+RUN useradd -m -u 1000 node && \
+    mkdir -p /app/public/videos /app/tmp /data/redis && \
+    chown -R node:node /app /data
+
+WORKDIR /app
+
+# Copy backend build artifacts
+COPY --from=backend-builder --chown=node:node /app/dist ./dist
+COPY --from=backend-builder --chown=node:node /app/package.json ./
+
+# Copy frontend build to public directory
+COPY --from=frontend-builder --chown=node:node /app/frontend/dist ./public
+
+# Copy HuggingFace Redis startup script
+COPY --chown=node:node start-with-redis-hf.cjs ./
+
+# Install only production dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev && \
+    npm cache clean --force && \
+    chown -R node:node /app
+
+# Switch to non-root user
+USER node
+
+# Set proper permissions
+RUN chmod -R 755 /app/public /app/tmp
+
+# Expose HuggingFace Spaces port (必须是 7860)
+EXPOSE 7860
+
+# Health check for HuggingFace Spaces
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:7860/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# Start Xvfb, Redis and Express server using the HF startup script
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset & node start-with-redis-hf.cjs"]

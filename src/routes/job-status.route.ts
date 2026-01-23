@@ -11,7 +11,6 @@
 
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../middlewares/error-handler'
-import { authMiddleware } from '../middlewares/auth.middleware'
 import { createLogger } from '../utils/logger'
 import { getJobResult, getBullJobStatus, getJobStage } from '../services/job-store'
 
@@ -22,10 +21,10 @@ const logger = createLogger('JobStatusRoute')
  * GET /api/jobs/:jobId
  * 检查动画生成任务状态
  * 响应格式与前端 api.ts JobResult 类型完全兼容
+ * 注意：此路由不需要认证，因为查询任务状态是公开操作
  */
 router.get(
   '/jobs/:jobId',
-  authMiddleware,
   asyncHandler(async (req: Request, res: Response) => {
     const { jobId } = req.params
 

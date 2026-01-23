@@ -7,30 +7,25 @@ export interface CustomApiConfig {
   model: string;
 }
 
-/** 从 localStorage 加载配置 */
+/** 从 localStorage 加载配置（使用统一的 manimcat_settings） */
 export function loadCustomConfig(): CustomApiConfig | null {
-  const saved = localStorage.getItem('manimcat_api_config');
+  const saved = localStorage.getItem('manimcat_settings');
   if (saved) {
     try {
-      const config = JSON.parse(saved) as CustomApiConfig;
-      if (config.apiUrl && config.apiKey) {
-        return config;
+      const parsed = JSON.parse(saved);
+      // 从统一的 settings 中读取 API 配置
+      if (parsed.api && parsed.api.apiUrl && parsed.api.apiKey) {
+        return {
+          apiUrl: parsed.api.apiUrl,
+          apiKey: parsed.api.apiKey,
+          model: parsed.api.model || ''
+        };
       }
     } catch {
       // ignore
     }
   }
   return null;
-}
-
-/** 保存配置到 localStorage */
-export function saveCustomConfig(config: CustomApiConfig): void {
-  localStorage.setItem('manimcat_api_config', JSON.stringify(config));
-}
-
-/** 清除配置 */
-export function clearCustomConfig(): void {
-  localStorage.removeItem('manimcat_api_config');
 }
 
 /**

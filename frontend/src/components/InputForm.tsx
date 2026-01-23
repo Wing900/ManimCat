@@ -1,7 +1,7 @@
 // 输入表单组件 - MD3 风格
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Quality } from '../types/api';
+import type { Quality, VideoConfig, SettingsConfig } from '../types/api';
 
 interface InputFormProps {
   onSubmit: (data: { concept: string; quality: Quality; forceRefresh: boolean }) => void;
@@ -15,11 +15,27 @@ const QUALITY_OPTIONS = [
   { value: 'high' as Quality, label: '高 (1080p)', desc: '最慢' },
 ];
 
+/** 从 localStorage 加载默认质量 */
+function loadDefaultQuality(): Quality {
+  try {
+    const saved = localStorage.getItem('manimcat_settings');
+    if (saved) {
+      const parsed = JSON.parse(saved) as SettingsConfig;
+      if (parsed.video?.quality) {
+        return parsed.video.quality;
+      }
+    }
+  } catch {
+    // 忽略错误
+  }
+  return 'medium'; // 默认值
+}
+
 export function InputForm({ onSubmit, loading }: InputFormProps) {
   const [concept, setConcept] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
-  const [quality, setQuality] = useState<Quality>('medium');
+  const [quality, setQuality] = useState<Quality>(loadDefaultQuality());
   const [qualityOpen, setQualityOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

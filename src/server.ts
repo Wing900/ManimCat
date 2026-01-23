@@ -3,6 +3,7 @@
  * Express 应用主入口
  */
 
+import 'dotenv/config'
 import express, { type Request, Response, type NextFunction } from 'express'
 import { appConfig, validateConfig, printConfig, isDevelopment } from './config/app'
 import { redisClient } from './config/redis'
@@ -11,12 +12,15 @@ import { corsMiddleware } from './middlewares/cors'
 import { errorHandler, notFoundHandler } from './middlewares/error-handler'
 import { logger, createLogger } from './utils/logger'
 import routes from './routes'
+import type { Server } from 'http'
 
 // 导入队列处理器以启动 worker
 import './queues/processors/video.processor'
 
 const app = express()
 const appLogger = createLogger('Server')
+
+let server: Server | null = null
 
 /**
  * 请求日志中间件
@@ -26,12 +30,15 @@ function requestLogger(req: Request, res: Response, next: NextFunction): void {
 
   res.on('finish', () => {
     const duration = Date.now() - start
-    appLogger.info('Request completed', {
-      method: req.method,
-      path: req.path,
-      status: res.statusCode,
-      duration: `${duration}ms`
-    })
+    // 只记录非查询状态的请求
+    if (!req.path.includes('/jobs/')) {
+      appLogger.info('Request completed', {
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        duration: `${duration}ms`
+      })
+    }
   })
 
   next()
@@ -46,9 +53,26 @@ async function initializeApp(): Promise<void> {
     validateConfig()
 
     // 基础中间件
-    app.use(express.json())
-    app.use(express.urlencoded({ extended: true }))
+    app.use(express.json({ limit: '10mb' }))
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }))
     app.use(corsMiddleware)
+    
+    // JSON 解析错误处理
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (err instanceof SyntaxError && 'body' in err) {
+        appLogger.error('JSON 解析错误', {
+          method: req.method,
+          path: req.path,
+          error: err.message,
+          body: req.body
+        })
+        return res.status(400).json({
+          error: 'Invalid JSON',
+          message: err.message
+        })
+      }
+      next(err)
+    })
 
     // 请求日志（开发环境）
     if (isDevelopment()) {
@@ -78,20 +102,65 @@ async function initializeApp(): Promise<void> {
 }
 
 /**
+ * 尝试在指定端口启动服务器
+ */
+function tryListen(port: number, host: string, retries = 3): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const attemptListen = (attemptNumber: number) => {
+      server = app.listen(port, host)
+        .on('listening', () => {
+          appLogger.info(`🚀 Server listening on http://${host}:${port}`)
+          appLogger.info(`📝 Environment: ${appConfig.nodeEnv}`)
+          appLogger.info(`🔍 Health check: http://${host}:${port}/health`)
+          resolve()
+        })
+        .on('error', (error: NodeJS.ErrnoException) => {
+          if (error.code === 'EADDRINUSE') {
+            appLogger.warn(`Port ${port} is in use, attempt ${attemptNumber}/${retries}`)
+            
+            if (attemptNumber < retries) {
+              // 等待一段时间后重试
+              setTimeout(() => {
+                attemptListen(attemptNumber + 1)
+              }, 1000 * attemptNumber) // 递增等待时间
+            } else {
+              appLogger.error(`Failed to bind to port ${port} after ${retries} attempts`)
+              reject(new Error(`Port ${port} is already in use. Please stop the existing process or use a different port.`))
+            }
+          } else {
+            appLogger.error('Server error', { error })
+            reject(error)
+          }
+        })
+    }
+
+    attemptListen(1)
+  })
+}
+
+/**
  * 启动服务器
  */
 async function startServer(): Promise<void> {
   await initializeApp()
+  await tryListen(appConfig.port, appConfig.host)
+  setupShutdownHandlers()
+}
 
-  const server = app.listen(appConfig.port, appConfig.host, () => {
-    appLogger.info(`🚀 Server listening on http://${appConfig.host}:${appConfig.port}`)
-    appLogger.info(`📝 Environment: ${appConfig.nodeEnv}`)
-    appLogger.info(`🔍 Health check: http://${appConfig.host}:${appConfig.port}/health`)
-  })
-
+/**
+ * 设置优雅关闭处理器
+ */
+function setupShutdownHandlers(): void {
   // 优雅关闭处理
   const shutdown = async (signal: string): Promise<void> => {
     appLogger.info(`Received ${signal}, starting graceful shutdown...`)
+
+    if (!server) {
+      appLogger.warn('Server instance not found, skipping server close')
+      await cleanupResources()
+      process.exit(0)
+      return
+    }
 
     // 停止接收新连接
     server.close(async (err) => {
@@ -100,19 +169,7 @@ async function startServer(): Promise<void> {
         process.exit(1)
       }
 
-      try {
-        // 关闭队列
-        await closeQueue()
-
-        // 关闭 Redis 连接
-        await redisClient.quit()
-
-        appLogger.info('Graceful shutdown completed')
-        process.exit(0)
-      } catch (error) {
-        appLogger.error('Error during shutdown', { error })
-        process.exit(1)
-      }
+      await cleanupResources()
     })
 
     // 强制退出超时
@@ -122,7 +179,24 @@ async function startServer(): Promise<void> {
     }, 30000) // 30 秒超时
   }
 
-  // 监听退出退出信号
+  // 清理资源
+  const cleanupResources = async (): Promise<void> => {
+    try {
+      // 关闭队列
+      await closeQueue()
+
+      // 关闭 Redis 连接
+      await redisClient.quit()
+
+      appLogger.info('Graceful shutdown completed')
+      process.exit(0)
+    } catch (error) {
+      appLogger.error('Error during shutdown', { error })
+      process.exit(1)
+    }
+  }
+
+  // 监听退出信号
   process.on('SIGTERM', () => shutdown('SIGTERM'))
   process.on('SIGINT', () => shutdown('SIGINT'))
 

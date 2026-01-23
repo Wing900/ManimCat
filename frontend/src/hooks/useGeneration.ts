@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus } from '../lib/api';
 import { loadCustomConfig, generateWithCustomApi } from '../lib/custom-ai';
-import type { GenerateRequest, JobResult, ProcessingStage } from '../types/api';
+import type { GenerateRequest, JobResult, ProcessingStage, VideoConfig } from '../types/api';
 
 interface UseGenerationReturn {
   status: 'idle' | 'processing' | 'completed' | 'error';
@@ -18,8 +18,22 @@ interface UseGenerationReturn {
 
 /** 轮询间隔 */
 const POLL_INTERVAL = 1000;
-/** 最大轮询次数（2 分钟） */
-const MAX_POLL_COUNT = 120;
+
+/** 从 localStorage 加载超时配置 */
+function getTimeoutConfig(): number {
+  try {
+    const saved = localStorage.getItem('manimcat_settings');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.video?.timeout) {
+        return parsed.video.timeout;
+      }
+    }
+  } catch {
+    // 忽略错误，使用默认值
+  }
+  return 120; // 默认 120 秒
+}
 
 export function useGeneration(): UseGenerationReturn {
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
@@ -61,6 +75,9 @@ export function useGeneration(): UseGenerationReturn {
   const startPolling = useCallback((id: string) => {
     pollCountRef.current = 0;
     setJobId(id);
+    
+    // 获取用户配置的超时时间
+    const maxPollCount = getTimeoutConfig();
 
     pollIntervalRef.current = window.setInterval(async () => {
       pollCountRef.current++;
@@ -89,13 +106,13 @@ export function useGeneration(): UseGenerationReturn {
           }
         }
 
-        // 超时检查
-        if (pollCountRef.current >= MAX_POLL_COUNT) {
+        // 超时检查（使用用户配置的超时时间）
+        if (pollCountRef.current >= maxPollCount) {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
           }
           setStatus('error');
-          setError('生成超时，请尝试更简单的概念');
+          setError(`生成超时（${maxPollCount}秒），请尝试更简单的概念或增加超时时间`);
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {

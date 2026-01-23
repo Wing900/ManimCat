@@ -9,6 +9,7 @@ import express from 'express'
 import generateRouter from './generate.route'
 import jobStatusRouter from './job-status.route'
 import healthRouter from './health.route'
+import metricsRouter from './metrics.route'
 
 const router = express.Router()
 
@@ -18,5 +19,6 @@ router.use(healthRouter)
 // 挂载 API 路由（使用 /api 前缀）
 router.use('/api', generateRouter)
 router.use('/api', jobStatusRouter)
+router.use('/api/metrics', metricsRouter)
 
 export default router

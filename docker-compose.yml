@@ -8,7 +8,7 @@ services:
     image: redis:7-alpine
     container_name: manim-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -18,25 +18,34 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - manimcat-network
 
   manimcat:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    image: manimcat:latest
     container_name: manimcat
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
+      - PORT=3000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1-nano}
+      - REDIS_DB=${REDIS_DB:-0}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      - OPENAI_MODEL=${OPENAI_MODEL:-glm-4-flash}
+      - CUSTOM_API_URL=${CUSTOM_API_URL:-}
+      - MANIMCAT_API_KEY=${MANIMCAT_API_KEY:-}
       - DISPLAY=:99
     volumes:
       # Persist generated videos
-      - ./public/videos:/app/public/videos
+      - video-storage:/app/public/videos
       # Temp directory for rendering
       - manim-tmp:/app/tmp
     depends_on:
@@ -44,12 +53,31 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 40s
+    networks:
+      - manimcat-network
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+networks:
+  manimcat-network:
+    driver: bridge
 
 volumes:
   manim-tmp:
+    driver: local
   redis-data:
+    driver: local
+  video-storage:
+    driver: local

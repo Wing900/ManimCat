@@ -1,63 +1,119 @@
 {
-  "name": "manim-video-generator",
-  "description": "Motia-powered Manim video generator with AI code generation and Redis for horizontal scaling",
-  "version": "1.0.0",
+  "name": "manimcat",
+  "description": "ManimCat - AI-powered mathematical animation generator with Express.js, Bull Queue and Redis",
+  "version": "2.0.0",
+  "icon": "https://raw.githubusercontent.com/yourusername/ManimCat/main/public/logo.svg",
   "services": {
     "app": {
       "type": "service",
       "dockerfile": "Dockerfile",
       "buildCommand": "npm run build",
-      "startCommand": "npm run start",
+      "startCommand": "node dist/server.js",
       "port": 3000,
       "healthCheck": {
         "path": "/health",
         "interval": 30,
         "timeout": 10,
-        "retries": 3
+        "retries": 3,
+        "startPeriod": 40
       },
       "env": [
         {
           "key": "NODE_ENV",
-          "value": "production"
+          "value": "production",
+          "description": "Node environment"
         },
         {
-          "key": "USE_REDIS",
-          "value": "true"
+          "key": "PORT",
+          "value": "3000",
+          "description": "Server port"
         },
         {
-          "key": "REDIS_URL",
-          "value": "redis://redis:6379",
-          "description": "Redis connection URL for state management"
+          "key": "REDIS_HOST",
+          "value": "${REDIS_HOST}",
+          "description": "Redis host (auto-injected by Zeabur)"
+        },
+        {
+          "key": "REDIS_PORT",
+          "value": "${REDIS_PORT}",
+          "description": "Redis port (auto-injected by Zeabur)"
+        },
+        {
+          "key": "REDIS_PASSWORD",
+          "value": "${REDIS_PASSWORD}",
+          "description": "Redis password (if required)"
+        },
+        {
+          "key": "REDIS_DB",
+          "value": "0",
+          "description": "Redis database number"
         },
         {
           "key": "OPENAI_API_KEY",
-          "description": "OpenAI API key for AI code generation",
+          "description": "OpenAI API key for AI code generation (required)",
           "required": true
         },
         {
           "key": "OPENAI_MODEL",
-          "value": "gpt-4.1-nano",
-          "description": "OpenAI model to use (gpt-4.1-nano recommended for speed)"
+          "value": "glm-4-flash",
+          "description": "OpenAI-compatible model (glm-4-flash/gpt-4o-mini/gpt-4-turbo, etc.)"
+        },
+        {
+          "key": "CUSTOM_API_URL",
+          "value": "",
+          "description": "Custom OpenAI-compatible API endpoint (optional)"
+        },
+        {
+          "key": "MANIMCAT_API_KEY",
+          "value": "",
+          "description": "API key for authentication (optional, leave empty to disable auth)"
+        },
+        {
+          "key": "DISPLAY",
+          "value": ":99",
+          "description": "X display for Xvfb"
+        }
+      ],
+      "volumes": [
+        {
+          "name": "videos",
+          "mountPath": "/app/public/videos"
+        },
+        {
+          "name": "tmp",
+          "mountPath": "/app/tmp"
         }
       ],
       "resources": {
         "cpu": "2",
         "memory": "4Gi",
-        "disk": "10Gi"
+        "disk": "20Gi"
       }
     },
     "redis": {
       "type": "redis",
       "version": "7",
       "persistence": true,
+      "config": {
+        "maxmemory": "512mb",
+        "maxmemory-policy": "allkeys-lru",
+        "appendonly": "yes"
+      },
       "resources": {
         "cpu": "0.5",
-        "memory": "512Mi"
+        "memory": "512Mi",
+        "disk": "5Gi"
       }
     }
   },
   "dependencies": {
     "app": ["redis"]
   },
-  "regions": ["auto"]
+  "regions": ["auto"],
+  "networking": {
+    "app": {
+      "public": true,
+      "domains": []
+    }
+  }
 }

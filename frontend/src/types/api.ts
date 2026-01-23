@@ -3,6 +3,30 @@
 /** 视频质量选项 */
 export type Quality = 'low' | 'medium' | 'high';
 
+/** API 配置 */
+export interface ApiConfig {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+  manimcatApiKey: string;
+}
+
+/** 视频配置 */
+export interface VideoConfig {
+  /** 默认质量 */
+  quality: Quality;
+  /** 帧率 */
+  frameRate: number;
+  /** 超时时间（秒），默认 120 秒 */
+  timeout?: number;
+}
+
+/** 设置配置 */
+export interface SettingsConfig {
+  api: ApiConfig;
+  video: VideoConfig;
+}
+
 /** 任务状态 */
 export type JobStatus = 'processing' | 'completed' | 'failed';
 
@@ -16,6 +40,8 @@ export interface GenerateRequest {
   forceRefresh?: boolean;
   /** 预生成的代码（使用自定义 AI 时） */
   code?: string;
+  /** 视频配置 */
+  videoConfig?: VideoConfig;
 }
 
 /** 生成响应 */
