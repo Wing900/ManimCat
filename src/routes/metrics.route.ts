@@ -1,0 +1,355 @@
+/**
+ * Metrics Route
+ * 系统资源监控端点
+ */
+
+import { Router, type Request, type Response } from 'express'
+import os from 'os'
+import { promises as fs } from 'fs'
+import path from 'path'
+import { videoQueue, getQueueStats } from '../config/bull'
+import { redisClient } from '../config/redis'
+import { createLogger } from '../utils/logger'
+
+const router = Router()
+const logger = createLogger('Metrics')
+
+/**
+ * Memory peak tracking.
+ */
+type ProcessMemorySnapshot = Pick<NodeJS.MemoryUsage, 'rss' | 'heapTotal' | 'heapUsed' | 'external'>
+
+const memorySampleIntervalMs = Math.max(
+  Number(process.env.MEMORY_SAMPLE_INTERVAL_MS || 2000),
+  250
+)
+
+const memoryPeakState = {
+  since: new Date().toISOString(),
+  lastSampleAt: new Date().toISOString(),
+  process: {
+    rss: 0,
+    heapTotal: 0,
+    heapUsed: 0,
+    external: 0
+  },
+  system: {
+    used: 0,
+    usagePercent: 0
+  }
+}
+
+function formatProcessMemory(usage: ProcessMemorySnapshot) {
+  return {
+    rss: {
+      bytes: usage.rss,
+      mb: Math.round(usage.rss / 1024 / 1024 * 100) / 100
+    },
+    heapTotal: {
+      bytes: usage.heapTotal,
+      mb: Math.round(usage.heapTotal / 1024 / 1024 * 100) / 100
+    },
+    heapUsed: {
+      bytes: usage.heapUsed,
+      mb: Math.round(usage.heapUsed / 1024 / 1024 * 100) / 100
+    },
+    external: {
+      bytes: usage.external,
+      mb: Math.round(usage.external / 1024 / 1024 * 100) / 100
+    }
+  }
+}
+
+function formatSystemUsed(bytes: number) {
+  return {
+    bytes,
+    gb: Math.round(bytes / 1024 / 1024 / 1024 * 100) / 100
+  }
+}
+
+function updateMemoryPeaks() {
+  const usage = process.memoryUsage()
+  const total = os.totalmem()
+  const free = os.freemem()
+  const used = total - free
+  const usagePercent = Math.round((used / total) * 100 * 100) / 100
+
+  memoryPeakState.lastSampleAt = new Date().toISOString()
+
+  if (usage.rss > memoryPeakState.process.rss) {
+    memoryPeakState.process.rss = usage.rss
+  }
+  if (usage.heapTotal > memoryPeakState.process.heapTotal) {
+    memoryPeakState.process.heapTotal = usage.heapTotal
+  }
+  if (usage.heapUsed > memoryPeakState.process.heapUsed) {
+    memoryPeakState.process.heapUsed = usage.heapUsed
+  }
+  if (usage.external > memoryPeakState.process.external) {
+    memoryPeakState.process.external = usage.external
+  }
+  if (used > memoryPeakState.system.used) {
+    memoryPeakState.system.used = used
+  }
+  if (usagePercent > memoryPeakState.system.usagePercent) {
+    memoryPeakState.system.usagePercent = usagePercent
+  }
+}
+
+function resetMemoryPeaks() {
+  const usage = process.memoryUsage()
+  const total = os.totalmem()
+  const free = os.freemem()
+  const used = total - free
+  const usagePercent = Math.round((used / total) * 100 * 100) / 100
+  const now = new Date().toISOString()
+
+  memoryPeakState.since = now
+  memoryPeakState.lastSampleAt = now
+  memoryPeakState.process = {
+    rss: usage.rss,
+    heapTotal: usage.heapTotal,
+    heapUsed: usage.heapUsed,
+    external: usage.external
+  }
+  memoryPeakState.system = {
+    used,
+    usagePercent
+  }
+}
+
+function getMemoryPeakSnapshot() {
+  updateMemoryPeaks()
+
+  return {
+    since: memoryPeakState.since,
+    lastSampleAt: memoryPeakState.lastSampleAt,
+    sampleIntervalMs: memorySampleIntervalMs,
+    process: formatProcessMemory(memoryPeakState.process),
+    system: {
+      used: formatSystemUsed(memoryPeakState.system.used),
+      usagePercent: memoryPeakState.system.usagePercent
+    }
+  }
+}
+
+resetMemoryPeaks()
+const memorySampleTimer = setInterval(updateMemoryPeaks, memorySampleIntervalMs)
+memorySampleTimer.unref()
+
+/**
+ * 获取进程内存使用情况
+ */
+function getProcessMemory() {
+  return formatProcessMemory(process.memoryUsage())
+}
+
+/**
+ * 获取系统内存信息
+ */
+function getSystemMemory() {
+  const total = os.totalmem()
+  const free = os.freemem()
+  const used = total - free
+  
+  return {
+    total: {
+      bytes: total,
+      gb: Math.round(total / 1024 / 1024 / 1024 * 100) / 100
+    },
+    used: {
+      bytes: used,
+      gb: Math.round(used / 1024 / 1024 / 1024 * 100) / 100
+    },
+    free: {
+      bytes: free,
+      gb: Math.round(free / 1024 / 1024 / 1024 * 100) / 100
+    },
+    usagePercent: Math.round((used / total) * 100 * 100) / 100
+  }
+}
+
+/**
+ * 获取 CPU 信息
+ */
+function getCPUInfo() {
+  const cpus = os.cpus()
+  const loadAvg = os.loadavg()
+  
+  return {
+    cores: cpus.length,
+    model: cpus[0]?.model || 'Unknown',
+    speed: cpus[0]?.speed || 0,
+    loadAverage: {
+      '1min': Math.round(loadAvg[0] * 100) / 100,
+      '5min': Math.round(loadAvg[1] * 100) / 100,
+      '15min': Math.round(loadAvg[2] * 100) / 100
+    }
+  }
+}
+
+/**
+ * 获取 Redis 内存信息
+ */
+async function getRedisMemory() {
+  try {
+    const info = await redisClient.info('memory')
+    const lines = info.split('\r\n')
+    const memoryData: Record<string, string> = {}
+    
+    lines.forEach(line => {
+      const [key, value] = line.split(':')
+      if (key && value) {
+        memoryData[key] = value
+      }
+    })
+    
+    const usedMemory = parseInt(memoryData['used_memory'] || '0', 10)
+    const peakMemory = parseInt(memoryData['used_memory_peak'] || '0', 10)
+    
+    return {
+      used: {
+        bytes: usedMemory,
+        mb: Math.round(usedMemory / 1024 / 1024 * 100) / 100
+      },
+      peak: {
+        bytes: peakMemory,
+        mb: Math.round(peakMemory / 1024 / 1024 * 100) / 100
+      },
+      fragmentation: parseFloat(memoryData['mem_fragmentation_ratio'] || '0')
+    }
+  } catch (error) {
+    logger.error('Failed to get Redis memory info', { error })
+    return null
+  }
+}
+
+/**
+ * 获取磁盘使用情况
+ */
+async function getDiskUsage() {
+  try {
+    const videosDir = path.join(process.cwd(), 'public', 'videos')
+    
+    // 获取视频目录下所有文件
+    let totalSize = 0
+    let fileCount = 0
+    
+    try {
+      const files = await fs.readdir(videosDir)
+      
+      for (const file of files) {
+        if (file.endsWith('.mp4')) {
+          const filePath = path.join(videosDir, file)
+          const stats = await fs.stat(filePath)
+          totalSize += stats.size
+          fileCount++
+        }
+      }
+    } catch (error) {
+      // 目录可能不存在，忽略错误
+    }
+    
+    return {
+      videos: {
+        count: fileCount,
+        totalSize: {
+          bytes: totalSize,
+          mb: Math.round(totalSize / 1024 / 1024 * 100) / 100,
+          gb: Math.round(totalSize / 1024 / 1024 / 1024 * 100) / 100
+        }
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to get disk usage', { error })
+    return null
+  }
+}
+
+/**
+ * 获取运行时信息
+ */
+function getRuntimeInfo() {
+  const uptime = process.uptime()
+  
+  return {
+    uptime: {
+      seconds: Math.round(uptime),
+      formatted: formatUptime(uptime)
+    },
+    platform: os.platform(),
+    arch: os.arch(),
+    nodeVersion: process.version,
+    pid: process.pid
+  }
+}
+
+/**
+ * 格式化运行时间
+ */
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = Math.floor(seconds % 60)
+  
+  const parts = []
+  if (days > 0) parts.push(`${days}d`)
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0) parts.push(`${minutes}m`)
+  parts.push(`${secs}s`)
+  
+  return parts.join(' ')
+}
+
+/**
+ * GET /api/metrics
+ * 获取系统资源监控数据
+ */
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const [queueStats, redisMemory, diskUsage] = await Promise.all([
+      getQueueStats(),
+      getRedisMemory(),
+      getDiskUsage()
+    ])
+    
+    const metrics = {
+      timestamp: new Date().toISOString(),
+      process: {
+        memory: getProcessMemory(),
+        runtime: getRuntimeInfo()
+      },
+      system: {
+        memory: getSystemMemory(),
+        cpu: getCPUInfo()
+      },
+      memoryPeak: getMemoryPeakSnapshot(),
+      redis: redisMemory,
+      disk: diskUsage,
+      queue: queueStats
+    }
+    
+    res.json(metrics)
+  } catch (error) {
+    logger.error('Failed to get metrics', { error })
+    res.status(500).json({
+      error: 'Failed to collect metrics',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+})
+
+/**
+ * POST /api/metrics/reset
+ * Reset memory peak tracking.
+ */
+router.post('/reset', (req: Request, res: Response) => {
+  resetMemoryPeaks()
+  res.json({
+    status: 'ok',
+    memoryPeak: getMemoryPeakSnapshot()
+  })
+})
+
+export default router

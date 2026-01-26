@@ -1,0 +1,98 @@
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.1.0/style.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 亮色主题变量 */
+:root {
+  --bg-primary-rgb: 245, 245, 245;
+  --bg-secondary-rgb: 238, 238, 238;
+  --bg-tertiary-rgb: 224, 224, 224;
+  --text-primary-rgb: 33, 33, 33;
+  --text-secondary-rgb: 117, 117, 117;
+  --text-tertiary-rgb: 158, 158, 158;
+  --accent-rgb: 66, 66, 66;
+  --accent-hover-rgb: 48, 48, 48;
+  --border-rgb: 0, 0, 0;
+}
+
+/* 暗黑主题变量 */
+.dark {
+  --bg-primary-rgb: 18, 18, 18;
+  --bg-secondary-rgb: 28, 28, 28;
+  --bg-tertiary-rgb: 38, 38, 38;
+  --text-primary-rgb: 245, 245, 245;
+  --text-secondary-rgb: 189, 189, 189;
+  --text-tertiary-rgb: 117, 117, 117;
+  --accent-rgb: 138, 138, 138;
+  --accent-hover-rgb: 158, 158, 158;
+  --border-rgb: 255, 255, 255;
+}
+
+body {
+  font-family: "LXGW WenKai Screen", "LXGW WenKai TC", "LXGW WenKai Lite", "LXGW WenKai", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  @apply bg-bg-primary text-text-primary transition-colors duration-300;
+}
+
+/* 自定义下拉菜单样式 */
+select option {
+  padding: 10px 16px;
+  background-color: #ffffff;
+  color: #212121;
+}
+
+select option:hover,
+select option:focus {
+  background-color: #f5f5f5;
+}
+
+select option:checked {
+  background-color: #424242;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* 极简滚动条 - MD3 风格 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 代码高亮主题适配暗黑模式 */
+.dark .react-syntax-highlighter {
+  background: transparent !important;
+}
+
+/* 动画淡入效果 */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}

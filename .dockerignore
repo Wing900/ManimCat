@@ -1,0 +1,104 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output (will be created during build)
+dist/
+frontend/dist/
+frontend/build/
+
+# Environment files (use Docker env vars instead)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Generated videos (mounted as volume)
+public/videos/*.mp4
+public/videos/*.mov
+public/videos/*.avi
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+
+# Test files
+coverage/
+.nyc_output/
+test-results/
+
+# Documentation and project files
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+docs/
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Python cache (from Manim)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Redis dump
+dump.rdb
+*.rdb
+
+# Static assets (examples)
+static/gifs/
+
+# Other
+.editorconfig
+.prettierrc
+.eslintrc*
+tsconfig*.json
+vite.config.ts
+tailwind.config.js
+postcss.config.js

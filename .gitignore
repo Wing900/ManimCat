@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.cursor/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Build output
+dist/
+.motia/
+
+# Environment
+.env
+.env.local
+
+# Generated files
+public/videos/*
+public/videos/.gitkeep
+media/
+static/videos/
+static/gifs/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+tmp/
+*.tmp
+
+# AI/Dev tools
+.claude/
+
+# MD files (except README)
+*.md
+!README.md
+!frontend/README.md
+!static/gifs/README.md
+
+# Flow type files
+*.flow
+
+# Batch scripts
+*.bat
