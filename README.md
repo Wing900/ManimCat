@@ -92,7 +92,7 @@ pinned: false
 > 用双栏布局，解释正弦函数的拉伸变换和解析式的关系
 
 <div align="center">
-  <video src="frontend/public/examples/manim-animation-example01.mp4" width="80%" autoplay loop muted playsinline>
+  <video src="https://github.com/user-attachments/assets/56528268-972d-45f6-9145-0531337cbffa" width="80%" autoplay loop muted playsinline>
   </video>
   <p><i>example01</i></p>
 </div>
