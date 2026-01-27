@@ -7,6 +7,9 @@
 
 import { videoQueue } from '../../config/bull'
 import { storeJobResult } from '../../services/job-store'
+import { ensureJobNotCancelled } from '../../services/job-cancel'
+import { clearJobCancelled } from '../../services/job-cancel-store'
+import { JobCancelledError } from '../../utils/errors'
 import { createLogger } from '../../utils/logger'
 import type { VideoJobData } from '../../types'
 
@@ -23,7 +26,7 @@ const logger = createLogger('VideoProcessor')
  */
 videoQueue.process(async (job) => {
   const data = job.data as VideoJobData
-  const { jobId, concept, quality, forceRefresh = false, preGeneratedCode } = data
+  const { jobId, concept, quality, forceRefresh = false, preGeneratedCode, promptOverrides } = data
 
   logger.info('Processing video job', { jobId, concept, quality, hasPreGeneratedCode: !!preGeneratedCode })
 
@@ -31,12 +34,15 @@ videoQueue.process(async (job) => {
   const timings: Record<string, number> = {}
 
   try {
+    await ensureJobNotCancelled(jobId, job)
     // 如果有预生成代码，跳过缓存和 AI 生成阶段，直接渲染
     if (preGeneratedCode) {
+      await ensureJobNotCancelled(jobId, job)
       return await handlePreGeneratedCode(jobId, concept, quality, preGeneratedCode, timings, data)
     }
 
     // Step 1: 检查缓存
+    await ensureJobNotCancelled(jobId, job)
     await storeJobStage(jobId, 'analyzing')
     const cacheStart = Date.now()
     const cacheResult = await checkCache(jobId, concept, quality, forceRefresh, timings)
@@ -50,12 +56,14 @@ videoQueue.process(async (job) => {
     }
 
     // Step 2 & 3: 分析概念并生成代码
+    await ensureJobNotCancelled(jobId, job)
     await storeJobStage(jobId, 'generating')
     const analyzeStart = Date.now()
-    const codeResult = await analyzeAndGenerate(jobId, concept, quality, timings, data.customApiConfig)
+    const codeResult = await analyzeAndGenerate(jobId, concept, quality, timings, data.customApiConfig, promptOverrides)
     timings.analyze = Date.now() - analyzeStart
 
     // Step 4: 渲染视频
+    await ensureJobNotCancelled(jobId, job)
     const renderStart = Date.now()
     const renderResult = await renderVideo(
       jobId,
@@ -65,11 +73,13 @@ videoQueue.process(async (job) => {
       timings,
       data.customApiConfig,
       data.videoConfig,
+      promptOverrides,
       () => storeJobStage(jobId, 'rendering')
     )
     timings.render = Date.now() - renderStart
 
     // Step 5: 存储结果
+    await ensureJobNotCancelled(jobId, job)
     const storeStart = Date.now()
     await storeResult(renderResult, timings)
     timings.store = Date.now() - storeStart
@@ -82,13 +92,15 @@ videoQueue.process(async (job) => {
     return { success: true, source: 'generation', timings }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
+    const cancelReason = error instanceof JobCancelledError ? error.details : undefined
     logger.error('Job failed', { jobId, error: errorMessage, timings })
 
     // 存储失败结果
     await storeJobResult(jobId, {
       status: 'failed',
-      data: { error: errorMessage }
+      data: { error: errorMessage, cancelReason }
     })
+    await clearJobCancelled(jobId)
 
     throw error
   }

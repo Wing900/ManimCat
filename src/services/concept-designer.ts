@@ -8,7 +8,7 @@ import OpenAI from 'openai'
 import crypto from 'crypto'
 import { createLogger } from '../utils/logger'
 import { SYSTEM_PROMPTS, generateConceptDesignerPrompt, generateCodeGenerationPrompt } from '../prompts'
-import type { CustomApiConfig } from '../types'
+import type { CustomApiConfig, PromptOverrides } from '../types'
 
 const logger = createLogger('ConceptDesigner')
 
@@ -67,6 +67,14 @@ function generateUniqueSeed(concept: string): string {
   return crypto.createHash('md5').update(`${concept}-${timestamp}-${randomPart}`).digest('hex').slice(0, 8)
 }
 
+function applyPromptTemplate(template: string, values: Record<string, string>): string {
+  let output = template
+  for (const [key, value] of Object.entries(values)) {
+    output = output.replace(new RegExp(`{{\s*${key}\s*}}`, 'g'), value)
+  }
+  return output
+}
+
 function extractDesignFromResponse(text: string): string {
   if (!text) return ''
   const sanitized = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -122,7 +130,8 @@ function cleanDesignText(text: string): CleanDesignResult {
  */
 async function generateSceneDesign(
   concept: string,
-  customApiConfig?: CustomApiConfig
+  customApiConfig?: CustomApiConfig,
+  promptOverrides?: PromptOverrides
 ): Promise<string> {
   const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
 
@@ -134,8 +143,11 @@ async function generateSceneDesign(
   try {
     const seed = generateUniqueSeed(concept)
 
-    const systemPrompt = SYSTEM_PROMPTS.conceptDesigner
-    const userPrompt = generateConceptDesignerPrompt(concept, seed)
+    const systemPrompt = promptOverrides?.system?.conceptDesigner || SYSTEM_PROMPTS.conceptDesigner
+    const userPromptOverride = promptOverrides?.user?.conceptDesigner
+    const userPrompt = userPromptOverride
+      ? applyPromptTemplate(userPromptOverride, { concept, seed })
+      : generateConceptDesignerPrompt(concept, seed)
 
     logger.info('开始阶段1：生成场景设计方案', { concept, seed })
 
@@ -209,7 +221,8 @@ async function generateSceneDesign(
 async function generateCodeFromDesign(
   concept: string,
   sceneDesign: string,
-  customApiConfig?: CustomApiConfig
+  customApiConfig?: CustomApiConfig,
+  promptOverrides?: PromptOverrides
 ): Promise<string> {
   const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
 
@@ -221,8 +234,11 @@ async function generateCodeFromDesign(
   try {
     const seed = generateUniqueSeed(`${concept}-${sceneDesign.slice(0, 20)}`)
 
-    const systemPrompt = SYSTEM_PROMPTS.codeGeneration
-    const userPrompt = generateCodeGenerationPrompt(concept, seed, sceneDesign)
+    const systemPrompt = promptOverrides?.system?.codeGeneration || SYSTEM_PROMPTS.codeGeneration
+    const userPromptOverride = promptOverrides?.user?.codeGeneration
+    const userPrompt = userPromptOverride
+      ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign })
+      : generateCodeGenerationPrompt(concept, seed, sceneDesign)
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, seed })
 
@@ -281,13 +297,14 @@ async function generateCodeFromDesign(
  */
 export async function generateTwoStageAIManimCode(
   concept: string,
-  customApiConfig?: CustomApiConfig
+  customApiConfig?: CustomApiConfig,
+  promptOverrides?: PromptOverrides
 ): Promise<{ code: string; sceneDesign: string }> 
  {
   logger.info('开始两阶段 AI 生成流程', { concept })
 
   // 阶段1：生成场景设计方案
-  const sceneDesign = await generateSceneDesign(concept, customApiConfig)
+  const sceneDesign = await generateSceneDesign(concept, customApiConfig, promptOverrides)
 
   if (!sceneDesign) {
     logger.warn('场景设计方案生成失败，中止流程')
@@ -295,7 +312,7 @@ export async function generateTwoStageAIManimCode(
   }
 
   // 阶段2：根据设计方案生成代码
-  const code = await generateCodeFromDesign(concept, sceneDesign, customApiConfig)
+  const code = await generateCodeFromDesign(concept, sceneDesign, customApiConfig, promptOverrides)
 
   logger.info('两阶段 AI 生成流程完成', {
     concept,

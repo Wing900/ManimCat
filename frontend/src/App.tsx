@@ -7,12 +7,14 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { ResultSection } from './components/ResultSection';
 import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsModal } from './components/SettingsModal';
+import { PromptsManager } from './components/PromptsManager';
 import ManimCatLogo from './components/ManimCatLogo';
 import type { Quality } from './types/api';
 
 function App() {
   const { status, result, error, jobId, stage, generate, reset, cancel } = useGeneration();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [promptsOpen, setPromptsOpen] = useState(false);
 
   const handleSubmit = (data: { concept: string; quality: Quality; forceRefresh: boolean }) => {
     generate(data);
@@ -23,8 +25,17 @@ function App() {
       {/* 主题切换按钮 */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <button
+          onClick={() => setPromptsOpen(true)}
+          className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
+          title="提示词管理"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+          </svg>
+        </button>
+        <button
           onClick={() => setSettingsOpen(true)}
-          className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all"
+          className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
           title="API 设置"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,6 +151,12 @@ function App() {
         onSave={(config) => {
           console.log('保存配置:', config);
         }}
+      />
+
+      {/* 提示词管理 */}
+      <PromptsManager
+        isOpen={promptsOpen}
+        onClose={() => setPromptsOpen(false)}
       />
     </div>
   );

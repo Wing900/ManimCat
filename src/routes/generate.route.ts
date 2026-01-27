@@ -16,13 +16,45 @@ import { v4 as uuidv4 } from 'uuid'
 import { videoQueue } from '../config/bull'
 import { storeJobStage } from '../services/job-store'
 import { createLogger } from '../utils/logger'
-import { ValidationError } from '../utils/errors'
+import { AuthenticationError, ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import type { GenerateRequest, GenerateResponse, VideoConfig } from '../types'
 
 const router = express.Router()
 const logger = createLogger('GenerateRoute')
+
+function extractToken(authHeader: string | string[] | undefined): string {
+  if (!authHeader) return ''
+
+  if (typeof authHeader === 'string') {
+    return authHeader.replace(/^Bearer\s+/i, '')
+  }
+  if (Array.isArray(authHeader)) {
+    return authHeader[0]?.replace(/^Bearer\s+/i, '') || ''
+  }
+  return ''
+}
+
+function hasPromptOverrides(promptOverrides: any): boolean {
+  if (!promptOverrides) return false
+  const system = promptOverrides.system || {}
+  const user = promptOverrides.user || {}
+  return Object.values(system).some((value) => typeof value === 'string' && value.trim().length > 0) ||
+    Object.values(user).some((value) => typeof value === 'string' && value.trim().length > 0)
+}
+
+function requirePromptOverrideAuth(req: express.Request): void {
+  const manimcatApiKey = process.env.MANIMCAT_API_KEY
+  if (!manimcatApiKey) {
+    throw new AuthenticationError('Prompt overrides require MANIMCAT_API_KEY to be set.')
+  }
+
+  const token = extractToken(req.headers?.authorization)
+  if (!token || token !== manimcatApiKey) {
+    throw new AuthenticationError('Prompt overrides require a valid MANIMCAT_API_KEY token.')
+  }
+}
 
 // 请求体 schema（与原有保持一致）
 const bodySchema = z.object({
@@ -36,6 +68,19 @@ const bodySchema = z.object({
     apiUrl: z.string(),
     apiKey: z.string(),
     model: z.string()
+  }).optional(),
+  promptOverrides: z.object({
+    system: z.object({
+      conceptDesigner: z.string().max(20000).optional(),
+      codeGeneration: z.string().max(20000).optional(),
+      codeRetry: z.string().max(20000).optional()
+    }).optional(),
+    user: z.object({
+      conceptDesigner: z.string().max(20000).optional(),
+      codeGeneration: z.string().max(20000).optional(),
+      codeRetryInitial: z.string().max(20000).optional(),
+      codeRetryFix: z.string().max(20000).optional()
+    }).optional()
   }).optional(),
   /** 视频配置 */
   videoConfig: z.object({
@@ -56,9 +101,13 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     throw error;
   }
 
-  const { concept, quality, forceRefresh, code, customApiConfig, videoConfig } = parsed;
+  const { concept, quality, forceRefresh, code, customApiConfig, promptOverrides, videoConfig } = parsed;
 
   // 清理输入
+  if (hasPromptOverrides(promptOverrides)) {
+    requirePromptOverrideAuth(req)
+  }
+
   const sanitizedConcept = concept.trim().replace(/\s+/g, ' ')
 
   if (sanitizedConcept.length === 0) {
@@ -89,6 +138,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
       forceRefresh,
       preGeneratedCode: code,
       customApiConfig,
+      promptOverrides,
       videoConfig,
       timestamp: new Date().toISOString()
     },

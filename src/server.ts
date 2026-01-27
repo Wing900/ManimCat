@@ -189,7 +189,7 @@ function setupShutdownHandlers(): void {
     setTimeout(() => {
       appLogger.warn('Forced shutdown after timeout')
       process.exit(1)
-    }, 30000) // 30 秒超时
+    }, 10 * 60 * 1000) // 10 minutes timeout
   }
 
   // 清理资源
@@ -233,3 +233,6 @@ startServer().catch((error) => {
 
 // 导出 app 用于测试
 export default app
+
+
+

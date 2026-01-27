@@ -60,6 +60,7 @@ export function createRedisClient(): Redis {
  */
 export const REDIS_KEYS = {
   JOB_RESULT: 'job:result:',
+  JOB_CANCEL: 'job:cancel:',
   CONCEPT_CACHE: 'concept:cache:',
   QUEUE_PREFIX: 'bull:'
 } as const

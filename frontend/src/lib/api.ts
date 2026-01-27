@@ -1,6 +1,6 @@
 // API 请求函数
 
-import type { GenerateRequest, GenerateResponse, JobResult, ApiError, VideoConfig } from '../types/api';
+import type { GenerateRequest, GenerateResponse, JobResult, ApiError, VideoConfig, PromptOverrides } from '../types/api';
 
 const API_BASE = '/api';
 
@@ -60,6 +60,20 @@ export async function generateAnimation(request: GenerateRequest, signal?: Abort
   return response.json();
 }
 
+export async function getPromptDefaults(signal?: AbortSignal): Promise<PromptOverrides> {
+  const response = await fetch(`${API_BASE}/prompts/defaults`, {
+    headers: getAuthHeaders(),
+    signal,
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || 'Failed to load prompt defaults');
+  }
+
+  return response.json();
+}
+
 /**
  * 查询任务状态
  */
@@ -75,4 +89,19 @@ export async function getJobStatus(jobId: string, signal?: AbortSignal): Promise
   }
 
   return response.json();
+}
+
+/**
+ * 取消任务
+ */
+export async function cancelJob(jobId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/jobs/${jobId}/cancel`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || '取消任务失败');
+  }
 }

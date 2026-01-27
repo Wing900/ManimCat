@@ -43,6 +43,23 @@ export interface CustomApiConfig {
 }
 
 /**
+ * Prompt overrides for generation stages
+ */
+export interface PromptOverrides {
+  system?: {
+    conceptDesigner?: string
+    codeGeneration?: string
+    codeRetry?: string
+  }
+  user?: {
+    conceptDesigner?: string
+    codeGeneration?: string
+    codeRetryInitial?: string
+    codeRetryFix?: string
+  }
+}
+
+/**
  * 视频生成任务数据
  */
 export interface VideoJobData {
@@ -83,6 +100,7 @@ export interface FailedJobResult {
   data: {
     error: string
     details?: string
+    cancelReason?: string
   }
   timestamp: number
 }
@@ -114,6 +132,7 @@ export interface GenerateRequest {
   concept: string
   quality?: VideoQuality
   forceRefresh?: boolean
+  promptOverrides?: PromptOverrides
 }
 
 /**
@@ -162,6 +181,7 @@ export interface JobStatusFailedResponse {
   success: false
   error: string
   details?: string
+  cancel_reason?: string
 }
 
 /**

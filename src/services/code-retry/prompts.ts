@@ -3,10 +3,10 @@
  */
 
 import { API_INDEX } from '../../prompts/api-index'
+import { SYSTEM_PROMPT_BASE } from '../../prompts'
 
 // System prompt - 与代码生成者一致
-export const CODE_RETRY_SYSTEM_PROMPT = `你是一位 Manim 动画专家，专注于通过动态动画深度解读数学概念。
-严格按照提示词词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。`
+export const CODE_RETRY_SYSTEM_PROMPT = SYSTEM_PROMPT_BASE
 
 /**
  * 构建首次代码生成的用户提示词

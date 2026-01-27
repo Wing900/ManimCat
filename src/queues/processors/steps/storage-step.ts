@@ -4,6 +4,7 @@
  */
 
 import { storeJobResult } from '../../../services/job-store'
+import { clearJobCancelled } from '../../../services/job-cancel-store'
 import { cacheResult } from './cache-step'
 import type { RenderResult } from './render-step'
 import { createLogger } from '../../../utils/logger'
@@ -31,6 +32,7 @@ export async function storeResult(
       renderPeakMemoryMB
     }
   })
+  await clearJobCancelled(jobId)
   logger.info('Result stored', { jobId, videoUrl })
 
   // 缓存结果（如果启用）

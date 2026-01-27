@@ -1,8 +1,9 @@
 // 生成请求 Hook
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { generateAnimation, getJobStatus } from '../lib/api';
+import { generateAnimation, getJobStatus, cancelJob } from '../lib/api';
 import { loadCustomConfig, generateWithCustomApi } from '../lib/custom-ai';
+import { loadPrompts } from './usePrompts';
 import type { GenerateRequest, JobResult, ProcessingStage, VideoConfig } from '../types/api';
 
 interface UseGenerationReturn {
@@ -45,6 +46,18 @@ export function useGeneration(): UseGenerationReturn {
   const pollCountRef = useRef(0);
   const pollIntervalRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const requestCancel = useCallback(async (id: string | null) => {
+    if (!id) {
+      return;
+    }
+
+    try {
+      await cancelJob(id);
+    } catch (err) {
+      console.warn('取消任务失败', err);
+    }
+  }, []);
 
   // 清理轮询和请求
   useEffect(() => {
@@ -96,7 +109,11 @@ export function useGeneration(): UseGenerationReturn {
             clearInterval(pollIntervalRef.current);
           }
           setStatus('error');
-          setError(data.error || '生成失败');
+          if (data.cancel_reason) {
+            setError(`任务已取消：${data.cancel_reason}`);
+          } else {
+            setError(data.error || '生成失败');
+          }
         } else {
           // 使用后端返回的 stage，如果没有则使用前端估算的 fallback
           if (data.stage) {
@@ -111,6 +128,7 @@ export function useGeneration(): UseGenerationReturn {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
           }
+          await requestCancel(id);
           setStatus('error');
           setError(`生成超时（${maxPollCount}秒），请尝试更简单的概念或增加超时时间`);
         }
@@ -131,6 +149,7 @@ export function useGeneration(): UseGenerationReturn {
         }
 
         console.error('轮询错误:', err);
+        await requestCancel(id);
 
         // 如果是任务未找到 (404) 或明确的失效提示
         if (err instanceof Error && (err.message.includes('未找到任务') || err.message.includes('失效'))) {
@@ -144,7 +163,7 @@ export function useGeneration(): UseGenerationReturn {
         }
       }
     }, POLL_INTERVAL);
-  }, [updateStage]);
+  }, [requestCancel, updateStage]);
 
   // 生成动画
   const generate = useCallback(async (request: GenerateRequest) => {
@@ -156,6 +175,9 @@ export function useGeneration(): UseGenerationReturn {
     abortControllerRef.current = new AbortController();
 
     try {
+      // 加载提示词配置
+      const promptOverrides = loadPrompts();
+
       // 检查是否有自定义 AI 配置
       const customConfig = loadCustomConfig();
 
@@ -171,13 +193,16 @@ export function useGeneration(): UseGenerationReturn {
         // 发送代码到后端渲染
         setStage('rendering');
         const response = await generateAnimation(
-          { ...request, code },
+          { ...request, code, promptOverrides },
           abortControllerRef.current.signal
         );
         startPolling(response.jobId);
       } else {
         // 使用后端 AI
-        const response = await generateAnimation(request, abortControllerRef.current.signal);
+        const response = await generateAnimation(
+          { ...request, promptOverrides },
+          abortControllerRef.current.signal
+        );
         startPolling(response.jobId);
       }
     } catch (err) {
@@ -207,12 +232,13 @@ export function useGeneration(): UseGenerationReturn {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
+    void requestCancel(jobId);
     abortControllerRef.current?.abort();
     setStatus('idle');
     setError(null);
     setJobId(null);
     setStage('analyzing');
-  }, []);
+  }, [jobId, requestCancel]);
 
   return {
     status,

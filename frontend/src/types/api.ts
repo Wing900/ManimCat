@@ -11,6 +11,20 @@ export interface ApiConfig {
   manimcatApiKey: string;
 }
 
+export interface PromptOverrides {
+  system?: {
+    conceptDesigner?: string;
+    codeGeneration?: string;
+    codeRetry?: string;
+  };
+  user?: {
+    conceptDesigner?: string;
+    codeGeneration?: string;
+    codeRetryInitial?: string;
+    codeRetryFix?: string;
+  };
+}
+
 /** 视频配置 */
 export interface VideoConfig {
   /** 默认质量 */
@@ -42,6 +56,8 @@ export interface GenerateRequest {
   code?: string;
   /** 视频配置 */
   videoConfig?: VideoConfig;
+  /** Prompt overrides */
+  promptOverrides?: PromptOverrides;
 }
 
 /** 生成响应 */
@@ -64,9 +80,11 @@ export interface JobResult {
   used_ai?: boolean;
   render_quality?: string;
   generation_type?: string;
-  render_peak_memory_mb?: number;
+  render_peak_memory_mb?: number;
+
   error?: string;
   details?: string;
+  cancel_reason?: string;
 }
 
 /** API 错误 */

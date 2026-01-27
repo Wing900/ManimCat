@@ -64,6 +64,20 @@ export const SYSTEM_PROMPTS = {
 - **坐标系一致性**：所有图形必须通过 \`axes.c2p\` 映射到坐标轴上，严禁脱离坐标系的自由定位。`
 }
 
+export const SYSTEM_PROMPT_BASE = SYSTEM_PROMPTS.codeGeneration
+
+export const SYSTEM_PROMPT_STAGES = {
+  conceptDesigner: SYSTEM_PROMPTS.conceptDesigner,
+  codeGeneration: '',
+  codeFix: SYSTEM_PROMPTS.codeFix.replace(SYSTEM_PROMPT_BASE, '')
+}
+
+export const SYSTEM_PROMPT_COMBINED = {
+  conceptDesigner: SYSTEM_PROMPT_STAGES.conceptDesigner,
+  codeGeneration: `${SYSTEM_PROMPT_BASE}${SYSTEM_PROMPT_STAGES.codeGeneration}`,
+  codeFix: `${SYSTEM_PROMPT_BASE}${SYSTEM_PROMPT_STAGES.codeFix}`
+}
+
 // =====================
 // API Index
 // =====================

@@ -122,6 +122,16 @@ export class TimeoutError extends AppError {
 }
 
 /**
+ * 任务取消错误 499
+ */
+export class JobCancelledError extends AppError {
+  constructor(message: string = 'Job cancelled', details?: any) {
+    super(message, 499, true, details)
+    this.name = 'JobCancelledError'
+  }
+}
+
+/**
  * 判断是否为应用错误
  */
 export function isAppError(error: any): error is AppError {

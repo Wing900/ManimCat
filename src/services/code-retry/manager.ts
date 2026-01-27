@@ -13,6 +13,7 @@ import { createLogger } from '../../utils/logger'
 import { cleanManimCode } from '../../utils/manim-code-cleaner'
 
 import type { CodeRetryOptions, CodeRetryResult, RenderResult, RetryManagerResult, ChatMessage, CodeRetryContext } from './types'
+import type { PromptOverrides } from '../../types'
 import { buildInitialCodePrompt, CODE_RETRY_SYSTEM_PROMPT } from './prompts'
 import { getClient } from './client'
 import { extractCodeFromResponse, extractErrorMessage, getErrorType } from './utils'
@@ -28,6 +29,35 @@ const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
 /**
  * 生成唯一种子
  */
+function applyPromptTemplate(template: string, values: Record<string, string>): string {
+  let output = template
+  for (const [key, value] of Object.entries(values)) {
+    output = output.replace(new RegExp(`{{\s*${key}\s*}}`, 'g'), value)
+  }
+  return output
+}
+
+function getCodeRetrySystemPrompt(promptOverrides?: PromptOverrides): string {
+  return promptOverrides?.system?.codeRetry || CODE_RETRY_SYSTEM_PROMPT
+}
+
+function buildInitialPrompt(
+  concept: string,
+  seed: string,
+  sceneDesign: string,
+  promptOverrides?: PromptOverrides
+): string {
+  const override = promptOverrides?.user?.codeRetryInitial
+  if (override) {
+    return applyPromptTemplate(override, {
+      concept,
+      seed,
+      sceneDesign
+    })
+  }
+  return buildInitialCodePrompt(concept, seed, sceneDesign)
+}
+
 function generateSeed(concept: string): string {
   const timestamp = Date.now()
   const randomPart = crypto.randomBytes(4).toString('hex')
@@ -39,15 +69,17 @@ function generateSeed(concept: string): string {
  */
 export function createRetryContext(
   concept: string,
-  sceneDesign: string
+  sceneDesign: string,
+  promptOverrides?: PromptOverrides
 ): CodeRetryContext {
   const seed = generateSeed(concept)
 
   return {
     concept,
     sceneDesign,
-    originalPrompt: buildInitialCodePrompt(concept, seed, sceneDesign),
-    messages: []
+    originalPrompt: buildInitialPrompt(concept, seed, sceneDesign, promptOverrides),
+    messages: [],
+    promptOverrides
   }
 }
 
@@ -67,7 +99,7 @@ async function generateInitialCode(
     const response = await client.chat.completions.create({
       model: OPENAI_MODEL,
       messages: [
-        { role: 'system', content: CODE_RETRY_SYSTEM_PROMPT },
+        { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
         { role: 'user', content: context.originalPrompt }
       ],
       temperature: AI_TEMPERATURE,
@@ -126,7 +158,7 @@ async function retryCodeGeneration(
   try {
     // 构建消息数组：system + 历史消息 + 当前重试提示词
     const messages: ChatMessage[] = [
-      { role: 'system', content: CODE_RETRY_SYSTEM_PROMPT },
+      { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
       ...context.messages,
       { role: 'user', content: retryPrompt }
     ]
@@ -175,16 +207,16 @@ async function retryCodeGeneration(
 /**
  * 构建重试提示词
  */
-function buildRetryPrompt(
-  context: CodeRetryContext,
+export function buildRetryFixPrompt(
+  concept: string,
   errorMessage: string,
-  attempt: number
+  attempt: number | string
 ): string {
   return `## 目标层
 
 ### 输入预期
 
-- **概念**：${context.concept}
+- **概念**：${concept}
 - **错误信息**（第 ${attempt} 次重试）：${errorMessage}
 
 ### 产出要求
@@ -193,34 +225,24 @@ function buildRetryPrompt(
 - **完整代码**：必须输出完整的、可运行的 Manim 代码，不是修复片段！
 - **锚点协议**：代码必须包裹在 ### START ### 和 ### END ### 之间
 - **纯代码输出**：严禁包含任何解释性文字。
-- **结构规范**：核心类名固定为 \`MainScene\`（若为 3D 场景则继承自 \`ThreeDScene\`）。
-- **导入规范**：必须使用全部导入 \`from manim import *\`
+- **结构规范**：核心类名固定为 \`AnimationScene\`
+`
+}
 
-## 行为层
-
-### 修复原则
-
-1. **分析错误**：根据错误信息找出代码中的问题
-2. **完整修复**：修复后必须输出完整的 Manim 代码（包含 import、class 定义等所有部分）
-3. **确保可运行**：修复后的代码必须是完整的、可直接运行的 Python 代码
-
-### 重要提示
-
-不要只输出修复的代码片段！必须输出完整的 Manim 代码。
-
-示例格式：
-
-\`\`\`
-### START ###
-from manim import *
-
-class MainScene(Scene):
-    def construct(self):
-        # ... 你的完整代码 ...
-### END ###
-\`\`\`
-
-请修复上述代码，输出完整的 Python 代码。`
+function buildRetryPrompt(
+  context: CodeRetryContext,
+  errorMessage: string,
+  attempt: number
+): string {
+  const override = context.promptOverrides?.user?.codeRetryFix
+  if (override) {
+    return applyPromptTemplate(override, {
+      concept: context.concept,
+      errorMessage,
+      attempt: String(attempt)
+    })
+  }
+  return buildRetryFixPrompt(context.concept, errorMessage, attempt)
 }
 
 /**

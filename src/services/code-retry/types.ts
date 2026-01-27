@@ -2,7 +2,7 @@
  * Code Retry Service - 类型定义
  */
 
-import type { CustomApiConfig } from '../../types'
+import type { CustomApiConfig, PromptOverrides } from '../../types'
 
 /**
  * 对话消息类型

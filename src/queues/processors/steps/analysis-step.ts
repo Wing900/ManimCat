@@ -10,7 +10,7 @@ import {
 } from '../../../services/manim-templates'
 import { generateTwoStageAIManimCode } from '../../../services/concept-designer'
 import { createLogger } from '../../../utils/logger'
-import type { CustomApiConfig } from '../../../types'
+import type { CustomApiConfig, PromptOverrides } from '../../../types'
 
 const logger = createLogger('AnalysisStep')
 
@@ -81,7 +81,8 @@ export async function generateCode(
   concept: string,
   _quality: string,
   analyzeResult: AnalysisResult,
-  customApiConfig?: CustomApiConfig
+  customApiConfig?: CustomApiConfig,
+  promptOverrides?: PromptOverrides
 ): Promise<GenerationResult> {
   const { analysisType, manimCode, needsAI } = analyzeResult
   logger.info('Generating code', { jobId, needsAI, analysisType })
@@ -100,7 +101,7 @@ class MainScene(Scene):
     // 使用两阶段 AI 生成：概念设计者 + 代码生成者
     try {
       logger.info('使用两阶段 AI 生成', { jobId })
-      const result = await generateTwoStageAIManimCode(concept, customApiConfig)
+      const result = await generateTwoStageAIManimCode(concept, customApiConfig, promptOverrides)
       if (result.code && result.code.length > 0) {
         logger.info('两阶段 AI 代码生成成功', { jobId, length: result.code.length, hasSceneDesign: !!result.sceneDesign })
         // 保存 sceneDesign 用于重试
@@ -133,8 +134,9 @@ export async function analyzeAndGenerate(
   concept: string,
   quality: string,
   _timings: Record<string, number>,
-  customApiConfig?: CustomApiConfig
+  customApiConfig?: CustomApiConfig,
+  promptOverrides?: PromptOverrides
 ): Promise<GenerationResult> {
   const analysisResult = await analyzeConcept(jobId, concept, quality)
-  return generateCode(jobId, concept, quality, analysisResult, customApiConfig)
+  return generateCode(jobId, concept, quality, analysisResult, customApiConfig, promptOverrides)
 }

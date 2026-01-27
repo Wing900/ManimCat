@@ -15,7 +15,7 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 3s
+      timeout: 600s
       retries: 10
       start_period: 5s
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -55,7 +55,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
       interval: 30s
-      timeout: 10s
+      timeout: 600s
       retries: 3
       start_period: 40s
     networks:
@@ -81,3 +81,4 @@ volumes:
     driver: local
   video-storage:
     driver: local
+

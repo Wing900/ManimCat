@@ -103,7 +103,8 @@ router.get(
       status: 'failed' as const,
       success: false as const,
       error: result.data.error,
-      details: result.data.details
+      details: result.data.details,
+      cancel_reason: result.data.cancelReason
     })
   })
 )

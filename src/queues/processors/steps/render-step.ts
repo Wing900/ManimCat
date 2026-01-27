@@ -12,7 +12,7 @@ import { storeJobStage } from '../../../services/job-store'
 import { createLogger } from '../../../utils/logger'
 import { cleanManimCode } from '../../../utils/manim-code-cleaner'
 import { createRetryContext, executeCodeRetry } from '../../../services/code-retry'
-import type { VideoJobData, VideoConfig } from '../../../types'
+import type { PromptOverrides, VideoJobData, VideoConfig } from '../../../types'
 
 const logger = createLogger('RenderStep')
 
@@ -67,6 +67,7 @@ export async function renderVideo(
   timings: Record<string, number>,
   customApiConfig?: any,
   videoConfig?: VideoConfig,
+  promptOverrides?: PromptOverrides,
   onStageUpdate?: () => Promise<void>
 ): Promise<RenderResult> {
   const { manimCode, usedAI, generationType, sceneDesign } = codeResult
@@ -170,7 +171,7 @@ export async function renderVideo(
       const retryStart = Date.now()
 
       // 创建重试上下文
-      const retryContext = createRetryContext(concept, sceneDesign)
+      const retryContext = createRetryContext(concept, sceneDesign, promptOverrides)
 
       // 执行重试管理器
       const retryManagerResult = await executeCodeRetry(
@@ -281,7 +282,7 @@ export async function handlePreGeneratedCode(
     manimCode: preGeneratedCode,
     usedAI: false,
     generationType: 'custom-api'
-  }, timings, jobData.customApiConfig, jobData.videoConfig)
+  }, timings, jobData.customApiConfig, jobData.videoConfig, jobData.promptOverrides)
   timings.render = Date.now() - renderStart
 
   // 存储结果
