@@ -1,8 +1,8 @@
 ---
 title: ManimCat
 emoji: 🐱
-colorFrom: 455A64
-colorTo: 78909C
+colorFrom: gray
+colorTo: blue
 sdk: docker
 sdk_version: "3.10"
 app_file: start-with-redis-hf.cjs
