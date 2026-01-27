@@ -33,15 +33,15 @@ function loadConfig(): SettingsConfig {
       const parsed = JSON.parse(saved) as SettingsConfig;
       return {
         api: parsed.api || { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' },
-        video: parsed.video || { quality: 'medium', frameRate: 30, timeout: 120 }
+        video: parsed.video || { quality: 'medium', frameRate: 30, timeout: 600 }
       };
     } catch {
-      return { api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' }, video: { quality: 'medium', frameRate: 30, timeout: 120 } };
+      return { api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' }, video: { quality: 'medium', frameRate: 30, timeout: 600 } };
     }
   }
   // 同时检查单独存储的 ManimCat API Key（兼容旧版本）
   const manimcatKey = localStorage.getItem('manimcat_api_key') || '';
-  return { api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: manimcatKey }, video: { quality: 'medium', frameRate: 30, timeout: 120 } };
+  return { api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: manimcatKey }, video: { quality: 'medium', frameRate: 30, timeout: 600 } };
 }
 
 /** 保存配置到 localStorage */
@@ -56,7 +56,7 @@ function saveConfig(config: SettingsConfig): void {
 }
 
 export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
-  const [config, setConfig] = useState<SettingsConfig>({ api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' }, video: { quality: 'medium', frameRate: 30, timeout: 120 } });
+  const [config, setConfig] = useState<SettingsConfig>({ api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' }, video: { quality: 'medium', frameRate: 30, timeout: 600 } });
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<TabType>('api');
 
