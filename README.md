@@ -1,3 +1,14 @@
+---
+title: ManimCat
+emoji: 🐱
+colorFrom: 455A64
+colorTo: 78909C
+sdk: docker
+sdk_version: "3.10"
+app_file: start-with-redis-hf.cjs
+pinned: false
+---
+
 <div align="center">
 
 <!-- 顶部装饰线 - 统一为深灰色调 -->
