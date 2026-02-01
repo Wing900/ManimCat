@@ -1,6 +1,6 @@
 ﻿---
 title: ManimCat
-emoji: 馃惐
+emoji: 🐱
 colorFrom: gray
 colorTo: blue
 sdk: docker
