@@ -1,4 +1,4 @@
-# Dependencies
+﻿# Dependencies
 node_modules/
 .cursor/
 
@@ -45,6 +45,7 @@ tmp/
 !README.md
 !frontend/README.md
 !static/gifs/README.md
+!DEPLOYMENT.md
 
 # Flow type files
 *.flow
