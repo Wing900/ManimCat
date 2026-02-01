@@ -1,40 +1,40 @@
-/**
+﻿/**
  * Type Definitions
- * 全局类型定义
+ * 鍏ㄥ眬绫诲瀷瀹氫箟
  */
 
 /**
- * 视频质量选项
+ * 瑙嗛璐ㄩ噺閫夐」
  */
 export type VideoQuality = 'low' | 'medium' | 'high'
 
 /**
- * 视频配置
+ * 瑙嗛閰嶇疆
  */
 export interface VideoConfig {
-  /** 默认质量 */
+  /** 榛樿璐ㄩ噺 */
   quality: VideoQuality
-  /** 帧率 */
+  /** 甯х巼 */
   frameRate: number
 }
 
 /**
- * 任务状态
+ * 浠诲姟鐘舵€?
  */
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
 
 /**
- * 处理阶段
+ * 澶勭悊闃舵
  */
 export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering'
 
 /**
- * 生成类型
+ * 鐢熸垚绫诲瀷
  */
 export type GenerationType = 'template' | 'ai' | 'cached'
 
 /**
- * 自定义 API 配置
+ * 鑷畾涔?API 閰嶇疆
  */
 export interface CustomApiConfig {
   apiUrl: string
@@ -50,17 +50,19 @@ export interface PromptOverrides {
     conceptDesigner?: string
     codeGeneration?: string
     codeRetry?: string
+    codeEdit?: string
   }
   user?: {
     conceptDesigner?: string
     codeGeneration?: string
     codeRetryInitial?: string
     codeRetryFix?: string
+    codeEdit?: string
   }
 }
 
 /**
- * 视频生成任务数据
+ * 瑙嗛鐢熸垚浠诲姟鏁版嵁
  */
 export interface VideoJobData {
   jobId: string
@@ -68,16 +70,22 @@ export interface VideoJobData {
   quality: VideoQuality
   forceRefresh?: boolean
   timestamp: string
-  /** 预生成的代码（使用自定义 AI 时） */
+  /** 棰勭敓鎴愮殑浠ｇ爜锛堜娇鐢ㄨ嚜瀹氫箟 AI 鏃讹級 */
   preGeneratedCode?: string
-  /** 自定义 API 配置（用于代码修复） */
+  /** AI 淇敼鏃剁殑鍘熷浠ｇ爜 */
+  editCode?: string
+  /** AI 淇敼鏃剁殑鐢ㄦ埛鎸囦护 */
+  editInstructions?: string
+  /** 鑷畾涔?API 閰嶇疆锛堢敤浜庝唬鐮佷慨澶嶏級 */
   customApiConfig?: CustomApiConfig
-  /** 视频配置 */
+  /** 瑙嗛閰嶇疆 */
   videoConfig?: VideoConfig
+  /** Prompt 覆盖 */
+  promptOverrides?: PromptOverrides
 }
 
 /**
- * 任务结果 - 完成状态
+ * 浠诲姟缁撴灉 - 瀹屾垚鐘舵€?
  */
 export interface CompletedJobResult {
   status: 'completed'
@@ -93,7 +101,7 @@ export interface CompletedJobResult {
 }
 
 /**
- * 任务结果 - 失败状态
+ * 浠诲姟缁撴灉 - 澶辫触鐘舵€?
  */
 export interface FailedJobResult {
   status: 'failed'
@@ -106,12 +114,12 @@ export interface FailedJobResult {
 }
 
 /**
- * 任务结果联合类型
+ * 浠诲姟缁撴灉鑱斿悎绫诲瀷
  */
 export type JobResult = CompletedJobResult | FailedJobResult
 
 /**
- * 概念缓存数据
+ * 姒傚康缂撳瓨鏁版嵁
  */
 export interface ConceptCacheData {
   jobId: string
@@ -126,7 +134,7 @@ export interface ConceptCacheData {
 }
 
 /**
- * API 请求 - 生成视频
+ * API 璇锋眰 - 鐢熸垚瑙嗛
  */
 export interface GenerateRequest {
   concept: string
@@ -136,7 +144,20 @@ export interface GenerateRequest {
 }
 
 /**
- * API 响应 - 生成视频
+ * API 璇锋眰 - AI 淇敼
+ */
+export interface ModifyRequest {
+  concept: string
+  quality?: VideoQuality
+  instructions: string
+  code: string
+  promptOverrides?: PromptOverrides
+  videoConfig?: VideoConfig
+  customApiConfig?: CustomApiConfig
+}
+
+/**
+ * API 鍝嶅簲 - 鐢熸垚瑙嗛
  */
 export interface GenerateResponse {
   success: boolean
@@ -146,7 +167,7 @@ export interface GenerateResponse {
 }
 
 /**
- * API 响应 - 任务状态（处理中）
+ * API 鍝嶅簲 - 浠诲姟鐘舵€侊紙澶勭悊涓級
  */
 export interface JobStatusProcessingResponse {
   status: 'processing' | 'queued'
@@ -156,8 +177,8 @@ export interface JobStatusProcessingResponse {
 }
 
 /**
- * API 响应 - 任务状态（完成）
- * 与前端 api.ts JobResult 类型兼容
+ * API 鍝嶅簲 - 浠诲姟鐘舵€侊紙瀹屾垚锛?
+ * 涓庡墠绔?api.ts JobResult 绫诲瀷鍏煎
  */
 export interface JobStatusCompletedResponse {
   status: 'completed'
@@ -172,8 +193,8 @@ export interface JobStatusCompletedResponse {
 }
 
 /**
- * API 响应 - 任务状态（失败）
- * 与前端 api.ts JobResult 类型兼容
+ * API 鍝嶅簲 - 浠诲姟鐘舵€侊紙澶辫触锛?
+ * 涓庡墠绔?api.ts JobResult 绫诲瀷鍏煎
  */
 export interface JobStatusFailedResponse {
   status: 'failed'
@@ -185,7 +206,7 @@ export interface JobStatusFailedResponse {
 }
 
 /**
- * API 响应 - 任务状态联合类型
+ * API 鍝嶅簲 - 浠诲姟鐘舵€佽仈鍚堢被鍨?
  */
 export type JobStatusResponse =
   | JobStatusProcessingResponse
@@ -193,7 +214,7 @@ export type JobStatusResponse =
   | JobStatusFailedResponse
 
 /**
- * API 响应 - 健康检查
+ * API 鍝嶅簲 - 鍋ュ悍妫€鏌?
  */
 export interface HealthCheckResponse {
   status: 'ok' | 'degraded' | 'down'
@@ -214,7 +235,7 @@ export interface HealthCheckResponse {
 }
 
 /**
- * API 错误响应
+ * API 閿欒鍝嶅簲
  */
 export interface ErrorResponse {
   error: string
@@ -223,7 +244,7 @@ export interface ErrorResponse {
 }
 
 /**
- * Bull 任务进度数据
+ * Bull 浠诲姟杩涘害鏁版嵁
  */
 export interface JobProgress {
   step: string
@@ -232,7 +253,7 @@ export interface JobProgress {
 }
 
 /**
- * Manim 渲染选项
+ * Manim 娓叉煋閫夐」
  */
 export interface ManimRenderOptions {
   quality: VideoQuality
@@ -242,9 +263,10 @@ export interface ManimRenderOptions {
 }
 
 /**
- * 缓存查询结果
+ * 缂撳瓨鏌ヨ缁撴灉
  */
 export interface CacheCheckResult {
   hit: boolean
   data?: ConceptCacheData
 }
+

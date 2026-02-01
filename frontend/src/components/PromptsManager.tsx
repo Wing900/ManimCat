@@ -28,6 +28,11 @@ const PROMPT_CONFIG = {
       label: '系统重试提示词',
       placeholder: '输入系统重试阶段的提示词...',
       description: '用于指导 AI 在代码失败时进行重试和优化'
+    },
+    codeEdit: {
+      label: 'AI修改系统提示词',
+      placeholder: '用于 AI 修改阶段的系统提示词...',
+      description: '用于指导 AI 基于现有代码进行修改'
     }
   },
   user: {
@@ -50,6 +55,11 @@ const PROMPT_CONFIG = {
       label: '代码修复提示词',
       placeholder: '输入代码修复阶段的提示词...',
       description: '代码第二次失败时的详细修复指导'
+    },
+    codeEdit: {
+      label: 'AI修改用户提示词',
+      placeholder: '用于 AI 修改阶段的用户提示词...',
+      description: '用于描述修改目标、约束与期望效果'
     }
   }
 };

@@ -1,11 +1,11 @@
-/**
- * Code Retry Service - 类型定义
+﻿/**
+ * Code Retry Service - 绫诲瀷瀹氫箟
  */
 
 import type { CustomApiConfig, PromptOverrides } from '../../types'
 
 /**
- * 对话消息类型
+ * 瀵硅瘽娑堟伅绫诲瀷
  */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -13,18 +13,19 @@ export interface ChatMessage {
 }
 
 /**
- * 代码重试上下文
- * 维护完整的对话历史
+ * 浠ｇ爜閲嶈瘯涓婁笅鏂?
+ * 缁存姢瀹屾暣鐨勫璇濆巻鍙?
  */
 export interface CodeRetryContext {
   concept: string
   sceneDesign: string
-  originalPrompt: string // 原始写代码的提示词
-  messages: ChatMessage[] // 完整对话历史
+  originalPrompt: string
+  messages: ChatMessage[]
+  promptOverrides?: PromptOverrides
 }
 
 /**
- * 代码重试选项
+ * 浠ｇ爜閲嶈瘯閫夐」
  */
 export interface CodeRetryOptions {
   context: CodeRetryContext
@@ -32,7 +33,7 @@ export interface CodeRetryOptions {
 }
 
 /**
- * 代码重试结果
+ * 浠ｇ爜閲嶈瘯缁撴灉
  */
 export interface CodeRetryResult {
   success: boolean
@@ -42,7 +43,7 @@ export interface CodeRetryResult {
 }
 
 /**
- * 渲染结果
+ * 娓叉煋缁撴灉
  */
 export interface RenderResult {
   success: boolean
@@ -52,7 +53,7 @@ export interface RenderResult {
 }
 
 /**
- * 重试管理器结果
+ * 閲嶈瘯绠＄悊鍣ㄧ粨鏋?
  */
 export interface RetryManagerResult {
   code: string

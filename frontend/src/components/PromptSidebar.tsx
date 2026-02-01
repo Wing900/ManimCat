@@ -164,6 +164,37 @@ export function PromptSidebar({
           </div>
         </div>
 
+        {/* AI修改提示词 */}
+        <div>
+          <h3 className="px-4 text-xs font-medium text-text-secondary/60 uppercase tracking-wider mb-2">
+            AI修改
+          </h3>
+          <div className="space-y-1">
+            <SidebarItem
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 15.292M15 21H9m6 0a3 3 0 01-6 0m6 0H9" />
+                </svg>
+              }
+              label="系统提示词"
+              active={activeSection === 'system' && activePrompt === 'codeEdit'}
+              onClick={() => onSectionChange('system', 'codeEdit')}
+              indent
+            />
+            <SidebarItem
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              }
+              label="用户提示词"
+              active={activeSection === 'user' && activePrompt === 'codeEdit'}
+              onClick={() => onSectionChange('user', 'codeEdit')}
+              indent
+            />
+          </div>
+        </div>
+
         {/* 系统重试提示词 */}
         <div>
           <h3 className="px-4 text-xs font-medium text-text-secondary/60 uppercase tracking-wider mb-2">

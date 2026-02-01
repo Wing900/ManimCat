@@ -1,6 +1,11 @@
-import express from 'express'
+﻿import express from 'express'
 
-import { SYSTEM_PROMPTS, generateConceptDesignerPrompt, generateCodeGenerationPrompt } from '../prompts'
+import {
+  SYSTEM_PROMPTS,
+  generateConceptDesignerPrompt,
+  generateCodeGenerationPrompt,
+  generateCodeEditPrompt
+} from '../prompts'
 import { CODE_RETRY_SYSTEM_PROMPT, buildInitialCodePrompt } from '../services/code-retry/prompts'
 import { buildRetryFixPrompt } from '../services/code-retry/manager'
 import type { PromptOverrides } from '../types'
@@ -12,7 +17,9 @@ const PLACEHOLDERS = {
   seed: '{{seed}}',
   sceneDesign: '{{sceneDesign}}',
   errorMessage: '{{errorMessage}}',
-  attempt: '{{attempt}}'
+  attempt: '{{attempt}}',
+  instructions: '{{instructions}}',
+  code: '{{code}}'
 }
 
 function buildDefaultPromptTemplates(): PromptOverrides {
@@ -20,13 +27,15 @@ function buildDefaultPromptTemplates(): PromptOverrides {
     system: {
       conceptDesigner: SYSTEM_PROMPTS.conceptDesigner,
       codeGeneration: SYSTEM_PROMPTS.codeGeneration,
-      codeRetry: CODE_RETRY_SYSTEM_PROMPT
+      codeRetry: CODE_RETRY_SYSTEM_PROMPT,
+      codeEdit: SYSTEM_PROMPTS.codeEdit
     },
     user: {
       conceptDesigner: generateConceptDesignerPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.seed),
       codeGeneration: generateCodeGenerationPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.seed, PLACEHOLDERS.sceneDesign),
       codeRetryInitial: buildInitialCodePrompt(PLACEHOLDERS.concept, PLACEHOLDERS.seed, PLACEHOLDERS.sceneDesign),
-      codeRetryFix: buildRetryFixPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.errorMessage, PLACEHOLDERS.attempt)
+      codeRetryFix: buildRetryFixPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.errorMessage, PLACEHOLDERS.attempt),
+      codeEdit: generateCodeEditPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.instructions, PLACEHOLDERS.code)
     }
   }
 }

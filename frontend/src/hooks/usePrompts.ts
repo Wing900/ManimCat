@@ -14,12 +14,14 @@ const DEFAULT_PROMPTS: PromptOverrides = {
     conceptDesigner: '',
     codeGeneration: '',
     codeRetry: '',
+    codeEdit: '',
   },
   user: {
     conceptDesigner: '',
     codeGeneration: '',
     codeRetryInitial: '',
     codeRetryFix: '',
+    codeEdit: '',
   },
 };
 

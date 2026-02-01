@@ -1,10 +1,10 @@
 // 生成请求 Hook
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { generateAnimation, getJobStatus, cancelJob } from '../lib/api';
+import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../lib/api';
 import { loadCustomConfig, generateWithCustomApi } from '../lib/custom-ai';
 import { loadPrompts } from './usePrompts';
-import type { GenerateRequest, JobResult, ProcessingStage, VideoConfig } from '../types/api';
+import type { GenerateRequest, JobResult, ProcessingStage, VideoConfig, ModifyRequest } from '../types/api';
 
 interface UseGenerationReturn {
   status: 'idle' | 'processing' | 'completed' | 'error';
@@ -13,6 +13,8 @@ interface UseGenerationReturn {
   jobId: string | null;
   stage: ProcessingStage;
   generate: (request: GenerateRequest) => Promise<void>;
+  renderWithCode: (request: GenerateRequest & { code: string }) => Promise<void>;
+  modifyWithAI: (request: ModifyRequest) => Promise<void>;
   reset: () => void;
   cancel: () => void;
 }
@@ -165,6 +167,56 @@ export function useGeneration(): UseGenerationReturn {
     }, POLL_INTERVAL);
   }, [requestCancel, updateStage]);
 
+  // 使用现有代码重新渲染
+  const renderWithCode = useCallback(async (request: GenerateRequest & { code: string }) => {
+    setStatus('processing');
+    setError(null);
+    setResult(null);
+    setStage('rendering');
+    pollCountRef.current = 0;
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const promptOverrides = loadPrompts();
+      const response = await generateAnimation(
+        { ...request, promptOverrides },
+        abortControllerRef.current.signal
+      );
+      startPolling(response.jobId);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      setStatus('error');
+      setError(err instanceof Error ? err.message : '重新渲染失败');
+    }
+  }, [startPolling]);
+
+  // AI 修改后渲染
+  const modifyWithAI = useCallback(async (request: ModifyRequest) => {
+    setStatus('processing');
+    setError(null);
+    setResult(null);
+    setStage('generating');
+    pollCountRef.current = 0;
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const promptOverrides = loadPrompts();
+      const response = await modifyAnimation(
+        { ...request, promptOverrides },
+        abortControllerRef.current.signal
+      );
+      startPolling(response.jobId);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'AI 修改失败');
+    }
+  }, [startPolling]);
+
   // 生成动画
   const generate = useCallback(async (request: GenerateRequest) => {
     setStatus('processing');
@@ -247,6 +299,8 @@ export function useGeneration(): UseGenerationReturn {
     jobId,
     stage,
     generate,
+    renderWithCode,
+    modifyWithAI,
     reset,
     cancel,
   };

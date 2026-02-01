@@ -16,12 +16,14 @@ export interface PromptOverrides {
     conceptDesigner?: string;
     codeGeneration?: string;
     codeRetry?: string;
+    codeEdit?: string;
   };
   user?: {
     conceptDesigner?: string;
     codeGeneration?: string;
     codeRetryInitial?: string;
     codeRetryFix?: string;
+    codeEdit?: string;
   };
 }
 
@@ -57,6 +59,16 @@ export interface GenerateRequest {
   /** 视频配置 */
   videoConfig?: VideoConfig;
   /** Prompt overrides */
+  promptOverrides?: PromptOverrides;
+}
+
+/** AI 修改请求 */
+export interface ModifyRequest {
+  concept: string;
+  quality?: Quality;
+  instructions: string;
+  code: string;
+  videoConfig?: VideoConfig;
   promptOverrides?: PromptOverrides;
 }
 

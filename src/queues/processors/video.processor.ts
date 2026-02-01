@@ -7,6 +7,7 @@
 
 import { videoQueue } from '../../config/bull'
 import { storeJobResult } from '../../services/job-store'
+import { generateEditedManimCode } from '../../services/code-edit'
 import { ensureJobNotCancelled } from '../../services/job-cancel'
 import { clearJobCancelled } from '../../services/job-cancel-store'
 import { JobCancelledError } from '../../utils/errors'
@@ -26,9 +27,9 @@ const logger = createLogger('VideoProcessor')
  */
 videoQueue.process(async (job) => {
   const data = job.data as VideoJobData
-  const { jobId, concept, quality, forceRefresh = false, preGeneratedCode, promptOverrides } = data
+  const { jobId, concept, quality, forceRefresh = false, preGeneratedCode, editCode, editInstructions, promptOverrides } = data
 
-  logger.info('Processing video job', { jobId, concept, quality, hasPreGeneratedCode: !!preGeneratedCode })
+  logger.info('Processing video job', { jobId, concept, quality, hasPreGeneratedCode: !!preGeneratedCode, hasEditRequest: !!editInstructions })
 
   // 阶段时长追踪
   const timings: Record<string, number> = {}
@@ -38,7 +39,55 @@ videoQueue.process(async (job) => {
     // 如果有预生成代码，跳过缓存和 AI 生成阶段，直接渲染
     if (preGeneratedCode) {
       await ensureJobNotCancelled(jobId, job)
-      return await handlePreGeneratedCode(jobId, concept, quality, preGeneratedCode, timings, data)
+      const renderResult = await handlePreGeneratedCode(jobId, concept, quality, preGeneratedCode, timings, data)
+
+      const storeStart = Date.now()
+      await storeResult(renderResult, timings, { skipCache: true })
+      timings.store = Date.now() - storeStart
+      timings.total = timings.render + timings.store
+
+      logger.info('Job completed (pre-generated code)', { jobId, timings })
+      return { success: true, source: 'pre-generated', timings }
+    }
+
+    // AI 修改流程
+    if (editCode && editInstructions) {
+      await ensureJobNotCancelled(jobId, job)
+      await storeJobStage(jobId, 'generating')
+      const editStart = Date.now()
+      const editedCode = await generateEditedManimCode(concept, editInstructions, editCode, data.customApiConfig, promptOverrides)
+      timings.edit = Date.now() - editStart
+
+      if (!editedCode) {
+        throw new Error('AI 修改未返回有效代码')
+      }
+
+      await ensureJobNotCancelled(jobId, job)
+      const renderStart = Date.now()
+      const renderResult = await renderVideo(
+        jobId,
+        concept,
+        quality,
+        {
+          manimCode: editedCode,
+          usedAI: true,
+          generationType: 'ai-edit'
+        },
+        timings,
+        data.customApiConfig,
+        data.videoConfig,
+        promptOverrides,
+        () => storeJobStage(jobId, 'rendering')
+      )
+      timings.render = Date.now() - renderStart
+
+      const storeStart = Date.now()
+      await storeResult(renderResult, timings, { skipCache: true })
+      timings.store = Date.now() - storeStart
+      timings.total = timings.edit + timings.render + timings.store
+
+      logger.info('Job completed', { jobId, source: 'ai-edit', timings })
+      return { success: true, source: 'ai-edit', timings }
     }
 
     // Step 1: 检查缓存

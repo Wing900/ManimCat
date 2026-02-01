@@ -1,0 +1,134 @@
+import OpenAI from 'openai'
+import { createLogger } from '../utils/logger'
+import { SYSTEM_PROMPTS, generateCodeEditPrompt } from '../prompts'
+import type { CustomApiConfig, PromptOverrides } from '../types'
+
+const logger = createLogger('CodeEditService')
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'glm-4-flash'
+const CODER_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
+const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
+const OPENAI_TIMEOUT = parseInt(process.env.OPENAI_TIMEOUT || '600000', 10)
+
+const CUSTOM_API_URL = process.env.CUSTOM_API_URL?.trim()
+
+let openaiClient: OpenAI | null = null
+
+try {
+  const baseConfig = {
+    timeout: OPENAI_TIMEOUT,
+    defaultHeaders: {
+      'User-Agent': 'ManimCat/1.0'
+    }
+  }
+
+  if (CUSTOM_API_URL) {
+    openaiClient = new OpenAI({
+      ...baseConfig,
+      baseURL: CUSTOM_API_URL,
+      apiKey: process.env.OPENAI_API_KEY
+    })
+  } else {
+    openaiClient = new OpenAI(baseConfig)
+  }
+} catch (error) {
+  logger.warn('OpenAI 客户端初始化失败', { error })
+}
+
+function createCustomClient(config: CustomApiConfig): OpenAI {
+  return new OpenAI({
+    baseURL: config.apiUrl.trim().replace(/\/+$/, ''),
+    apiKey: config.apiKey,
+    timeout: OPENAI_TIMEOUT,
+    defaultHeaders: {
+      'User-Agent': 'ManimCat/1.0'
+    }
+  })
+}
+
+function applyPromptTemplate(template: string, values: Record<string, string>): string {
+  let output = template
+  for (const [key, value] of Object.entries(values)) {
+    output = output.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value)
+  }
+  return output
+}
+
+function extractCodeFromResponse(text: string): string {
+  if (!text) return ''
+  const sanitized = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
+  const anchorMatch = sanitized.match(/### START ###([\s\S]*?)### END ###/)
+  if (anchorMatch) {
+    return anchorMatch[1].trim()
+  }
+  const codeMatch = sanitized.match(/```(?:python)?\n([\s\S]*?)```/i)
+  if (codeMatch) {
+    return codeMatch[1].trim()
+  }
+  return sanitized.trim()
+}
+
+export async function generateEditedManimCode(
+  concept: string,
+  instructions: string,
+  code: string,
+  customApiConfig?: CustomApiConfig,
+  promptOverrides?: PromptOverrides
+): Promise<string> {
+  const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
+
+  if (!client) {
+    logger.warn('OpenAI 客户端不可用')
+    return ''
+  }
+
+  try {
+    const systemPrompt = promptOverrides?.system?.codeEdit || SYSTEM_PROMPTS.codeEdit
+    const userPromptOverride = promptOverrides?.user?.codeEdit
+    const userPrompt = userPromptOverride
+      ? applyPromptTemplate(userPromptOverride, { concept, instructions, code })
+      : generateCodeEditPrompt(concept, instructions, code)
+
+    logger.info('开始 AI 修改代码', { concept })
+
+    const response = await client.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: CODER_TEMPERATURE,
+      max_tokens: MAX_TOKENS
+    })
+
+    const content = response.choices[0]?.message?.content || ''
+    if (!content) {
+      logger.warn('AI 修改返回空内容')
+      return ''
+    }
+
+    const extracted = extractCodeFromResponse(content)
+    logger.info('AI 修改完成', { concept, length: extracted.length })
+    return extracted
+  } catch (error) {
+    if (error instanceof OpenAI.APIError) {
+      logger.error('AI 修改 API 错误', {
+        concept,
+        status: error.status,
+        code: error.code,
+        type: error.type,
+        message: error.message
+      })
+    } else if (error instanceof Error) {
+      logger.error('AI 修改失败', { concept, errorName: error.name, errorMessage: error.message })
+    } else {
+      logger.error('AI 修改失败，未知错误', { concept, error: String(error) })
+    }
+    return ''
+  }
+}
+
+export function isCodeEditAvailable(): boolean {
+  return openaiClient !== null
+}
+

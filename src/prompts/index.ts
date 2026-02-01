@@ -61,7 +61,14 @@ export const SYSTEM_PROMPTS = {
 
 - **动态更新**：对于涉及数值变化的过程，优先使用 \`ValueTracker\` 和 \`always_redraw\`。
 - **公式操作规范**：禁止使用硬编码索引，必须通过 \`substrings_to_isolate\` 配合 \`get_part_by_tex\` 来操作公式的特定部分。
-- **坐标系一致性**：所有图形必须通过 \`axes.c2p\` 映射到坐标轴上，严禁脱离坐标系的自由定位。`
+- **坐标系一致性**：所有图形必须通过 \`axes.c2p\` 映射到坐标轴上，严禁脱离坐标系的自由定位。`,
+
+  /** AI 修改时的 system prompt */
+  codeEdit: `你是一位 Manim 动画专家，擅长在既有代码基础上进行精准修改。
+严格遵循提示词规范，确保输出符合 Manim Community Edition (v0.19.2) 的可执行代码。
+
+- **保持可运行**：修改后代码必须完整可运行，结构保持为 \`MainScene\`。
+- **只输出代码**：禁止任何解释或 Markdown 包裹。`
 }
 
 export const SYSTEM_PROMPT_BASE = SYSTEM_PROMPTS.codeGeneration
@@ -334,6 +341,42 @@ ${brokenCode}
 \`\`\`
 
 请修复上述代码，只输出修复后的完整 Python 代码，不要任何解释。`
+}
+
+/**
+ * 生成 AI 修改时的用户 prompt
+ */
+export function generateCodeEditPrompt(
+  concept: string,
+  instructions: string,
+  code: string
+): string {
+  return `## 目标
+
+### 修改信息
+
+- **概念**：${concept}
+- **修改意见**：${instructions}
+
+### 输出要求
+
+- **仅输出代码**：禁止解释或 Markdown 包裹
+- **锚点协议**：使用 ### START ### 开始，### END ### 结束，仅输出锚点之间的代码
+- **结构规范**：场景类固定为 \`MainScene\`，统一使用 \`from manim import *\`
+
+## 知识库
+
+### API 索引表
+
+${API_INDEX}
+
+## 原始代码
+
+\`\`\`python
+${code}
+\`\`\`
+
+请根据修改意见输出完整的 Manim Python 代码。`;
 }
 
 // =====================

@@ -1,10 +1,11 @@
 // 主应用组件
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGeneration } from './hooks/useGeneration';
 import { InputForm } from './components/InputForm';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ResultSection } from './components/ResultSection';
+import { AiModifyModal } from './components/AiModifyModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsModal } from './components/SettingsModal';
 import { PromptsManager } from './components/PromptsManager';
@@ -13,14 +14,53 @@ import ManimCatLogo from './components/ManimCatLogo';
 import type { Quality } from './types/api';
 
 function App() {
-  const { status, result, error, jobId, stage, generate, reset, cancel } = useGeneration();
+  const { status, result, error, jobId, stage, generate, renderWithCode, modifyWithAI, reset, cancel } = useGeneration();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [currentCode, setCurrentCode] = useState('');
+  const [lastRequest, setLastRequest] = useState<{ concept: string; quality: Quality; forceRefresh: boolean } | null>(null);
+  const [aiModifyOpen, setAiModifyOpen] = useState(false);
+  const [aiModifyInput, setAiModifyInput] = useState('');
+
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
 
+  useEffect(() => {
+    if (result?.code) {
+      setCurrentCode(result.code);
+    }
+  }, [result?.code]);
+
   const handleSubmit = (data: { concept: string; quality: Quality; forceRefresh: boolean }) => {
+    setLastRequest(data);
     generate(data);
   };
+
+  const handleRerender = () => {
+    if (!lastRequest || !currentCode.trim()) {
+      return;
+    }
+    renderWithCode({ ...lastRequest, code: currentCode });
+  };
+
+  const handleAiModifySubmit = () => {
+    if (!lastRequest || !currentCode.trim()) {
+      return;
+    }
+    const instructions = aiModifyInput.trim();
+    if (!instructions) {
+      return;
+    }
+    setAiModifyOpen(false);
+    setAiModifyInput('');
+    modifyWithAI({
+      concept: lastRequest.concept,
+      quality: lastRequest.quality,
+      instructions,
+      code: currentCode
+    });
+  };
+
+  const isBusy = status === 'processing';
 
   return (
     <div className="min-h-screen bg-bg-primary transition-colors duration-300">
@@ -111,17 +151,27 @@ function App() {
             >
               {/* 结果展示 */}
               <ResultSection
-                code={result.code || ''}
+                code={currentCode || result.code || ''}
                 videoUrl={result.video_url || ''}
                 usedAI={result.used_ai || false}
                 renderQuality={result.render_quality || ''}
                 generationType={result.generation_type || ''}
+                onCodeChange={setCurrentCode}
+                onRerender={handleRerender}
+                onAiModify={() => setAiModifyOpen(true)}
+                isBusy={isBusy}
               />
 
               {/* 重新生成按钮 */}
               <div className="text-center">
                 <button
-                  onClick={reset}
+                  onClick={() => {
+                    reset();
+                    setCurrentCode('');
+                    setLastRequest(null);
+                    setAiModifyInput('');
+                    setAiModifyOpen(false);
+                  }}
                   className="px-8 py-2.5 text-sm text-text-secondary/80 hover:text-accent transition-colors bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full"
                 >
                   生成新的动画
@@ -145,7 +195,13 @@ function App() {
               </div>
               <div className="mt-4 flex gap-3">
                 <button
-                  onClick={reset}
+                  onClick={() => {
+                    reset();
+                    setCurrentCode('');
+                    setLastRequest(null);
+                    setAiModifyInput('');
+                    setAiModifyOpen(false);
+                  }}
                   className="px-4 py-2 text-sm text-accent hover:text-accent-hover transition-colors"
                 >
                   重试
@@ -189,6 +245,15 @@ function App() {
       <DonationModal
         isOpen={donationOpen}
         onClose={() => setDonationOpen(false)}
+      />
+
+      <AiModifyModal
+        isOpen={aiModifyOpen}
+        value={aiModifyInput}
+        loading={isBusy}
+        onChange={setAiModifyInput}
+        onClose={() => setAiModifyOpen(false)}
+        onSubmit={handleAiModifySubmit}
       />
     </div>
   );

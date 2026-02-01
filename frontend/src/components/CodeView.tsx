@@ -1,4 +1,4 @@
-// 代码预览组件
+﻿// 代码预览组件
 
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -6,9 +6,12 @@ import { useState } from 'react';
 
 interface CodeViewProps {
   code: string;
+  editable?: boolean;
+  onChange?: (value: string) => void;
+  disabled?: boolean;
 }
 
-export function CodeView({ code }: CodeViewProps) {
+export function CodeView({ code, editable = false, onChange, disabled = false }: CodeViewProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -16,6 +19,14 @@ export function CodeView({ code }: CodeViewProps) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const textareaClassName = [
+    'w-full h-full resize-none bg-transparent p-4 text-[0.75rem] leading-relaxed',
+    'font-mono text-text-primary/90 focus:outline-none',
+    disabled ? 'opacity-60 cursor-not-allowed' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
@@ -46,21 +57,31 @@ export function CodeView({ code }: CodeViewProps) {
 
       {/* 代码区域 */}
       <div className="flex-1 overflow-auto">
-        <SyntaxHighlighter
-          language="python"
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            fontSize: '0.75rem',
-            lineHeight: '1.6',
-            fontFamily: 'Monaco, Cascadia Code, Roboto Mono, monospace',
-            background: 'transparent',
-          }}
-          showLineNumbers
-        >
-          {code}
-        </SyntaxHighlighter>
+        {editable ? (
+          <textarea
+            value={code}
+            onChange={(event) => onChange?.(event.target.value)}
+            className={textareaClassName}
+            disabled={disabled}
+            spellCheck={false}
+          />
+        ) : (
+          <SyntaxHighlighter
+            language="python"
+            style={vscDarkPlus}
+            customStyle={{
+              margin: 0,
+              padding: '1rem',
+              fontSize: '0.75rem',
+              lineHeight: '1.6',
+              fontFamily: 'Monaco, Cascadia Code, Roboto Mono, monospace',
+              background: 'transparent'
+            }}
+            showLineNumbers
+          >
+            {code}
+          </SyntaxHighlighter>
+        )}
       </div>
     </div>
   );

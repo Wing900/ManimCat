@@ -73,13 +73,15 @@ const bodySchema = z.object({
     system: z.object({
       conceptDesigner: z.string().max(20000).optional(),
       codeGeneration: z.string().max(20000).optional(),
-      codeRetry: z.string().max(20000).optional()
+      codeRetry: z.string().max(20000).optional(),
+      codeEdit: z.string().max(20000).optional()
     }).optional(),
     user: z.object({
       conceptDesigner: z.string().max(20000).optional(),
       codeGeneration: z.string().max(20000).optional(),
       codeRetryInitial: z.string().max(20000).optional(),
-      codeRetryFix: z.string().max(20000).optional()
+      codeRetryFix: z.string().max(20000).optional(),
+      codeEdit: z.string().max(20000).optional()
     }).optional()
   }).optional(),
   /** 视频配置 */

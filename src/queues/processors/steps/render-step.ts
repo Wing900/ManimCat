@@ -1,24 +1,17 @@
-/**
- * 视频渲染步骤
- * 执行 Manim 渲染，使用新的重试机制
- */
-
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
-import { executeManimCommand, ManimExecuteOptions } from '../../../utils/manim-executor'
-import { findVideoFile } from '../../../utils/file-utils'
-import { storeJobStage } from '../../../services/job-store'
+﻿import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { createLogger } from '../../../utils/logger'
 import { cleanManimCode } from '../../../utils/manim-code-cleaner'
-import { createRetryContext, executeCodeRetry } from '../../../services/code-retry'
-import type { PromptOverrides, VideoJobData, VideoConfig } from '../../../types'
+import { executeManimCommand, type ManimExecuteOptions } from '../../../utils/manim-executor'
+import { findVideoFile } from '../../../utils/file-utils'
+import { createRetryContext, executeCodeRetry } from '../../../services/code-retry/manager'
+import { storeJobStage } from '../../../services/job-store'
+import type { GenerationResult } from './analysis-step'
+import type { PromptOverrides, VideoConfig, VideoJobData } from '../../../types'
 
 const logger = createLogger('RenderStep')
 
-/**
- * 渲染结果类型
- */
 export interface RenderResult {
   jobId: string
   concept: string
@@ -27,37 +20,10 @@ export interface RenderResult {
   generationType: string
   quality: string
   videoUrl: string
-  renderPeakMemoryMB: number
+  renderPeakMemoryMB?: number
 }
-
 /**
- * 代码生成结果类型
- */
-export interface GenerationResult {
-  manimCode: string
-  usedAI: boolean
-  generationType: string
-  sceneDesign?: string // 场景设计方案，用于重试
-}
-
-// 质量对应的分辨率配置
-const QUALITY_RESOLUTION: Record<string, { width: number; height: number }> = {
-  low: { width: 854, height: 480 },
-  medium: { width: 1280, height: 720 },
-  high: { width: 1920, height: 1080 }
-}
-
-/**
- * 任务结果
- */
-export interface TaskResult {
-  success: boolean
-  source: string
-  timings: Record<string, number>
-}
-
-/**
- * 渲染视频
+ * 娓叉煋瑙嗛
  */
 export async function renderVideo(
   jobId: string,
@@ -72,12 +38,12 @@ export async function renderVideo(
 ): Promise<RenderResult> {
   const { manimCode, usedAI, generationType, sceneDesign } = codeResult
 
-  // 应用视频配置
+  // 搴旂敤瑙嗛閰嶇疆
   const frameRate = videoConfig?.frameRate || 30
 
   logger.info('Rendering video', { jobId, quality, usedAI, frameRate })
 
-  // 创建临时目录
+  // 鍒涘缓涓存椂鐩綍
   const tempDir = path.join(os.tmpdir(), `manim-${jobId}`)
   const mediaDir = path.join(tempDir, 'media')
   const codeFile = path.join(tempDir, 'scene.py')
@@ -91,7 +57,7 @@ export async function renderVideo(
     let lastRenderedCode = manimCode
     let lastRenderPeakMemoryMB = 0
 
-    // 渲染函数 - 供重试机制使用
+    // 娓叉煋鍑芥暟 - 渚涢噸璇曟満鍒朵娇鐢?
     const renderCode = async (code: string): Promise<{
       success: boolean
       stderr: string
@@ -102,7 +68,7 @@ export async function renderVideo(
       lastRenderedCode = cleaned.code
 
       if (cleaned.changes.length > 0) {
-        logger.info('Manim 代码已清洗', {
+        logger.info('Manim code cleaned', {
           jobId,
           changes: cleaned.changes,
           originalLength: code.length,
@@ -110,16 +76,16 @@ export async function renderVideo(
         })
       }
 
-      logger.info('开始渲染代码', {
+      logger.info('Starting render', {
         jobId,
         codeLength: cleaned.code.length
       })
 
-      // 写入代码文件
+      // 鍐欏叆浠ｇ爜鏂囦欢
       fs.writeFileSync(codeFile, cleaned.code, 'utf-8')
-      logger.info('代码已写入文件', { jobId, codeFile })
+      logger.info('Code written to file', { jobId, codeFile })
 
-      // 执行 manim
+      // 鎵ц manim
       const options: ManimExecuteOptions = {
         jobId,
         quality,
@@ -131,7 +97,7 @@ export async function renderVideo(
       const result = await executeManimCommand(codeFile, options)
       lastRenderPeakMemoryMB = result.peakMemoryMB
 
-      logger.info('Manim 渲染完成', {
+      logger.info('Manim 娓叉煋瀹屾垚', {
         jobId,
         success: result.success,
         stdoutLength: result.stdout.length,
@@ -139,41 +105,41 @@ export async function renderVideo(
         peakMemoryMB: result.peakMemoryMB
       })
 
-      // 记录完整输出
+      // 璁板綍瀹屾暣杈撳嚭
       if (result.stdout) {
-        logger.info('Manim stdout 输出', { jobId, stdout: result.stdout })
+        logger.info('Manim stdout 杈撳嚭', { jobId, stdout: result.stdout })
       }
 
       if (result.stderr) {
         if (result.success) {
-          logger.info('Manim stderr 输出（非错误）', { jobId, stderr: result.stderr })
+          logger.info('Manim stderr output (non-error)', { jobId, stderr: result.stderr })
         } else {
-          logger.error('Manim stderr 输出（错误）', { jobId, stderr: result.stderr })
+          logger.error('Manim stderr 杈撳嚭锛堥敊璇級', { jobId, stderr: result.stderr })
         }
       }
 
       return result
     }
 
-    // 决定使用哪种渲染策略
+    // 鍐冲畾浣跨敤鍝娓叉煋绛栫暐
     let finalCode = manimCode
     let renderResult: { success: boolean; stderr: string; stdout: string; peakMemoryMB: number }
 
-    // 检查是否有场景设计方案（来自两阶段 AI 生成）
+    // 妫€鏌ユ槸鍚︽湁鍦烘櫙璁捐鏂规锛堟潵鑷袱闃舵 AI 鐢熸垚锛?
     const hasSceneDesign = usedAI && !!sceneDesign
 
     if (hasSceneDesign) {
-      // 使用新的重试机制：维护完整对话历史
+      // 浣跨敤鏂扮殑閲嶈瘯鏈哄埗锛氱淮鎶ゅ畬鏁村璇濆巻鍙?
       logger.info('Using new code retry mechanism', { jobId, hasSceneDesign })
 
       await storeJobStage(jobId, 'generating')
 
       const retryStart = Date.now()
 
-      // 创建重试上下文
+      // 鍒涘缓閲嶈瘯涓婁笅鏂?
       const retryContext = createRetryContext(concept, sceneDesign, promptOverrides)
 
-      // 执行重试管理器
+      // 鎵ц閲嶈瘯绠＄悊鍣?
       const retryManagerResult = await executeCodeRetry(
         retryContext,
         renderCode,
@@ -191,18 +157,18 @@ export async function renderVideo(
           peakMemoryMB: lastRenderPeakMemoryMB
         }
 
-        logger.info('代码重试成功', {
+        logger.info('浠ｇ爜閲嶈瘯鎴愬姛', {
           jobId,
           attempts: retryManagerResult.attempts
         })
       } else {
-        // 所有重试均失败
+        // 鎵€鏈夐噸璇曞潎澶辫触
         throw new Error(
           `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
         )
       }
     } else {
-      // 非AI生成或无场景设计方案：单次渲染
+      // 闈濧I鐢熸垚鎴栨棤鍦烘櫙璁捐鏂规锛氬崟娆℃覆鏌?
       logger.info('Using single render attempt', {
         jobId,
         reason: usedAI ? 'no_scene_design' : 'not_ai_generated'
@@ -212,7 +178,7 @@ export async function renderVideo(
       renderResult = await renderCode(manimCode)
 
       if (!renderResult.success) {
-        logger.error('Manim 渲染失败', {
+        logger.error('Manim 娓叉煋澶辫触', {
           jobId,
           stderrLength: renderResult.stderr.length,
           stdoutLength: renderResult.stdout.length,
@@ -225,13 +191,13 @@ export async function renderVideo(
       finalCode = lastRenderedCode
     }
 
-    // 查找生成的视频文件
+    // 鏌ユ壘鐢熸垚鐨勮棰戞枃浠?
     const videoPath = findVideoFile(mediaDir, quality, frameRate)
     if (!videoPath) {
       throw new Error('Video file not found after render')
     }
 
-    // 复制到输出目录
+    // 澶嶅埗鍒拌緭鍑虹洰褰?
     const outputFilename = `${jobId}.mp4`
     const outputPath = path.join(outputDir, outputFilename)
     fs.copyFileSync(videoPath, outputPath)
@@ -249,7 +215,7 @@ export async function renderVideo(
       renderPeakMemoryMB: renderResult.peakMemoryMB
     }
   } finally {
-    // 清理临时目录
+    // 娓呯悊涓存椂鐩綍
     try {
       fs.rmSync(tempDir, { recursive: true, force: true })
       logger.info('Cleaned up temp dir', { jobId })
@@ -260,7 +226,7 @@ export async function renderVideo(
 }
 
 /**
- * 处理预生成代码
+ * 澶勭悊棰勭敓鎴愪唬鐮?
  */
 export async function handlePreGeneratedCode(
   jobId: string,
@@ -269,14 +235,14 @@ export async function handlePreGeneratedCode(
   preGeneratedCode: string,
   timings: Record<string, number>,
   jobData: VideoJobData
-): Promise<TaskResult> {
+): Promise<RenderResult> {
   logger.info('Using pre-generated code from frontend', {
     jobId,
     codeLength: preGeneratedCode.length,
     hasCustomApi: !!jobData.customApiConfig
   })
 
-  // 直接进入渲染阶段
+  // 鐩存帴杩涘叆娓叉煋闃舵
   const renderStart = Date.now()
   const renderResult = await renderVideo(jobId, concept, quality, {
     manimCode: preGeneratedCode,
@@ -285,10 +251,6 @@ export async function handlePreGeneratedCode(
   }, timings, jobData.customApiConfig, jobData.videoConfig, jobData.promptOverrides)
   timings.render = Date.now() - renderStart
 
-  // 存储结果
-  const storeStart = Date.now()
-  timings.store = Date.now() - storeStart
-
   logger.info('Job completed (pre-generated code)', { jobId, timings })
-  return { success: true, source: 'custom-api', timings }
+  return renderResult
 }

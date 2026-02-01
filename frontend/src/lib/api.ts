@@ -1,6 +1,6 @@
 // API 请求函数
 
-import type { GenerateRequest, GenerateResponse, JobResult, ApiError, VideoConfig, PromptOverrides } from '../types/api';
+import type { GenerateRequest, GenerateResponse, JobResult, ApiError, VideoConfig, PromptOverrides, ModifyRequest } from '../types/api';
 
 const API_BASE = '/api';
 
@@ -40,6 +40,25 @@ function getAuthHeaders(): HeadersInit {
 /**
  * 提交动画生成请求
  */
+export async function modifyAnimation(request: ModifyRequest, signal?: AbortSignal): Promise<GenerateResponse> {
+  const videoConfig = request.videoConfig || loadVideoConfig();
+
+  const payload = { ...request, videoConfig };
+  const response = await fetch(`${API_BASE}/modify`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || 'AI 修改失败');
+  }
+
+  return response.json();
+}
+
 export async function generateAnimation(request: GenerateRequest, signal?: AbortSignal): Promise<GenerateResponse> {
   // 如果请求中没有 videoConfig，则从设置中加载默认值
   const videoConfig = request.videoConfig || loadVideoConfig();
