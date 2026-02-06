@@ -5,6 +5,7 @@ import { useGeneration } from './hooks/useGeneration';
 import { InputForm } from './components/InputForm';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ResultSection } from './components/ResultSection';
+import { TimingPanel } from './components/TimingPanel';
 import { AiModifyModal } from './components/AiModifyModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsModal } from './components/SettingsModal';
@@ -211,6 +212,10 @@ function App() {
           )}
         </div>
       </div>
+
+      {status === 'completed' && result?.timings && (
+        <TimingPanel timings={result.timings} />
+      )}
 
       {/* 添加淡入上浮动画 */}
       <style>{`

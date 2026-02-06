@@ -59,5 +59,6 @@ export interface RetryManagerResult {
   code: string
   success: boolean
   attempts: number
+  generationTimeMs?: number
   lastError?: string
 }

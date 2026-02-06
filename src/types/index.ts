@@ -29,6 +29,19 @@ export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
 export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering'
 
 /**
+ * 任务耗时统计（毫秒）
+ */
+export interface JobTimings {
+  cache?: number
+  analyze?: number
+  edit?: number
+  retry?: number
+  render?: number
+  store?: number
+  total?: number
+}
+
+/**
  * 鐢熸垚绫诲瀷
  */
 export type GenerationType = 'template' | 'ai' | 'cached'
@@ -96,6 +109,7 @@ export interface CompletedJobResult {
     quality: VideoQuality
     generationType: GenerationType
     renderPeakMemoryMB?: number
+    timings?: JobTimings
   }
   timestamp: number
 }
@@ -190,6 +204,7 @@ export interface JobStatusCompletedResponse {
   render_quality: VideoQuality
   generation_type: GenerationType
   render_peak_memory_mb?: number
+  timings?: JobTimings
 }
 
 /**

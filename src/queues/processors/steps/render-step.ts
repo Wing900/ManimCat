@@ -134,7 +134,6 @@ export async function renderVideo(
 
       await storeJobStage(jobId, 'generating')
 
-      const retryStart = Date.now()
 
       // 鍒涘缓閲嶈瘯涓婁笅鏂?
       const retryContext = createRetryContext(concept, sceneDesign, promptOverrides)
@@ -146,7 +145,9 @@ export async function renderVideo(
         customApiConfig
       )
 
-      timings.retry = Date.now() - retryStart
+      if (typeof retryManagerResult.generationTimeMs === 'number') {
+        timings.retry = retryManagerResult.generationTimeMs
+      }
 
       if (retryManagerResult.success) {
         finalCode = retryManagerResult.code

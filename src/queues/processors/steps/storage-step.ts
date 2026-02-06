@@ -8,6 +8,7 @@ import { clearJobCancelled } from '../../../services/job-cancel-store'
 import { cacheResult } from './cache-step'
 import type { RenderResult } from './render-step'
 import { createLogger } from '../../../utils/logger'
+import { normalizeTimings } from '../../../utils/timings'
 
 const logger = createLogger('StorageStep')
 
@@ -16,13 +17,15 @@ const logger = createLogger('StorageStep')
  */
 export async function storeResult(
   renderResult: RenderResult,
-  _timings: Record<string, number>,
+  timings: Record<string, number>,
   options: { skipCache?: boolean } = {}
 ): Promise<void> {
   const { jobId, concept, manimCode, usedAI, generationType, quality, videoUrl, renderPeakMemoryMB } = renderResult
   const { skipCache = false } = options
 
   // 存储到 Redis（用于 API 查询）
+  const normalizedTimings = normalizeTimings(timings)
+
   await storeJobResult(jobId, {
     status: 'completed',
     data: {
@@ -31,7 +34,8 @@ export async function storeResult(
       usedAI,
       quality: quality as any,
       generationType: generationType as any,
-      renderPeakMemoryMB
+      renderPeakMemoryMB,
+      timings: normalizedTimings
     }
   })
   await clearJobCancelled(jobId)

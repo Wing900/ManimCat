@@ -265,12 +265,15 @@ export async function executeCodeRetry(
   })
 
   // 步骤1：首次代码生成和渲染
+  let generationTimeMs = 0
+  let generationStart = Date.now()
   let currentCode = await generateInitialCode(context, customApiConfig)
+  generationTimeMs += Date.now() - generationStart
   let renderResult = await renderer(currentCode)
 
   if (renderResult.success) {
     logger.info('首次渲染成功')
-    return { code: currentCode, success: true, attempts: 1 }
+    return { code: currentCode, success: true, attempts: 1, generationTimeMs }
   }
 
   // 步骤2：提取错误信息并开始重试
@@ -288,12 +291,14 @@ export async function executeCodeRetry(
     })
 
     try {
+      generationStart = Date.now()
       currentCode = await retryCodeGeneration(context, errorMessage, attempt, customApiConfig)
+      generationTimeMs += Date.now() - generationStart
       renderResult = await renderer(currentCode)
 
       if (renderResult.success) {
         logger.info('重试渲染成功', { attempt: attempt + 1 })
-        return { code: currentCode, success: true, attempts: attempt + 1 }
+        return { code: currentCode, success: true, attempts: attempt + 1, generationTimeMs }
       }
 
       // 更新错误信息
@@ -315,6 +320,7 @@ export async function executeCodeRetry(
     code: currentCode,
     success: false,
     attempts: MAX_RETRIES + 1,
+    generationTimeMs,
     lastError: extractErrorMessage(renderResult.stderr)
   }
 }

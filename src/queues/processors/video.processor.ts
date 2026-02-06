@@ -99,6 +99,7 @@ videoQueue.process(async (job) => {
 
     if (cacheResult.hit) {
       // 缓存命中 - 直接处理缓存结果
+      timings.total = timings.cache
       await handleCacheHit(jobId, concept, quality, cacheResult.data!, timings)
       logger.info('Job completed (cache hit)', { jobId, timings })
       return { success: true, source: 'cache', timings }

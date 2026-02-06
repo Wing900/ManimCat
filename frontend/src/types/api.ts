@@ -49,6 +49,16 @@ export type JobStatus = 'processing' | 'completed' | 'failed';
 /** 处理阶段 */
 export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
 
+export interface JobTimings {
+  cache?: number;
+  analyze?: number;
+  edit?: number;
+  retry?: number;
+  render?: number;
+  store?: number;
+  total?: number;
+}
+
 /** 生成请求 */
 export interface GenerateRequest {
   concept: string;
@@ -93,6 +103,7 @@ export interface JobResult {
   render_quality?: string;
   generation_type?: string;
   render_peak_memory_mb?: number;
+  timings?: JobTimings;
 
   error?: string;
   details?: string;

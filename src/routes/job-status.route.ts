@@ -81,19 +81,20 @@ router.get(
 
     if (result.status === 'completed') {
       logger.info('任务成功完成', { jobId })
-      return res.status(200).json({
-        jobId,
-        status: 'completed' as const,
-        success: true as const,
-        video_url: result.data.videoUrl,
-        code: result.data.manimCode,
-        used_ai: result.data.usedAI,
-        render_quality: result.data.quality,
-        generation_type: result.data.generationType,
-        render_peak_memory_mb: result.data.renderPeakMemoryMB
+        return res.status(200).json({
+          jobId,
+          status: 'completed' as const,
+          success: true as const,
+          video_url: result.data.videoUrl,
+          code: result.data.manimCode,
+          used_ai: result.data.usedAI,
+          render_quality: result.data.quality,
+          generation_type: result.data.generationType,
+          render_peak_memory_mb: result.data.renderPeakMemoryMB,
+          timings: result.data.timings
 
 
-      })
+        })
     }
 
     // 任务失败

@@ -7,6 +7,7 @@ import { redisClient, REDIS_KEYS, generateRedisKey } from '../../../config/redis
 import { isCachingEnabled, normalizeConcept, generateConceptHash } from '../../../services/concept-cache'
 import { storeJobResult } from '../../../services/job-store'
 import { createLogger } from '../../../utils/logger'
+import { normalizeTimings } from '../../../utils/timings'
 import type { VideoQuality, GenerationType, ConceptCacheData } from '../../../types'
 
 const logger = createLogger('CacheStep')
@@ -148,9 +149,11 @@ export async function handleCacheHit(
   _concept: string,
   quality: string,
   cachedData: CacheHitData,
-  _timings: Record<string, number>
+  timings: Record<string, number>
 ): Promise<void> {
   logger.info('Processing cache hit', { jobId, originalJobId: cachedData.originalJobId })
+
+  const normalizedTimings = normalizeTimings(timings)
 
   // 直接存储缓存结果
   await storeJobResult(jobId, {
@@ -160,7 +163,8 @@ export async function handleCacheHit(
       manimCode: cachedData.manimCode,
       usedAI: cachedData.usedAI,
       quality: quality as VideoQuality,
-      generationType: `cached:${cachedData.generationType}` as GenerationType
+      generationType: `cached:${cachedData.generationType}` as GenerationType,
+      timings: normalizedTimings
     }
   })
 

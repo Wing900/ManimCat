@@ -15,7 +15,7 @@ pinned: false
 <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=455A64&height=120&section=header" />
 
 <br>
-  
+
 <img src="public/logo.svg" width="200" alt="ManimCat Logo" />
 
 <!-- 装饰：猫咪足迹 -->
@@ -91,10 +91,17 @@ pinned: false
 
 > 用双栏布局，解释正弦函数的拉伸变换和解析式的关系
 
+<div align="center">   <video src="https://github.com/user-attachments/assets/56528268-972d-45f6-9145-0531337cbffa" width="80%" autoplay loop muted playsinline>   </video>   <p><i>example01</i></p> </div>
+
+### 02
+
+> 画一个单位圆并且生成正弦函数
+
 <div align="center">
-  <video src="frontend/public/examples/manim-animation-example01.mp4" width="80%" autoplay loop muted playsinline>
+
+  <video src="https://github.com/user-attachments/assets/0fa7b853-7388-466c-ae46-93cf009277c4" width="80%" autoplay loop muted playsinline>
   </video>
-  <p><i>example01</i></p>
+  <p><i>example02</i></p>
 </div>
 
 
@@ -250,6 +257,8 @@ CODE_RETRY_MAX_RETRIES=4
   - 自定义提示词管理，新增专门的提示词管理页面，支持配置8种不同类型的提示词
 
   - 支持二次人工修改和渲染，支持二次AI修改
+
+  - 增加计时功能，可以查看各个阶段耗时
 
 
 
