@@ -91,8 +91,10 @@ export async function generateEditedManimCode(
 
     logger.info('开始 AI 修改代码', { concept })
 
+    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
     const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

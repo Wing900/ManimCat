@@ -151,8 +151,10 @@ async function generateSceneDesign(
 
     logger.info('开始阶段1：生成场景设计方案', { concept, seed })
 
+    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
     const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -242,8 +244,10 @@ async function generateCodeFromDesign(
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, seed })
 
+    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
     const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

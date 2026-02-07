@@ -380,8 +380,10 @@ export async function generateAIManimCode(concept: string, customApiConfig?: Cus
 
     const userPrompt = generateManimPrompt(concept, seed)
 
+    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
     const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

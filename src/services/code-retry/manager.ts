@@ -96,8 +96,10 @@ async function generateInitialCode(
   }
 
   try {
+    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
     const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model,
       messages: [
         { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
         { role: 'user', content: context.originalPrompt }
@@ -163,8 +165,10 @@ async function retryCodeGeneration(
       { role: 'user', content: retryPrompt }
     ]
 
+    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
     const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model,
       messages,
       temperature: AI_TEMPERATURE,
       max_tokens: MAX_TOKENS
