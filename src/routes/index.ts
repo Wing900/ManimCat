@@ -13,6 +13,7 @@ import jobCancelRouter from './job-cancel.route'
 import promptsRouter from './prompts.route'
 import healthRouter from './health.route'
 import metricsRouter from './metrics.route'
+import aiTestRouter from './ai-test.route'
 
 const router = express.Router()
 
@@ -25,6 +26,7 @@ router.use('/api', modifyRouter)
 router.use('/api', jobStatusRouter)
 router.use('/api', jobCancelRouter)
 router.use('/api', promptsRouter)
+router.use('/api', aiTestRouter)
 router.use('/api/metrics', metricsRouter)
 
 export default router

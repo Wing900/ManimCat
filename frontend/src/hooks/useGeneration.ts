@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../lib/api';
-import { loadCustomConfig, generateWithCustomApi } from '../lib/custom-ai';
+import { loadCustomConfig } from '../lib/custom-ai';
 import { loadPrompts } from './usePrompts';
-import type { GenerateRequest, JobResult, ProcessingStage, VideoConfig, ModifyRequest } from '../types/api';
+import type { GenerateRequest, JobResult, ProcessingStage, ModifyRequest } from '../types/api';
 
 interface UseGenerationReturn {
   status: 'idle' | 'processing' | 'completed' | 'error';
@@ -178,8 +178,9 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts();
+      const customApiConfig = loadCustomConfig() || undefined;
       const response = await generateAnimation(
-        { ...request, promptOverrides },
+        { ...request, promptOverrides, customApiConfig },
         abortControllerRef.current.signal
       );
       startPolling(response.jobId);
@@ -203,8 +204,9 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts();
+      const customApiConfig = loadCustomConfig() || undefined;
       const response = await modifyAnimation(
-        { ...request, promptOverrides },
+        { ...request, promptOverrides, customApiConfig },
         abortControllerRef.current.signal
       );
       startPolling(response.jobId);
@@ -231,32 +233,14 @@ export function useGeneration(): UseGenerationReturn {
       const promptOverrides = loadPrompts();
 
       // 检查是否有自定义 AI 配置
-      const customConfig = loadCustomConfig();
+      const customApiConfig = loadCustomConfig() || undefined;
 
-      if (customConfig) {
-        // 使用自定义 AI 生成代码
-        setStage('generating');
-        const code = await generateWithCustomApi(
-          request.concept,
-          customConfig,
-          abortControllerRef.current.signal
-        );
+      const response = await generateAnimation(
+        { ...request, promptOverrides, customApiConfig },
+        abortControllerRef.current.signal
+      );
+      startPolling(response.jobId);
 
-        // 发送代码到后端渲染
-        setStage('rendering');
-        const response = await generateAnimation(
-          { ...request, code, promptOverrides },
-          abortControllerRef.current.signal
-        );
-        startPolling(response.jobId);
-      } else {
-        // 使用后端 AI
-        const response = await generateAnimation(
-          { ...request, promptOverrides },
-          abortControllerRef.current.signal
-        );
-        startPolling(response.jobId);
-      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;

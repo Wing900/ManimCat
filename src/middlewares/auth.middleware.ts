@@ -34,12 +34,12 @@ export function authMiddleware(
   next: NextFunction
 ): void {
   const manimcatApiKey = process.env.MANIMCAT_API_KEY
-  const openaiApiKey = process.env.OPENAI_API_KEY
+  
 
-  // 如果没有配置 API 密钥，跳过认证
-  if (!manimcatApiKey && !openaiApiKey) {
-    logger.debug('认证中间件：未配置 API 密钥，跳过认证')
-    return next()
+  // 必须配置 ManimCat API 密钥
+  if (!manimcatApiKey) {
+    logger.warn('认证中间件：未配置 MANIMCAT_API_KEY，拒绝请求', { path: req.path })
+    throw new AuthenticationError('服务未配置 MANIMCAT_API_KEY，无法访问接口')
   }
 
   const authHeader = req.headers?.authorization
@@ -54,11 +54,7 @@ export function authMiddleware(
     throw new AuthenticationError('无效的 authorization 头格式。使用格式：Bearer <api-key>')
   }
 
-  const validKeys = []
-  if (manimcatApiKey) validKeys.push(manimcatApiKey)
-  if (openaiApiKey) validKeys.push(openaiApiKey)
-
-  const isValid = validKeys.some((key) => key === token)
+  const isValid = manimcatApiKey === token
   if (!isValid) {
     logger.warn('认证中间令：无效的 API 密钥', {
       path: req.path,

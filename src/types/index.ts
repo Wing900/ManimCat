@@ -155,6 +155,7 @@ export interface GenerateRequest {
   quality?: VideoQuality
   forceRefresh?: boolean
   promptOverrides?: PromptOverrides
+  customApiConfig?: CustomApiConfig
 }
 
 /**

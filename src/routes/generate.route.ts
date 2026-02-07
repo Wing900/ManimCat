@@ -162,19 +162,13 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
 }
 
 /**
- * 条件认证中间件
- * 如果请求包含预生成代码，跳过认证
+ * 认证中间件
  */
 function optionalAuthMiddleware(
   req: express.Request,
   res: express.Response,
   next: express.NextFunction
 ) {
-  // 如果有预生成代码，跳过认证（因为 AI 调用已在前端完成）
-  if (req.body?.code) {
-    return next()
-  }
-  // 否则使用完整认证
   return authMiddleware(req, res, next)
 }
 

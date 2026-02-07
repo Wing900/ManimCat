@@ -260,6 +260,8 @@ CODE_RETRY_MAX_RETRIES=4
 
   - 增加计时功能，可以查看各个阶段耗时
 
+  - 增加后端test接口
+
 
 
 <details>

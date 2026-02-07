@@ -42,6 +42,11 @@ try {
   logger.warn('OpenAI 客户端初始化失败', { error })
 }
 
+export interface BackendTestResult {
+  model: string
+  content: string
+}
+
 /**
  * 创建自定义 OpenAI 客户端
  */
@@ -431,8 +436,30 @@ export async function generateAIManimCode(concept: string, customApiConfig?: Cus
   }
 }
 
+export async function testBackendAIConnection(customApiConfig?: CustomApiConfig): Promise<BackendTestResult> {
+  const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
+
+  if (!client) {
+    throw new Error('OpenAI client is unavailable')
+  }
+
+  const model = customApiConfig?.model?.trim() || OPENAI_MODEL
+
+  const response = await client.chat.completions.create({
+    model,
+    messages: [{ role: 'user', content: 'hello' }],
+    temperature: 0,
+    max_tokens: 8
+  })
+
+  return {
+    model,
+    content: response.choices[0]?.message?.content || ''
+  }
+}
+
 /**
- * 检查 OpenAI 客户端是否可用
+ * Check whether OpenAI client is available
  */
 export function isOpenAIAvailable(): boolean {
   return openaiClient !== null

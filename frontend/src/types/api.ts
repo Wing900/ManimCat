@@ -11,6 +11,12 @@ export interface ApiConfig {
   manimcatApiKey: string;
 }
 
+export interface CustomApiConfig {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 export interface PromptOverrides {
   system?: {
     conceptDesigner?: string;
@@ -70,6 +76,7 @@ export interface GenerateRequest {
   videoConfig?: VideoConfig;
   /** Prompt overrides */
   promptOverrides?: PromptOverrides;
+  customApiConfig?: CustomApiConfig;
 }
 
 /** AI 修改请求 */
@@ -80,6 +87,7 @@ export interface ModifyRequest {
   code: string;
   videoConfig?: VideoConfig;
   promptOverrides?: PromptOverrides;
+  customApiConfig?: CustomApiConfig;
 }
 
 /** 生成响应 */

@@ -83,10 +83,23 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
   };
 
   const handleTest = async () => {
-    if (!config.api.apiUrl || !config.api.apiKey) {
+    const apiUrlInput = config.api.apiUrl.trim();
+    const apiKeyInput = config.api.apiKey.trim();
+    const modelInput = config.api.model.trim();
+    const manimcatKey = config.api.manimcatApiKey.trim();
+    const hasCustomConfig = Boolean(apiUrlInput || apiKeyInput || modelInput);
+
+    if (!manimcatKey) {
       setTestResult({
         status: 'error',
-        message: '请填写 API 地址和密钥',
+        message: '请先填写 ManimCat API 密钥',
+      });
+      return;
+    }
+    if (hasCustomConfig && (!apiUrlInput || !apiKeyInput)) {
+      setTestResult({
+        status: 'error',
+        message: '请填入 API 地址和密钥',
       });
       return;
     }
@@ -94,20 +107,24 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
     setTestResult({ status: 'testing', message: '测试中...', details: {} });
 
     const startTime = performance.now();
-    const apiUrl = config.api.apiUrl.trim().replace(/\/+$/, '');
-
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch('/api/ai/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.api.apiKey.trim()}`,
+          Authorization: `Bearer ${manimcatKey}`
         },
-        body: JSON.stringify({
-          model: config.api.model.trim() || 'gpt-4o-mini',
-          messages: [{ role: 'user', content: 'test' }],
-          max_tokens: 5,
-        }),
+        body: JSON.stringify(
+          hasCustomConfig
+            ? {
+              customApiConfig: {
+                apiUrl: apiUrlInput,
+                apiKey: apiKeyInput,
+                model: modelInput,
+              },
+            }
+            : {}
+        ),
       });
 
       const endTime = performance.now();
