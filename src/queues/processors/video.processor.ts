@@ -27,9 +27,16 @@ const logger = createLogger('VideoProcessor')
  */
 videoQueue.process(async (job) => {
   const data = job.data as VideoJobData
-  const { jobId, concept, quality, forceRefresh = false, preGeneratedCode, editCode, editInstructions, promptOverrides } = data
+  const { jobId, concept, quality, forceRefresh = false, preGeneratedCode, editCode, editInstructions, promptOverrides, referenceImages } = data
 
-  logger.info('Processing video job', { jobId, concept, quality, hasPreGeneratedCode: !!preGeneratedCode, hasEditRequest: !!editInstructions })
+  logger.info('Processing video job', {
+    jobId,
+    concept,
+    quality,
+    hasPreGeneratedCode: !!preGeneratedCode,
+    hasEditRequest: !!editInstructions,
+    referenceImageCount: referenceImages?.length || 0
+  })
 
   // 阶段时长追踪
   const timings: Record<string, number> = {}
@@ -109,7 +116,7 @@ videoQueue.process(async (job) => {
     await ensureJobNotCancelled(jobId, job)
     await storeJobStage(jobId, 'generating')
     const analyzeStart = Date.now()
-    const codeResult = await analyzeAndGenerate(jobId, concept, quality, timings, data.customApiConfig, promptOverrides)
+    const codeResult = await analyzeAndGenerate(jobId, concept, quality, timings, data.customApiConfig, promptOverrides, referenceImages)
     timings.analyze = Date.now() - analyzeStart
 
     // Step 4: 渲染视频

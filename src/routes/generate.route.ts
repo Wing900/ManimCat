@@ -19,10 +19,28 @@ import { createLogger } from '../utils/logger'
 import { AuthenticationError, ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
-import type { GenerateRequest, GenerateResponse, VideoConfig } from '../types'
+import type { GenerateRequest, GenerateResponse, ReferenceImage, VideoConfig } from '../types'
 
 const router = express.Router()
 const logger = createLogger('GenerateRoute')
+
+const MAX_REFERENCE_IMAGES = 3
+const MAX_REFERENCE_IMAGE_URL_LENGTH = 2_000_000
+
+const referenceImageSchema = z.object({
+  url: z.string().trim().min(1, 'Reference image url is required').max(MAX_REFERENCE_IMAGE_URL_LENGTH, 'Reference image is too large'),
+  detail: z.enum(['auto', 'low', 'high']).optional()
+}).superRefine((value, ctx) => {
+  const isHttpUrl = /^https?:\/\//i.test(value.url)
+  const isDataUrl = /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(value.url)
+
+  if (!isHttpUrl && !isDataUrl) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Reference image only supports http(s) URLs or data URLs'
+    })
+  }
+})
 
 function extractToken(authHeader: string | string[] | undefined): string {
   if (!authHeader) return ''
@@ -44,6 +62,17 @@ function hasPromptOverrides(promptOverrides: any): boolean {
     Object.values(user).some((value) => typeof value === 'string' && value.trim().length > 0)
 }
 
+function sanitizeReferenceImages(images?: ReferenceImage[]): ReferenceImage[] | undefined {
+  if (!images || images.length === 0) {
+    return undefined
+  }
+
+  return images.map((image) => ({
+    url: image.url.trim(),
+    detail: image.detail || 'auto'
+  }))
+}
+
 function requirePromptOverrideAuth(req: express.Request): void {
   const manimcatApiKey = process.env.MANIMCAT_API_KEY
   if (!manimcatApiKey) {
@@ -61,6 +90,7 @@ const bodySchema = z.object({
   concept: z.string().min(1, '概念必填'),
   quality: z.enum(['low', 'medium', 'high']).optional().default('low'),
   forceRefresh: z.boolean().optional().default(false),
+  referenceImages: z.array(referenceImageSchema).max(MAX_REFERENCE_IMAGES, `At most ${MAX_REFERENCE_IMAGES} reference images are allowed`).optional(),
   /** 预生成的代码（使用自定义 AI 时） */
   code: z.string().optional(),
   /** 自定义 API 配置（用于代码修复） */
@@ -103,7 +133,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     throw error;
   }
 
-  const { concept, quality, forceRefresh, code, customApiConfig, promptOverrides, videoConfig } = parsed;
+  const { concept, quality, forceRefresh, code, customApiConfig, promptOverrides, videoConfig, referenceImages } = parsed;
 
   // 清理输入
   if (hasPromptOverrides(promptOverrides)) {
@@ -111,6 +141,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   }
 
   const sanitizedConcept = concept.trim().replace(/\s+/g, ' ')
+  const sanitizedReferenceImages = sanitizeReferenceImages(referenceImages)
 
   if (sanitizedConcept.length === 0) {
     throw new ValidationError('提供的概念为空', { concept })
@@ -125,6 +156,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     quality,
     forceRefresh,
     hasPreGeneratedCode: !!code,
+    referenceImageCount: sanitizedReferenceImages?.length || 0,
     videoConfig
   })
 
@@ -138,6 +170,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
       concept: sanitizedConcept,
       quality,
       forceRefresh,
+      referenceImages: sanitizedReferenceImages,
       preGeneratedCode: code,
       customApiConfig,
       promptOverrides,

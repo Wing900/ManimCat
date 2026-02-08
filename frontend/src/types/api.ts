@@ -3,6 +3,15 @@
 /** 视频质量选项 */
 export type Quality = 'low' | 'medium' | 'high';
 
+/** 图片细节级别 */
+export type VisionImageDetail = 'auto' | 'low' | 'high';
+
+/** 参考图片 */
+export interface ReferenceImage {
+  url: string;
+  detail?: VisionImageDetail;
+}
+
 /** API 配置 */
 export interface ApiConfig {
   apiUrl: string;
@@ -70,6 +79,8 @@ export interface GenerateRequest {
   concept: string;
   quality?: Quality;
   forceRefresh?: boolean;
+  /** 参考图片 */
+  referenceImages?: ReferenceImage[];
   /** 预生成的代码（使用自定义 AI 时） */
   code?: string;
   /** 视频配置 */

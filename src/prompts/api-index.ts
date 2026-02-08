@@ -1,58 +1,308 @@
-/**
- * Manim API 索引表 - 共享常量
- * AI 生成代码时使用的 API 参考
+﻿/**
+ * Manim API index - codebook-compressed version
  */
 
-export const API_INDEX = `# Manim API 索引表（AI 专用）。注意：所有 Mobjects 都接受 'global_vmobject_params'。每个类只列出独特参数。
+export const API_INDEX = `# Manim API Index (AI, codebook-compressed)
+Notes:
+1) Look up params in codebook first: full_param:abbr
+2) Index sets only use abbreviations
+3) ThreeDVMobject inherits VMobject base args via @VMobject
+4) Low-level rendering/cache args are intentionally omitted
 
-# --- 全局与场景 ---
-globalization_params = ["background_image", "background_stroke_color", "background_stroke_opacity", "background_stroke_width", "cap_style", "close_new_points", "color", "dim", "fill_color", "fill_opacity", "joint_type", "make_smooth_after_applyingariang_functions", "n_points_per_cubic_curve", "name", "pre_function_handle_to_anchor_scale_factor", "shade_in_3d", "sheen_direction", "sheen_factor", "stroke_color", "stroke_opacity", "stroke_width", "target", "tolerance_for_point_equality", "z_index"]
-scene_classes = ["Scene", "ThreeDScene"]
-Scene_args = ["always_update_mobjects", "camera_class", "random_seed", "renderer", "skip_animations"]
-Scene_methods = ["add", "add_foreground_mobject", "add_foreground_mobjects", "add_mobjects_from_animations", "add_sound", "add_subcaption", "add_updater", "begin_animations"]
-ThreeDScene_args = ["always_update_mobjects", "ambient_camera_rotation", "camera_class", "default_angled_camera_orientation_kwargs", "random_seed", "renderer", "skip_animations"]
-ThreeDScene_methods = ["add", "add_fixed_in_frame_mobjects", "add_fixed_orientation_mobjects", "add_foreground_mobject", "add_foreground_mobjects", "add_sound", "add_subcaption"]
+### Core Methods
+method_codebook = {
+  shift: sh,
+  move_to: mv,
+  next_to: nx,
+  scale: sc,
+  rotate: rt,
+  become: bc,
+  play: pl,
+  wait: wt,
+  add: ad,
+  remove: rm
+}
+method_param_codebook = {
+  vectors: vecs,
+  target: tgt,
+  mob: mob,
+  dir: dir,
+  buff: buf,
+  factor: fac,
+  angle: ang,
+  animations: anims,
+  run_time: run_t,
+  duration: dur,
+  mobjects: mobs
+}
+method_index = {
+  Mobject_methods: [sh(vecs), mv(tgt), nx(mob, dir, buf), sc(fac), rt(ang), bc(tgt)],
+  Scene_methods: [pl(anims, run_t), wt(dur), ad(mobs), rm(mobs)]
+}
 
-# --- Mobjects: 坐标系 ---
-coord_classes = ["Axes", "NumberLine", "NumberPlane"]
-Axes_unique_args = ["axis", "axis_config", "dimension", "tips", "vmobjects", "x_axis_config", "x_length", "x_range", "y_axis_config", "y_length", "y_range"]
-Axes_methods = ["add", "add_background_rectangle", "add_coordinates", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves"]
-NumberLine_unique_args = ["buff", "decimal_number_config", "end", "exclude_origin_tick", "font_size", "include_numbers", "include_ticks", "include_tip", "label_constructor", "label_direction", "length", "line_to_number_buff", "longer_tick_multiple", "normal_vector", "numbers_to_exclude", "numbers_to_include", "numbers_with_elongated_ticks", "path_arc", "rotation", "scaling", "start", "tick_size", "tip_height", "tip_length", "tip_shape", "tip_style", "tip_width", "unit_size", "x_range"]
-NumberLine_methods = ["add", "add_background_rectangle", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves", "add_labels"]
-NumberPlane_unique_args = ["axis_config", "background_line_style", "dimension", "faded_line_ratio", "faded_line_style", "tips", "vmobjects", "x_axis_config", "x_length", "x_range", "y_axis_config", "y_length", "y_range"]
-NumberPlane_methods = ["add", "add_background_rectangle", "add_coordinates", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves"]
+### Args Codebook
+args_codebook = {
+  angle: ang,
+  buff: buf,
+  mobjects: mobs,
+  background_image: bg_i,
+  fill_color: f_c,
+  fill_opacity: f_o,
+  joint_type: j_t,
+  shade_in_3d: sh3,
+  sheen_direction: sh_d,
+  sheen_factor: sh_f,
+  stroke_color: s_c,
+  stroke_opacity: s_o,
+  stroke_width: s_w,
+  line1: l1,
+  line2: l2,
+  radius: rad,
+  quadrant: quad,
+  other_angle: o_ang,
+  dot: dot,
+  dot_radius: d_rad,
+  dot_distance: d_dis,
+  dot_color: d_col,
+  elbow: elb,
+  inner_radius: i_rad,
+  outer_radius: o_rad,
+  mark_paths_closed: mpc,
+  start_angle: s_ang,
+  start: st,
+  end: ed,
+  num_components: n_comp,
+  arc_center: a_ctr,
+  vertices: verts,
+  arc_config: a_cfg,
+  mobject: mobj,
+  scale_factor: sc_f,
+  start_anchor: sa,
+  start_handle: shd,
+  end_handle: ehd,
+  end_anchor: ea,
+  main_shape: m_sh,
+  subject: subj,
+  clip: clip,
+  point: pt,
+  width: wid,
+  height: hgt,
+  vmobjects: vms,
+  vertex_groups: v_gps,
+  grid_xstep: gx,
+  grid_ystep: gy,
+  n: n,
+  num_vertices: n_v,
+  density: dns,
+  length: len,
+  corner_radius: c_rad,
+  aspect_ratio: asp_r,
+  side_length: sd_l,
+  thickness: thk,
+  base_radius: b_rad,
+  resolution: res,
+  direction: dir,
+  show_base: sh_b,
+  v_range: v_r,
+  u_min: u_min,
+  checkerboard_colors: cb_cols,
+  show_ends: sh_e,
+  edge_length: e_len,
+  dimensions: dims,
+  vertex_coords: v_coords,
+  faces_list: f_list,
+  faces_config: f_cfg,
+  graph_config: g_cfg,
+  center: ctr,
+  u_range: u_r,
+  major_radius: mj_rad,
+  minor_radius: mn_rad,
+  items: items,
+  dot_scale_factor: d_scf,
+  tex_environment: tex_env,
+  code_file: c_file,
+  code_string: c_str,
+  language: lang,
+  formatter_style: fmt_style,
+  tab_width: tab_w,
+  add_line_numbers: aln,
+  line_numbers_from: lnf,
+  background: bg,
+  background_config: bg_cfg,
+  paragraph_config: p_cfg,
+  text: text,
+  font_size: fs,
+  line_spacing: ls,
+  font: font,
+  slant: slant,
+  weight: wgt,
+  justify: just,
+  gradient: grad,
+  should_center: sh_ctr,
+  disable_ligatures: dis_lig,
+  warn_missing_font: wmf,
+  tex_strings: texs,
+  arg_separator: arg_sep,
+  substrings_to_isolate: s2i,
+  tex_to_color_map: t2cm,
+  tex_string: tex1,
+  organize_left_to_right: oltr,
+  tex_template: tex_tpl,
+  t2c: t2c,
+  t2f: t2f,
+  t2g: t2g,
+  t2s: t2s,
+  t2w: t2w,
+  use_svg_cache: usc,
+  text_parts: t_parts,
+  include_underline: inc_ul,
+  match_underline_width_to_text: muwtt,
+  underline_buff: ul_buf,
+  alignment: align,
+  x_range: x_r,
+  y_range: y_r,
+  z_range: z_r,
+  x_length: x_l,
+  y_length: y_l,
+  z_length: z_l,
+  axis_config: ax_cfg,
+  x_axis_config: xax_cfg,
+  y_axis_config: yax_cfg,
+  z_axis_config: zax_cfg,
+  tips: tips,
+  values: vals,
+  bar_names: b_names,
+  bar_colors: b_cols,
+  bar_width: b_w,
+  bar_fill_opacity: b_fo,
+  bar_stroke_width: b_sw,
+  edges: eds,
+  labels: lbls,
+  label_fill_color: lfc,
+  layout: layout,
+  layout_scale: lay_s,
+  layout_config: lay_cfg,
+  vertex_type: v_type,
+  vertex_config: v_cfg,
+  vertex_mobjects: v_mobs,
+  edge_type: e_type,
+  partitions: parts,
+  root_vertex: r_vert,
+  edge_config: e_cfg,
+  unit_size: u_size,
+  include_ticks: inc_ticks,
+  tick_size: tick_s,
+  numbers_with_elongated_ticks: nwet,
+  longer_tick_multiple: ltm,
+  exclude_origin_tick: eot,
+  rotation: rot,
+  include_tip: inc_tip,
+  tip_width: tip_w,
+  tip_height: tip_h,
+  tip_shape: tip_shape,
+  include_numbers: inc_nums,
+  label_direction: l_dir,
+  label_constructor: l_ctor,
+  scaling: scaling,
+  line_to_number_buff: ltnb,
+  decimal_number_config: dec_cfg,
+  numbers_to_exclude: n_ex,
+  numbers_to_include: n_in,
+  radius_max: r_max,
+  size: size,
+  radius_step: r_step,
+  azimuth_step: az_step,
+  azimuth_units: az_units,
+  azimuth_compact_fraction: az_cf,
+  azimuth_offset: az_off,
+  azimuth_direction: az_dir,
+  azimuth_label_buff: az_lb,
+  azimuth_label_font_size: az_lfs,
+  radius_config: r_cfg,
+  background_line_style: bls,
+  faded_line_style: fls,
+  faded_line_ratio: flr,
+  z_normal: z_n,
+  num_axis_pieces: nap,
+  light_source: l_src,
+  depth: depth,
+  gloss: gloss,
+}
 
-# --- Mobjects: 几何图形 ---
-shape_classes = ["Circle", "Square", "Rectangle", "Line", "Arrow", "Dot", "Brace"]
-Circle_unique_args = ["angle", "arc_center", "normal_vector", "num_components", "radius", "start_angle", "tip_length", "tip_style"]
-Square_unique_args = ["grid_xstep", "grid_ystep", "height", "mark_paths_closed", "side_length", "vertex_groups", "vertices", "width"]
-Rectangle_unique_args = ["grid_xstep", "grid_ystep", "height", "mark_paths_closed", "vertex_groups", "vertices", "width"]
-Line_unique_args = ["buff", "end", "normal_vector", "path_arc", "start", "tip_length", "tip_style"]
-Arrow_unique_args = ["buff", "end", "max_stroke_width_to_length_ratio", "max_tip_length_to_length_ratio", "normal_vector", "path_arc", "start", "tip_length", "tip_style"]
-Dot_unique_args = ["angle", "arc_center", "normal_vector", "num_components", "point", "radius", "start_angle", "tip_length", "tip_style"]
-Brace_unique_args = ["buff", "direction", "long_lines", "mobject", "path_obj", "sharpness", "should_remove_null_curves", "should_subdivide_sharp_curves"]
-shape_common_methods = ["add", "add_background_rectangle", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves", "add_line_to"]
+### Args Index Sets (abbr only)
+base_args_index = {
+  VMobject: [bg_i, f_c, f_o, j_t, sh3, sh_d, sh_f, s_c, s_o, s_w]
+}
 
-# --- Mobjects: 数学与文本 ---
-math_text_classes = ["Tex", "MathTex", "Text", "DecimalNumber"]
-Tex_unique_args = ["arg_separator", "file_name", "font_size", "height", "opacity", "organize_left_to_right", "path_string_config", "should_center", "substrings_to_isolate", "svg_default", "tex_environment", "tex_string", "tex_strings", "tex_template", "tex_to_color_map", "use_svg_cache", "width"]
-MathTex_unique_args = ["arg_separator", "file_name", "font_size", "height", "opacity", "organize_left_to_right", "path_string_config", "should_center", "substrings_to_isolate", "svg_default", "tex_environment", "tex_string", "tex_strings", "tex_template", "tex_to_color_map", "use_svg_cache", "width"]
-Text_unique_args = ["disable_ligatures", "file_name", "font", "font_size", "gradient", "height", "line_spacing", "opacity", "path_string_config", "should_center", "slant", "svg_default", "t2c", "t2f", "t2g", "t2s", "t2w", "tab_width", "text", "use_svg_cache", "warn_missing_font", "weight", "width"]
-DecimalNumber_unique_args = ["digit_buff_per_font_unit", "edge_to_fix", "font_size", "group_with_commas", "include_background_rectangle", "include_sign", "mob_class", "num_decimal_places", "number", "show_ellipsis", "unit", "unit_buff_per_font_unit"]
-math_text_common_methods = ["add", "add_background_rectangle", "add_cubic_bezier_curve", "add_cubic_bezier_curve_to", "add_cubic_bezier_curves", "add_line_to"]
+unique_args_index = {
+  shape_2d: {
+    Angle: [l1, l2, rad, quad, o_ang, dot, d_rad, d_dis, d_col, elb],
+    AnnularSector: [i_rad, o_rad, ang, s_ang],
+    Annulus: [i_rad, o_rad, mpc],
+    Arc: [rad, s_ang, ang, n_comp, a_ctr],
+    ArcBetweenPoints: [st, ed, ang, rad],
+    ArcPolygon: [verts, ang, rad, a_cfg],
+    Circle: [rad],
+    Cross: [mobj, sc_f],
+    CubicBezier: [sa, shd, ehd, ea],
+    Cutout: [m_sh, mobs],
+    Difference: [subj, clip],
+    Dot: [pt, rad],
+    Elbow: [wid, ang],
+    Ellipse: [wid, hgt],
+    Exclusion: [subj, clip],
+    Intersection: [vms],
+    Polygon: [verts],
+    Polygram: [v_gps],
+    Rectangle: [hgt, wid, gx, gy, mpc],
+    RegularPolygon: [n],
+    RegularPolygram: [n_v, dns, rad, s_ang],
+    RightAngle: [l1, l2, len],
+    RoundedRectangle: [c_rad],
+    ScreenRectangle: [asp_r, hgt],
+    Sector: [rad],
+    Square: [sd_l],
+    Star: [n, o_rad, i_rad, dns, s_ang],
+    Union: [vms]
+  },
+  shape_3d: {
+    Arrow3D: [st, ed, thk, hgt, b_rad, res],
+    Cone: [b_rad, hgt, dir, sh_b, v_r, u_min, cb_cols],
+    Cube: [sd_l],
+    Cylinder: [rad, hgt, dir, v_r, sh_e, res],
+    Dodecahedron: [e_len],
+    Dot3D: [pt, rad, res],
+    Icosahedron: [e_len],
+    Line3D: [st, ed, thk, res],
+    Octahedron: [e_len],
+    Prism: [dims],
+    Polyhedron: [v_coords, f_list, f_cfg, g_cfg],
+    Sphere: [ctr, rad, res, u_r, v_r],
+    Tetrahedron: [e_len],
+    Torus: [mj_rad, mn_rad, u_r, v_r, res],
+    ThreeDVMobject: [@VMobject]
+  },
+  text_formula: {
+    BulletedList: [items, buf, d_scf, tex_env],
+    Code: [c_file, c_str, lang, fmt_style, tab_w, aln, lnf, bg, bg_cfg, p_cfg],
+    MarkupText: [text, fs, ls, font, slant, wgt, just, grad, tab_w, hgt, wid, sh_ctr, dis_lig, wmf],
+    MathTex: [texs, arg_sep, s2i, t2cm, tex_env],
+    Paragraph: [text, ls, align],
+    SingleStringMathTex: [tex1, sh_ctr, hgt, oltr, tex_env, tex_tpl, fs],
+    Tex: [texs, arg_sep, tex_env],
+    Text: [text, fs, ls, font, slant, wgt, t2c, t2f, t2g, t2s, t2w, grad, tab_w, hgt, wid, sh_ctr, dis_lig, wmf, usc],
+    Title: [t_parts, inc_ul, muwtt, ul_buf]
+  },
+  coordinate: {
+    Axes: [x_r, y_r, x_l, y_l, ax_cfg, xax_cfg, yax_cfg, tips],
+    BarChart: [vals, b_names, y_r, x_l, y_l, b_cols, b_w, b_fo, b_sw],
+    DiGraph: [verts, eds, lbls, lfc, layout, lay_s, lay_cfg, v_type, v_cfg, v_mobs, e_type, parts, r_vert, e_cfg],
+    Graph: [verts, eds, lbls, lfc, layout, lay_s, lay_cfg, v_type, v_cfg, v_mobs, e_type, parts, r_vert, e_cfg],
+    NumberLine: [x_r, len, u_size, inc_ticks, tick_s, nwet, ltm, eot, rot, inc_tip, tip_w, tip_h, tip_shape, inc_nums, fs, l_dir, l_ctor, scaling, ltnb, dec_cfg, n_ex, n_in],
+    NumberPlane: [x_r, y_r, x_l, y_l, bls, fls, flr],
+    PolarPlane: [r_max, size, r_step, az_step, az_units, az_cf, az_off, az_dir, az_lb, az_lfs, r_cfg, bls, fls, flr],
+    ThreeDAxes: [x_r, y_r, z_r, x_l, y_l, z_l, zax_cfg, z_n, nap, l_src, depth, gloss]
+  }
+}
+`
 
-# --- 动画 ---
-anim_classes = ["Create", "Write", "FadeIn", "FadeOut", "Transform", "ReplacementTransform"]
-common_anim_args = ["_on_finish", "introducer", "lag_ratio", "mobject", "name", "rate_func", "remover", "reverse_rate_function", "run_time", "suspend_mobject_updating", "use_override"]
-Write_unique_args = ["reverse", "stroke_color", "stroke_width", "vmobject"]
-FadeIn_unique_args = ["mobjects", "path_arc", "path_arc_axis", "path_arc_centers", "path_func", "replace_mobject_with_target_in_scene", "scale", "shift", "target_mobject", "target_position"]
-FadeOut_unique_args = ["mobjects", "path_arc", "path_arc_axis", "path_arc_centers", "path_func", "replace_mobject_with_target_in_scene", "scale", "shift", "target_mobject", "target_position"]
-Transform_unique_args = ["path_arc", "path_arc_axis", "path_arc_centers", "path_func", "replace_mobject_with_target_in_scene", "target_mobject"]
-ReplacementTransform_unique_args = ["path_arc", "path_arc_axis", "path_arc_centers", "path_func", "replace_mobject_with_target_in_scene", "target_mobject"]
-common_anim_methods = ["begin", "clean_up_from_scene", "copy", "create_starting_mobject", "finish", "get_all_families_zipped", "get_all_mobjects"]
-
-# --- 逻辑与更新器 ---
-logic_classes_and_functions = ["ValueTracker", "always_redraw"]
-ValueTracker_args = ["color", "dim", "name", "target", "value", "z_index"]
-ValueTracker_methods = ["add", "add_updater", "align_data"]
-always_redraw_args = ["func"]`

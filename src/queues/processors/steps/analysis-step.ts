@@ -10,7 +10,7 @@ import {
 } from '../../../services/manim-templates'
 import { generateTwoStageAIManimCode } from '../../../services/concept-designer'
 import { createLogger } from '../../../utils/logger'
-import type { CustomApiConfig, PromptOverrides } from '../../../types'
+import type { CustomApiConfig, PromptOverrides, ReferenceImage } from '../../../types'
 
 const logger = createLogger('AnalysisStep')
 
@@ -30,7 +30,7 @@ export interface GenerationResult {
   manimCode: string
   usedAI: boolean
   generationType: string
-  sceneDesign?: string // 新增：保存场景设计方案，用于重试
+  sceneDesign?: string // 保存场景设计方案，用于重试
 }
 
 /**
@@ -82,10 +82,11 @@ export async function generateCode(
   _quality: string,
   analyzeResult: AnalysisResult,
   customApiConfig?: CustomApiConfig,
-  promptOverrides?: PromptOverrides
+  promptOverrides?: PromptOverrides,
+  referenceImages?: ReferenceImage[]
 ): Promise<GenerationResult> {
   const { analysisType, manimCode, needsAI } = analyzeResult
-  logger.info('Generating code', { jobId, needsAI, analysisType })
+  logger.info('Generating code', { jobId, needsAI, analysisType, hasImages: !!referenceImages?.length })
 
   // 基本可视化代码（fallback）
   const basicVisualizationCode = `from manim import *
@@ -100,11 +101,10 @@ class MainScene(Scene):
   if (needsAI) {
     // 使用两阶段 AI 生成：概念设计者 + 代码生成者
     try {
-      logger.info('使用两阶段 AI 生成', { jobId })
-      const result = await generateTwoStageAIManimCode(concept, customApiConfig, promptOverrides)
+      logger.info('使用两阶段 AI 生成', { jobId, hasImages: !!referenceImages?.length })
+      const result = await generateTwoStageAIManimCode(concept, customApiConfig, promptOverrides, referenceImages)
       if (result.code && result.code.length > 0) {
         logger.info('两阶段 AI 代码生成成功', { jobId, length: result.code.length, hasSceneDesign: !!result.sceneDesign })
-        // 保存 sceneDesign 用于重试
         return {
           manimCode: result.code,
           usedAI: true,
@@ -135,8 +135,9 @@ export async function analyzeAndGenerate(
   quality: string,
   _timings: Record<string, number>,
   customApiConfig?: CustomApiConfig,
-  promptOverrides?: PromptOverrides
+  promptOverrides?: PromptOverrides,
+  referenceImages?: ReferenceImage[]
 ): Promise<GenerationResult> {
   const analysisResult = await analyzeConcept(jobId, concept, quality)
-  return generateCode(jobId, concept, quality, analysisResult, customApiConfig, promptOverrides)
+  return generateCode(jobId, concept, quality, analysisResult, customApiConfig, promptOverrides, referenceImages)
 }

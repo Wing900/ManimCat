@@ -1,12 +1,15 @@
 // 输入表单组件 - MD3 风格
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Quality, VideoConfig, SettingsConfig } from '../types/api';
+import type { Quality, VideoConfig, SettingsConfig, ReferenceImage } from '../types/api';
 
 interface InputFormProps {
-  onSubmit: (data: { concept: string; quality: Quality; forceRefresh: boolean }) => void;
+  onSubmit: (data: { concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] }) => void;
   loading: boolean;
 }
+
+const MAX_IMAGES = 3;
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
 
 /** 质量选项 */
 const QUALITY_OPTIONS = [
@@ -36,20 +39,116 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [quality, setQuality] = useState<Quality>(loadDefaultQuality());
-  const [qualityOpen, setQualityOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [images, setImages] = useState<ReferenceImage[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 点击外部关闭下拉菜单
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setQualityOpen(false);
+  // 文件转 base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.size > MAX_IMAGE_SIZE) {
+        reject(new Error(`图片大小不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // 添加图片
+  const addImages = async (files: FileList | File[]) => {
+    setImageError(null);
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+
+    if (fileArray.length === 0) {
+      setImageError('请选择有效的图片文件');
+      return;
+    }
+
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) {
+      setImageError(`最多只能添加 ${MAX_IMAGES} 张图片`);
+      return;
+    }
+
+    const toAdd = fileArray.slice(0, remaining);
+
+    try {
+      const newImages: ReferenceImage[] = await Promise.all(
+        toAdd.map(async (file) => ({
+          url: await fileToBase64(file)
+        }))
+      );
+      setImages(prev => [...prev, ...newImages]);
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : '图片处理失败');
+    }
+  };
+
+  // 删除图片
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+    setImageError(null);
+  };
+
+  // 处理粘贴
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      await addImages(imageFiles);
+    }
+  }, [images.length]);
+
+  // 监听粘贴事件
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
+  // 处理拖拽
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await addImages(files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // 只有离开整个区域时才取消高亮
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragging(false);
+  };
 
   // 键盘快捷键：Ctrl+Enter 提交
   useEffect(() => {
@@ -79,142 +178,146 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
       return;
     }
     setError(null);
-    onSubmit({ concept: concept.trim(), quality, forceRefresh });
-  }, [concept, quality, forceRefresh, onSubmit]);
+    onSubmit({
+      concept: concept.trim(),
+      quality,
+      forceRefresh,
+      referenceImages: images.length > 0 ? images : undefined
+    });
+  }, [concept, quality, forceRefresh, images, onSubmit]);
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     handleSubmit();
   };
 
-  const selectedOption = QUALITY_OPTIONS.find(opt => opt.value === quality);
-
   return (
     <div className="w-full max-w-2xl mx-auto">
       <form onSubmit={handleFormSubmit} className="space-y-6">
         {/* 概念输入 - MD3 Filled Text Field */}
-        <div className="relative">
+        <div
+          className={`relative transition-all duration-200 ${
+            isDragging ? 'scale-[1.02]' : ''
+          }`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+        >
           <label
             htmlFor="concept"
-            className={`absolute left-4 -top-2.5 px-2 bg-bg-primary text-xs font-medium transition-all ${
-              error ? 'text-red-500' : 'text-text-secondary'
+            className={`absolute left-4 -top-2.5 px-2 bg-bg-primary text-xs font-medium transition-all z-10 ${
+              isDragging ? 'text-accent' : error ? 'text-red-500' : 'text-text-secondary'
             }`}
           >
-            {error ? error : '描述你想要的动画'}
+            {isDragging ? '松开以添加图片' : error ? error : '描述你想要的动画'}
           </label>
           <textarea
             ref={textareaRef}
             id="concept"
             name="concept"
             rows={4}
-            placeholder="例如：展示单位圆上正弦和余弦的关系..."
+            placeholder="例如：展示单位圆上正弦和余弦的关系...（支持拖入或粘贴参考图片）"
             disabled={loading}
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
             className={`w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 transition-all resize-none ${
-              error
-                ? 'focus:ring-red-500/20 bg-red-50/50 dark:bg-red-900/10'
-                : 'focus:ring-accent/20 focus:bg-bg-secondary/70'
+              isDragging
+                ? 'ring-2 ring-accent/50 bg-accent/5 border-2 border-dashed border-accent/30'
+                : error
+                  ? 'focus:ring-red-500/20 bg-red-50/50 dark:bg-red-900/10'
+                  : 'focus:ring-accent/20 focus:bg-bg-secondary/70'
             }`}
           />
         </div>
 
-        {/* 选项区域 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* 质量选择 - 自定义下拉菜单 */}
-          <div className="relative" ref={dropdownRef}>
-            <label className="absolute left-3 -top-2 px-1.5 bg-bg-primary text-xs font-medium text-text-secondary">
-              视频质量
-            </label>
-
-            {/* 触发按钮 */}
+        {/* 工具栏 - 一行布局 */}
+        <div className="flex items-center justify-between gap-4 flex-wrap mt-2">
+          {/* 左侧：参考图按钮 */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => e.target.files && addImages(e.target.files)}
+              disabled={loading || images.length >= MAX_IMAGES}
+            />
             <button
               type="button"
-              onClick={() => !loading && setQualityOpen(!qualityOpen)}
-              disabled={loading}
-              className="w-full px-4 py-3.5 pr-10 bg-bg-secondary/50 rounded-2xl text-left text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary/60"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || images.length >= MAX_IMAGES}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="flex items-center justify-between">
-                <span>{selectedOption?.label} {selectedOption?.desc && <span className="text-text-secondary/60 text-xs ml-1">- {selectedOption.desc}</span>}</span>
-              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {images.length > 0 ? `参考图 ${images.length}/${MAX_IMAGES}` : '参考图'}
             </button>
-
-            {/* 下拉箭头 */}
-            <svg
-              className={`absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary pointer-events-none transition-transform duration-200 ${
-                qualityOpen ? 'rotate-180' : ''
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-
-            {/* 下拉菜单 */}
-            {qualityOpen && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl shadow-black/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200">
-                {QUALITY_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      setQuality(option.value);
-                      setQualityOpen(false);
-                    }}
-                    className={`w-full px-4 py-3.5 text-left transition-colors hover:bg-bg-secondary ${
-                      quality === option.value ? 'bg-bg-secondary/70' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-text-primary">{option.label}</span>
-                      {option.desc && <span className="text-xs text-text-secondary/60">- {option.desc}</span>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* 隐藏的 input 用于表单提交 */}
-            <input type="hidden" name="quality" value={quality} />
           </div>
 
-          {/* 强制刷新 - MD3 Switch */}
-          <div className="flex flex-col justify-center">
-            <label htmlFor="forceRefresh" className="text-xs font-medium text-text-secondary mb-3">
-              强制重新生成
-            </label>
-            <div className="flex items-center gap-3">
-              {/* MD3 Switch */}
+          {/* 中间：质量标签组 */}
+          <div className="flex items-center gap-1 bg-bg-secondary/30 rounded-lg p-1">
+            {QUALITY_OPTIONS.map((option) => (
               <button
+                key={option.value}
                 type="button"
-                onClick={() => setForceRefresh(!forceRefresh)}
+                onClick={() => setQuality(option.value)}
                 disabled={loading}
-                className={`relative w-12 h-7 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-accent/20 ${
-                  forceRefresh ? 'bg-accent' : 'bg-bg-tertiary'
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                  quality === option.value
+                    ? 'bg-bg-secondary text-text-primary'
+                    : 'text-text-secondary/60 hover:text-text-secondary hover:bg-bg-secondary/50'
                 }`}
               >
-                <span
-                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${
-                    forceRefresh ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
+                {option.value === 'low' ? '480p' : option.value === 'medium' ? '720p' : '1080p'}
               </button>
-              <input
-                type="checkbox"
-                id="forceRefresh"
-                name="forceRefresh"
-                checked={forceRefresh}
-                onChange={(e) => setForceRefresh(e.target.checked)}
-                disabled={loading}
-                className="sr-only"
-              />
-              <span className="text-xs text-text-secondary/60">跳过缓存</span>
-            </div>
+            ))}
           </div>
+
+          {/* 右侧：强制刷新 */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={forceRefresh}
+              onChange={(e) => setForceRefresh(e.target.checked)}
+              disabled={loading}
+              className="w-4 h-4 rounded border-border text-accent focus:ring-accent/20"
+            />
+            <span className="text-xs text-text-secondary">跳过缓存</span>
+          </label>
         </div>
 
-        {/* 提交按钮 - MD3 Filled Button */}
+        {/* 图片预览 */}
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {images.map((img, idx) => (
+              <div key={idx} className="relative group">
+                <img
+                  src={img.url}
+                  alt={`参考图片 ${idx + 1}`}
+                  className="w-16 h-16 object-cover rounded-lg border border-border/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  disabled={loading}
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 错误提示 */}
+        {imageError && (
+          <p className="text-xs text-red-500">{imageError}</p>
+        )}
+
+        {/* 提交按钮 */}
         <div className="flex justify-center pt-4">
           <button
             type="submit"

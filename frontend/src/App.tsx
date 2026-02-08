@@ -12,13 +12,13 @@ import { SettingsModal } from './components/SettingsModal';
 import { PromptsManager } from './components/PromptsManager';
 import { DonationModal } from './components/DonationModal';
 import ManimCatLogo from './components/ManimCatLogo';
-import type { Quality } from './types/api';
+import type { Quality, ReferenceImage } from './types/api';
 
 function App() {
   const { status, result, error, jobId, stage, generate, renderWithCode, modifyWithAI, reset, cancel } = useGeneration();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentCode, setCurrentCode] = useState('');
-  const [lastRequest, setLastRequest] = useState<{ concept: string; quality: Quality; forceRefresh: boolean } | null>(null);
+  const [lastRequest, setLastRequest] = useState<{ concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] } | null>(null);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [aiModifyInput, setAiModifyInput] = useState('');
 
@@ -31,7 +31,7 @@ function App() {
     }
   }, [result?.code]);
 
-  const handleSubmit = (data: { concept: string; quality: Quality; forceRefresh: boolean }) => {
+  const handleSubmit = (data: { concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] }) => {
     setLastRequest(data);
     generate(data);
   };
@@ -114,7 +114,7 @@ function App() {
       </div>
 
       {/* 主容器 - 使用黄金分割比例调整垂直位置 */}
-      <div className="max-w-4xl mx-auto px-4 min-h-screen flex flex-col justify-center" style={{ paddingTop: '20vh', paddingBottom: '32vh' }}>
+      <div className="max-w-4xl mx-auto px-4 min-h-screen flex flex-col justify-center" style={{ paddingTop: '25vh', paddingBottom: '28vh' }}>
         {/* 标题 */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-4 mb-3">

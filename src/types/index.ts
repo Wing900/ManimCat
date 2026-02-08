@@ -74,12 +74,20 @@ export interface PromptOverrides {
   }
 }
 
+export type VisionImageDetail = 'auto' | 'low' | 'high'
+
+export interface ReferenceImage {
+  url: string
+  detail?: VisionImageDetail
+}
+
 /**
  * 瑙嗛鐢熸垚浠诲姟鏁版嵁
  */
 export interface VideoJobData {
   jobId: string
   concept: string
+  referenceImages?: ReferenceImage[]
   quality: VideoQuality
   forceRefresh?: boolean
   timestamp: string
@@ -152,6 +160,7 @@ export interface ConceptCacheData {
  */
 export interface GenerateRequest {
   concept: string
+  referenceImages?: ReferenceImage[]
   quality?: VideoQuality
   forceRefresh?: boolean
   promptOverrides?: PromptOverrides

@@ -8,7 +8,7 @@ import OpenAI from 'openai'
 import crypto from 'crypto'
 import { createLogger } from '../utils/logger'
 import { SYSTEM_PROMPTS, generateConceptDesignerPrompt, generateCodeGenerationPrompt } from '../prompts'
-import type { CustomApiConfig, PromptOverrides } from '../types'
+import type { CustomApiConfig, PromptOverrides, ReferenceImage, VisionImageDetail } from '../types'
 
 const logger = createLogger('ConceptDesigner')
 
@@ -75,6 +75,49 @@ function applyPromptTemplate(template: string, values: Record<string, string>): 
   return output
 }
 
+/**
+ * 构建包含图片的用户消息（Vision API 格式）
+ */
+function buildVisionUserMessage(
+  userPrompt: string,
+  referenceImages?: ReferenceImage[]
+): string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail: VisionImageDetail } }> {
+  if (!referenceImages || referenceImages.length === 0) {
+    return userPrompt
+  }
+
+  return [
+    {
+      type: 'text' as const,
+      text: `${userPrompt}\n\n你还会收到参考图片。请根据图片中显示的对象、结构和关系来设计动画。`
+    },
+    ...referenceImages.map((image) => ({
+      type: 'image_url' as const,
+      image_url: {
+        url: image.url,
+        detail: image.detail || 'auto'
+      }
+    }))
+  ]
+}
+
+/**
+ * 判断是否应该在不带图片的情况下重试
+ */
+function shouldRetryWithoutImages(error: unknown): boolean {
+  if (!(error instanceof OpenAI.APIError)) {
+    return false
+  }
+
+  // 服务器错误不重试
+  if (error.status && error.status >= 500) {
+    return false
+  }
+
+  // 检查错误信息是否与图片/视觉相关
+  return /image|vision|multimodal|content.?part|unsupported/i.test(error.message || '')
+}
+
 function extractDesignFromResponse(text: string): string {
   if (!text) return ''
   const sanitized = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -131,7 +174,8 @@ function cleanDesignText(text: string): CleanDesignResult {
 async function generateSceneDesign(
   concept: string,
   customApiConfig?: CustomApiConfig,
-  promptOverrides?: PromptOverrides
+  promptOverrides?: PromptOverrides,
+  referenceImages?: ReferenceImage[]
 ): Promise<string> {
   const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
 
@@ -149,19 +193,43 @@ async function generateSceneDesign(
       ? applyPromptTemplate(userPromptOverride, { concept, seed })
       : generateConceptDesignerPrompt(concept, seed)
 
-    logger.info('开始阶段1：生成场景设计方案', { concept, seed })
+    logger.info('开始阶段1：生成场景设计方案', { concept, seed, hasImages: !!referenceImages?.length })
 
     const model = customApiConfig?.model?.trim() || OPENAI_MODEL
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: DESIGNER_TEMPERATURE,
-      max_tokens: DESIGNER_MAX_TOKENS
-    })
+    let response: Awaited<ReturnType<typeof client.chat.completions.create>>
+
+    try {
+      response = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: buildVisionUserMessage(userPrompt, referenceImages) }
+        ],
+        temperature: DESIGNER_TEMPERATURE,
+        max_tokens: DESIGNER_MAX_TOKENS
+      })
+    } catch (error) {
+      // 如果模型不支持图片，尝试不带图片重试
+      if (referenceImages && referenceImages.length > 0 && shouldRetryWithoutImages(error)) {
+        logger.warn('模型不支持图片输入，使用纯文本重试', {
+          concept,
+          seed,
+          error: error instanceof Error ? error.message : String(error)
+        })
+        response = await client.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: DESIGNER_TEMPERATURE,
+          max_tokens: DESIGNER_MAX_TOKENS
+        })
+      } else {
+        throw error
+      }
+    }
 
     const content = response.choices[0]?.message?.content || ''
     if (!content) {
@@ -302,13 +370,14 @@ async function generateCodeFromDesign(
 export async function generateTwoStageAIManimCode(
   concept: string,
   customApiConfig?: CustomApiConfig,
-  promptOverrides?: PromptOverrides
-): Promise<{ code: string; sceneDesign: string }> 
+  promptOverrides?: PromptOverrides,
+  referenceImages?: ReferenceImage[]
+): Promise<{ code: string; sceneDesign: string }>
  {
-  logger.info('开始两阶段 AI 生成流程', { concept })
+  logger.info('开始两阶段 AI 生成流程', { concept, hasImages: !!referenceImages?.length })
 
-  // 阶段1：生成场景设计方案
-  const sceneDesign = await generateSceneDesign(concept, customApiConfig, promptOverrides)
+  // 阶段1：生成场景设计方案（支持图片）
+  const sceneDesign = await generateSceneDesign(concept, customApiConfig, promptOverrides, referenceImages)
 
   if (!sceneDesign) {
     logger.warn('场景设计方案生成失败，中止流程')
