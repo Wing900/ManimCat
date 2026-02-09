@@ -1,50 +1,31 @@
-// 主题切换组件
-
 import { useEffect, useState } from 'react';
 
-export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  // 初始化主题状态
-  useEffect(() => {
-    setMounted(true);
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDarkMode = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    setIsDark(isDarkMode);
-    document.documentElement.classList.toggle('dark', isDarkMode);
-  }, []);
-
-  // 切换主题
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    document.documentElement.classList.toggle('dark', newIsDark);
-    localStorage.setItem('theme', newIsDark ? 'dark' : 'light');
-  };
-
-  // 防止水合不匹配
-  if (!mounted) {
-    return (
-      <button
-        className="w-10 h-10 rounded-full bg-bg-secondary/50 flex items-center justify-center"
-        disabled
-      >
-        <div className="w-5 h-5" />
-      </button>
-    );
+function resolveInitialTheme() {
+  if (typeof window === 'undefined') {
+    return false;
   }
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return savedTheme === 'dark' || (!savedTheme && prefersDark);
+}
+
+export function ThemeToggle() {
+  const [isDark, setIsDark] = useState(resolveInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   return (
     <button
-      onClick={toggleTheme}
-      className="w-10 h-10 rounded-full bg-bg-secondary/50 hover:bg-bg-secondary transition-colors flex items-center justify-center"
+      onClick={() => setIsDark((prev) => !prev)}
+      className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
       aria-label={isDark ? '切换到亮色主题' : '切换到暗黑主题'}
       title={isDark ? '切换到亮色主题' : '切换到暗黑主题'}
     >
       {isDark ? (
-        <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -53,7 +34,7 @@ export function ThemeToggle() {
           />
         </svg>
       ) : (
-        <svg className="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -65,3 +46,4 @@ export function ThemeToggle() {
     </button>
   );
 }
+

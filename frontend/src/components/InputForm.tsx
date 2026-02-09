@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Quality, VideoConfig, SettingsConfig, ReferenceImage } from '../types/api';
+import { loadSettings } from '../lib/settings';
 
 interface InputFormProps {
   onSubmit: (data: { concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] }) => void;
@@ -31,14 +32,14 @@ function loadDefaultQuality(): Quality {
   } catch {
     // 忽略错误
   }
-  return 'medium'; // 默认值
+  return 'low'; // 默认值
 }
 
 export function InputForm({ onSubmit, loading }: InputFormProps) {
   const [concept, setConcept] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
-  const [quality, setQuality] = useState<Quality>(loadDefaultQuality());
+  const [quality, setQuality] = useState<Quality>(loadSettings().video.quality);
   const [images, setImages] = useState<ReferenceImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);

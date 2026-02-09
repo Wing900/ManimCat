@@ -35,14 +35,14 @@ router.get(
       })
     }
 
-    logger.info('检查任务状态', { jobId })
+    logger.debug('检查任务状态', { jobId })
 
     // 首先从 Bull 队列检查任务状态
     const bullJobStatus = await getBullJobStatus(jobId)
 
     if (bullJobStatus === 'active' || bullJobStatus === 'waiting' || bullJobStatus === 'delayed') {
       // 任务还在队列中或正在处理
-      logger.info('任务在队列中或正在处理', { jobId, bullJobStatus })
+      logger.debug('任务在队列中或正在处理', { jobId, bullJobStatus })
 
       // 获取当前处理阶段
       const stage = await getJobStage(jobId)
@@ -61,7 +61,7 @@ router.get(
     if (!result) {
       // 任务不存在或已经清理
       if (bullJobStatus === null) {
-        logger.info('未找到任务 (可能因后端重启已清理)', { jobId })
+        logger.debug('未找到任务 (可能因后端重启已清理)', { jobId })
         return res.status(200).json({
           jobId,
           status: 'failed' as const,
@@ -71,7 +71,7 @@ router.get(
         })
       }
       // 任务还在处理中
-      logger.info('任务仍在处理中', { jobId })
+      logger.debug('任务仍在处理中', { jobId })
       return res.status(200).json({
         jobId,
         status: 'processing' as const,

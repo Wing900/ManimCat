@@ -64,7 +64,7 @@ function App() {
   const isBusy = status === 'processing';
 
   return (
-    <div className="min-h-screen bg-bg-primary transition-colors duration-300">
+    <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
       {/* 左上角图标 */}
       <div className="fixed top-4 left-4 z-50 flex items-center gap-2">
         <a
@@ -114,7 +114,7 @@ function App() {
       </div>
 
       {/* 主容器 - 使用黄金分割比例调整垂直位置 */}
-      <div className="max-w-4xl mx-auto px-4 min-h-screen flex flex-col justify-center" style={{ paddingTop: '25vh', paddingBottom: '28vh' }}>
+      <div className="max-w-4xl mx-auto px-4 min-h-screen flex flex-col justify-center" style={{ paddingTop: '18vh', paddingBottom: '12vh' }}>
         {/* 标题 */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-4 mb-3">

@@ -39,7 +39,7 @@ export async function renderVideo(
   const { manimCode, usedAI, generationType, sceneDesign } = codeResult
 
   // 应用视频配置
-  const frameRate = videoConfig?.frameRate || 30
+  const frameRate = videoConfig?.frameRate || 15
 
   logger.info('Rendering video', { jobId, quality, usedAI, frameRate })
 

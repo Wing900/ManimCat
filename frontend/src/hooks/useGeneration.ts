@@ -1,8 +1,7 @@
-// 生成请求 Hook
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../lib/api';
 import { loadCustomConfig } from '../lib/custom-ai';
+import { loadSettings } from '../lib/settings';
 import { loadPrompts } from './usePrompts';
 import type { GenerateRequest, JobResult, ProcessingStage, ModifyRequest } from '../types/api';
 
@@ -19,23 +18,10 @@ interface UseGenerationReturn {
   cancel: () => void;
 }
 
-/** 轮询间隔 */
 const POLL_INTERVAL = 1000;
 
-/** 从 localStorage 加载超时配置 */
 function getTimeoutConfig(): number {
-  try {
-    const saved = localStorage.getItem('manimcat_settings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.video?.timeout) {
-        return parsed.video.timeout;
-      }
-    }
-  } catch {
-    // 忽略错误，使用默认值
-  }
-  return 120; // 默认 120 秒
+  return loadSettings().video.timeout || 120;
 }
 
 export function useGeneration(): UseGenerationReturn {
@@ -61,7 +47,6 @@ export function useGeneration(): UseGenerationReturn {
     }
   }, []);
 
-  // 清理轮询和请求
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
@@ -71,7 +56,6 @@ export function useGeneration(): UseGenerationReturn {
     };
   }, []);
 
-  // 更新处理阶段
   const updateStage = useCallback((count: number) => {
     if (count < 5) {
       setStage('analyzing');
@@ -86,12 +70,10 @@ export function useGeneration(): UseGenerationReturn {
     }
   }, []);
 
-  // 开始轮询
   const startPolling = useCallback((id: string) => {
     pollCountRef.current = 0;
     setJobId(id);
-    
-    // 获取用户配置的超时时间
+
     const maxPollCount = getTimeoutConfig();
 
     pollIntervalRef.current = window.setInterval(async () => {
@@ -117,7 +99,6 @@ export function useGeneration(): UseGenerationReturn {
             setError(data.error || '生成失败');
           }
         } else {
-          // 使用后端返回的 stage，如果没有则使用前端估算的 fallback
           if (data.stage) {
             setStage(data.stage);
           } else {
@@ -125,7 +106,6 @@ export function useGeneration(): UseGenerationReturn {
           }
         }
 
-        // 超时检查（使用用户配置的超时时间）
         if (pollCountRef.current >= maxPollCount) {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
@@ -139,7 +119,6 @@ export function useGeneration(): UseGenerationReturn {
           return;
         }
 
-        // 如果是连接错误（后端断开），停止轮询
         if (err instanceof Error && (err.message.includes('ECONNREFUSED') || err.message.includes('Failed to fetch'))) {
           console.error('后端连接断开，停止轮询');
           if (pollIntervalRef.current) {
@@ -153,7 +132,6 @@ export function useGeneration(): UseGenerationReturn {
         console.error('轮询错误:', err);
         await requestCancel(id);
 
-        // 如果是任务未找到 (404) 或明确的失效提示
         if (err instanceof Error && (err.message.includes('未找到任务') || err.message.includes('失效'))) {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
@@ -167,7 +145,6 @@ export function useGeneration(): UseGenerationReturn {
     }, POLL_INTERVAL);
   }, [requestCancel, updateStage]);
 
-  // 使用现有代码重新渲染
   const renderWithCode = useCallback(async (request: GenerateRequest & { code: string }) => {
     setStatus('processing');
     setError(null);
@@ -193,7 +170,6 @@ export function useGeneration(): UseGenerationReturn {
     }
   }, [startPolling]);
 
-  // AI 修改后渲染
   const modifyWithAI = useCallback(async (request: ModifyRequest) => {
     setStatus('processing');
     setError(null);
@@ -219,7 +195,6 @@ export function useGeneration(): UseGenerationReturn {
     }
   }, [startPolling]);
 
-  // 生成动画
   const generate = useCallback(async (request: GenerateRequest) => {
     setStatus('processing');
     setError(null);
@@ -229,10 +204,7 @@ export function useGeneration(): UseGenerationReturn {
     abortControllerRef.current = new AbortController();
 
     try {
-      // 加载提示词配置
       const promptOverrides = loadPrompts();
-
-      // 检查是否有自定义 AI 配置
       const customApiConfig = loadCustomConfig() || undefined;
 
       const response = await generateAnimation(
@@ -250,7 +222,6 @@ export function useGeneration(): UseGenerationReturn {
     }
   }, [startPolling]);
 
-  // 重置状态
   const reset = useCallback(() => {
     setStatus('idle');
     setError(null);
@@ -263,7 +234,6 @@ export function useGeneration(): UseGenerationReturn {
     abortControllerRef.current?.abort();
   }, []);
 
-  // 取消生成
   const cancel = useCallback(() => {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
@@ -289,3 +259,4 @@ export function useGeneration(): UseGenerationReturn {
     cancel,
   };
 }
+
