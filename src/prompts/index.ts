@@ -12,6 +12,31 @@
 // System Prompts
 // =====================
 import { API_INDEX } from '../prompts/api-index'
+
+export const LATEX_KNOWLEDGE_SUPPLEMENT = `
+### 知识层（补充：LaTeX 专项）
+
+1. **LaTeX 渲染协议 (Rendering Protocol)**
+   - **双反斜杠规则**：在 Python 字符串中，所有 LaTeX 命令必须使用双反斜杠（如 \\frac, \\theta, \\pm），或者在字符串前加 \`r\`（如 \`r"\\frac"\`）。
+   - **MathTex vs Tex**：
+     - \`MathTex\`：默认进入数学模式（无需 \`$...$\`），用于公式。
+     - \`Tex\`：默认文本模式，数学符号需要包裹在 \`$...$\` 中。
+
+2. **公式局部控制 (Sub-formula Control)**
+   - **拆分逻辑**：使用 \`substrings_to_isolate=["x"]\` 来标记需要独立操作的字符。
+   - **局部变色**：使用 \`set_color_by_tex("x", RED)\`，前提是 \`"x"\` 必须在上述拆分列表中。
+
+3. **常用数学符号白名单**
+   - **算子**：\`\\sum\`, \`\\int\`, \`\\partial\`, \`\\sqrt\`
+   - **希腊字母**：\`\\alpha\`, \`\\beta\`, \`\\gamma\`, \`\\pi\`, \`\\infty\`
+   - **矩阵**：使用 \`\\begin{bmatrix} ... \\end{bmatrix}\`
+
+4. **文本渲染禁区**
+   - **中文与公式禁混写**：同一个句子里，写中文就不写公式，写公式就不写中文。
+   - **禁止中文进入 LaTeX 类**：严禁在 \`MathTex\` 或 \`Tex\` 中直接输入中文字符，否则会触发 LaTeX 编译错误（\`ValueError\`）。
+   - **中文替代方案**：需要中文标签时，必须使用 \`Text()\` 或 \`MarkupText()\`。
+`.trim()
+
 export const SYSTEM_PROMPTS = {
   /** 概念设计者/思考者的 system prompt - 第一阶段 */
   conceptDesigner: `你是一位数学动画概念设计专家，擅长将抽象的数学概念转化为清晰、可实现的动画设计方案。
@@ -227,6 +252,8 @@ ${API_INDEX}
 - **版本**：Manim Community Edition (v0.19.2)。
 - **核心逻辑**：基于向量化绘图，强调 \`.animate\` 链式调用。
 
+${LATEX_KNOWLEDGE_SUPPLEMENT}
+
 ## 行为层
 
 ### 工作流 (CoT)
@@ -298,9 +325,6 @@ export function generateCodeFixPrompt(
 - **修复代码**：修复以下失败的代码，确保它能正常运行。
 - **纯代码输出**：严禁输出 Markdown 代码块标识符，严禁包含任何解释性文字。
 - **锚点协议**：输出必须以 ### START ### 开始，以 ### END ###结束，两个锚点之间只允许出现代码。
-
-
-- **锚点协议**：输出必须以 ### START ### 开始，以 ### END ###结束，两个锚点之间只允许出现代码。
 - **结构规范**：核心类名固定为 \`MainScene\`（若为 3D 场景则继承自 \`ThreeDScene\`）。必须使用全部导入\`from manim import *\`
 
 ## 知识层
@@ -309,6 +333,9 @@ export function generateCodeFixPrompt(
 
 
 ${API_INDEX}
+
+
+${LATEX_KNOWLEDGE_SUPPLEMENT}
 
 
 ## 行为层
@@ -369,6 +396,8 @@ export function generateCodeEditPrompt(
 ### API 索引表
 
 ${API_INDEX}
+
+${LATEX_KNOWLEDGE_SUPPLEMENT}
 
 ## 原始代码
 

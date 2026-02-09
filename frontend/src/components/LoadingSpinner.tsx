@@ -25,7 +25,7 @@ const STAGE_CONFIG = {
 const TOTAL_STAGES = 4;
 
 // ============================================================================
-// 进度算法 - 对数曲线，永不停止
+// 进度算法 - 对数曲线 + 安慰机制
 // ============================================================================
 
 function usePerceivedProgress(stage: Stage): number {
@@ -48,14 +48,25 @@ function usePerceivedProgress(stage: Stage): number {
     return () => clearInterval(id);
   }, [stage]);
 
-  // 计算进度：对数曲线，快启动 + 持续增长但越来越慢
+  // 计算进度
   const stageIndex = STAGE_CONFIG[stage].index;
   const stageBase = (stageIndex / TOTAL_STAGES) * 100;
-  const stageSpace = 100 / TOTAL_STAGES;
-  const k = 0.25; // 增长速率
-  const stageProgress = stageSpace * 0.95 * (1 - 1 / (1 + k * elapsed));
+  const stageSpace = 100 / TOTAL_STAGES; // 每阶段 25%
 
-  return Math.min(98, stageBase + stageProgress);
+  // 对数曲线：快启动（前15秒主要靠这个）
+  const k = 0.25;
+  let stageProgress = stageSpace * 0.75 * (1 - 1 / (1 + k * elapsed));
+
+  // 安慰机制：超过15秒后，每8秒+1%，让用户看到"还在动"
+  if (elapsed > 15) {
+    const comfortBonus = Math.floor((elapsed - 15) / 8); // 每8秒+1%
+    stageProgress += Math.min(comfortBonus, stageSpace * 0.2); // 最多再加20%阶段空间
+  }
+
+  const progress = stageBase + stageProgress;
+
+  // 永远不到100%
+  return Math.min(98, progress);
 }
 
 // ============================================================================

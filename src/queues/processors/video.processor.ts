@@ -22,6 +22,10 @@ import { storeResult } from './steps/storage-step'
 
 const logger = createLogger('VideoProcessor')
 
+function shouldDisableQueueRetry(errorMessage: string): boolean {
+  return errorMessage.includes('Code retry failed after')
+}
+
 /**
  * 任务处理器主函数
  */
@@ -150,6 +154,16 @@ videoQueue.process(async (job) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const cancelReason = error instanceof JobCancelledError ? error.details : undefined
+
+    if (shouldDisableQueueRetry(errorMessage)) {
+      try {
+        job.discard()
+        logger.warn('Queue retry disabled for exhausted code retry', { jobId, error: errorMessage })
+      } catch (discardError) {
+        logger.warn('Failed to discard job retry', { jobId, error: discardError })
+      }
+    }
+
     logger.error('Job failed', { jobId, error: errorMessage, timings })
 
     // 存储失败结果

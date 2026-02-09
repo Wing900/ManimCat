@@ -14,7 +14,7 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
   video: {
     quality: 'low',
     frameRate: 15,
-    timeout: 120
+    timeout: 600
   }
 };
 
@@ -79,4 +79,3 @@ export function saveSettings(settings: SettingsConfig): void {
     localStorage.removeItem('manimcat_api_key');
   }
 }
-
