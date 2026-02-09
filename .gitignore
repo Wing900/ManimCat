@@ -46,6 +46,7 @@ tmp/
 !frontend/README.md
 !static/gifs/README.md
 !DEPLOYMENT.md
+!src/prompts/templates/**/*.md
 
 # Flow type files
 *.flow
