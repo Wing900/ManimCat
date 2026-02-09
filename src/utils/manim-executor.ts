@@ -59,6 +59,8 @@ export interface ManimExecuteOptions {
 
   mediaDir: string
 
+  timeoutMs?: number
+
 }
 
 
@@ -289,7 +291,7 @@ export function executeManimCommand(
 
 ): Promise<ManimExecutionResult> {
 
-  const { jobId, quality, frameRate, tempDir, mediaDir } = options
+  const { jobId, quality, frameRate, tempDir, mediaDir, timeoutMs = 10 * 60 * 1000 } = options
 
 
 
@@ -469,8 +471,6 @@ export function executeManimCommand(
 
 
 
-    // 10 minutes timeout
-
     const timeout = setTimeout(() => {
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
@@ -491,13 +491,13 @@ export function executeManimCommand(
 
         stdout,
 
-        stderr: stderr || 'Manim render timeout (10 minutes)',
+        stderr: stderr || `Manim render timeout (${Math.round(timeoutMs / 1000)} seconds)`,
 
         peakMemoryMB: peakMemory
 
       })
 
-    }, 10 * 60 * 1000)
+    }, timeoutMs)
 
 
 

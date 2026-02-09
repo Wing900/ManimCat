@@ -40,8 +40,11 @@ export async function renderVideo(
 
   // 应用视频配置
   const frameRate = videoConfig?.frameRate || 15
+  const timeoutMs = (videoConfig?.timeout && videoConfig.timeout > 0
+    ? videoConfig.timeout
+    : 600) * 1000
 
-  logger.info('Rendering video', { jobId, quality, usedAI, frameRate })
+  logger.info('Rendering video', { jobId, quality, usedAI, frameRate, timeoutMs })
 
   // 创建临时目录
   const tempDir = path.join(os.tmpdir(), `manim-${jobId}`)
@@ -91,7 +94,8 @@ export async function renderVideo(
         quality,
         frameRate,
         tempDir,
-        mediaDir
+        mediaDir,
+        timeoutMs
       }
 
       const result = await executeManimCommand(codeFile, options)

@@ -16,6 +16,8 @@ export interface VideoConfig {
   quality: VideoQuality
   /** 甯х巼 */
   frameRate: number
+  /** 瓒呮椂鏃堕棿锛堢锛夛紝榛樿 600 绉掞紙10 鍒嗛挓锛? */
+  timeout?: number
 }
 
 /**
@@ -59,19 +61,8 @@ export interface CustomApiConfig {
  * Prompt overrides for generation stages
  */
 export interface PromptOverrides {
-  system?: {
-    conceptDesigner?: string
-    codeGeneration?: string
-    codeRetry?: string
-    codeEdit?: string
-  }
-  user?: {
-    conceptDesigner?: string
-    codeGeneration?: string
-    codeRetryInitial?: string
-    codeRetryFix?: string
-    codeEdit?: string
-  }
+  roles?: Partial<Record<'conceptDesigner' | 'codeGeneration' | 'codeRetry' | 'codeEdit', { system?: string; user?: string }>>
+  shared?: Partial<Record<'knowledge' | 'rules', string>>
 }
 
 export type VisionImageDetail = 'auto' | 'low' | 'high'

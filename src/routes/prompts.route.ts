@@ -1,47 +1,32 @@
-﻿import express from 'express'
+/**
+ * 提示词管理 API 路由
+ */
 
-import {
-  SYSTEM_PROMPTS,
-  generateConceptDesignerPrompt,
-  generateCodeGenerationPrompt,
-  generateCodeEditPrompt
-} from '../prompts'
-import { CODE_RETRY_SYSTEM_PROMPT, buildInitialCodePrompt } from '../services/code-retry/prompts'
-import { buildRetryFixPrompt } from '../services/code-retry/manager'
-import type { PromptOverrides } from '../types'
+import express from 'express'
+import { getAllDefaultTemplates, type RoleType, type SharedModuleType } from '../prompts'
 
 const router = express.Router()
 
-const PLACEHOLDERS = {
-  concept: '{{concept}}',
-  seed: '{{seed}}',
-  sceneDesign: '{{sceneDesign}}',
-  errorMessage: '{{errorMessage}}',
-  attempt: '{{attempt}}',
-  instructions: '{{instructions}}',
-  code: '{{code}}'
+// ============================================================================
+// 类型定义（前端使用）
+// ============================================================================
+
+interface PromptDefaults {
+  roles: Record<RoleType, { system: string; user: string }>
+  shared: Record<SharedModuleType, string>
 }
 
-function buildDefaultPromptTemplates(): PromptOverrides {
-  return {
-    system: {
-      conceptDesigner: SYSTEM_PROMPTS.conceptDesigner,
-      codeGeneration: SYSTEM_PROMPTS.codeGeneration,
-      codeRetry: CODE_RETRY_SYSTEM_PROMPT,
-      codeEdit: SYSTEM_PROMPTS.codeEdit
-    },
-    user: {
-      conceptDesigner: generateConceptDesignerPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.seed),
-      codeGeneration: generateCodeGenerationPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.seed, PLACEHOLDERS.sceneDesign),
-      codeRetryInitial: buildInitialCodePrompt(PLACEHOLDERS.concept, PLACEHOLDERS.seed, PLACEHOLDERS.sceneDesign),
-      codeRetryFix: buildRetryFixPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.errorMessage, PLACEHOLDERS.attempt),
-      codeEdit: generateCodeEditPrompt(PLACEHOLDERS.concept, PLACEHOLDERS.instructions, PLACEHOLDERS.code)
-    }
-  }
-}
+// ============================================================================
+// 路由
+// ============================================================================
 
+/**
+ * GET /api/prompts/defaults
+ * 获取所有默认提示词模板
+ */
 router.get('/prompts/defaults', (_req, res) => {
-  res.json(buildDefaultPromptTemplates())
+  const defaults: PromptDefaults = getAllDefaultTemplates()
+  res.json(defaults)
 })
 
 export default router

@@ -51,14 +51,20 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
 }
 
 export function loadSettings(): SettingsConfig {
-  const version = localStorage.getItem(SETTINGS_VERSION_KEY);
-  if (version !== SETTINGS_VERSION) {
-    return createDefaultSettings();
-  }
-
   const saved = localStorage.getItem(SETTINGS_KEY);
   if (!saved) {
     return createDefaultSettings();
+  }
+
+  const version = localStorage.getItem(SETTINGS_VERSION_KEY);
+  if (version !== SETTINGS_VERSION) {
+    try {
+      const migrated = sanitizeSettings(JSON.parse(saved));
+      saveSettings(migrated);
+      return migrated;
+    } catch {
+      return createDefaultSettings();
+    }
   }
 
   try {

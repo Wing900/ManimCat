@@ -1,4 +1,4 @@
-import type { GenerateRequest, GenerateResponse, JobResult, ApiError, PromptOverrides, ModifyRequest } from '../types/api';
+import type { GenerateRequest, GenerateResponse, JobResult, ApiError, PromptDefaults, ModifyRequest } from '../types/api';
 import { loadSettings } from './settings';
 
 const API_BASE = '/api';
@@ -54,7 +54,7 @@ export async function generateAnimation(request: GenerateRequest, signal?: Abort
   return response.json();
 }
 
-export async function getPromptDefaults(signal?: AbortSignal): Promise<PromptOverrides> {
+export async function getPromptDefaults(signal?: AbortSignal): Promise<PromptDefaults> {
   const response = await fetch(`${API_BASE}/prompts/defaults`, {
     headers: getAuthHeaders(),
     signal,

@@ -7,7 +7,7 @@
 import OpenAI from 'openai'
 import crypto from 'crypto'
 import { createLogger } from '../utils/logger'
-import { SYSTEM_PROMPTS, generateConceptDesignerPrompt, generateCodeGenerationPrompt } from '../prompts'
+import { SYSTEM_PROMPTS, generateConceptDesignerPrompt, generateCodeGenerationPrompt, getSharedModule } from '../prompts'
 import type { CustomApiConfig, PromptOverrides, ReferenceImage, VisionImageDetail } from '../types'
 
 const logger = createLogger('ConceptDesigner')
@@ -67,10 +67,20 @@ function generateUniqueSeed(concept: string): string {
   return crypto.createHash('md5').update(`${concept}-${timestamp}-${randomPart}`).digest('hex').slice(0, 8)
 }
 
-function applyPromptTemplate(template: string, values: Record<string, string>): string {
+function applyPromptTemplate(
+  template: string,
+  values: Record<string, string>,
+  promptOverrides?: PromptOverrides
+): string {
   let output = template
+
+  // 替换共享模块占位符
+  output = output.replace(/\{\{knowledge\}\}/g, getSharedModule('knowledge', promptOverrides))
+  output = output.replace(/\{\{rules\}\}/g, getSharedModule('rules', promptOverrides))
+
+  // 替换变量占位符
   for (const [key, value] of Object.entries(values)) {
-    output = output.replace(new RegExp(`{{\s*${key}\s*}}`, 'g'), value)
+    output = output.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value || '')
   }
   return output
 }
@@ -187,10 +197,10 @@ async function generateSceneDesign(
   try {
     const seed = generateUniqueSeed(concept)
 
-    const systemPrompt = promptOverrides?.system?.conceptDesigner || SYSTEM_PROMPTS.conceptDesigner
-    const userPromptOverride = promptOverrides?.user?.conceptDesigner
+    const systemPrompt = promptOverrides?.roles?.conceptDesigner?.system || SYSTEM_PROMPTS.conceptDesigner
+    const userPromptOverride = promptOverrides?.roles?.conceptDesigner?.user
     const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, seed })
+      ? applyPromptTemplate(userPromptOverride, { concept, seed }, promptOverrides)
       : generateConceptDesignerPrompt(concept, seed)
 
     logger.info('开始阶段1：生成场景设计方案', { concept, seed, hasImages: !!referenceImages?.length })
@@ -304,10 +314,10 @@ async function generateCodeFromDesign(
   try {
     const seed = generateUniqueSeed(`${concept}-${sceneDesign.slice(0, 20)}`)
 
-    const systemPrompt = promptOverrides?.system?.codeGeneration || SYSTEM_PROMPTS.codeGeneration
-    const userPromptOverride = promptOverrides?.user?.codeGeneration
+    const systemPrompt = promptOverrides?.roles?.codeGeneration?.system || SYSTEM_PROMPTS.codeGeneration
+    const userPromptOverride = promptOverrides?.roles?.codeGeneration?.user
     const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign })
+      ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign }, promptOverrides)
       : generateCodeGenerationPrompt(concept, seed, sceneDesign)
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, seed })

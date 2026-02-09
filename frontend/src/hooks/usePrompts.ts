@@ -1,175 +1,178 @@
-// 提示词管理 Hook
-// 负责提示词的状态管理、存储和加载
+/**
+ * 提示词管理 Hook
+ * 适配新的 roles + shared 数据结构
+ */
 
 import { useState, useEffect, useCallback } from 'react';
 import { getPromptDefaults } from '../lib/api';
-import type { PromptOverrides } from '../types/api';
+import type { RoleType, SharedModuleType, PromptDefaults, PromptOverrides } from '../types/api';
 
-/** 存储在 localStorage 中的键名 */
-const PROMPTS_STORAGE_KEY = 'manimcat_prompt_overrides';
+const STORAGE_KEY = 'manimcat_prompt_overrides';
 
-/** 默认提示词配置 */
-const DEFAULT_PROMPTS: PromptOverrides = {
-  system: {
-    conceptDesigner: '',
-    codeGeneration: '',
-    codeRetry: '',
-    codeEdit: '',
-  },
-  user: {
-    conceptDesigner: '',
-    codeGeneration: '',
-    codeRetryInitial: '',
-    codeRetryFix: '',
-    codeEdit: '',
-  },
-};
+// ============================================================================
+// 存储
+// ============================================================================
 
-/** 从 localStorage 加载提示词配置 */
-/** Load prompt overrides from localStorage if available. */
-export function loadStoredPrompts(): PromptOverrides | null {
+function loadStoredOverrides(): PromptOverrides | null {
   try {
-    const saved = localStorage.getItem(PROMPTS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        system: { ...DEFAULT_PROMPTS.system, ...parsed.system },
-        user: { ...DEFAULT_PROMPTS.user, ...parsed.user },
-      };
-    }
-  } catch (error) {
-    console.error('Failed to load prompts:', error);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Failed to load prompts:', e);
   }
   return null;
 }
 
-export function loadPrompts(): PromptOverrides {
-  return loadStoredPrompts() || DEFAULT_PROMPTS;
-}
-
-/** 保存提示词配置到 localStorage */
-export function savePrompts(prompts: PromptOverrides): void {
+function saveOverrides(overrides: PromptOverrides): void {
   try {
-    localStorage.setItem(PROMPTS_STORAGE_KEY, JSON.stringify(prompts));
-  } catch (error) {
-    console.error('Failed to save prompts:', error);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    console.error('Failed to save prompts:', e);
   }
 }
 
-/** 提示词管理 Hook */
+/** 供 useGeneration 使用，导出当前覆盖配置 */
+export function loadPrompts(): PromptOverrides {
+  return loadStoredOverrides() || {};
+}
+
+// ============================================================================
+// 选择项类型
+// ============================================================================
+
+export type SelectionType =
+  | { kind: 'role'; role: RoleType; promptType: 'system' | 'user' }
+  | { kind: 'shared'; module: SharedModuleType };
+
+// ============================================================================
+// Hook
+// ============================================================================
+
 export function usePrompts() {
-  const [prompts, setPrompts] = useState<PromptOverrides>(DEFAULT_PROMPTS);
-  const [defaultPrompts, setDefaultPrompts] = useState<PromptOverrides>(DEFAULT_PROMPTS);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeSection, setActiveSection] = useState<string>('system');
-  const [activePrompt, setActivePrompt] = useState<string>('conceptDesigner');
+  const [defaults, setDefaults] = useState<PromptDefaults | null>(null);
+  const [overrides, setOverrides] = useState<PromptOverrides>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [selection, setSelection] = useState<SelectionType>({
+    kind: 'role',
+    role: 'codeGeneration',
+    promptType: 'user'
+  });
 
-  // 从 localStorage 加载配置
+  // 加载默认值和覆盖配置
   useEffect(() => {
-    const savedPrompts = loadStoredPrompts();
-    if (savedPrompts) {
-      setPrompts(savedPrompts);
-    }
+    let active = true;
 
-    let isActive = true;
-    const loadDefaults = async () => {
+    const load = async () => {
       setIsLoading(true);
       try {
-        const defaults = await getPromptDefaults();
-        if (isActive) {
-          setDefaultPrompts(defaults);
+        const [defaultsData, storedOverrides] = await Promise.all([
+          getPromptDefaults(),
+          Promise.resolve(loadStoredOverrides())
+        ]);
+        if (active) {
+          setDefaults(defaultsData);
+          setOverrides(storedOverrides || {});
         }
-      } catch (error) {
-        console.error('Failed to load prompt defaults:', error);
+      } catch (e) {
+        console.error('Failed to load prompts:', e);
       } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+        if (active) setIsLoading(false);
       }
     };
 
-    void loadDefaults();
-    return () => {
-      isActive = false;
-    };
+    void load();
+    return () => { active = false; };
   }, []);
 
-  // 保存到 localStorage
+  // 保存覆盖配置
   useEffect(() => {
-    savePrompts(prompts);
-  }, [prompts]);
+    if (!isLoading) {
+      saveOverrides(overrides);
+    }
+  }, [overrides, isLoading]);
 
-  // 更新提示词
-  const updatePrompt = useCallback((section: string, type: string, value: string) => {
-    setPrompts(prev => {
-      const newPrompts = { ...prev };
+  // 获取当前选择的默认内容
+  const getDefaultContent = useCallback((): string => {
+    if (!defaults) return '';
 
-      if (section === 'system') {
-        if (!newPrompts.system) {
-          newPrompts.system = {};
+    if (selection.kind === 'role') {
+      const { role, promptType } = selection;
+      return defaults.roles[role]?.[promptType] || '';
+    } else {
+      return defaults.shared[selection.module] || '';
+    }
+  }, [defaults, selection]);
+
+  // 获取当前选择的覆盖内容
+  const getOverrideContent = useCallback((): string => {
+    if (selection.kind === 'role') {
+      const { role, promptType } = selection;
+      return overrides.roles?.[role]?.[promptType] || '';
+    } else {
+      return overrides.shared?.[selection.module] || '';
+    }
+  }, [overrides, selection]);
+
+  // 获取当前内容（覆盖优先，否则默认）
+  const getCurrentContent = useCallback((): string => {
+    const override = getOverrideContent();
+    return override || getDefaultContent();
+  }, [getOverrideContent, getDefaultContent]);
+
+  // 设置当前内容
+  const setCurrentContent = useCallback((value: string) => {
+    const defaultValue = getDefaultContent();
+    // 如果和默认值相同，则清除覆盖
+    const newValue = value === defaultValue ? '' : value;
+
+    setOverrides(prev => {
+      const next = { ...prev };
+
+      if (selection.kind === 'role') {
+        const { role, promptType } = selection;
+        if (!next.roles) next.roles = {};
+        if (!next.roles[role]) next.roles[role] = {};
+        next.roles[role]![promptType] = newValue || undefined;
+        // 清理空对象
+        if (!next.roles[role]?.system && !next.roles[role]?.user) {
+          delete next.roles[role];
         }
-        newPrompts.system[type as keyof PromptOverrides['system']] = value;
-      } else if (section === 'user') {
-        if (!newPrompts.user) {
-          newPrompts.user = {};
-        }
-        newPrompts.user[type as keyof PromptOverrides['user']] = value;
+      } else {
+        if (!next.shared) next.shared = {};
+        next.shared[selection.module] = newValue || undefined;
+        // 清理
+        if (!newValue) delete next.shared[selection.module];
       }
 
-      return newPrompts;
+      return next;
     });
+  }, [selection, getDefaultContent]);
+
+  // 恢复当前选择的默认值
+  const restoreCurrent = useCallback(() => {
+    setCurrentContent(getDefaultContent());
+  }, [setCurrentContent, getDefaultContent]);
+
+  // 恢复全部默认值
+  const restoreAll = useCallback(() => {
+    setOverrides({});
   }, []);
 
-  // 恢复默认值
-  const restoreDefault = useCallback(() => {
-    setPrompts(DEFAULT_PROMPTS);
-  }, []);
-
-  // 获取当前编辑的提示词
-  const getDefaultPrompt = useCallback((section: string, type: string) => {
-    if (section === 'system') {
-      return defaultPrompts.system?.[type as keyof PromptOverrides['system']] || '';
-    }
-    if (section === 'user') {
-      return defaultPrompts.user?.[type as keyof PromptOverrides['user']] || '';
-    }
-    return '';
-  }, [defaultPrompts]);
-
-  // 
-  const getCurrentPrompt = useCallback(() => {
-    let current = '';
-    if (activeSection === 'system') {
-      current = prompts.system?.[activePrompt as keyof PromptOverrides['system']] || '';
-    } else if (activeSection === 'user') {
-      current = prompts.user?.[activePrompt as keyof PromptOverrides['user']] || '';
-    }
-
-    if (current && current.trim().length > 0) {
-      return current;
-    }
-
-    return getDefaultPrompt(activeSection, activePrompt);
-  }, [prompts, activeSection, activePrompt, getDefaultPrompt]);
-
-  // 
-  const setCurrentPrompt = useCallback((value: string) => {
-    const defaultValue = getDefaultPrompt(activeSection, activePrompt);
-    const nextValue = value === defaultValue ? '' : value;
-    updatePrompt(activeSection, activePrompt, nextValue);
-  }, [activeSection, activePrompt, getDefaultPrompt, updatePrompt]);
+  // 检查当前是否有覆盖
+  const hasOverride = useCallback((): boolean => {
+    return !!getOverrideContent();
+  }, [getOverrideContent]);
 
   return {
-    prompts,
-    defaultPrompts,
+    defaults,
+    overrides,
     isLoading,
-    activeSection,
-    activePrompt,
-    setActiveSection,
-    setActivePrompt,
-    updatePrompt,
-    restoreDefault,
-    getCurrentPrompt,
-    setCurrentPrompt,
+    selection,
+    setSelection,
+    getCurrentContent,
+    setCurrentContent,
+    restoreCurrent,
+    restoreAll,
+    hasOverride
   };
 }

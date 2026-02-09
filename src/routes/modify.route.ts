@@ -31,10 +31,22 @@ function extractToken(authHeader: string | string[] | undefined): string {
 
 function hasPromptOverrides(promptOverrides: any): boolean {
   if (!promptOverrides) return false
-  const system = promptOverrides.system || {}
-  const user = promptOverrides.user || {}
-  return Object.values(system).some((value) => typeof value === 'string' && value.trim().length > 0) ||
-    Object.values(user).some((value) => typeof value === 'string' && value.trim().length > 0)
+  const roles = promptOverrides.roles || {}
+  const shared = promptOverrides.shared || {}
+
+  const hasRoleOverride = Object.values(roles).some((roleValue: any) => {
+    if (!roleValue || typeof roleValue !== 'object') return false
+    return ['system', 'user'].some((field) => {
+      const content = roleValue[field]
+      return typeof content === 'string' && content.trim().length > 0
+    })
+  })
+
+  const hasSharedOverride = Object.values(shared).some(
+    (value) => typeof value === 'string' && value.trim().length > 0
+  )
+
+  return hasRoleOverride || hasSharedOverride
 }
 
 function requirePromptOverrideAuth(req: express.Request): void {
@@ -60,18 +72,27 @@ const bodySchema = z.object({
     model: z.string()
   }).optional(),
   promptOverrides: z.object({
-    system: z.object({
-      conceptDesigner: z.string().max(20000).optional(),
-      codeGeneration: z.string().max(20000).optional(),
-      codeRetry: z.string().max(20000).optional(),
-      codeEdit: z.string().max(20000).optional()
+    roles: z.object({
+      conceptDesigner: z.object({
+        system: z.string().max(20000).optional(),
+        user: z.string().max(20000).optional()
+      }).optional(),
+      codeGeneration: z.object({
+        system: z.string().max(20000).optional(),
+        user: z.string().max(20000).optional()
+      }).optional(),
+      codeRetry: z.object({
+        system: z.string().max(20000).optional(),
+        user: z.string().max(20000).optional()
+      }).optional(),
+      codeEdit: z.object({
+        system: z.string().max(20000).optional(),
+        user: z.string().max(20000).optional()
+      }).optional()
     }).optional(),
-    user: z.object({
-      conceptDesigner: z.string().max(20000).optional(),
-      codeGeneration: z.string().max(20000).optional(),
-      codeRetryInitial: z.string().max(20000).optional(),
-      codeRetryFix: z.string().max(20000).optional(),
-      codeEdit: z.string().max(20000).optional()
+    shared: z.object({
+      knowledge: z.string().max(40000).optional(),
+      rules: z.string().max(40000).optional()
     }).optional()
   }).optional(),
   videoConfig: z.object({

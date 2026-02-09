@@ -26,20 +26,22 @@ export interface CustomApiConfig {
   model: string;
 }
 
+/** 角色类型 */
+export type RoleType = 'conceptDesigner' | 'codeGeneration' | 'codeRetry' | 'codeEdit';
+
+/** 共享模块类型 */
+export type SharedModuleType = 'knowledge' | 'rules';
+
+/** 提示词默认值（从服务端获取） */
+export interface PromptDefaults {
+  roles: Record<RoleType, { system: string; user: string }>;
+  shared: Record<SharedModuleType, string>;
+}
+
+/** 提示词覆盖配置（用户自定义） */
 export interface PromptOverrides {
-  system?: {
-    conceptDesigner?: string;
-    codeGeneration?: string;
-    codeRetry?: string;
-    codeEdit?: string;
-  };
-  user?: {
-    conceptDesigner?: string;
-    codeGeneration?: string;
-    codeRetryInitial?: string;
-    codeRetryFix?: string;
-    codeEdit?: string;
-  };
+  roles?: Partial<Record<RoleType, { system?: string; user?: string }>>;
+  shared?: Partial<Record<SharedModuleType, string>>;
 }
 
 /** 视频配置 */

@@ -15,6 +15,7 @@ import { cleanManimCode } from '../../utils/manim-code-cleaner'
 import type { CodeRetryOptions, CodeRetryResult, RenderResult, RetryManagerResult, ChatMessage, CodeRetryContext } from './types'
 import type { PromptOverrides } from '../../types'
 import { buildInitialCodePrompt, CODE_RETRY_SYSTEM_PROMPT } from './prompts'
+import { getSharedModule, getRoleUserPrompt } from '../../prompts'
 import { getClient } from './client'
 import { extractCodeFromResponse, extractErrorMessage, getErrorType } from './utils'
 
@@ -29,16 +30,26 @@ const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
 /**
  * 生成唯一种子
  */
-function applyPromptTemplate(template: string, values: Record<string, string>): string {
+function applyPromptTemplate(
+  template: string,
+  values: Record<string, string>,
+  promptOverrides?: PromptOverrides
+): string {
   let output = template
+
+  // 替换共享模块占位符
+  output = output.replace(/\{\{knowledge\}\}/g, getSharedModule('knowledge', promptOverrides))
+  output = output.replace(/\{\{rules\}\}/g, getSharedModule('rules', promptOverrides))
+
+  // 替换变量占位符
   for (const [key, value] of Object.entries(values)) {
-    output = output.replace(new RegExp(`{{\s*${key}\s*}}`, 'g'), value)
+    output = output.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value || '')
   }
   return output
 }
 
 function getCodeRetrySystemPrompt(promptOverrides?: PromptOverrides): string {
-  return promptOverrides?.system?.codeRetry || CODE_RETRY_SYSTEM_PROMPT
+  return promptOverrides?.roles?.codeRetry?.system || CODE_RETRY_SYSTEM_PROMPT
 }
 
 function buildInitialPrompt(
@@ -47,15 +58,15 @@ function buildInitialPrompt(
   sceneDesign: string,
   promptOverrides?: PromptOverrides
 ): string {
-  const override = promptOverrides?.user?.codeRetryInitial
+  const override = promptOverrides?.roles?.codeRetry?.user
   if (override) {
     return applyPromptTemplate(override, {
       concept,
       seed,
       sceneDesign
-    })
+    }, promptOverrides)
   }
-  return buildInitialCodePrompt(concept, seed, sceneDesign)
+  return buildInitialCodePrompt(concept, seed, sceneDesign, promptOverrides)
 }
 
 function generateSeed(concept: string): string {
@@ -214,23 +225,15 @@ async function retryCodeGeneration(
 export function buildRetryFixPrompt(
   concept: string,
   errorMessage: string,
-  attempt: number | string
+  attempt: number | string,
+  promptOverrides?: PromptOverrides
 ): string {
-  return `## 目标层
-
-### 输入预期
-
-- **概念**：${concept}
-- **错误信息**（第 ${attempt} 次重试）：${errorMessage}
-
-### 产出要求
-
-- **修复代码**：根据错误信息修复之前的代码。
-- **完整代码**：必须输出完整的、可运行的 Manim 代码，不是修复片段！
-- **锚点协议**：代码必须包裹在 ### START ### 和 ### END ### 之间
-- **纯代码输出**：严禁包含任何解释性文字。
-- **结构规范**：核心类名固定为 \`AnimationScene\`
-`
+  // 使用新的模板系统
+  return getRoleUserPrompt('codeRetry', {
+    concept,
+    errorMessage,
+    attempt: Number(attempt)
+  }, promptOverrides)
 }
 
 function buildRetryPrompt(
@@ -238,15 +241,15 @@ function buildRetryPrompt(
   errorMessage: string,
   attempt: number
 ): string {
-  const override = context.promptOverrides?.user?.codeRetryFix
+  const override = context.promptOverrides?.roles?.codeRetry?.user
   if (override) {
     return applyPromptTemplate(override, {
       concept: context.concept,
       errorMessage,
       attempt: String(attempt)
-    })
+    }, context.promptOverrides)
   }
-  return buildRetryFixPrompt(context.concept, errorMessage, attempt)
+  return buildRetryFixPrompt(context.concept, errorMessage, attempt, context.promptOverrides)
 }
 
 /**

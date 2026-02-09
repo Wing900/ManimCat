@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CustomSelect } from './CustomSelect';
 import type { Quality, ApiConfig, VideoConfig, SettingsConfig } from '../types/api';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../lib/settings';
 
 type TabType = 'api' | 'video';
 
@@ -25,38 +26,8 @@ interface SettingsModalProps {
   onSave: (config: SettingsConfig) => void;
 }
 
-/** 从 localStorage 加载配置 */
-function loadConfig(): SettingsConfig {
-  const saved = localStorage.getItem('manimcat_settings');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved) as SettingsConfig;
-      return {
-        api: parsed.api || { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' },
-        video: parsed.video || { quality: 'medium', frameRate: 30, timeout: 600 }
-      };
-    } catch {
-      return { api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' }, video: { quality: 'medium', frameRate: 30, timeout: 600 } };
-    }
-  }
-  // 同时检查单独存储的 ManimCat API Key（兼容旧版本）
-  const manimcatKey = localStorage.getItem('manimcat_api_key') || '';
-  return { api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: manimcatKey }, video: { quality: 'medium', frameRate: 30, timeout: 600 } };
-}
-
-/** 保存配置到 localStorage */
-function saveConfig(config: SettingsConfig): void {
-  localStorage.setItem('manimcat_settings', JSON.stringify(config));
-  // 单独保存 ManimCat API Key（用于 api.ts 的 getAuthHeaders，兼容旧版本）
-  if (config.api.manimcatApiKey) {
-    localStorage.setItem('manimcat_api_key', config.api.manimcatApiKey);
-  } else {
-    localStorage.removeItem('manimcat_api_key');
-  }
-}
-
 export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
-  const [config, setConfig] = useState<SettingsConfig>({ api: { apiUrl: '', apiKey: '', model: '', manimcatApiKey: '' }, video: { quality: 'medium', frameRate: 30, timeout: 600 } });
+  const [config, setConfig] = useState<SettingsConfig>(DEFAULT_SETTINGS);
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<TabType>('api');
 
@@ -70,14 +41,14 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
 
   useEffect(() => {
     if (isOpen) {
-      setConfig(loadConfig());
+      setConfig(loadSettings());
       setTestResult({ status: 'idle', message: '' });
       setActiveTab('api');
     }
   }, [isOpen]);
 
   const handleSave = () => {
-    saveConfig(config);
+    saveSettings(config);
     onSave(config);
     onClose();
   };
@@ -356,7 +327,7 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
                   { value: 300, label: '5 分钟' },
                   { value: 600, label: '10 分钟' }
                 ]}
-                value={config.video.timeout || 120}
+                value={config.video.timeout ?? DEFAULT_SETTINGS.video.timeout}
                 onChange={(value) => updateVideoConfig({ timeout: value })}
                 label="生成超时"
               />

@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
-import { SYSTEM_PROMPTS, generateCodeEditPrompt } from '../prompts'
+import { SYSTEM_PROMPTS, generateCodeEditPrompt, getSharedModule } from '../prompts'
 import type { CustomApiConfig, PromptOverrides } from '../types'
 
 const logger = createLogger('CodeEditService')
@@ -46,10 +46,20 @@ function createCustomClient(config: CustomApiConfig): OpenAI {
   })
 }
 
-function applyPromptTemplate(template: string, values: Record<string, string>): string {
+function applyPromptTemplate(
+  template: string,
+  values: Record<string, string>,
+  promptOverrides?: PromptOverrides
+): string {
   let output = template
+
+  // 替换共享模块占位符
+  output = output.replace(/\{\{knowledge\}\}/g, getSharedModule('knowledge', promptOverrides))
+  output = output.replace(/\{\{rules\}\}/g, getSharedModule('rules', promptOverrides))
+
+  // 替换变量占位符
   for (const [key, value] of Object.entries(values)) {
-    output = output.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value)
+    output = output.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value || '')
   }
   return output
 }
@@ -83,10 +93,10 @@ export async function generateEditedManimCode(
   }
 
   try {
-    const systemPrompt = promptOverrides?.system?.codeEdit || SYSTEM_PROMPTS.codeEdit
-    const userPromptOverride = promptOverrides?.user?.codeEdit
+    const systemPrompt = promptOverrides?.roles?.codeEdit?.system || SYSTEM_PROMPTS.codeEdit
+    const userPromptOverride = promptOverrides?.roles?.codeEdit?.user
     const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, instructions, code })
+      ? applyPromptTemplate(userPromptOverride, { concept, instructions, code }, promptOverrides)
       : generateCodeEditPrompt(concept, instructions, code)
 
     logger.info('开始 AI 修改代码', { concept })
