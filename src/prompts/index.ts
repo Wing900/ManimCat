@@ -32,9 +32,7 @@ export const LATEX_KNOWLEDGE_SUPPLEMENT = `
    - **矩阵**：使用 \`\\begin{bmatrix} ... \\end{bmatrix}\`
 
 4. **文本渲染禁区**
-   - **中文与公式禁混写**：同一个句子里，写中文就不写公式，写公式就不写中文。
-   - **禁止中文进入 LaTeX 类**：严禁在 \`MathTex\` 或 \`Tex\` 中直接输入中文字符，否则会触发 LaTeX 编译错误（\`ValueError\`）。
-   - **中文替代方案**：需要中文标签时，必须使用 \`Text()\` 或 \`MarkupText()\`。
+   - **统一规则**：不要在 \`MathTex\` 或 \`Tex\` 组件中使用中文，所有说明文字请使用 \`Text()\` 组件，或者公式内统一使用英文变量。
 `.trim()
 
 export const SYSTEM_PROMPTS = {
