@@ -69,6 +69,7 @@ README.md
 CHANGELOG.md
 LICENSE
 *.md
+!src/prompts/templates/**/*.md
 docs/
 
 # Docker files
