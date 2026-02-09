@@ -26,6 +26,18 @@ function shouldDisableQueueRetry(errorMessage: string): boolean {
   return errorMessage.includes('Code retry failed after')
 }
 
+function getRetryMeta(job: any): { currentAttempt: number; maxAttempts: number; hasRemainingAttempts: boolean } {
+  const maxAttempts = typeof job?.opts?.attempts === 'number' && job.opts.attempts > 0
+    ? job.opts.attempts
+    : 1
+  const currentAttempt = (job?.attemptsMade ?? 0) + 1
+  return {
+    currentAttempt,
+    maxAttempts,
+    hasRemainingAttempts: currentAttempt < maxAttempts
+  }
+}
+
 /**
  * 任务处理器主函数
  */
@@ -154,17 +166,41 @@ videoQueue.process(async (job) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const cancelReason = error instanceof JobCancelledError ? error.details : undefined
+    const retryMeta = getRetryMeta(job)
+    const disableQueueRetry = shouldDisableQueueRetry(errorMessage)
+    const willQueueRetry = !disableQueueRetry && retryMeta.hasRemainingAttempts
 
-    if (shouldDisableQueueRetry(errorMessage)) {
+    if (disableQueueRetry) {
       try {
         job.discard()
-        logger.warn('Queue retry disabled for exhausted code retry', { jobId, error: errorMessage })
+        logger.warn('Queue retry disabled for exhausted code retry', {
+          jobId,
+          error: errorMessage,
+          currentAttempt: retryMeta.currentAttempt,
+          maxAttempts: retryMeta.maxAttempts
+        })
       } catch (discardError) {
         logger.warn('Failed to discard job retry', { jobId, error: discardError })
       }
     }
 
-    logger.error('Job failed', { jobId, error: errorMessage, timings })
+    if (willQueueRetry) {
+      logger.warn('Job attempt failed, Bull will retry', {
+        jobId,
+        error: errorMessage,
+        currentAttempt: retryMeta.currentAttempt,
+        maxAttempts: retryMeta.maxAttempts
+      })
+      throw error
+    }
+
+    logger.error('Job failed', {
+      jobId,
+      error: errorMessage,
+      timings,
+      currentAttempt: retryMeta.currentAttempt,
+      maxAttempts: retryMeta.maxAttempts
+    })
 
     // 存储失败结果
     await storeJobResult(jobId, {
