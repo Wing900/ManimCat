@@ -51,7 +51,7 @@ router.get(
         jobId,
         status: bullJobStatus === 'waiting' || bullJobStatus === 'delayed' ? 'queued' : 'processing',
         stage: stage || 'analyzing',
-        message: '正在生成动画...'
+        message: '正在生成内容...'
       })
     }
 
@@ -75,7 +75,7 @@ router.get(
       return res.status(200).json({
         jobId,
         status: 'processing' as const,
-        message: '正在生成动画...'
+        message: '正在生成内容...'
       })
     }
 
@@ -85,7 +85,10 @@ router.get(
           jobId,
           status: 'completed' as const,
           success: true as const,
-          video_url: result.data.videoUrl,
+          output_mode: result.data.outputMode || 'video',
+          video_url: result.data.videoUrl ?? null,
+          image_urls: result.data.imageUrls,
+          image_count: result.data.imageCount,
           code: result.data.manimCode,
           used_ai: result.data.usedAI,
           render_quality: result.data.quality,

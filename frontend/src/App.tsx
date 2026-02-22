@@ -12,13 +12,18 @@ import { SettingsModal } from './components/SettingsModal';
 import { PromptsManager } from './components/PromptsManager';
 import { DonationModal } from './components/DonationModal';
 import ManimCatLogo from './components/ManimCatLogo';
-import type { Quality, ReferenceImage } from './types/api';
+import type { OutputMode, Quality, ReferenceImage } from './types/api';
 
 function App() {
   const { status, result, error, jobId, stage, generate, renderWithCode, modifyWithAI, reset, cancel } = useGeneration();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentCode, setCurrentCode] = useState('');
-  const [lastRequest, setLastRequest] = useState<{ concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] } | null>(null);
+  const [lastRequest, setLastRequest] = useState<{
+    concept: string;
+    quality: Quality;
+    outputMode: OutputMode;
+    referenceImages?: ReferenceImage[];
+  } | null>(null);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [aiModifyInput, setAiModifyInput] = useState('');
 
@@ -31,7 +36,7 @@ function App() {
     }
   }, [result?.code]);
 
-  const handleSubmit = (data: { concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] }) => {
+  const handleSubmit = (data: { concept: string; quality: Quality; outputMode: OutputMode; referenceImages?: ReferenceImage[] }) => {
     setLastRequest(data);
     generate(data);
   };
@@ -55,6 +60,7 @@ function App() {
     setAiModifyInput('');
     modifyWithAI({
       concept: lastRequest.concept,
+      outputMode: lastRequest.outputMode,
       quality: lastRequest.quality,
       instructions,
       code: currentCode
@@ -153,7 +159,9 @@ function App() {
               {/* 结果展示 */}
               <ResultSection
                 code={currentCode || result.code || ''}
+                outputMode={result.output_mode || lastRequest?.outputMode || 'video'}
                 videoUrl={result.video_url || ''}
+                imageUrls={result.image_urls || []}
                 usedAI={result.used_ai || false}
                 renderQuality={result.render_quality || ''}
                 generationType={result.generation_type || ''}
@@ -175,7 +183,7 @@ function App() {
                   }}
                   className="px-8 py-2.5 text-sm text-text-secondary/80 hover:text-accent transition-colors bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full"
                 >
-                  生成新的动画
+                  生成新的内容
                 </button>
               </div>
             </div>

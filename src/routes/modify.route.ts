@@ -63,6 +63,7 @@ function requirePromptOverrideAuth(req: express.Request): void {
 
 const bodySchema = z.object({
   concept: z.string().min(1, '概念不能为空'),
+  outputMode: z.enum(['video', 'image']),
   quality: z.enum(['low', 'medium', 'high']).optional().default('low'),
   instructions: z.string().min(1, '修改意见不能为空'),
   code: z.string().min(1, '原始代码不能为空'),
@@ -104,7 +105,7 @@ const bodySchema = z.object({
 
 async function handleModifyRequest(req: express.Request, res: express.Response) {
   const parsed = bodySchema.parse(req.body)
-  const { concept, quality, instructions, code, customApiConfig, promptOverrides, videoConfig } = parsed
+  const { concept, outputMode, quality, instructions, code, customApiConfig, promptOverrides, videoConfig } = parsed
 
   if (hasPromptOverrides(promptOverrides)) {
     requirePromptOverrideAuth(req)
@@ -125,6 +126,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
   logger.info('收到 AI 修改请求', {
     jobId,
     concept: sanitizedConcept,
+    outputMode,
     quality,
     hasCode: !!code,
     videoConfig
@@ -136,6 +138,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     {
       jobId,
       concept: sanitizedConcept,
+      outputMode,
       quality,
       editCode: code,
       editInstructions: sanitizedInstructions,

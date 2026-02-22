@@ -44,12 +44,6 @@ export const appConfig = {
     customApiUrl: process.env.CUSTOM_API_URL?.trim()
   },
 
-  // 缓存配置
-  cache: {
-    enabled: process.env.ENABLE_CACHING !== 'false',
-    ttl: parseInt(process.env.CACHE_TTL || '2592000', 10)  // 默认 30 天
-  },
-
   // Manim 配置
   manim: {
     quality: {
@@ -102,6 +96,5 @@ export function printConfig(): void {
   console.log(`  - Port: ${appConfig.port}`)
   console.log(`  - Host: ${appConfig.host}`)
   console.log(`  - OpenAI Model: ${appConfig.openai.model}`)
-  console.log(`  - Cache Enabled: ${appConfig.cache.enabled}`)
   console.log(`  - CORS Origin: ${appConfig.cors.origin}`)
 }

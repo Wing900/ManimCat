@@ -1,11 +1,15 @@
 ﻿// 结果展示区域
 
 import { CodeView } from './CodeView';
+import { ImagePreview } from './ImagePreview';
 import { VideoPreview } from './VideoPreview';
+import type { OutputMode } from '../types/api';
 
 interface ResultSectionProps {
   code: string;
+  outputMode: OutputMode;
   videoUrl: string;
+  imageUrls: string[];
   usedAI: boolean;
   renderQuality: string;
   generationType: string;
@@ -17,7 +21,9 @@ interface ResultSectionProps {
 
 export function ResultSection({
   code,
+  outputMode,
   videoUrl,
+  imageUrls,
   usedAI,
   renderQuality,
   generationType,
@@ -36,14 +42,18 @@ export function ResultSection({
           <CodeView code={code} editable={Boolean(onCodeChange)} onChange={onCodeChange} disabled={isBusy} />
         </div>
         <div className="h-[360px]">
-          <VideoPreview videoUrl={videoUrl} />
+          {outputMode === 'image' ? (
+            <ImagePreview imageUrls={imageUrls} />
+          ) : (
+            <VideoPreview videoUrl={videoUrl} />
+          )}
         </div>
       </div>
 
       {/* 结果信息 */}
       <div className="bg-bg-secondary/30 rounded-xl px-4 py-2.5">
         <p className="text-xs text-text-secondary/70">
-          {generationType}{usedAI ? ' (AI)' : ''} · {renderQuality}
+          {outputMode} · {generationType}{usedAI ? ' (AI)' : ''} · {renderQuality}
         </p>
       </div>
 

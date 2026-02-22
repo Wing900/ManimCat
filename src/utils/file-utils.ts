@@ -38,6 +38,20 @@ export function findVideoFile(mediaDir: string, quality: string, frameRate?: num
 }
 
 /**
+ * 查找图片文件
+ */
+export function findImageFile(mediaDir: string, sceneName?: string): string | null {
+  if (sceneName) {
+    const sceneImage = findFileRecursive(mediaDir, `${sceneName}.png`)
+    if (sceneImage) {
+      return sceneImage
+    }
+  }
+
+  return findFirstFileByExtension(mediaDir, '.png')
+}
+
+/**
  * 递归查找文件
  */
 export function findFileRecursive(dir: string, filename: string): string | null {
@@ -51,6 +65,25 @@ export function findFileRecursive(dir: string, filename: string): string | null 
         const found = findFileRecursive(fullPath, filename)
         if (found) return found
       } else if (entry.name === filename) {
+        return fullPath
+      }
+    }
+  } catch {
+    // 忽略错误
+  }
+
+  return null
+}
+
+function findFirstFileByExtension(dir: string, ext: string): string | null {
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        const found = findFirstFileByExtension(fullPath, ext)
+        if (found) return found
+      } else if (entry.name.toLowerCase().endsWith(ext.toLowerCase())) {
         return fullPath
       }
     }

@@ -18,7 +18,7 @@ const STAGE_CONFIG = {
   analyzing:         { index: 0, text: '正在分析概念...' },
   generating:        { index: 1, text: '正在生成代码...' },
   refining:          { index: 2, text: '正在优化结果...' },
-  rendering:         { index: 3, text: '正在渲染动画...' },
+  rendering:         { index: 3, text: '正在渲染内容...' },
   'still-rendering': { index: 3, text: '仍在渲染中...' },
 } as const;
 

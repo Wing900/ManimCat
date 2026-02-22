@@ -2,6 +2,7 @@
 
 /** 视频质量选项 */
 export type Quality = 'low' | 'medium' | 'high';
+export type OutputMode = 'video' | 'image';
 
 /** 图片细节级别 */
 export type VisionImageDetail = 'auto' | 'low' | 'high';
@@ -67,7 +68,6 @@ export type JobStatus = 'processing' | 'completed' | 'failed';
 export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
 
 export interface JobTimings {
-  cache?: number;
   analyze?: number;
   edit?: number;
   retry?: number;
@@ -79,8 +79,8 @@ export interface JobTimings {
 /** 生成请求 */
 export interface GenerateRequest {
   concept: string;
+  outputMode: OutputMode;
   quality?: Quality;
-  forceRefresh?: boolean;
   /** 参考图片 */
   referenceImages?: ReferenceImage[];
   /** 预生成的代码（使用自定义 AI 时） */
@@ -95,6 +95,7 @@ export interface GenerateRequest {
 /** AI 修改请求 */
 export interface ModifyRequest {
   concept: string;
+  outputMode: OutputMode;
   quality?: Quality;
   instructions: string;
   code: string;
@@ -118,7 +119,10 @@ export interface JobResult {
   stage?: ProcessingStage;
   message?: string;
   success?: boolean;
-  video_url?: string;
+  output_mode?: OutputMode;
+  video_url?: string | null;
+  image_urls?: string[];
+  image_count?: number;
   code?: string;
   used_ai?: boolean;
   render_quality?: string;

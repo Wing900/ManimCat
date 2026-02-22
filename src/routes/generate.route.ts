@@ -100,8 +100,8 @@ function requirePromptOverrideAuth(req: express.Request): void {
 // 请求体 schema（与原有保持一致）
 const bodySchema = z.object({
   concept: z.string().min(1, '概念必填'),
+  outputMode: z.enum(['video', 'image']),
   quality: z.enum(['low', 'medium', 'high']).optional().default('low'),
-  forceRefresh: z.boolean().optional().default(false),
   referenceImages: z.array(referenceImageSchema).max(MAX_REFERENCE_IMAGES, `At most ${MAX_REFERENCE_IMAGES} reference images are allowed`).optional(),
   /** 预生成的代码（使用自定义 AI 时） */
   code: z.string().optional(),
@@ -154,7 +154,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     throw error;
   }
 
-  const { concept, quality, forceRefresh, code, customApiConfig, promptOverrides, videoConfig, referenceImages } = parsed;
+  const { concept, outputMode, quality, code, customApiConfig, promptOverrides, videoConfig, referenceImages } = parsed;
 
   // 清理输入
   if (hasPromptOverrides(promptOverrides)) {
@@ -174,8 +174,8 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   logger.info('收到动画生成请求', {
     jobId,
     concept: sanitizedConcept,
+    outputMode,
     quality,
-    forceRefresh,
     hasPreGeneratedCode: !!code,
     referenceImageCount: sanitizedReferenceImages?.length || 0,
     videoConfig
@@ -189,8 +189,8 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     {
       jobId,
       concept: sanitizedConcept,
+      outputMode,
       quality,
-      forceRefresh,
       referenceImages: sanitizedReferenceImages,
       preGeneratedCode: code,
       customApiConfig,
@@ -208,7 +208,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   const response: GenerateResponse = {
     success: true,
     jobId,
-    message: code ? '视频渲染已开始' : '动画生成已开始',
+    message: code ? '渲染已开始' : '生成已开始',
     status: 'processing'
   }
 

@@ -7,6 +7,7 @@
  * 瑙嗛璐ㄩ噺閫夐」
  */
 export type VideoQuality = 'low' | 'medium' | 'high'
+export type OutputMode = 'video' | 'image'
 
 /**
  * 瑙嗛閰嶇疆
@@ -34,7 +35,6 @@ export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'renderi
  * 任务耗时统计（毫秒）
  */
 export interface JobTimings {
-  cache?: number
   analyze?: number
   edit?: number
   retry?: number
@@ -80,7 +80,7 @@ export interface VideoJobData {
   concept: string
   referenceImages?: ReferenceImage[]
   quality: VideoQuality
-  forceRefresh?: boolean
+  outputMode: OutputMode
   timestamp: string
   /** 棰勭敓鎴愮殑浠ｇ爜锛堜娇鐢ㄨ嚜瀹氫箟 AI 鏃讹級 */
   preGeneratedCode?: string
@@ -102,7 +102,10 @@ export interface VideoJobData {
 export interface CompletedJobResult {
   status: 'completed'
   data: {
-    videoUrl: string
+    outputMode: OutputMode
+    videoUrl?: string
+    imageUrls?: string[]
+    imageCount?: number
     manimCode: string
     usedAI: boolean
     quality: VideoQuality
@@ -139,6 +142,7 @@ export interface ConceptCacheData {
   conceptHash: string
   concept: string
   quality: VideoQuality
+  outputMode?: OutputMode
   videoUrl: string
   manimCode: string
   generationType: GenerationType
@@ -153,7 +157,7 @@ export interface GenerateRequest {
   concept: string
   referenceImages?: ReferenceImage[]
   quality?: VideoQuality
-  forceRefresh?: boolean
+  outputMode: OutputMode
   promptOverrides?: PromptOverrides
   customApiConfig?: CustomApiConfig
 }
@@ -199,7 +203,10 @@ export interface JobStatusCompletedResponse {
   status: 'completed'
   jobId: string
   success: true
-  video_url: string
+  output_mode: OutputMode
+  video_url?: string | null
+  image_urls?: string[]
+  image_count?: number
   code: string
   used_ai: boolean
   render_quality: VideoQuality

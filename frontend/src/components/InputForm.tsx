@@ -1,11 +1,11 @@
 // 输入表单组件 - MD3 风格
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Quality, VideoConfig, SettingsConfig, ReferenceImage } from '../types/api';
+import type { OutputMode, Quality, ReferenceImage } from '../types/api';
 import { loadSettings } from '../lib/settings';
 
 interface InputFormProps {
-  onSubmit: (data: { concept: string; quality: Quality; forceRefresh: boolean; referenceImages?: ReferenceImage[] }) => void;
+  onSubmit: (data: { concept: string; quality: Quality; outputMode: OutputMode; referenceImages?: ReferenceImage[] }) => void;
   loading: boolean;
 }
 
@@ -19,27 +19,11 @@ const QUALITY_OPTIONS = [
   { value: 'high' as Quality, label: '高 (1080p)', desc: '最慢' },
 ];
 
-/** 从 localStorage 加载默认质量 */
-function loadDefaultQuality(): Quality {
-  try {
-    const saved = localStorage.getItem('manimcat_settings');
-    if (saved) {
-      const parsed = JSON.parse(saved) as SettingsConfig;
-      if (parsed.video?.quality) {
-        return parsed.video.quality;
-      }
-    }
-  } catch {
-    // 忽略错误
-  }
-  return 'low'; // 默认值
-}
-
 export function InputForm({ onSubmit, loading }: InputFormProps) {
   const [concept, setConcept] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [forceRefresh, setForceRefresh] = useState(false);
   const [quality, setQuality] = useState<Quality>(loadSettings().video.quality);
+  const [outputMode, setOutputMode] = useState<OutputMode>('video');
   const [images, setImages] = useState<ReferenceImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -161,7 +145,7 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [loading, concept, quality, forceRefresh]);
+  }, [loading, concept, quality, outputMode]);
 
   // 实时验证
   useEffect(() => {
@@ -182,10 +166,10 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
     onSubmit({
       concept: concept.trim(),
       quality,
-      forceRefresh,
+      outputMode,
       referenceImages: images.length > 0 ? images : undefined
     });
-  }, [concept, quality, forceRefresh, images, onSubmit]);
+  }, [concept, quality, outputMode, images, onSubmit]);
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -277,17 +261,33 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
             ))}
           </div>
 
-          {/* 右侧：强制刷新 */}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={forceRefresh}
-              onChange={(e) => setForceRefresh(e.target.checked)}
+          {/* 右侧：输出模式 */}
+          <div className="flex items-center gap-1 bg-bg-secondary/30 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => setOutputMode('video')}
               disabled={loading}
-              className="w-4 h-4 rounded border-border text-accent focus:ring-accent/20"
-            />
-            <span className="text-xs text-text-secondary">跳过缓存</span>
-          </label>
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                outputMode === 'video'
+                  ? 'bg-bg-secondary text-text-primary'
+                  : 'text-text-secondary/60 hover:text-text-secondary hover:bg-bg-secondary/50'
+              }`}
+            >
+              视频
+            </button>
+            <button
+              type="button"
+              onClick={() => setOutputMode('image')}
+              disabled={loading}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                outputMode === 'image'
+                  ? 'bg-bg-secondary text-text-primary'
+                  : 'text-text-secondary/60 hover:text-text-secondary hover:bg-bg-secondary/50'
+              }`}
+            >
+              图片
+            </button>
+          </div>
         </div>
 
         {/* 图片预览 */}
@@ -336,7 +336,7 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
                 </>
               ) : (
                 <>
-                  生成动画
+                  {outputMode === 'image' ? '生成图片' : '生成动画'}
                   <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>

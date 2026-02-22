@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import type { JobTimings } from '../types/api';
 
 const timingLabels: Array<{ key: keyof JobTimings; label: string }> = [
-  { key: 'cache', label: '缓存' },
   { key: 'analyze', label: '分析' },
   { key: 'edit', label: '修改' },
   { key: 'retry', label: '代码生成' },
@@ -80,4 +79,3 @@ export function TimingPanel({ timings }: TimingPanelProps) {
     </div>
   );
 }
-

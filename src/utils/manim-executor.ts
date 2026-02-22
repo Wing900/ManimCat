@@ -53,7 +53,11 @@ export interface ManimExecuteOptions {
 
   quality: string
 
-  frameRate: number
+  frameRate?: number
+
+  format?: 'mp4' | 'png'
+
+  sceneName?: string
 
   tempDir: string
 
@@ -291,7 +295,16 @@ export function executeManimCommand(
 
 ): Promise<ManimExecutionResult> {
 
-  const { jobId, quality, frameRate, tempDir, mediaDir, timeoutMs = 10 * 60 * 1000 } = options
+  const {
+    jobId,
+    quality,
+    frameRate = 15,
+    format = 'mp4',
+    sceneName = 'MainScene',
+    tempDir,
+    mediaDir,
+    timeoutMs = 10 * 60 * 1000
+  } = options
 
 
 
@@ -320,22 +333,18 @@ export function executeManimCommand(
 
 
     const args = [
-
       'render',
-
-      '--format', 'mp4',
-
-      '-r', frameRate.toString(),
-
+      '--format', format,
+      '--fps', frameRate.toString(),
       '--resolution', `${resolution.width},${resolution.height}`,
-
-      '--media_dir', mediaDir,
-
-      codeFile,
-
-      'MainScene'
-
+      '--media_dir', mediaDir
     ]
+
+    if (format === 'png') {
+      args.push('-s')
+    }
+
+    args.push(codeFile, sceneName)
 
 
 

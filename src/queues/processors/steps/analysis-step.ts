@@ -3,14 +3,9 @@
  * 分析用户输入，决定生成策略
  */
 
-import {
-  isLikelyLatex,
-  selectTemplate,
-  generateLatexSceneCode
-} from '../../../services/manim-templates'
 import { generateTwoStageAIManimCode } from '../../../services/concept-designer'
 import { createLogger } from '../../../utils/logger'
-import type { CustomApiConfig, PromptOverrides, ReferenceImage } from '../../../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../../../types'
 
 const logger = createLogger('AnalysisStep')
 
@@ -39,33 +34,13 @@ export interface GenerationResult {
 export async function analyzeConcept(
   jobId: string,
   concept: string,
-  _quality: string
+  _quality: string,
+  outputMode: OutputMode
 ): Promise<AnalysisResult> {
-  logger.info('Analyzing concept', { jobId, concept })
+  logger.info('Analyzing concept', { jobId, concept, outputMode })
 
-  // 检查是否为 LaTeX
-  if (isLikelyLatex(concept)) {
-    logger.info('Detected LaTeX', { jobId })
-    return {
-      analysisType: 'latex',
-      manimCode: generateLatexSceneCode(concept),
-      needsAI: false
-    }
-  }
-
-  // 尝试匹配模板
-  const templateResult = selectTemplate(concept)
-  if (templateResult) {
-    logger.info('Matched template', { jobId, template: templateResult.templateName })
-    return {
-      analysisType: 'template',
-      manimCode: templateResult.code,
-      needsAI: false
-    }
-  }
-
-  // 需要 AI 生成
-  logger.info('Using AI for unique output', { jobId })
+  // 始终走 AI 生成，禁用 LaTeX/模板快捷路径，确保输出为完整动画设计而非固定模板。
+  logger.info('Using AI for all concepts (template shortcuts disabled)', { jobId, outputMode })
   return {
     analysisType: 'ai',
     manimCode: null,
@@ -80,13 +55,14 @@ export async function generateCode(
   jobId: string,
   concept: string,
   _quality: string,
+  outputMode: OutputMode,
   analyzeResult: AnalysisResult,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
   referenceImages?: ReferenceImage[]
 ): Promise<GenerationResult> {
   const { analysisType, manimCode, needsAI } = analyzeResult
-  logger.info('Generating code', { jobId, needsAI, analysisType, hasImages: !!referenceImages?.length })
+  logger.info('Generating code', { jobId, outputMode, needsAI, analysisType, hasImages: !!referenceImages?.length })
 
   // 基本可视化代码（fallback）
   const basicVisualizationCode = `from manim import *
@@ -102,7 +78,13 @@ class MainScene(Scene):
     // 使用两阶段 AI 生成：概念设计者 + 代码生成者
     try {
       logger.info('使用两阶段 AI 生成', { jobId, hasImages: !!referenceImages?.length })
-      const result = await generateTwoStageAIManimCode(concept, customApiConfig, promptOverrides, referenceImages)
+      const result = await generateTwoStageAIManimCode(
+        concept,
+        outputMode,
+        customApiConfig,
+        promptOverrides,
+        referenceImages
+      )
       if (result.code && result.code.length > 0) {
         logger.info('两阶段 AI 代码生成成功', { jobId, length: result.code.length, hasSceneDesign: !!result.sceneDesign })
         return {
@@ -114,6 +96,9 @@ class MainScene(Scene):
       }
     } catch (error) {
       logger.warn('AI generation failed, using fallback', { jobId, error: String(error) })
+    }
+    if (outputMode === 'image') {
+      return { manimCode: '', usedAI: true, generationType: 'image-empty' }
     }
     return { manimCode: basicVisualizationCode, usedAI: false, generationType: 'fallback' }
   }
@@ -133,11 +118,21 @@ export async function analyzeAndGenerate(
   jobId: string,
   concept: string,
   quality: string,
+  outputMode: OutputMode,
   _timings: Record<string, number>,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
   referenceImages?: ReferenceImage[]
 ): Promise<GenerationResult> {
-  const analysisResult = await analyzeConcept(jobId, concept, quality)
-  return generateCode(jobId, concept, quality, analysisResult, customApiConfig, promptOverrides, referenceImages)
+  const analysisResult = await analyzeConcept(jobId, concept, quality, outputMode)
+  return generateCode(
+    jobId,
+    concept,
+    quality,
+    outputMode,
+    analysisResult,
+    customApiConfig,
+    promptOverrides,
+    referenceImages
+  )
 }

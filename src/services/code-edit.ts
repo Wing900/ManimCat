@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
 import { SYSTEM_PROMPTS, generateCodeEditPrompt, getSharedModule } from '../prompts'
-import type { CustomApiConfig, PromptOverrides } from '../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides } from '../types'
 
 const logger = createLogger('CodeEditService')
 
@@ -64,9 +64,12 @@ function applyPromptTemplate(
   return output
 }
 
-function extractCodeFromResponse(text: string): string {
+function extractCodeFromResponse(text: string, outputMode: OutputMode): string {
   if (!text) return ''
   const sanitized = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
+  if (outputMode === 'image') {
+    return sanitized.trim()
+  }
   const anchorMatch = sanitized.match(/### START ###([\s\S]*?)### END ###/)
   if (anchorMatch) {
     return anchorMatch[1].trim()
@@ -82,6 +85,7 @@ export async function generateEditedManimCode(
   concept: string,
   instructions: string,
   code: string,
+  outputMode: OutputMode,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides
 ): Promise<string> {
@@ -93,13 +97,26 @@ export async function generateEditedManimCode(
   }
 
   try {
-    const systemPrompt = promptOverrides?.roles?.codeEdit?.system || SYSTEM_PROMPTS.codeEdit
+    const baseSystemPrompt = promptOverrides?.roles?.codeEdit?.system || SYSTEM_PROMPTS.codeEdit
     const userPromptOverride = promptOverrides?.roles?.codeEdit?.user
-    const userPrompt = userPromptOverride
+    const baseUserPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, instructions, code }, promptOverrides)
       : generateCodeEditPrompt(concept, instructions, code)
+    const imageModeSuffix = `
 
-    logger.info('开始 AI 修改代码', { concept })
+图片模式强约束：
+1. 仅输出 YON_IMAGE 锚点块代码，块外禁止任何字符。
+2. 锚点格式必须为 ### YON_IMAGE_n_START ### / ### YON_IMAGE_n_END ###。
+3. 编号从 1 连续递增，检测到几组就渲染几张。
+4. 每个块都必须包含可渲染的 Scene 类。`
+    const systemPrompt = outputMode === 'image'
+      ? `${baseSystemPrompt}\n\n当前任务为图片模式，请严格遵守 YON_IMAGE 多图锚点协议。`
+      : baseSystemPrompt
+    const userPrompt = outputMode === 'image'
+      ? `${baseUserPrompt}${imageModeSuffix}`
+      : baseUserPrompt
+
+    logger.info('开始 AI 修改代码', { concept, outputMode })
 
     const model = customApiConfig?.model?.trim() || OPENAI_MODEL
 
@@ -119,8 +136,8 @@ export async function generateEditedManimCode(
       return ''
     }
 
-    const extracted = extractCodeFromResponse(content)
-    logger.info('AI 修改完成', { concept, length: extracted.length })
+    const extracted = extractCodeFromResponse(content, outputMode)
+    logger.info('AI 修改完成', { concept, outputMode, length: extracted.length })
     return extracted
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
