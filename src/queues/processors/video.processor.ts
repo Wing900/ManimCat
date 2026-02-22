@@ -1,45 +1,19 @@
 /**
  * Video Processor
  * 任务处理器 - 主编排器
- *
- * 职责：任务流程编排，异常处理，计时统计
  */
 
 import { videoQueue } from '../../config/bull'
 import { storeJobResult } from '../../services/job-store'
-import { generateEditedManimCode } from '../../services/code-edit'
-import { ensureJobNotCancelled } from '../../services/job-cancel'
 import { clearJobCancelled } from '../../services/job-cancel-store'
 import { JobCancelledError } from '../../utils/errors'
 import { createLogger } from '../../utils/logger'
 import type { VideoJobData } from '../../types'
-
-// 导入步骤模块
-import { analyzeAndGenerate } from './steps/analysis-step'
-import { renderImages, renderVideo, handlePreGeneratedCode } from './steps/render-step'
-import { storeResult } from './steps/storage-step'
+import { runEditFlow, runGenerationFlow, runPreGeneratedFlow } from './video-processor-flows'
+import { getRetryMeta, shouldDisableQueueRetry } from './video-processor-utils'
 
 const logger = createLogger('VideoProcessor')
 
-function shouldDisableQueueRetry(errorMessage: string): boolean {
-  return errorMessage.includes('Code retry failed after')
-}
-
-function getRetryMeta(job: any): { currentAttempt: number; maxAttempts: number; hasRemainingAttempts: boolean } {
-  const maxAttempts = typeof job?.opts?.attempts === 'number' && job.opts.attempts > 0
-    ? job.opts.attempts
-    : 1
-  const currentAttempt = (job?.attemptsMade ?? 0) + 1
-  return {
-    currentAttempt,
-    maxAttempts,
-    hasRemainingAttempts: currentAttempt < maxAttempts
-  }
-}
-
-/**
- * 任务处理器主函数
- */
 videoQueue.process(async (job) => {
   const data = job.data as VideoJobData
   const {
@@ -64,137 +38,24 @@ videoQueue.process(async (job) => {
     referenceImageCount: referenceImages?.length || 0
   })
 
-  // 阶段时长追踪
   const timings: Record<string, number> = {}
 
   try {
-    await ensureJobNotCancelled(jobId, job)
-    // 如果有预生成代码，跳过缓存和 AI 生成阶段，直接渲染
     if (preGeneratedCode) {
-      await ensureJobNotCancelled(jobId, job)
-      const renderResult = await handlePreGeneratedCode(jobId, concept, quality, outputMode, preGeneratedCode, timings, data)
-
-      const storeStart = Date.now()
-      await storeResult(renderResult, timings)
-      timings.store = Date.now() - storeStart
-      timings.total = timings.render + timings.store
-
+      const result = await runPreGeneratedFlow({ job, data, promptOverrides, timings })
       logger.info('Job completed (pre-generated code)', { jobId, timings })
-      return { success: true, source: 'pre-generated', timings }
+      return result
     }
 
-    // AI 修改流程
     if (editCode && editInstructions) {
-      await ensureJobNotCancelled(jobId, job)
-      await storeJobStage(jobId, 'generating')
-      const editStart = Date.now()
-      const editedCode = await generateEditedManimCode(
-        concept,
-        editInstructions,
-        editCode,
-        outputMode,
-        data.customApiConfig,
-        promptOverrides
-      )
-      timings.edit = Date.now() - editStart
-
-      if (!editedCode) {
-        throw new Error('AI 修改未返回有效代码')
-      }
-
-      await ensureJobNotCancelled(jobId, job)
-      const renderStart = Date.now()
-      const generationResult = {
-        manimCode: editedCode,
-        usedAI: true,
-        generationType: 'ai-edit'
-      }
-      const renderResult = outputMode === 'image'
-        ? await renderImages(
-          jobId,
-          concept,
-          quality,
-          generationResult,
-          timings,
-          data.videoConfig,
-          () => storeJobStage(jobId, 'rendering')
-        )
-        : await renderVideo(
-          jobId,
-          concept,
-          quality,
-          generationResult,
-          timings,
-          data.customApiConfig,
-          data.videoConfig,
-          promptOverrides,
-          () => storeJobStage(jobId, 'rendering')
-        )
-      timings.render = Date.now() - renderStart
-
-      const storeStart = Date.now()
-      await storeResult(renderResult, timings)
-      timings.store = Date.now() - storeStart
-      timings.total = timings.edit + timings.render + timings.store
-
+      const result = await runEditFlow({ job, data, promptOverrides, timings })
       logger.info('Job completed', { jobId, source: 'ai-edit', timings })
-      return { success: true, source: 'ai-edit', timings }
+      return result
     }
 
-    // Step 1: 分析概念并生成代码
-    await ensureJobNotCancelled(jobId, job)
-    await storeJobStage(jobId, 'generating')
-    const analyzeStart = Date.now()
-    const codeResult = await analyzeAndGenerate(
-      jobId,
-      concept,
-      quality,
-      outputMode,
-      timings,
-      data.customApiConfig,
-      promptOverrides,
-      referenceImages
-    )
-    timings.analyze = Date.now() - analyzeStart
-
-    // Step 2: 渲染结果
-    await ensureJobNotCancelled(jobId, job)
-    const renderStart = Date.now()
-    const renderResult = outputMode === 'image'
-      ? await renderImages(
-        jobId,
-        concept,
-        quality,
-        codeResult,
-        timings,
-        data.videoConfig,
-        () => storeJobStage(jobId, 'rendering')
-      )
-      : await renderVideo(
-        jobId,
-        concept,
-        quality,
-        codeResult,
-        timings,
-        data.customApiConfig,
-        data.videoConfig,
-        promptOverrides,
-        () => storeJobStage(jobId, 'rendering')
-      )
-    timings.render = Date.now() - renderStart
-
-    // Step 3: 存储结果
-    await ensureJobNotCancelled(jobId, job)
-    const storeStart = Date.now()
-    await storeResult(renderResult, timings)
-    timings.store = Date.now() - storeStart
-
-    // 总时长
-    timings.total = timings.analyze + timings.render + timings.store
-
+    const result = await runGenerationFlow({ job, data, promptOverrides, timings })
     logger.info('Job completed', { jobId, source: 'generation', timings })
-
-    return { success: true, source: 'generation', timings }
+    return result
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const cancelReason = error instanceof JobCancelledError ? error.details : undefined
@@ -234,7 +95,6 @@ videoQueue.process(async (job) => {
       maxAttempts: retryMeta.maxAttempts
     })
 
-    // 存储失败结果
     await storeJobResult(jobId, {
       status: 'failed',
       data: { error: errorMessage, cancelReason }
@@ -244,11 +104,3 @@ videoQueue.process(async (job) => {
     throw error
   }
 })
-
-/**
- * 存储任务阶段（辅助函数）
- */
-async function storeJobStage(jobId: string, stage: string): Promise<void> {
-  const { storeJobStage: storeStage } = await import('../../services/job-store')
-  await storeStage(jobId, stage as any)
-}

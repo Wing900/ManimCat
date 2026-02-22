@@ -7,74 +7,17 @@
  * 3. 最多重试 4 次
  */
 
-import crypto from 'crypto'
-import OpenAI from 'openai'
 import { createLogger } from '../../utils/logger'
-import { cleanManimCode } from '../../utils/manim-code-cleaner'
-
 import type { CodeRetryOptions, CodeRetryResult, RenderResult, RetryManagerResult, ChatMessage, CodeRetryContext } from './types'
 import type { PromptOverrides } from '../../types'
-import { buildInitialCodePrompt, CODE_RETRY_SYSTEM_PROMPT } from './prompts'
-import { getSharedModule, getRoleUserPrompt } from '../../prompts'
-import { getClient } from './client'
-import { extractCodeFromResponse, extractErrorMessage, getErrorType } from './utils'
+import { extractErrorMessage, getErrorType } from './utils'
+import { buildContextOriginalPrompt, buildRetryFixPrompt } from './prompt-builder'
+import { generateInitialCode, retryCodeGeneration } from './code-generation'
 
 const logger = createLogger('CodeRetryManager')
 
 // 配置
 const MAX_RETRIES = parseInt(process.env.CODE_RETRY_MAX_RETRIES || '4', 10)
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'glm-4-flash'
-const AI_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
-const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
-
-/**
- * 生成唯一种子
- */
-function applyPromptTemplate(
-  template: string,
-  values: Record<string, string>,
-  promptOverrides?: PromptOverrides
-): string {
-  let output = template
-
-  // 替换共享模块占位符
-  output = output.replace(/\{\{knowledge\}\}/g, getSharedModule('knowledge', promptOverrides))
-  output = output.replace(/\{\{rules\}\}/g, getSharedModule('rules', promptOverrides))
-
-  // 替换变量占位符
-  for (const [key, value] of Object.entries(values)) {
-    output = output.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value || '')
-  }
-  return output
-}
-
-function getCodeRetrySystemPrompt(promptOverrides?: PromptOverrides): string {
-  return promptOverrides?.roles?.codeRetry?.system || CODE_RETRY_SYSTEM_PROMPT
-}
-
-function buildInitialPrompt(
-  concept: string,
-  seed: string,
-  sceneDesign: string,
-  promptOverrides?: PromptOverrides
-): string {
-  const override = promptOverrides?.roles?.codeRetry?.user
-  if (override) {
-    return applyPromptTemplate(override, {
-      concept,
-      seed,
-      sceneDesign
-    }, promptOverrides)
-  }
-  return buildInitialCodePrompt(concept, seed, sceneDesign, promptOverrides)
-}
-
-function generateSeed(concept: string): string {
-  const timestamp = Date.now()
-  const randomPart = crypto.randomBytes(4).toString('hex')
-  return crypto.createHash('md5').update(`${concept}-${timestamp}-${randomPart}`).digest('hex').slice(0, 8)
-}
-
 /**
  * 创建重试上下文
  */
@@ -83,174 +26,19 @@ export function createRetryContext(
   sceneDesign: string,
   promptOverrides?: PromptOverrides
 ): CodeRetryContext {
-  const seed = generateSeed(concept)
-
   return {
     concept,
     sceneDesign,
-    originalPrompt: buildInitialPrompt(concept, seed, sceneDesign, promptOverrides),
+    originalPrompt: buildContextOriginalPrompt(concept, sceneDesign, promptOverrides),
     messages: [],
     promptOverrides
   }
 }
 
 /**
- * 首次代码生成
- */
-async function generateInitialCode(
-  context: CodeRetryContext,
-  customApiConfig?: any
-): Promise<string> {
-  const client = getClient(customApiConfig)
-  if (!client) {
-    throw new Error('OpenAI 客户端不可用')
-  }
-
-  try {
-    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
-
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
-        { role: 'user', content: context.originalPrompt }
-      ],
-      temperature: AI_TEMPERATURE,
-      max_tokens: MAX_TOKENS
-    })
-
-    const content = response.choices[0]?.message?.content || ''
-    if (!content) {
-      throw new Error('AI 返回空内容')
-    }
-
-    // 清洗代码
-    const code = extractCodeFromResponse(content)
-    const cleaned = cleanManimCode(code)
-
-    // 保存对话历史
-    context.messages.push(
-      { role: 'user', content: context.originalPrompt },
-      { role: 'assistant', content: code }
-    )
-
-    logger.info('首次代码生成成功', {
-      concept: context.concept,
-      codeLength: cleaned.code.length
-    })
-
-    return cleaned.code
-  } catch (error) {
-    if (error instanceof OpenAI.APIError) {
-      logger.error('OpenAI API 错误', {
-        status: error.status,
-        message: error.message
-      })
-    }
-    throw error
-  }
-}
-
-/**
- * 重试代码生成
- */
-async function retryCodeGeneration(
-  context: CodeRetryContext,
-  errorMessage: string,
-  attempt: number,
-  customApiConfig?: any
-): Promise<string> {
-  const client = getClient(customApiConfig)
-  if (!client) {
-    throw new Error('OpenAI 客户端不可用')
-  }
-
-  // 构建重试提示词（包含完整对话历史和错误信息）
-  const retryPrompt = buildRetryPrompt(context, errorMessage, attempt)
-
-  try {
-    // 构建消息数组：system + 历史消息 + 当前重试提示词
-    const messages: ChatMessage[] = [
-      { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
-      ...context.messages,
-      { role: 'user', content: retryPrompt }
-    ]
-
-    const model = customApiConfig?.model?.trim() || OPENAI_MODEL
-
-    const response = await client.chat.completions.create({
-      model,
-      messages,
-      temperature: AI_TEMPERATURE,
-      max_tokens: MAX_TOKENS
-    })
-
-    const content = response.choices[0]?.message?.content || ''
-    if (!content) {
-      throw new Error('AI 返回空内容')
-    }
-
-    // 清洗代码
-    const code = extractCodeFromResponse(content)
-    const cleaned = cleanManimCode(code)
-
-    // 保存对话历史
-    context.messages.push(
-      { role: 'user', content: retryPrompt },
-      { role: 'assistant', content: code }
-    )
-
-    logger.info('代码重试生成成功', {
-      concept: context.concept,
-      attempt,
-      codeLength: cleaned.code.length
-    })
-
-    return cleaned.code
-  } catch (error) {
-    if (error instanceof OpenAI.APIError) {
-      logger.error('OpenAI API 错误（重试）', {
-        attempt,
-        status: error.status,
-        message: error.message
-      })
-    }
-    throw error
-  }
-}
-
-/**
  * 构建重试提示词
  */
-export function buildRetryFixPrompt(
-  concept: string,
-  errorMessage: string,
-  attempt: number | string,
-  promptOverrides?: PromptOverrides
-): string {
-  // 使用新的模板系统
-  return getRoleUserPrompt('codeRetry', {
-    concept,
-    errorMessage,
-    attempt: Number(attempt)
-  }, promptOverrides)
-}
-
-function buildRetryPrompt(
-  context: CodeRetryContext,
-  errorMessage: string,
-  attempt: number
-): string {
-  const override = context.promptOverrides?.roles?.codeRetry?.user
-  if (override) {
-    return applyPromptTemplate(override, {
-      concept: context.concept,
-      errorMessage,
-      attempt: String(attempt)
-    }, context.promptOverrides)
-  }
-  return buildRetryFixPrompt(context.concept, errorMessage, attempt, context.promptOverrides)
-}
+export { buildRetryFixPrompt } from './prompt-builder'
 
 /**
  * 重试管理器 - 核心函数

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import JSZip from 'jszip';
+import { useEffect, useState } from 'react';
+import { ImageLightbox } from './image-preview/lightbox';
+import { useImageDownload } from './image-preview/use-image-download';
 
 interface ImagePreviewProps {
   imageUrls: string[];
@@ -9,8 +10,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const [isDownloadingSingle, setIsDownloadingSingle] = useState(false);
-  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const { isDownloadingSingle, isDownloadingAll, handleDownloadAll, handleDownloadSingle } = useImageDownload(imageUrls);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -24,73 +24,6 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
 
   const activeImage = imageUrls[activeIndex];
   const hasImages = imageUrls.length > 0;
-
-  const timestampPrefix = useMemo(() => {
-    const now = new Date();
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  }, [imageUrls.join('|')]);
-
-  const getAbsoluteUrl = (url: string): string => {
-    if (/^https?:\/\//i.test(url)) {
-      return url;
-    }
-    return new URL(url, window.location.origin).toString();
-  };
-
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = filename;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-  };
-
-  const handleDownloadSingle = async () => {
-    if (!activeImage || isDownloadingSingle) {
-      return;
-    }
-    setIsDownloadingSingle(true);
-    try {
-      const response = await fetch(getAbsoluteUrl(activeImage));
-      if (!response.ok) {
-        throw new Error(`下载失败: ${response.status}`);
-      }
-      const blob = await response.blob();
-      downloadBlob(blob, `${timestampPrefix}-image-${activeIndex + 1}.png`);
-    } catch (error) {
-      console.error('单张下载失败', error);
-    } finally {
-      setIsDownloadingSingle(false);
-    }
-  };
-
-  const handleDownloadAll = async () => {
-    if (!hasImages || isDownloadingAll) {
-      return;
-    }
-    setIsDownloadingAll(true);
-    try {
-      const zip = new JSZip();
-      await Promise.all(
-        imageUrls.map(async (url, index) => {
-          const response = await fetch(getAbsoluteUrl(url));
-          if (!response.ok) {
-            throw new Error(`图片 ${index + 1} 下载失败: ${response.status}`);
-          }
-          const blob = await response.blob();
-          zip.file(`${timestampPrefix}-image-${index + 1}.png`, blob);
-        })
-      );
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(zipBlob, `${timestampPrefix}-images.zip`);
-    } catch (error) {
-      console.error('打包下载失败', error);
-    } finally {
-      setIsDownloadingAll(false);
-    }
-  };
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
@@ -108,7 +41,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             放大预览
           </button>
           <button
-            onClick={handleDownloadSingle}
+            onClick={() => void handleDownloadSingle(activeImage, activeIndex)}
             disabled={!hasImages || isDownloadingSingle || isDownloadingAll}
             className="text-xs text-text-secondary/70 hover:text-accent transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -118,7 +51,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             {isDownloadingSingle ? '下载中...' : '下载'}
           </button>
           <button
-            onClick={handleDownloadAll}
+            onClick={() => void handleDownloadAll(imageUrls)}
             disabled={!hasImages || isDownloadingAll || isDownloadingSingle}
             className="text-xs text-text-secondary/70 hover:text-accent transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -168,47 +101,16 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
         </div>
       )}
 
-      {isLightboxOpen && activeImage && (
-        <div className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-sm flex flex-col">
-          <div className="flex items-center justify-between px-5 py-3 text-white/90">
-            <div className="text-xs">
-              放大预览 · 图片 {activeIndex + 1}/{imageUrls.length}
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
-                className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-xs"
-              >
-                -
-              </button>
-              <span className="text-xs tabular-nums">{Math.round(zoom * 100)}%</span>
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))}
-                className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-xs"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsLightboxOpen(false)}
-                className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-xs"
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 flex items-center justify-center overflow-auto px-6 pb-6">
-            <img
-              src={activeImage}
-              alt={`放大图片 ${activeIndex + 1}`}
-              className="max-w-none"
-              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-            />
-          </div>
-        </div>
-      )}
+      <ImageLightbox
+        isOpen={isLightboxOpen}
+        activeImage={activeImage}
+        activeIndex={activeIndex}
+        total={imageUrls.length}
+        zoom={zoom}
+        onZoomOut={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
+        onZoomIn={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 }

@@ -53,3 +53,6 @@ tmp/
 
 # Batch scripts
 *.bat
+
+public/images/*
+public/images/.gitkeep

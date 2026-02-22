@@ -6,23 +6,9 @@
 import type { Request, Response, NextFunction } from 'express'
 import { createLogger } from '../utils/logger'
 import { AuthenticationError } from '../utils/errors'
+import { extractBearerToken } from '../utils/auth-utils'
 
 const logger = createLogger('AuthMiddleware')
-
-/**
- * 从 Authorization 头提取 API 令牌
- */
-function extractToken(authHeader: string | string[] | undefined): string {
-  if (!authHeader) return ''
-
-  if (typeof authHeader === 'string') {
-    return authHeader.replace(/^Bearer\s+/i, '')
-  }
-  if (Array.isArray(authHeader)) {
-    return authHeader[0]?.replace(/^Bearer\s+/i, '') || ''
-  }
-  return ''
-}
 
 /**
  * 认证中间件
@@ -48,7 +34,7 @@ export function authMiddleware(
     throw new AuthenticationError('缺少 API 密钥。请在 Authorization 头中提供 Bearer 令牌。')
   }
 
-  const token = extractToken(authHeader)
+  const token = extractBearerToken(authHeader)
   if (!token) {
     logger.warn('认证中间件：无效的 authorization 头格式', { path: req.path })
     throw new AuthenticationError('无效的 authorization 头格式。使用格式：Bearer <api-key>')

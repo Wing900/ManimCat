@@ -1,24 +1,9 @@
 // 设置模态框 - MD3 风格
 
-import { useState, useEffect } from 'react';
-import { CustomSelect } from './CustomSelect';
-import type { Quality, ApiConfig, VideoConfig, SettingsConfig } from '../types/api';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../lib/settings';
-
-type TabType = 'api' | 'video';
-
-interface TestResult {
-  status: 'idle' | 'testing' | 'success' | 'error';
-  message: string;
-  details?: {
-    statusCode?: number;
-    statusText?: string;
-    responseBody?: string;
-    headers?: Record<string, string>;
-    duration?: number;
-    error?: string;
-  };
-}
+import type { SettingsConfig } from '../types/api';
+import { ApiSettingsTab } from './settings-modal/api-settings-tab';
+import { VideoSettingsTab } from './settings-modal/video-settings-tab';
+import { useSettingsModal } from './settings-modal/use-settings-modal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -27,123 +12,16 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
-  const [config, setConfig] = useState<SettingsConfig>(DEFAULT_SETTINGS);
-  const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
-  const [activeTab, setActiveTab] = useState<TabType>('api');
-
-  const updateApiConfig = (updates: Partial<ApiConfig>) => {
-    setConfig(prev => ({ ...prev, api: { ...prev.api, ...updates } }));
-  };
-
-  const updateVideoConfig = (updates: Partial<VideoConfig>) => {
-    setConfig(prev => ({ ...prev, video: { ...prev.video, ...updates } }));
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      setConfig(loadSettings());
-      setTestResult({ status: 'idle', message: '' });
-      setActiveTab('api');
-    }
-  }, [isOpen]);
-
-  const handleSave = () => {
-    saveSettings(config);
-    onSave(config);
-    onClose();
-  };
-
-  const handleTest = async () => {
-    const apiUrlInput = config.api.apiUrl.trim();
-    const apiKeyInput = config.api.apiKey.trim();
-    const modelInput = config.api.model.trim();
-    const manimcatKey = config.api.manimcatApiKey.trim();
-    const hasCustomConfig = Boolean(apiUrlInput || apiKeyInput || modelInput);
-
-    if (!manimcatKey) {
-      setTestResult({
-        status: 'error',
-        message: '请先填写 ManimCat API 密钥',
-      });
-      return;
-    }
-    if (hasCustomConfig && (!apiUrlInput || !apiKeyInput)) {
-      setTestResult({
-        status: 'error',
-        message: '请填入 API 地址和密钥',
-      });
-      return;
-    }
-
-    setTestResult({ status: 'testing', message: '测试中...', details: {} });
-
-    const startTime = performance.now();
-    try {
-      const response = await fetch('/api/ai/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${manimcatKey}`
-        },
-        body: JSON.stringify(
-          hasCustomConfig
-            ? {
-              customApiConfig: {
-                apiUrl: apiUrlInput,
-                apiKey: apiKeyInput,
-                model: modelInput,
-              },
-            }
-            : {}
-        ),
-      });
-
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-
-      if (response.ok) {
-        setTestResult({
-          status: 'success',
-          message: `连接成功！(${duration}ms)`,
-          details: {
-            statusCode: response.status,
-            statusText: response.statusText,
-            duration,
-          },
-        });
-      } else {
-        const responseBody = await response.text();
-        const headers: Record<string, string> = {};
-        response.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
-
-        setTestResult({
-          status: 'error',
-          message: `HTTP ${response.status}: ${response.statusText}`,
-          details: {
-            statusCode: response.status,
-            statusText: response.statusText,
-            responseBody: responseBody.slice(0, 2000),
-            headers,
-            duration,
-          },
-        });
-      }
-    } catch (error) {
-      const endTime = performance.now();
-      const duration = Math.round(endTime - startTime);
-
-      setTestResult({
-        status: 'error',
-        message: error instanceof Error ? error.message : '连接失败',
-        details: {
-          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
-          duration,
-        },
-      });
-    }
-  };
+  const {
+    config,
+    activeTab,
+    testResult,
+    setActiveTab,
+    updateApiConfig,
+    updateVideoConfig,
+    handleSave,
+    handleTest,
+  } = useSettingsModal({ isOpen, onClose, onSave });
 
   if (!isOpen) return null;
 
@@ -151,7 +29,6 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-bg-secondary rounded-2xl p-8 max-w-md w-full shadow-xl">
-        {/* 标题 */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-medium text-text-primary">设置</h2>
           <button
@@ -164,7 +41,6 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* Tab 切换 */}
         <div className="flex gap-2 mb-6 p-1 bg-bg-secondary/50 rounded-xl">
           <button
             onClick={() => setActiveTab('api')}
@@ -188,154 +64,15 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* 表单 */}
         <div className="space-y-5">
-          {/* API 设置 */}
           {activeTab === 'api' && (
-            <>
-              <div className="relative">
-                <label
-                  htmlFor="manimcatApiKey"
-                  className="absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary transition-all"
-                >
-                  ManimCat API 密钥
-                </label>
-                <input
-                  id="manimcatApiKey"
-                  type="password"
-                  value={config.api.manimcatApiKey}
-                  onChange={(e) => updateApiConfig({ manimcatApiKey: e.target.value })}
-                  placeholder="留空则跳过认证"
-                  className="w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all"
-                />
-              </div>
-
-              <div className="relative">
-                <label
-                  htmlFor="apiUrl"
-                  className="absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary transition-all"
-                >
-                  API 地址
-                </label>
-                <input
-                  id="apiUrl"
-                  type="text"
-                  value={config.api.apiUrl}
-                  onChange={(e) => updateApiConfig({ apiUrl: e.target.value })}
-                  placeholder="https://api.xiaomimimo.com/v1"
-                  className="w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all"
-                />
-              </div>
-
-              <div className="relative">
-                <label
-                  htmlFor="apiKey"
-                  className="absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary transition-all"
-                >
-                  API 密钥
-                </label>
-                <input
-                  id="apiKey"
-                  type="password"
-                  value={config.api.apiKey}
-                  onChange={(e) => updateApiConfig({ apiKey: e.target.value })}
-                  placeholder="sk-..."
-                  className="w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all"
-                />
-              </div>
-
-              <div className="relative">
-                <label
-                  htmlFor="model"
-                  className="absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary transition-all"
-                >
-                  模型名称
-                </label>
-                <input
-                  id="model"
-                  type="text"
-                  value={config.api.model}
-                  onChange={(e) => updateApiConfig({ model: e.target.value })}
-                  placeholder="mimo-v2-flash"
-                  className="w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all"
-                />
-              </div>
-
-              {testResult.status !== 'idle' && (
-                <div className={`rounded-2xl text-sm ${
-                  testResult.status === 'success'
-                    ? 'bg-green-50 dark:bg-green-900/20'
-                    : testResult.status === 'testing'
-                    ? 'bg-blue-50 dark:bg-blue-900/20'
-                    : 'bg-red-50 dark:bg-red-900/20'
-                }`}>
-                  <div className={`p-4 ${
-                    testResult.status === 'success'
-                      ? 'text-green-600 dark:text-green-400'
-                      : testResult.status === 'testing'
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {testResult.status === 'testing' && (
-                      <div className="flex items-center gap-2">
-                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span>{testResult.message}</span>
-                      </div>
-                    )}
-                    {testResult.status !== 'testing' && (
-                      <span>{testResult.message}</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
+            <ApiSettingsTab apiConfig={config.api} testResult={testResult} onUpdate={updateApiConfig} />
           )}
-
-          {/* 视频配置 */}
           {activeTab === 'video' && (
-            <>
-              <CustomSelect
-                options={[
-                  { value: 'low' as Quality, label: '低 (480p)' },
-                  { value: 'medium' as Quality, label: '中 (720p)' },
-                  { value: 'high' as Quality, label: '高 (1080p)' }
-                ]}
-                value={config.video.quality}
-                onChange={(value) => updateVideoConfig({ quality: value })}
-                label="默认值"
-              />
-
-              <CustomSelect
-                options={[
-                  { value: 15, label: '15 fps' },
-                  { value: 30, label: '30 fps' },
-                  { value: 60, label: '60 fps' }
-                ]}
-                value={config.video.frameRate}
-                onChange={(value) => updateVideoConfig({ frameRate: value })}
-                label="帧率"
-              />
-
-              <CustomSelect
-                options={[
-                  { value: 60, label: '1 分钟' },
-                  { value: 120, label: '2 分钟' },
-                  { value: 180, label: '3 分钟' },
-                  { value: 300, label: '5 分钟' },
-                  { value: 600, label: '10 分钟' }
-                ]}
-                value={config.video.timeout ?? DEFAULT_SETTINGS.video.timeout}
-                onChange={(value) => updateVideoConfig({ timeout: value })}
-                label="生成超时"
-              />
-            </>
+            <VideoSettingsTab videoConfig={config.video} onUpdate={updateVideoConfig} />
           )}
         </div>
 
-        {/* 按钮 */}
         <div className="mt-8 flex gap-3">
           <button
             onClick={handleTest}

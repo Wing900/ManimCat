@@ -11,150 +11,29 @@
  */
 
 import express from 'express'
-import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { videoQueue } from '../config/bull'
 import { storeJobStage } from '../services/job-store'
 import { createLogger } from '../utils/logger'
-import { AuthenticationError, ValidationError } from '../utils/errors'
+import { ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
-import type { GenerateRequest, GenerateResponse, ReferenceImage, VideoConfig } from '../types'
+import type { GenerateResponse } from '../types'
+import { requirePromptOverrideAuth } from '../utils/auth-utils'
+import { hasPromptOverrides } from '../utils/prompt-overrides'
+import { sanitizeReferenceImages } from './helpers/reference-images'
+import { generateBodySchema } from './schemas/generate'
 
 const router = express.Router()
 const logger = createLogger('GenerateRoute')
-
-const MAX_REFERENCE_IMAGES = 3
-const MAX_REFERENCE_IMAGE_URL_LENGTH = 2_000_000
-
-const referenceImageSchema = z.object({
-  url: z.string().trim().min(1, 'Reference image url is required').max(MAX_REFERENCE_IMAGE_URL_LENGTH, 'Reference image is too large'),
-  detail: z.enum(['auto', 'low', 'high']).optional()
-}).superRefine((value, ctx) => {
-  const isHttpUrl = /^https?:\/\//i.test(value.url)
-  const isDataUrl = /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(value.url)
-
-  if (!isHttpUrl && !isDataUrl) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Reference image only supports http(s) URLs or data URLs'
-    })
-  }
-})
-
-function extractToken(authHeader: string | string[] | undefined): string {
-  if (!authHeader) return ''
-
-  if (typeof authHeader === 'string') {
-    return authHeader.replace(/^Bearer\s+/i, '')
-  }
-  if (Array.isArray(authHeader)) {
-    return authHeader[0]?.replace(/^Bearer\s+/i, '') || ''
-  }
-  return ''
-}
-
-function hasPromptOverrides(promptOverrides: any): boolean {
-  if (!promptOverrides) return false
-  const roles = promptOverrides.roles || {}
-  const shared = promptOverrides.shared || {}
-
-  const hasRoleOverride = Object.values(roles).some((roleValue: any) => {
-    if (!roleValue || typeof roleValue !== 'object') return false
-    return ['system', 'user'].some((field) => {
-      const content = roleValue[field]
-      return typeof content === 'string' && content.trim().length > 0
-    })
-  })
-
-  const hasSharedOverride = Object.values(shared).some(
-    (value) => typeof value === 'string' && value.trim().length > 0
-  )
-
-  return hasRoleOverride || hasSharedOverride
-}
-
-function sanitizeReferenceImages(images?: ReferenceImage[]): ReferenceImage[] | undefined {
-  if (!images || images.length === 0) {
-    return undefined
-  }
-
-  return images.map((image) => ({
-    url: image.url.trim(),
-    detail: image.detail || 'auto'
-  }))
-}
-
-function requirePromptOverrideAuth(req: express.Request): void {
-  const manimcatApiKey = process.env.MANIMCAT_API_KEY
-  if (!manimcatApiKey) {
-    throw new AuthenticationError('Prompt overrides require MANIMCAT_API_KEY to be set.')
-  }
-
-  const token = extractToken(req.headers?.authorization)
-  if (!token || token !== manimcatApiKey) {
-    throw new AuthenticationError('Prompt overrides require a valid MANIMCAT_API_KEY token.')
-  }
-}
-
-// 请求体 schema（与原有保持一致）
-const bodySchema = z.object({
-  concept: z.string().min(1, '概念必填'),
-  outputMode: z.enum(['video', 'image']),
-  quality: z.enum(['low', 'medium', 'high']).optional().default('low'),
-  referenceImages: z.array(referenceImageSchema).max(MAX_REFERENCE_IMAGES, `At most ${MAX_REFERENCE_IMAGES} reference images are allowed`).optional(),
-  /** 预生成的代码（使用自定义 AI 时） */
-  code: z.string().optional(),
-  /** 自定义 API 配置（用于代码修复） */
-  customApiConfig: z.object({
-    apiUrl: z.string(),
-    apiKey: z.string(),
-    model: z.string()
-  }).optional(),
-  promptOverrides: z.object({
-    roles: z.object({
-      conceptDesigner: z.object({
-        system: z.string().max(20000).optional(),
-        user: z.string().max(20000).optional()
-      }).optional(),
-      codeGeneration: z.object({
-        system: z.string().max(20000).optional(),
-        user: z.string().max(20000).optional()
-      }).optional(),
-      codeRetry: z.object({
-        system: z.string().max(20000).optional(),
-        user: z.string().max(20000).optional()
-      }).optional(),
-      codeEdit: z.object({
-        system: z.string().max(20000).optional(),
-        user: z.string().max(20000).optional()
-      }).optional()
-    }).optional(),
-    shared: z.object({
-      knowledge: z.string().max(40000).optional(),
-      rules: z.string().max(40000).optional()
-    }).optional()
-  }).optional(),
-  /** 视频配置 */
-  videoConfig: z.object({
-    quality: z.enum(['low', 'medium', 'high']).optional(),
-    frameRate: z.number().int().min(1).max(120).optional(),
-    timeout: z.number().optional()
-  }).optional()
-})
 
 /**
  * 处理视频生成请求的核心逻辑
  */
 async function handleGenerateRequest(req: express.Request, res: express.Response) {
-  let parsed;
-  try {
-    parsed = bodySchema.parse(req.body);
-  } catch (error: any) {
-    throw error;
-  }
+  const parsed = generateBodySchema.parse(req.body)
 
-  const { concept, outputMode, quality, code, customApiConfig, promptOverrides, videoConfig, referenceImages } = parsed;
+  const { concept, outputMode, quality, code, customApiConfig, promptOverrides, videoConfig, referenceImages } = parsed
 
   // 清理输入
   if (hasPromptOverrides(promptOverrides)) {
@@ -216,20 +95,9 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
 }
 
 /**
- * 认证中间件
- */
-function optionalAuthMiddleware(
-  req: express.Request,
-  res: express.Response,
-  next: express.NextFunction
-) {
-  return authMiddleware(req, res, next)
-}
-
-/**
  * POST /api/generate
  * 提交视频生成任务
  */
-router.post('/generate', optionalAuthMiddleware, asyncHandler(handleGenerateRequest))
+router.post('/generate', authMiddleware, asyncHandler(handleGenerateRequest))
 
 export default router

@@ -2,48 +2,22 @@ import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
 import { SYSTEM_PROMPTS, generateCodeEditPrompt, getSharedModule } from '../prompts'
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../types'
+import {
+  createCustomOpenAIClient,
+  initializeDefaultOpenAIClient
+} from './openai-client-factory'
 
 const logger = createLogger('CodeEditService')
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'glm-4-flash'
 const CODER_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
 const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
-const OPENAI_TIMEOUT = parseInt(process.env.OPENAI_TIMEOUT || '600000', 10)
-
-const CUSTOM_API_URL = process.env.CUSTOM_API_URL?.trim()
-
-let openaiClient: OpenAI | null = null
-
-try {
-  const baseConfig = {
-    timeout: OPENAI_TIMEOUT,
-    defaultHeaders: {
-      'User-Agent': 'ManimCat/1.0'
-    }
-  }
-
-  if (CUSTOM_API_URL) {
-    openaiClient = new OpenAI({
-      ...baseConfig,
-      baseURL: CUSTOM_API_URL,
-      apiKey: process.env.OPENAI_API_KEY
-    })
-  } else {
-    openaiClient = new OpenAI(baseConfig)
-  }
-} catch (error) {
+const openaiClient: OpenAI | null = initializeDefaultOpenAIClient((error) => {
   logger.warn('OpenAI 客户端初始化失败', { error })
-}
+})
 
 function createCustomClient(config: CustomApiConfig): OpenAI {
-  return new OpenAI({
-    baseURL: config.apiUrl.trim().replace(/\/+$/, ''),
-    apiKey: config.apiKey,
-    timeout: OPENAI_TIMEOUT,
-    defaultHeaders: {
-      'User-Agent': 'ManimCat/1.0'
-    }
-  })
+  return createCustomOpenAIClient(config)
 }
 
 function applyPromptTemplate(
