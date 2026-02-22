@@ -85,6 +85,14 @@ pinned: false
 
 用户只需输入自然语言描述，系统便会通过 AI 自动生成 Manim 代码并渲染出精美的数学可视化视频，支持 LaTeX 公式、模板化生成以及代码错误自动修复，让复杂概念的动态展示变得触手可及。
 
+### 界面
+
+![image-20260221125910244](C:/Users/%E6%9B%BE%E8%89%BA%E5%BD%AC/AppData/Roaming/Typora/typora-user-images/image-20260221125910244.png)
+
+![image-20260221130027231](C:/Users/%E6%9B%BE%E8%89%BA%E5%BD%AC/AppData/Roaming/Typora/typora-user-images/image-20260221130027231.png)
+
+![image-20260221130809525](C:/Users/%E6%9B%BE%E8%89%BA%E5%BD%AC/AppData/Roaming/Typora/typora-user-images/image-20260221130809525.png)
+
 ## 样例
 
 ### 01
@@ -352,3 +360,8 @@ CODE_RETRY_MAX_RETRIES=4
   </a>
   <p><i>感谢你的支持，我会更有动力维护这个项目！</i></p>
 </details>
+## 致谢
+
+- 原项目作者
+- Linux.do社区
+- 阿里云百炼平台
