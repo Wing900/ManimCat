@@ -28,6 +28,9 @@ export interface TemplateVariables {
   attempt?: number
   instructions?: string
   code?: string
+  outputMode?: 'video' | 'image'
+  isImage?: boolean
+  isVideo?: boolean
 }
 
 /** 提示词覆盖配置 */
@@ -97,7 +100,9 @@ export function clearTemplateCache(): void {
 /**
  * 替换简单变量占位符 {{variable}}
  */
-function replaceVariables(template: string, variables: Record<string, string | number | undefined>): string {
+type TemplateValue = string | number | boolean | undefined
+
+function replaceVariables(template: string, variables: Record<string, TemplateValue>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const value = variables[key]
     return value !== undefined ? String(value) : match
@@ -107,11 +112,14 @@ function replaceVariables(template: string, variables: Record<string, string | n
 /**
  * 处理条件块 {{#if variable}}...{{/if}}
  */
-function processConditionals(template: string, variables: Record<string, string | number | undefined>): string {
+function processConditionals(template: string, variables: Record<string, TemplateValue>): string {
   return template.replace(
     /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
     (_, key, content) => {
       const value = variables[key]
+      if (typeof value === 'boolean') {
+        return value ? content : ''
+      }
       return value !== undefined && value !== '' ? content : ''
     }
   )
@@ -135,10 +143,10 @@ function assembleTemplate(
     .replace(/\{\{rules\}\}/g, rules)
 
   // 3. 处理条件块
-  result = processConditionals(result, variables as Record<string, string | number | undefined>)
+  result = processConditionals(result, variables as Record<string, TemplateValue>)
 
   // 4. 替换变量占位符
-  result = replaceVariables(result, variables as Record<string, string | number | undefined>)
+  result = replaceVariables(result, variables as Record<string, TemplateValue>)
 
   return result.trim()
 }
@@ -222,13 +230,35 @@ export function getAllDefaultTemplates(): {
 // ============================================================================
 
 /** @deprecated 使用 getRoleUserPrompt('conceptDesigner', { concept, seed }) */
-export function generateConceptDesignerPrompt(concept: string, seed: string): string {
-  return getRoleUserPrompt('conceptDesigner', { concept, seed })
+export function generateConceptDesignerPrompt(
+  concept: string,
+  seed: string,
+  outputMode: 'video' | 'image' = 'video'
+): string {
+  return getRoleUserPrompt('conceptDesigner', {
+    concept,
+    seed,
+    outputMode,
+    isImage: outputMode === 'image',
+    isVideo: outputMode === 'video'
+  })
 }
 
 /** @deprecated 使用 getRoleUserPrompt('codeGeneration', { concept, seed, sceneDesign }) */
-export function generateCodeGenerationPrompt(concept: string, seed: string, sceneDesign?: string): string {
-  return getRoleUserPrompt('codeGeneration', { concept, seed, sceneDesign })
+export function generateCodeGenerationPrompt(
+  concept: string,
+  seed: string,
+  sceneDesign?: string,
+  outputMode: 'video' | 'image' = 'video'
+): string {
+  return getRoleUserPrompt('codeGeneration', {
+    concept,
+    seed,
+    sceneDesign,
+    outputMode,
+    isImage: outputMode === 'image',
+    isVideo: outputMode === 'video'
+  })
 }
 
 /** @deprecated 使用 getRoleUserPrompt('codeRetry', { concept, errorMessage, code, attempt }) */
@@ -242,6 +272,18 @@ export function generateCodeFixPrompt(
 }
 
 /** @deprecated 使用 getRoleUserPrompt('codeEdit', { concept, instructions, code }) */
-export function generateCodeEditPrompt(concept: string, instructions: string, code: string): string {
-  return getRoleUserPrompt('codeEdit', { concept, instructions, code })
+export function generateCodeEditPrompt(
+  concept: string,
+  instructions: string,
+  code: string,
+  outputMode: 'video' | 'image' = 'video'
+): string {
+  return getRoleUserPrompt('codeEdit', {
+    concept,
+    instructions,
+    code,
+    outputMode,
+    isImage: outputMode === 'image',
+    isVideo: outputMode === 'video'
+  })
 }

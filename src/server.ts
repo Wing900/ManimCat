@@ -80,7 +80,9 @@ async function initializeApp(): Promise<void> {
       app.use(requestLogger)
     }
 
-    // 静态文件服务
+    // 静态文件服务（图片/视频资源找不到时返回 404，避免错误回退到 index.html）
+    app.use('/images', express.static(path.join(process.cwd(), 'public', 'images'), { fallthrough: false }))
+    app.use('/videos', express.static(path.join(process.cwd(), 'public', 'videos'), { fallthrough: false }))
     app.use(express.static('public'))
 
     // 挂载所有路由（包括健康检查和 API 路由）
@@ -90,6 +92,10 @@ async function initializeApp(): Promise<void> {
     app.get('*', (req, res) => {
       // 跳过健康检查和 API 路由
       if (req.path.startsWith('/health') || req.path.startsWith('/api')) {
+        return notFoundHandler(req, res, () => {})
+      }
+      // 带扩展名的资源请求若未命中静态文件，不应回退 SPA
+      if (path.extname(req.path)) {
         return notFoundHandler(req, res, () => {})
       }
       // 返回 React 前端的 index.html

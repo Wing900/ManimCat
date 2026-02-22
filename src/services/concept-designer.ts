@@ -111,52 +111,6 @@ function buildVisionUserMessage(
   ]
 }
 
-function buildImageDesignerPrompt(concept: string, seed: string): string {
-  return `你是静态数学可视化总导演，不是动画导演。请输出结构化自然语言设计方案，不要代码。
-
-任务概念：${concept}
-随机种子：${seed}
-
-硬约束：
-1. 画布采用 16:9，中心 (0,0)，坐标边界 x[-8,8], y[-4.5,4.5]。
-2. 每张图必须使用分栏布局，不允许把推导全部纵向堆叠。
-3. 对多步骤/多选项题，采用覆盖式推进：当前项讲完后淡出，再展示下一项。
-4. 零重叠：文本、公式、几何标注在静止与运动描述中都不能重叠。
-5. 禁止伪代码，禁止输出编程语言片段。
-6. 输出包含：核心概念拆解、分屏布局定义、分步执行指令（含镜头术语）、全局视觉规格表。
-
-术语库（请直接使用）：Transform, Focus, Fade In, Fade Out。`
-}
-
-function buildImageCodePrompt(concept: string, seed: string, sceneDesign: string): string {
-  return `你需要基于设计方案生成 Manim 代码，目标是“多张静态图”。
-
-概念：${concept}
-种子：${seed}
-
-设计方案：
-${sceneDesign}
-
-输出协议（必须严格遵守）：
-1. 只输出代码，不要解释，不要 Markdown。
-2. 代码必须由若干锚点块组成，且块外禁止任何字符：
-### YON_IMAGE_1_START ###
-...python code...
-### YON_IMAGE_1_END ###
-### YON_IMAGE_2_START ###
-...python code...
-### YON_IMAGE_2_END ###
-3. 编号从 1 连续递增。
-4. 每个块只负责一张图，必须包含可渲染的 Scene 类。
-5. 静态构图优先：以布局、标注、结论呈现为主，避免复杂动画。
-6. 所有图都要保证“分栏+覆盖式推导”要求，不重叠。
-
-实现规范：
-- 使用 from manim import *
-- 兼容 Manim Community v0.19.2
-- 代码必须可运行`
-}
-
 /**
  * 判断是否应该在不带图片的情况下重试
  */
@@ -309,12 +263,8 @@ async function generateSceneDesign(
     const systemPrompt = promptOverrides?.roles?.conceptDesigner?.system || SYSTEM_PROMPTS.conceptDesigner
     const userPromptOverride = promptOverrides?.roles?.conceptDesigner?.user
     const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, seed }, promptOverrides)
-      : (
-        outputMode === 'image'
-          ? buildImageDesignerPrompt(concept, seed)
-          : generateConceptDesignerPrompt(concept, seed)
-      )
+      ? applyPromptTemplate(userPromptOverride, { concept, seed, outputMode }, promptOverrides)
+      : generateConceptDesignerPrompt(concept, seed, outputMode)
 
     logger.info('开始阶段1：生成场景设计方案', { concept, outputMode, seed, hasImages: !!referenceImages?.length })
 
@@ -438,12 +388,8 @@ async function generateCodeFromDesign(
     const systemPrompt = promptOverrides?.roles?.codeGeneration?.system || SYSTEM_PROMPTS.codeGeneration
     const userPromptOverride = promptOverrides?.roles?.codeGeneration?.user
     const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign }, promptOverrides)
-      : (
-        outputMode === 'image'
-          ? buildImageCodePrompt(concept, seed, sceneDesign)
-          : generateCodeGenerationPrompt(concept, seed, sceneDesign)
-      )
+      ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign, outputMode }, promptOverrides)
+      : generateCodeGenerationPrompt(concept, seed, sceneDesign, outputMode)
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, outputMode, seed })
 
