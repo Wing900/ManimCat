@@ -4,6 +4,7 @@
  */
 
 import { getRoleSystemPrompt, getRoleUserPrompt, getSharedModule, type PromptOverrides } from '../../prompts'
+import type { OutputMode } from '../../types'
 
 // System prompt - 使用新的加载器
 export const CODE_RETRY_SYSTEM_PROMPT = getRoleSystemPrompt('codeRetry')
@@ -15,7 +16,19 @@ export function buildInitialCodePrompt(
   concept: string,
   seed: string,
   sceneDesign: string,
+  outputMode: OutputMode,
   overrides?: PromptOverrides
 ): string {
-  return getRoleUserPrompt('codeGeneration', { concept, seed, sceneDesign }, overrides)
+  return getRoleUserPrompt(
+    'codeGeneration',
+    {
+      concept,
+      seed,
+      sceneDesign,
+      outputMode,
+      isImage: outputMode === 'image',
+      isVideo: outputMode === 'video'
+    },
+    overrides
+  )
 }

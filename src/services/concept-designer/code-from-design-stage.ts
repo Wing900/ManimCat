@@ -21,6 +21,7 @@ interface CodeFromDesignStageParams {
   promptOverrides?: PromptOverrides
   coderTemperature: number
   maxTokens: number
+  onCheckpoint?: () => Promise<void>
 }
 
 /**
@@ -36,7 +37,8 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
     model,
     promptOverrides,
     coderTemperature,
-    maxTokens
+    maxTokens,
+    onCheckpoint
   } = params
 
   try {
@@ -48,6 +50,7 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
       : generateCodeGenerationPrompt(concept, seed, sceneDesign, outputMode)
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, outputMode, seed })
+    if (onCheckpoint) await onCheckpoint()
 
     const response = await client.chat.completions.create({
       model,
@@ -58,6 +61,7 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
       temperature: coderTemperature,
       max_tokens: maxTokens
     })
+    if (onCheckpoint) await onCheckpoint()
 
     const content = normalizeMessageContent(response.choices[0]?.message?.content)
     if (!content) {

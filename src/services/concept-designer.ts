@@ -45,7 +45,8 @@ export async function generateTwoStageAIManimCode(
   outputMode: OutputMode,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  onCheckpoint?: () => Promise<void>
 ): Promise<{ code: string; sceneDesign: string }> {
   logger.info('开始两阶段 AI 生成流程', {
     concept,
@@ -60,6 +61,7 @@ export async function generateTwoStageAIManimCode(
   }
 
   const model = resolveModel(customApiConfig)
+  if (onCheckpoint) await onCheckpoint()
 
   const sceneDesign = await generateSceneDesignStage({
     client,
@@ -69,13 +71,15 @@ export async function generateTwoStageAIManimCode(
     promptOverrides,
     referenceImages,
     designerTemperature: DESIGNER_TEMPERATURE,
-    designerMaxTokens: DESIGNER_MAX_TOKENS
+    designerMaxTokens: DESIGNER_MAX_TOKENS,
+    onCheckpoint
   })
 
   if (!sceneDesign) {
     logger.warn('场景设计方案生成失败，中止流程')
     return { code: '', sceneDesign: '' }
   }
+  if (onCheckpoint) await onCheckpoint()
 
   const code = await generateCodeFromDesignStage({
     client,
@@ -85,7 +89,8 @@ export async function generateTwoStageAIManimCode(
     model,
     promptOverrides,
     coderTemperature: CODER_TEMPERATURE,
-    maxTokens: MAX_TOKENS
+    maxTokens: MAX_TOKENS,
+    onCheckpoint
   })
 
   logger.info('两阶段 AI 生成流程完成', {

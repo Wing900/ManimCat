@@ -5,11 +5,19 @@
 /**
  * 从 AI 响应中提取代码
  */
-export function extractCodeFromResponse(text: string): string {
+export function extractCodeFromResponse(text: string, outputMode: 'video' | 'image' = 'video'): string {
   if (!text) return ''
 
   // 移除 think 标签
   const sanitized = text.replace(/<think>[\s\S]*?<\/think>/gi, '')
+
+  if (outputMode === 'image') {
+    const codeMatch = sanitized.match(/```(?:python)?([\s\S]*?)```/i)
+    if (codeMatch) {
+      return codeMatch[1].trim()
+    }
+    return sanitized.trim()
+  }
 
   // 优先匹配锚点协议
   const anchorMatch = sanitized.match(/### START ###([\s\S]*?)### END ###/)

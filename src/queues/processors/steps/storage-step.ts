@@ -4,7 +4,7 @@
  */
 
 import { storeJobResult } from '../../../services/job-store'
-import { clearJobCancelled } from '../../../services/job-cancel-store'
+import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import type { RenderResult } from './render-step'
 import { createLogger } from '../../../utils/logger'
 import { normalizeTimings } from '../../../utils/timings'
@@ -33,6 +33,7 @@ export async function storeResult(
 
   // 存储到 Redis（用于 API 查询）
   const normalizedTimings = normalizeTimings(timings)
+  await ensureJobNotCancelled(jobId)
 
   await storeJobResult(jobId, {
     status: 'completed',
@@ -49,6 +50,5 @@ export async function storeResult(
       timings: normalizedTimings
     }
   })
-  await clearJobCancelled(jobId)
   logger.info('Result stored', { jobId, outputMode, videoUrl, imageCount })
 }

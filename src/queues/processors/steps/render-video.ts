@@ -6,6 +6,7 @@ import { cleanManimCode } from '../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../utils/manim-executor'
 import { findVideoFile } from '../../../utils/file-utils'
 import { createRetryContext, executeCodeRetry } from '../../../services/code-retry/manager'
+import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import { storeJobStage } from '../../../services/job-store'
 import type { GenerationResult } from './analysis-step'
 import type { PromptOverrides, VideoConfig } from '../../../types'
@@ -50,6 +51,7 @@ export async function renderVideo(
       stdout: string
       peakMemoryMB: number
     }> => {
+      await ensureJobNotCancelled(jobId)
       const cleaned = cleanManimCode(code)
       lastRenderedCode = cleaned.code
 
@@ -83,13 +85,18 @@ export async function renderVideo(
     let finalCode = manimCode
     let renderResult: { success: boolean; stderr: string; stdout: string; peakMemoryMB: number }
 
-    const hasSceneDesign = usedAI && !!sceneDesign
-    if (hasSceneDesign) {
-      logger.info('Using retry mechanism for video render', { jobId })
+    if (usedAI) {
+      logger.info('Using local code-retry for video render', { jobId, hasSceneDesign: !!sceneDesign })
       await storeJobStage(jobId, 'generating')
+      if (onStageUpdate) await onStageUpdate()
 
-      const retryContext = createRetryContext(concept, sceneDesign, promptOverrides)
-      const retryManagerResult = await executeCodeRetry(retryContext, renderCode, customApiConfig)
+      const retryContext = createRetryContext(
+        concept,
+        sceneDesign?.trim() || `概念：${concept}`,
+        promptOverrides,
+        'video'
+      )
+      const retryManagerResult = await executeCodeRetry(retryContext, renderCode, customApiConfig, manimCode)
 
       if (typeof retryManagerResult.generationTimeMs === 'number') {
         timings.retry = retryManagerResult.generationTimeMs
@@ -111,7 +118,7 @@ export async function renderVideo(
     } else {
       logger.info('Using single render attempt for video', {
         jobId,
-        reason: usedAI ? 'no_scene_design' : 'not_ai_generated'
+        reason: 'not_ai_generated'
       })
       if (onStageUpdate) await onStageUpdate()
       renderResult = await renderCode(manimCode)
@@ -121,6 +128,7 @@ export async function renderVideo(
       finalCode = lastRenderedCode
     }
 
+    await ensureJobNotCancelled(jobId)
     const videoPath = findVideoFile(mediaDir, quality, frameRate)
     if (!videoPath) {
       throw new Error('Video file not found after render')

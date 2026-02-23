@@ -25,7 +25,7 @@ const queueOptions: QueueOptions = {
     return client
   },
   defaultJobOptions: {
-    attempts: 3,
+    attempts: 1,
     backoff: {
       type: 'exponential',
       delay: 2000

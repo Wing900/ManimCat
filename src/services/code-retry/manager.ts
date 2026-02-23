@@ -9,7 +9,7 @@
 
 import { createLogger } from '../../utils/logger'
 import type { CodeRetryOptions, CodeRetryResult, RenderResult, RetryManagerResult, ChatMessage, CodeRetryContext } from './types'
-import type { PromptOverrides } from '../../types'
+import type { OutputMode, PromptOverrides } from '../../types'
 import { extractErrorMessage, getErrorType } from './utils'
 import { buildContextOriginalPrompt, buildRetryFixPrompt } from './prompt-builder'
 import { generateInitialCode, retryCodeGeneration } from './code-generation'
@@ -24,12 +24,14 @@ const MAX_RETRIES = parseInt(process.env.CODE_RETRY_MAX_RETRIES || '4', 10)
 export function createRetryContext(
   concept: string,
   sceneDesign: string,
-  promptOverrides?: PromptOverrides
+  promptOverrides?: PromptOverrides,
+  outputMode: OutputMode = 'video'
 ): CodeRetryContext {
   return {
     concept,
     sceneDesign,
-    originalPrompt: buildContextOriginalPrompt(concept, sceneDesign, promptOverrides),
+    outputMode,
+    originalPrompt: buildContextOriginalPrompt(concept, sceneDesign, outputMode, promptOverrides),
     messages: [],
     promptOverrides
   }
@@ -52,7 +54,8 @@ export { buildRetryFixPrompt } from './prompt-builder'
 export async function executeCodeRetry(
   context: CodeRetryContext,
   renderer: (code: string) => Promise<RenderResult>,
-  customApiConfig?: any
+  customApiConfig?: any,
+  initialCode?: string
 ): Promise<RetryManagerResult> {
   logger.info('开始代码重试管理', {
     concept: context.concept,
@@ -61,9 +64,18 @@ export async function executeCodeRetry(
 
   // 步骤1：首次代码生成和渲染
   let generationTimeMs = 0
-  let generationStart = Date.now()
-  let currentCode = await generateInitialCode(context, customApiConfig)
-  generationTimeMs += Date.now() - generationStart
+  let currentCode = initialCode?.trim() || ''
+  if (!currentCode) {
+    const generationStart = Date.now()
+    currentCode = await generateInitialCode(context, customApiConfig)
+    generationTimeMs += Date.now() - generationStart
+  } else {
+    // 对齐历史上下文，确保后续重试包含“原始提示词 + 首次代码”
+    context.messages.push(
+      { role: 'user', content: context.originalPrompt },
+      { role: 'assistant', content: currentCode }
+    )
+  }
   let renderResult = await renderer(currentCode)
 
   if (renderResult.success) {
@@ -86,7 +98,7 @@ export async function executeCodeRetry(
     })
 
     try {
-      generationStart = Date.now()
+      const generationStart = Date.now()
       currentCode = await retryCodeGeneration(context, errorMessage, attempt, customApiConfig)
       generationTimeMs += Date.now() - generationStart
       renderResult = await renderer(currentCode)

@@ -24,6 +24,7 @@ interface SceneDesignStageParams {
   referenceImages?: ReferenceImage[]
   designerTemperature: number
   designerMaxTokens: number
+  onCheckpoint?: () => Promise<void>
 }
 
 export async function generateSceneDesignStage(params: SceneDesignStageParams): Promise<string> {
@@ -35,7 +36,8 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
     promptOverrides,
     referenceImages,
     designerTemperature,
-    designerMaxTokens
+    designerMaxTokens,
+    onCheckpoint
   } = params
 
   try {
@@ -54,6 +56,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
     })
 
     let response: Awaited<ReturnType<typeof client.chat.completions.create>>
+    if (onCheckpoint) await onCheckpoint()
 
     try {
       response = await client.chat.completions.create({
@@ -85,6 +88,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
         throw error
       }
     }
+    if (onCheckpoint) await onCheckpoint()
 
     const content = normalizeMessageContent(response.choices[0]?.message?.content)
     if (!content) {
