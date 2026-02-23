@@ -2,7 +2,7 @@
  * Code Retry Service - 绫诲瀷瀹氫箟
  */
 
-import type { CustomApiConfig, PromptOverrides } from '../../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
 
 /**
  * 瀵硅瘽娑堟伅绫诲瀷
@@ -19,6 +19,7 @@ export interface ChatMessage {
 export interface CodeRetryContext {
   concept: string
   sceneDesign: string
+  outputMode: OutputMode
   originalPrompt: string
   messages: ChatMessage[]
   promptOverrides?: PromptOverrides

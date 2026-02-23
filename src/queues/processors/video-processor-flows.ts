@@ -89,6 +89,8 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
           generationResult,
           timings,
           data.videoConfig,
+          data.customApiConfig,
+          promptOverrides,
           () => storeProcessingStage(jobId, 'rendering')
         )
       : await renderVideo(
@@ -143,6 +145,8 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
           codeResult,
           timings,
           data.videoConfig,
+          data.customApiConfig,
+          promptOverrides,
           () => storeProcessingStage(jobId, 'rendering')
         )
       : await renderVideo(

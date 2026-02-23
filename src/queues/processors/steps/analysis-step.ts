@@ -4,6 +4,7 @@
  */
 
 import { generateTwoStageAIManimCode } from '../../../services/concept-designer'
+import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import { createLogger } from '../../../utils/logger'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../../../types'
 
@@ -64,16 +65,6 @@ export async function generateCode(
   const { analysisType, manimCode, needsAI } = analyzeResult
   logger.info('Generating code', { jobId, outputMode, needsAI, analysisType, hasImages: !!referenceImages?.length })
 
-  // 基本可视化代码（fallback）
-  const basicVisualizationCode = `from manim import *
-
-class MainScene(Scene):
-    def construct(self):
-        text = Text("Animation for: ${concept}")
-        self.play(Write(text))
-        self.wait(1)
-`.replace('${concept}', concept)
-
   if (needsAI) {
     // 使用两阶段 AI 生成：概念设计者 + 代码生成者
     try {
@@ -83,7 +74,8 @@ class MainScene(Scene):
         outputMode,
         customApiConfig,
         promptOverrides,
-        referenceImages
+        referenceImages,
+        () => ensureJobNotCancelled(jobId)
       )
       if (result.code && result.code.length > 0) {
         logger.info('两阶段 AI 代码生成成功', { jobId, length: result.code.length, hasSceneDesign: !!result.sceneDesign })
@@ -94,13 +86,11 @@ class MainScene(Scene):
           sceneDesign: result.sceneDesign
         }
       }
+      throw new Error('两阶段 AI 未返回有效代码')
     } catch (error) {
-      logger.warn('AI generation failed, using fallback', { jobId, error: String(error) })
+      logger.error('AI generation failed', { jobId, error: String(error) })
+      throw error
     }
-    if (outputMode === 'image') {
-      return { manimCode: '', usedAI: true, generationType: 'image-empty' }
-    }
-    return { manimCode: basicVisualizationCode, usedAI: false, generationType: 'fallback' }
   }
 
   if (manimCode) {
@@ -108,7 +98,7 @@ class MainScene(Scene):
     return { manimCode, usedAI: false, generationType: analysisType }
   }
 
-  return { manimCode: basicVisualizationCode, usedAI: false, generationType: 'fallback' }
+  throw new Error('未生成任何可渲染代码')
 }
 
 /**

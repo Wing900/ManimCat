@@ -9,6 +9,8 @@
 
 import { redisClient, REDIS_KEYS, generateRedisKey } from '../config/redis'
 import { videoQueue } from '../config/bull'
+import { getCancelReason, isJobCancelled } from './job-cancel-store'
+import { JobCancelledError } from '../utils/errors'
 import { createLogger } from '../utils/logger'
 import type { JobResult, ProcessingStage } from '../types'
 
@@ -25,6 +27,12 @@ export async function storeJobResult(
   jobId: string,
   result: Omit<JobResult, 'timestamp'>
 ): Promise<void> {
+  if (result.status === 'completed' && (await isJobCancelled(jobId))) {
+    const reason = await getCancelReason(jobId)
+    logger.warn('Skip completed result because job already cancelled', { jobId, reason })
+    throw new JobCancelledError('Job cancelled', reason || undefined)
+  }
+
   const key = generateRedisKey(JOB_RESULT_KEY_PREFIX, jobId)
   const data = {
     ...result,

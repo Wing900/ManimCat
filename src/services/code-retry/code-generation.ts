@@ -42,7 +42,7 @@ export async function generateInitialCode(
       throw new Error('AI 返回空内容')
     }
 
-    const code = extractCodeFromResponse(content)
+    const code = extractCodeFromResponse(content, context.outputMode)
     const cleaned = cleanManimCode(code)
 
     context.messages.push(
@@ -99,7 +99,7 @@ export async function retryCodeGeneration(
       throw new Error('AI 返回空内容')
     }
 
-    const code = extractCodeFromResponse(content)
+    const code = extractCodeFromResponse(content, context.outputMode)
     const cleaned = cleanManimCode(code)
 
     context.messages.push(
