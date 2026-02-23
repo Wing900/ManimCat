@@ -1,7 +1,7 @@
 # =========================================
 # 阶段 1: 准备 Node 环境
 # =========================================
-FROM node:18-bookworm-slim AS node_base
+FROM node:22-bookworm-slim AS node_base
 
 # =========================================
 # 阶段 2: 构建最终镜像 (基于 Manim)
@@ -23,12 +23,13 @@ WORKDIR /app
 
 # 3. 复制 package.json
 COPY package.json package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./frontend/
 
 # 4. 设置 npm 淘宝源
 RUN npm config set registry https://registry.npmmirror.com
 
 # 5. 安装依赖
-RUN npm install
+RUN npm install && npm --prefix frontend install
 
 # 6. 复制源码并构建 React
 COPY . .
@@ -41,4 +42,3 @@ ENV PORT=7860
 EXPOSE 7860
 
 CMD ["/app/start.sh"]
-
