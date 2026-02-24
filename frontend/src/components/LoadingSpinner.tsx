@@ -15,58 +15,55 @@ interface LoadingSpinnerProps {
 }
 
 const STAGE_CONFIG = {
-  analyzing:         { index: 0, text: '正在分析概念...' },
-  generating:        { index: 1, text: '正在生成代码...' },
-  refining:          { index: 2, text: '正在优化结果...' },
-  rendering:         { index: 3, text: '正在渲染内容...' },
-  'still-rendering': { index: 3, text: '仍在渲染中...' },
+  analyzing:         { text: '正在分析概念...', start: 0, target: 20 },
+  generating:        { text: '正在生成代码...', start: 20, target: 66 },
+  refining:          { text: '正在优化结果...', start: 66, target: 85 },
+  rendering:         { text: '正在渲染内容...', start: 85, target: 97 },
+  'still-rendering': { text: '仍在渲染中...', start: 85, target: 97 },
 } as const;
 
-const TOTAL_STAGES = 4;
-
 // ============================================================================
-// 进度算法 - 对数曲线 + 安慰机制
+// 进度算法 - 阶段目标值 + 持续增长安慰机制
 // ============================================================================
 
 function usePerceivedProgress(stage: Stage): number {
-  const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [prevStage, setPrevStage] = useState(stage);
+  const [stageStartProgress, setStageStartProgress] = useState(0);
+  const [enteredAt, setEnteredAt] = useState(Date.now());
 
-  // 阶段变化时重置计时
+  // 阶段变化时记录起点，确保进度单调递增不回退
   useEffect(() => {
     if (stage !== prevStage) {
-      setElapsed(0);
       setPrevStage(stage);
+      setEnteredAt(Date.now());
+      setStageStartProgress((current) => Math.max(current, progress, STAGE_CONFIG[stage].start));
     }
-  }, [stage, prevStage]);
+  }, [stage, prevStage, progress]);
 
-  // 持续计时
+  // 按阶段目标值推进：前快后慢 + 长耗时每4秒+1%
   useEffect(() => {
-    const start = Date.now();
-    const tick = () => setElapsed((Date.now() - start) / 1000);
-    const id = setInterval(tick, 100);
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - enteredAt) / 1000;
+      const { target } = STAGE_CONFIG[stage];
+      const start = Math.max(stageStartProgress, STAGE_CONFIG[stage].start);
+      const range = Math.max(0, target - start);
+
+      // 前段快速接近目标（不一次冲到顶）
+      const quickGain = range * 0.72 * (1 - Math.exp(-elapsed / 5));
+
+      // 长耗时阶段：超过10秒后每4秒+1%，避免“卡死感”
+      const comfortGain = elapsed > 10 ? Math.floor((elapsed - 10) / 4) : 0;
+
+      const next = Math.min(target, start + quickGain + comfortGain);
+      setProgress((current) => Math.max(current, next));
+    }, 120);
+
     return () => clearInterval(id);
-  }, [stage]);
+  }, [stage, enteredAt, stageStartProgress]);
 
-  // 计算进度
-  const stageIndex = STAGE_CONFIG[stage].index;
-  const stageBase = (stageIndex / TOTAL_STAGES) * 100;
-  const stageSpace = 100 / TOTAL_STAGES; // 每阶段 25%
-
-  // 对数曲线：快启动（前15秒主要靠这个）
-  const k = 0.25;
-  let stageProgress = stageSpace * 0.75 * (1 - 1 / (1 + k * elapsed));
-
-  // 安慰机制：超过15秒后，每8秒+1%，让用户看到"还在动"
-  if (elapsed > 15) {
-    const comfortBonus = Math.floor((elapsed - 15) / 8); // 每8秒+1%
-    stageProgress += Math.min(comfortBonus, stageSpace * 0.2); // 最多再加20%阶段空间
-  }
-
-  const progress = stageBase + stageProgress;
-
-  // 永远不到100%
-  return Math.min(98, progress);
+  // processing 阶段最高展示 97%，完成后由结果态切换
+  return Math.min(97, progress);
 }
 
 // ============================================================================
