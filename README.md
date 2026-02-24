@@ -87,11 +87,11 @@ pinned: false
 
 ### 界面
 
-![image-20260221125910244](public/readme-images/ui-1.png)
+![image-20260221125910244](https://raw.githubusercontent.com/Wing900/ManimCat/main/public/readme-images/ui-1.png)
 
-![image-20260221130027231](public/readme-images/ui-2.png)
+![image-20260221130027231](https://raw.githubusercontent.com/Wing900/ManimCat/main/public/readme-images/ui-2.png)
 
-![image-20260221130809525](public/readme-images/ui-3.png)
+![image-20260221130809525](https://raw.githubusercontent.com/Wing900/ManimCat/main/public/readme-images/ui-3.png)
 
 ## 样例
 
@@ -367,11 +367,10 @@ CODE_RETRY_MAX_RETRIES=4
   </a>
   <p><i>感谢你的支持，我会更有动力维护这个项目！</i></p>
 </details>
-
-
 ## 致谢
 
 - 原项目作者
 - Linux.do社区
 - 阿里云百炼平台
+
 
