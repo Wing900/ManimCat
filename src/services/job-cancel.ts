@@ -9,6 +9,7 @@ import { JobCancelledError } from '../utils/errors'
 import { clearJobCancelled, getCancelReason, isJobCancelled, markJobCancelled } from './job-cancel-store'
 import { cancelManimProcess } from '../utils/manim-process-registry'
 import { deleteJobStage, getJobResult, storeJobResult } from './job-store'
+import type { OutputMode } from '../types'
 
 const logger = createLogger('JobCancel')
 export async function ensureJobNotCancelled(jobId: string, job?: { discard: () => void }): Promise<void> {
@@ -36,10 +37,16 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
   await markJobCancelled(jobId, cancelReason)
 
   let jobState: string | null = null
+  let outputMode: OutputMode | undefined =
+    existing?.status === 'failed' ? existing.data.outputMode : undefined
   const job = await videoQueue.getJob(jobId)
 
   if (job) {
     jobState = await job.getState()
+    const queueOutputMode = (job.data as { outputMode?: OutputMode } | undefined)?.outputMode
+    if (queueOutputMode) {
+      outputMode = queueOutputMode
+    }
 
     if (jobState === 'waiting' || jobState === 'delayed') {
       await job.remove()
@@ -58,7 +65,7 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
   if (!existing || existing.status != 'failed') {
     await storeJobResult(jobId, {
       status: 'failed',
-      data: { error: 'Job cancelled', cancelReason }
+      data: { error: 'Job cancelled', cancelReason, outputMode }
     })
   }
 

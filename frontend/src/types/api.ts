@@ -135,6 +135,52 @@ export interface JobResult {
   cancel_reason?: string;
 }
 
+export interface QueueStats {
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+  total: number;
+}
+
+export interface UsageDailyPoint {
+  date: string;
+  submittedTotal: number;
+  submittedGenerate: number;
+  submittedModify: number;
+  completedTotal: number;
+  failedTotal: number;
+  cancelledTotal: number;
+  completedVideo: number;
+  completedImage: number;
+  renderMsSum: number;
+  successRate: number;
+  avgRenderMs: number;
+}
+
+export interface UsageTotals {
+  submittedTotal: number;
+  submittedGenerate: number;
+  submittedModify: number;
+  completedTotal: number;
+  failedTotal: number;
+  cancelledTotal: number;
+  completedVideo: number;
+  completedImage: number;
+  renderMsSum: number;
+  successRate: number;
+  avgRenderMs: number;
+}
+
+export interface UsageMetricsResponse {
+  timestamp: string;
+  rangeDays: number;
+  daily: UsageDailyPoint[];
+  totals: UsageTotals;
+  queue: QueueStats;
+}
+
 /** API 错误 */
 export interface ApiError {
   error: string;

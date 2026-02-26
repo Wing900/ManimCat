@@ -8,6 +8,7 @@ import { AiModifyModal } from './components/AiModifyModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PromptsManager } from './components/PromptsManager';
 import { DonationModal } from './components/DonationModal';
+import { UsageDashboard } from './components/UsageDashboard';
 import ManimCatLogo from './components/ManimCatLogo';
 import { TopLeftActions } from './components/app/top-left-actions';
 import { TopRightActions } from './components/app/top-right-actions';
@@ -19,6 +20,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [aiModifyInput, setAiModifyInput] = useState('');
   const [currentCode, setCurrentCode] = useState('');
@@ -79,7 +81,11 @@ function App() {
   return (
     <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
       <TopLeftActions onOpenDonation={() => setDonationOpen(true)} />
-      <TopRightActions onOpenPrompts={() => setPromptsOpen(true)} onOpenSettings={() => setSettingsOpen(true)} />
+      <TopRightActions
+        onOpenUsage={() => setUsageOpen(true)}
+        onOpenPrompts={() => setPromptsOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
 
       <div className="max-w-4xl mx-auto px-4 min-h-screen flex flex-col justify-center" style={{ paddingTop: '18vh', paddingBottom: '12vh' }}>
         <div className="text-center mb-12">
@@ -122,6 +128,7 @@ function App() {
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={(config) => console.log('保存配置:', config)} />
       <PromptsManager isOpen={promptsOpen} onClose={() => setPromptsOpen(false)} />
       <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
+      <UsageDashboard isOpen={usageOpen} onClose={() => setUsageOpen(false)} />
       <AiModifyModal
         isOpen={aiModifyOpen}
         value={aiModifyInput}

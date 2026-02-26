@@ -3,11 +3,21 @@ import { ThemeToggle } from '../ThemeToggle';
 interface TopRightActionsProps {
   onOpenPrompts: () => void;
   onOpenSettings: () => void;
+  onOpenUsage: () => void;
 }
 
-export function TopRightActions({ onOpenPrompts, onOpenSettings }: TopRightActionsProps) {
+export function TopRightActions({ onOpenPrompts, onOpenSettings, onOpenUsage }: TopRightActionsProps) {
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+      <button
+        onClick={onOpenUsage}
+        className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
+        title="用量面板"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19h16M6 16V9m6 7V5m6 11v-4" />
+        </svg>
+      </button>
       <button
         onClick={onOpenPrompts}
         className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"

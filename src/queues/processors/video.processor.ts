@@ -97,7 +97,7 @@ videoQueue.process(async (job) => {
 
     await storeJobResult(jobId, {
       status: 'failed',
-      data: { error: errorMessage, cancelReason }
+      data: { error: errorMessage, cancelReason, outputMode }
     })
     await clearJobCancelled(jobId)
 
