@@ -2,8 +2,8 @@
  * Code Retry Service - 重试管理器
  *
  * 核心逻辑：
- * 1. 维护完整的对话历史（原始提示词 + 每次生成的代码 + 每次的错误）
- * 2. 每次重试都发送完整的对话历史
+ * 1. 保留轻量上下文（当前失败代码 + 当前错误）
+ * 2. 每次重试只发送必要信息，避免 token 膨胀
  * 3. 最多重试 4 次
  */
 
@@ -11,9 +11,8 @@ import { createLogger } from '../../utils/logger'
 import type { CodeRetryOptions, CodeRetryResult, RenderResult, RetryManagerResult, ChatMessage, CodeRetryContext } from './types'
 import type { OutputMode, PromptOverrides } from '../../types'
 import { extractErrorMessage, getErrorType } from './utils'
-import { buildContextOriginalPrompt, buildRetryFixPrompt } from './prompt-builder'
+import { buildContextOriginalPrompt } from './prompt-builder'
 import { generateInitialCode, retryCodeGeneration } from './code-generation'
-import { stripSharedBlocksFromPrompt } from '../prompt-dedup'
 
 const logger = createLogger('CodeRetryManager')
 
@@ -33,7 +32,6 @@ export function createRetryContext(
     sceneDesign,
     outputMode,
     originalPrompt: buildContextOriginalPrompt(concept, sceneDesign, outputMode, promptOverrides),
-    messages: [],
     promptOverrides
   }
 }
@@ -48,8 +46,8 @@ export { buildRetryFixPrompt } from './prompt-builder'
  *
  * 流程：
  * 1. 首次生成代码 → 渲染
- * 2. 如果失败，检查错误是否可修复
- * 3. 重试（最多4次），每次都发送完整对话历史
+ * 2. 如果失败，提取当前错误
+ * 3. 重试（最多4次），每次只发送当前错误和当前失败代码
  * 4. 如果4次后仍失败，返回失败结果
  */
 export async function executeCodeRetry(
@@ -70,13 +68,6 @@ export async function executeCodeRetry(
     const generationStart = Date.now()
     currentCode = await generateInitialCode(context, customApiConfig)
     generationTimeMs += Date.now() - generationStart
-  } else {
-    // 对齐历史上下文，确保后续重试包含“原始提示词 + 首次代码”
-    const compactOriginalPrompt = stripSharedBlocksFromPrompt(context.originalPrompt, context.promptOverrides)
-    context.messages.push(
-      { role: 'user', content: compactOriginalPrompt || '请按照系统规则生成可运行代码。' },
-      { role: 'assistant', content: currentCode }
-    )
   }
   let renderResult = await renderer(currentCode)
 
@@ -101,7 +92,7 @@ export async function executeCodeRetry(
 
     try {
       const generationStart = Date.now()
-      currentCode = await retryCodeGeneration(context, errorMessage, attempt, customApiConfig)
+      currentCode = await retryCodeGeneration(context, errorMessage, attempt, currentCode, customApiConfig)
       generationTimeMs += Date.now() - generationStart
       renderResult = await renderer(currentCode)
 

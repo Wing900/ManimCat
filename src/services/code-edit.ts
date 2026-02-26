@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
-import { SYSTEM_PROMPTS, generateCodeEditPrompt, getSharedModule } from '../prompts'
+import { generateCodeEditPrompt, getRoleSystemPrompt, getSharedModule } from '../prompts'
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../types'
 import {
   createCustomOpenAIClient,
@@ -71,7 +71,7 @@ export async function generateEditedManimCode(
   }
 
   try {
-    const baseSystemPrompt = promptOverrides?.roles?.codeEdit?.system || SYSTEM_PROMPTS.codeEdit
+    const baseSystemPrompt = getRoleSystemPrompt('codeEdit', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.codeEdit?.user
     const baseUserPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, instructions, code, outputMode }, promptOverrides)

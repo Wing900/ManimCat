@@ -21,7 +21,6 @@ export interface CodeRetryContext {
   sceneDesign: string
   outputMode: OutputMode
   originalPrompt: string
-  messages: ChatMessage[]
   promptOverrides?: PromptOverrides
 }
 

@@ -1,8 +1,8 @@
 import crypto from 'crypto'
-import { getSharedModule, getRoleUserPrompt } from '../../prompts'
+import { getSharedModule, getRoleSystemPrompt, getRoleUserPrompt } from '../../prompts'
 import type { PromptOverrides } from '../../types'
 import type { CodeRetryContext } from './types'
-import { buildInitialCodePrompt, CODE_RETRY_SYSTEM_PROMPT } from './prompts'
+import { buildInitialCodePrompt } from './prompts'
 
 function applyPromptTemplate(
   template: string,
@@ -27,7 +27,7 @@ function generateSeed(concept: string): string {
 }
 
 export function getCodeRetrySystemPrompt(promptOverrides?: PromptOverrides): string {
-  return promptOverrides?.roles?.codeRetry?.system || CODE_RETRY_SYSTEM_PROMPT
+  return getRoleSystemPrompt('codeRetry', promptOverrides)
 }
 
 function buildInitialPrompt(
@@ -37,27 +37,13 @@ function buildInitialPrompt(
   outputMode: 'video' | 'image',
   promptOverrides?: PromptOverrides
 ): string {
-  const override = promptOverrides?.roles?.codeRetry?.user
-  if (override) {
-    return applyPromptTemplate(
-      override,
-      {
-        concept,
-        seed,
-        sceneDesign,
-        outputMode,
-        isImage: outputMode === 'image',
-        isVideo: outputMode === 'video'
-      },
-      promptOverrides
-    )
-  }
   return buildInitialCodePrompt(concept, seed, sceneDesign, outputMode, promptOverrides)
 }
 
 export function buildRetryFixPrompt(
   concept: string,
   errorMessage: string,
+  code: string,
   attempt: number | string,
   outputMode: 'video' | 'image',
   promptOverrides?: PromptOverrides
@@ -67,6 +53,7 @@ export function buildRetryFixPrompt(
     {
       concept,
       errorMessage,
+      code,
       attempt: Number(attempt),
       outputMode,
       isImage: outputMode === 'image',
@@ -79,7 +66,8 @@ export function buildRetryFixPrompt(
 export function buildRetryPrompt(
   context: CodeRetryContext,
   errorMessage: string,
-  attempt: number
+  attempt: number,
+  currentCode: string
 ): string {
   const override = context.promptOverrides?.roles?.codeRetry?.user
   if (override) {
@@ -88,6 +76,7 @@ export function buildRetryPrompt(
       {
         concept: context.concept,
         errorMessage,
+        code: currentCode,
         attempt: String(attempt),
         outputMode: context.outputMode,
         isImage: context.outputMode === 'image',
@@ -96,7 +85,14 @@ export function buildRetryPrompt(
       context.promptOverrides
     )
   }
-  return buildRetryFixPrompt(context.concept, errorMessage, attempt, context.outputMode, context.promptOverrides)
+  return buildRetryFixPrompt(
+    context.concept,
+    errorMessage,
+    currentCode,
+    attempt,
+    context.outputMode,
+    context.promptOverrides
+  )
 }
 
 export function buildContextOriginalPrompt(

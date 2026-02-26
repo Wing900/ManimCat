@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../utils/logger'
-import { SYSTEM_PROMPTS, generateConceptDesignerPrompt } from '../../prompts'
+import { generateConceptDesignerPrompt, getRoleSystemPrompt } from '../../prompts'
 import type { OutputMode, PromptOverrides, ReferenceImage } from '../../types'
 import {
   applyPromptTemplate,
@@ -42,7 +42,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
 
   try {
     const seed = generateUniqueSeed(concept)
-    const systemPrompt = promptOverrides?.roles?.conceptDesigner?.system || SYSTEM_PROMPTS.conceptDesigner
+    const systemPrompt = getRoleSystemPrompt('conceptDesigner', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.conceptDesigner?.user
     const userPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, seed, outputMode }, promptOverrides)

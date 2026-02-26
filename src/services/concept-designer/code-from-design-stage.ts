@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../utils/logger'
-import { SYSTEM_PROMPTS, generateCodeGenerationPrompt } from '../../prompts'
+import { generateCodeGenerationPrompt, getRoleSystemPrompt } from '../../prompts'
 import type { OutputMode, PromptOverrides } from '../../types'
 import {
   applyPromptTemplate,
@@ -43,7 +43,7 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
 
   try {
     const seed = generateUniqueSeed(`${concept}-${sceneDesign.slice(0, 20)}`)
-    const systemPrompt = promptOverrides?.roles?.codeGeneration?.system || SYSTEM_PROMPTS.codeGeneration
+    const systemPrompt = getRoleSystemPrompt('codeGeneration', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.codeGeneration?.user
     const userPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign, outputMode }, promptOverrides)

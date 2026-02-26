@@ -3,9 +3,9 @@ import { createLogger } from '../../utils/logger'
 import { cleanManimCode } from '../../utils/manim-code-cleaner'
 import { getClient } from './client'
 import { extractCodeFromResponse } from './utils'
-import type { ChatMessage, CodeRetryContext } from './types'
+import type { CodeRetryContext } from './types'
 import { buildRetryPrompt, getCodeRetrySystemPrompt } from './prompt-builder'
-import { dedupeSharedBlocksInMessages, stripSharedBlocksFromPrompt } from '../prompt-dedup'
+import { dedupeSharedBlocksInMessages } from '../prompt-dedup'
 
 const logger = createLogger('CodeRetryCodeGen')
 
@@ -51,12 +51,6 @@ export async function generateInitialCode(
     const code = extractCodeFromResponse(content, context.outputMode)
     const cleaned = cleanManimCode(code)
 
-    const compactOriginalPrompt = stripSharedBlocksFromPrompt(context.originalPrompt, context.promptOverrides)
-    context.messages.push(
-      { role: 'user', content: compactOriginalPrompt || '请按照系统规则生成可运行代码。' },
-      { role: 'assistant', content: code }
-    )
-
     logger.info('首次代码生成成功', {
       concept: context.concept,
       codeLength: cleaned.code.length
@@ -78,6 +72,7 @@ export async function retryCodeGeneration(
   context: CodeRetryContext,
   errorMessage: string,
   attempt: number,
+  currentCode: string,
   customApiConfig?: unknown
 ): Promise<string> {
   const client = getClient(customApiConfig as any)
@@ -85,15 +80,16 @@ export async function retryCodeGeneration(
     throw new Error('OpenAI 客户端不可用')
   }
 
-  const retryPrompt = buildRetryPrompt(context, errorMessage, attempt)
+  const retryPrompt = buildRetryPrompt(context, errorMessage, attempt, currentCode)
 
   try {
-    const messages: ChatMessage[] = [
-      { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
-      ...context.messages,
-      { role: 'user', content: retryPrompt }
-    ]
-    const requestMessages = dedupeSharedBlocksInMessages(messages, context.promptOverrides)
+    const requestMessages = dedupeSharedBlocksInMessages(
+      [
+        { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
+        { role: 'user', content: retryPrompt }
+      ],
+      context.promptOverrides
+    )
 
     const response = await client.chat.completions.create({
       model: getModel(customApiConfig),
@@ -109,12 +105,6 @@ export async function retryCodeGeneration(
 
     const code = extractCodeFromResponse(content, context.outputMode)
     const cleaned = cleanManimCode(code)
-
-    const compactRetryPrompt = stripSharedBlocksFromPrompt(retryPrompt, context.promptOverrides)
-    context.messages.push(
-      { role: 'user', content: compactRetryPrompt || `请根据错误继续修复（第 ${attempt} 轮）` },
-      { role: 'assistant', content: code }
-    )
 
     logger.info('代码重试生成成功', {
       concept: context.concept,
