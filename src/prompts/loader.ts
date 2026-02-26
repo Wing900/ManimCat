@@ -5,6 +5,7 @@
 
 import fs from 'fs'
 import path from 'path'
+import { API_INDEX, SOUL_INDEX } from './api-index'
 
 // 使用项目根目录，兼容开发和生产环境
 const TEMPLATES_DIR = path.join(process.cwd(), 'src', 'prompts', 'templates')
@@ -67,6 +68,8 @@ const SHARED_FILES: Record<SharedModuleType, string> = {
   rules: path.join(TEMPLATES_DIR, 'shared', 'rules.md')
 }
 
+const ROLES_REQUIRE_SYSTEM_INDEX = new Set<RoleType>(['codeGeneration', 'codeRetry', 'codeEdit'])
+
 // ============================================================================
 // 缓存
 // ============================================================================
@@ -102,6 +105,12 @@ export function clearTemplateCache(): void {
  */
 type TemplateValue = string | number | boolean | undefined
 
+function resolveIndexPlaceholders(template: string): string {
+  return template
+    .replace(/\{\{apiIndex\}\}/g, API_INDEX.trim())
+    .replace(/\{\{soulIndex\}\}/g, SOUL_INDEX.trim())
+}
+
 function replaceVariables(template: string, variables: Record<string, TemplateValue>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const value = variables[key]
@@ -134,8 +143,8 @@ function assembleTemplate(
   overrides?: PromptOverrides
 ): string {
   // 1. 加载共享模块
-  const knowledge = overrides?.shared?.knowledge ?? readTemplate(SHARED_FILES.knowledge)
-  const rules = overrides?.shared?.rules ?? readTemplate(SHARED_FILES.rules)
+  const knowledge = getSharedModule('knowledge', overrides)
+  const rules = getSharedModule('rules', overrides)
 
   // 2. 替换共享模块占位符
   let result = template
@@ -147,6 +156,9 @@ function assembleTemplate(
 
   // 4. 替换变量占位符
   result = replaceVariables(result, variables as Record<string, TemplateValue>)
+
+  // 5. 解析索引占位符（用于 shared 模板与 override）
+  result = resolveIndexPlaceholders(result)
 
   return result.trim()
 }
@@ -163,9 +175,13 @@ export function getRoleSystemPrompt(
   overrides?: PromptOverrides
 ): string {
   const override = overrides?.roles?.[role]?.system
-  if (override) return override
+  const basePrompt = override ?? readTemplate(ROLE_FILES[role].system)
 
-  return readTemplate(ROLE_FILES[role].system)
+  if (!ROLES_REQUIRE_SYSTEM_INDEX.has(role)) {
+    return basePrompt
+  }
+
+  return assembleSystemPromptWithSharedIndex(basePrompt, overrides)
 }
 
 /**
@@ -189,7 +205,50 @@ export function getSharedModule(
   module: SharedModuleType,
   overrides?: PromptOverrides
 ): string {
-  return overrides?.shared?.[module] ?? readTemplate(SHARED_FILES[module])
+  const raw = overrides?.shared?.[module] ?? readTemplate(SHARED_FILES[module])
+  return resolveIndexPlaceholders(raw)
+}
+
+function assembleSystemPromptWithSharedIndex(
+  basePrompt: string,
+  overrides?: PromptOverrides
+): string {
+  const knowledge = getSharedModule('knowledge', overrides).trim()
+  const rules = getSharedModule('rules', overrides).trim()
+  const sharedBlock = [
+    '## System Knowledge (Auto-Injected)',
+    knowledge,
+    '',
+    '## System Rules (Auto-Injected)',
+    rules
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+
+  if (!sharedBlock) {
+    return basePrompt
+  }
+
+  let result = basePrompt.trim()
+  const normalizedApiIndex = API_INDEX.trim()
+  const normalizedSoulIndex = SOUL_INDEX.trim()
+
+  // Guard against duplicated index blocks in custom system overrides.
+  if (normalizedApiIndex && result.includes(normalizedApiIndex)) {
+    result = result.replace(normalizedApiIndex, '').trim()
+  }
+  if (normalizedSoulIndex && result.includes(normalizedSoulIndex)) {
+    result = result.replace(normalizedSoulIndex, '').trim()
+  }
+  if (knowledge && result.includes(knowledge)) {
+    result = result.replace(knowledge, '').trim()
+  }
+  if (rules && result.includes(rules)) {
+    result = result.replace(rules, '').trim()
+  }
+
+  return `${result}\n\n${sharedBlock}`.trim()
 }
 
 /**
@@ -219,8 +278,8 @@ export function getAllDefaultTemplates(): {
       }
     },
     shared: {
-      knowledge: readTemplate(SHARED_FILES.knowledge),
-      rules: readTemplate(SHARED_FILES.rules)
+      knowledge: getSharedModule('knowledge'),
+      rules: getSharedModule('rules')
     }
   }
 }

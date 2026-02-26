@@ -5,6 +5,7 @@ import { getClient } from './client'
 import { extractCodeFromResponse } from './utils'
 import type { ChatMessage, CodeRetryContext } from './types'
 import { buildRetryPrompt, getCodeRetrySystemPrompt } from './prompt-builder'
+import { dedupeSharedBlocksInMessages, stripSharedBlocksFromPrompt } from '../prompt-dedup'
 
 const logger = createLogger('CodeRetryCodeGen')
 
@@ -27,12 +28,17 @@ export async function generateInitialCode(
   }
 
   try {
-    const response = await client.chat.completions.create({
-      model: getModel(customApiConfig),
-      messages: [
+    const requestMessages = dedupeSharedBlocksInMessages(
+      [
         { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
         { role: 'user', content: context.originalPrompt }
       ],
+      context.promptOverrides
+    )
+
+    const response = await client.chat.completions.create({
+      model: getModel(customApiConfig),
+      messages: requestMessages,
       temperature: AI_TEMPERATURE,
       max_tokens: MAX_TOKENS
     })
@@ -45,8 +51,9 @@ export async function generateInitialCode(
     const code = extractCodeFromResponse(content, context.outputMode)
     const cleaned = cleanManimCode(code)
 
+    const compactOriginalPrompt = stripSharedBlocksFromPrompt(context.originalPrompt, context.promptOverrides)
     context.messages.push(
-      { role: 'user', content: context.originalPrompt },
+      { role: 'user', content: compactOriginalPrompt || '请按照系统规则生成可运行代码。' },
       { role: 'assistant', content: code }
     )
 
@@ -86,10 +93,11 @@ export async function retryCodeGeneration(
       ...context.messages,
       { role: 'user', content: retryPrompt }
     ]
+    const requestMessages = dedupeSharedBlocksInMessages(messages, context.promptOverrides)
 
     const response = await client.chat.completions.create({
       model: getModel(customApiConfig),
-      messages,
+      messages: requestMessages,
       temperature: AI_TEMPERATURE,
       max_tokens: MAX_TOKENS
     })
@@ -102,8 +110,9 @@ export async function retryCodeGeneration(
     const code = extractCodeFromResponse(content, context.outputMode)
     const cleaned = cleanManimCode(code)
 
+    const compactRetryPrompt = stripSharedBlocksFromPrompt(retryPrompt, context.promptOverrides)
     context.messages.push(
-      { role: 'user', content: retryPrompt },
+      { role: 'user', content: compactRetryPrompt || `请根据错误继续修复（第 ${attempt} 轮）` },
       { role: 'assistant', content: code }
     )
 

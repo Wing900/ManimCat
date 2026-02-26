@@ -306,3 +306,80 @@ unique_args_index = {
 }
 `
 
+/**
+ * Manim Soul API - Supplemental Codebook
+ * Focus: Animations, Updaters, Camera Control, and Constants
+ */
+export const SOUL_INDEX = `# Manim Soul Index (Compressed)
+
+### 1. Animation Codebook (The 'How it moves')
+anim_codebook = {
+  Create: cr,
+  Write: wr,
+  FadeIn: fi,
+  FadeOut: fo,
+  Transform: tr,
+  ReplacementTransform: rttr,
+  MoveAlongPath: map,
+  Rotate: rot_anim,
+  ScaleInPlace: sip,
+  Indicate: ind,
+  Flash: flsh,
+  FocusOn: fon,
+  Succession: succ,
+  AnimationGroup: agp
+}
+
+### 2. Rate Function Codebook (The 'Feel')
+rate_codebook = {
+  smooth: sm,
+  linear: ln,
+  ease_in_sine: eis,
+  ease_out_sine: eos,
+  ease_in_out_sine: eios,
+  there_and_back: tab,
+  wiggle: wig,
+  running_start: rs
+}
+
+### 3. Logic & Updater Codebook (The 'Brain')
+logic_codebook = {
+  ValueTracker: vt,
+  add_updater: au,
+  remove_updater: ru,
+  always_redraw: alr,
+  get_value: gv,
+  set_value: sv,
+  increment_value: iv
+}
+
+### 4. Camera & 3D Codebook (The 'Eyes')
+camera_codebook = {
+  set_camera_orientation: sco,
+  move_camera: mc,
+  add_fixed_in_frame_mobjects: afif,
+  phi: p,
+  theta: t,
+  gamma: g,
+  zoom: z,
+  focal_distance: fd
+}
+
+### 5. Constants Codebook (The 'Rules')
+const_codebook = {
+  ORIGIN: O,
+  UP: U, DOWN: D, LEFT: L, RIGHT: R,
+  UL: UL, UR: UR, DL: DL, DR: DR,
+  IN: IN, OUT: OUT,
+  PI: PI, TAU: TAU, DEGREES: DEG,
+  COLORS: [BLUE, RED, GREEN, YELLOW, GOLD, WHITE, BLACK]
+}
+
+### Soul Method Index Sets
+soul_index = {
+  Anim_Args: [run_time, rate_func, lag_ratio],
+  Updater_Logic: [vt(val), au(func), alr(func)],
+  Camera_Control: [sco(p, t, g), mc(p, t, g, z, run_t), afif(mobs)]
+}
+`
+
