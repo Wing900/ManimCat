@@ -11,10 +11,11 @@ import { loadSettings } from './settings';
 
 const API_BASE = '/api';
 
-function getAuthHeaders(): HeadersInit {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+function getAuthHeaders(contentType = 'application/json'): HeadersInit {
+  const headers: HeadersInit = {};
+  if (contentType) {
+    headers['Content-Type'] = contentType;
+  }
 
   const apiKey = localStorage.getItem('manimcat_api_key');
   if (apiKey) {
@@ -38,6 +39,36 @@ export async function modifyAnimation(request: ModifyRequest, signal?: AbortSign
   if (!response.ok) {
     const error: ApiError = await response.json();
     throw new Error(error.error || 'AI 修改失败');
+  }
+
+  return response.json();
+}
+
+interface UploadReferenceImageResponse {
+  success: boolean;
+  url: string;
+  relativeUrl: string;
+  mimeType: string;
+  size: number;
+}
+
+export async function uploadReferenceImage(file: File, signal?: AbortSignal): Promise<UploadReferenceImageResponse> {
+  const response = await fetch(`${API_BASE}/reference-images`, {
+    method: 'POST',
+    headers: getAuthHeaders(file.type || 'application/octet-stream'),
+    body: file,
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = '图片上传失败';
+    try {
+      const error: ApiError = await response.json();
+      message = error.error || message;
+    } catch {
+      // ignore json parse errors and keep default message
+    }
+    throw new Error(message);
   }
 
   return response.json();

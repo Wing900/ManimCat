@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReferenceImage } from '../../types/api';
 import { MAX_IMAGE_SIZE, MAX_IMAGES } from './constants';
+import { uploadReferenceImage } from '../../lib/api';
 
 interface UseReferenceImagesResult {
   images: ReferenceImage[];
@@ -13,20 +14,6 @@ interface UseReferenceImagesResult {
   handleDragOver: (e: React.DragEvent) => void;
   handleDragEnter: (e: React.DragEvent) => void;
   handleDragLeave: (e: React.DragEvent) => void;
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (file.size > MAX_IMAGE_SIZE) {
-      reject(new Error(`图片大小不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 export function useReferenceImages(): UseReferenceImagesResult {
@@ -54,10 +41,20 @@ export function useReferenceImages(): UseReferenceImagesResult {
       const toAdd = fileArray.slice(0, remaining);
 
       try {
+        for (const file of toAdd) {
+          if (file.size > MAX_IMAGE_SIZE) {
+            throw new Error(`图片大小不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`);
+          }
+        }
+
         const newImages: ReferenceImage[] = await Promise.all(
-          toAdd.map(async (file) => ({
-            url: await fileToBase64(file),
-          }))
+          toAdd.map(async (file) => {
+            const uploaded = await uploadReferenceImage(file);
+            return {
+              url: uploaded.url,
+              detail: 'low',
+            };
+          })
         );
         setImages((prev) => [...prev, ...newImages]);
       } catch (err) {
