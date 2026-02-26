@@ -1,8 +1,18 @@
 import crypto from 'crypto'
-import { API_INDEX } from '../prompts/api-index'
+import { API_INDEX, SOUL_INDEX } from '../prompts/api-index'
 
 export const OPENAI_MANIM_SYSTEM_PROMPT = `你是一位 Manim 动画专家，专注于通过动态动画深度解读数学概念。
-严格按照提示词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。`
+严格按照提示词规范输出，确保代码符合 Manim Community Edition (v0.19.2) 的最佳实践。
+
+## System Knowledge (Auto-Injected)
+
+\`\`\`python
+${API_INDEX}
+
+# Supplemental
+${SOUL_INDEX}
+\`\`\`
+`
 
 /**
  * 基于概念和时间戳生成唯一种子
@@ -34,12 +44,6 @@ export function generateManimPrompt(concept: string, seed: string): string {
 - **锚点协议**：输出必须以 \`### START ###\` 开始，以 \`### END ###\` 结束。这两个锚点之间**只允许出现代码**。
 
 ## 知识层
-
-### API 索引表
-
-\`\`\`python
-${API_INDEX}
-\`\`\`
 
 ### 环境背景
 

@@ -26,10 +26,6 @@
 - **结构规范（图片）**：每个块都必须包含可渲染 Scene 类，统一使用 `from manim import *`。
 {{/if}}
 
-{{knowledge}}
-
-{{rules}}
-
 ## 原始代码
 
 ```python

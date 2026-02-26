@@ -8,6 +8,7 @@ const USAGE_DAILY_KEY_PREFIX = 'usage:daily:'
 const USAGE_FINALIZED_MARK_KEY_PREFIX = 'usage:finalized:'
 
 const DEFAULT_USAGE_RETENTION_DAYS = 90
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 
 const DAILY_FIELDS = [
   'submitted_total',
@@ -74,8 +75,34 @@ function getUsageRetentionSeconds(): number {
   return getUsageRetentionDays() * 24 * 60 * 60
 }
 
-function getUtcDateString(date: Date): string {
-  return date.toISOString().slice(0, 10)
+function formatDateParts(year: number, month: number, day: number): string {
+  const yyyy = String(year).padStart(4, '0')
+  const mm = String(month).padStart(2, '0')
+  const dd = String(day).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function getShanghaiDateString(date: Date): string {
+  // Use UTC getters on shifted epoch to avoid server local timezone differences.
+  const shifted = new Date(date.getTime() + SHANGHAI_OFFSET_MS)
+  return formatDateParts(
+    shifted.getUTCFullYear(),
+    shifted.getUTCMonth() + 1,
+    shifted.getUTCDate()
+  )
+}
+
+function parseDateString(dateString: string): { year: number; month: number; day: number } {
+  const [yearStr, monthStr, dayStr] = dateString.split('-')
+  const year = Number.parseInt(yearStr || '', 10)
+  const month = Number.parseInt(monthStr || '', 10)
+  const day = Number.parseInt(dayStr || '', 10)
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    throw new Error(`Invalid date string: ${dateString}`)
+  }
+
+  return { year, month, day }
 }
 
 function getDailyKey(dateString: string): string {
@@ -136,7 +163,7 @@ export async function recordUsageSubmission(
   source: 'generate' | 'modify',
   _outputMode: OutputMode
 ): Promise<void> {
-  const dateString = getUtcDateString(new Date())
+  const dateString = getShanghaiDateString(new Date())
   const counters: Partial<DailyCounters> = {
     submitted_total: 1
   }
@@ -171,7 +198,7 @@ export async function recordUsageFinalization(args: {
       return
     }
 
-    const dateString = getUtcDateString(new Date())
+    const dateString = getShanghaiDateString(new Date())
     const counters: Partial<DailyCounters> = {}
 
     if (status === 'completed') {
@@ -213,14 +240,15 @@ function clampRangeDays(input: number): number {
 }
 
 function createDateWindow(rangeDays: number): string[] {
-  const now = new Date()
-  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const todayShanghai = getShanghaiDateString(new Date())
+  const { year, month, day } = parseDateString(todayShanghai)
+  const today = new Date(Date.UTC(year, month - 1, day))
   const dates: string[] = []
 
   for (let offset = rangeDays - 1; offset >= 0; offset -= 1) {
-    const target = new Date(todayUtc)
-    target.setUTCDate(todayUtc.getUTCDate() - offset)
-    dates.push(getUtcDateString(target))
+    const target = new Date(today)
+    target.setUTCDate(today.getUTCDate() - offset)
+    dates.push(formatDateParts(target.getUTCFullYear(), target.getUTCMonth() + 1, target.getUTCDate()))
   }
 
   return dates

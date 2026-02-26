@@ -13,6 +13,7 @@ import type { OutputMode, PromptOverrides } from '../../types'
 import { extractErrorMessage, getErrorType } from './utils'
 import { buildContextOriginalPrompt, buildRetryFixPrompt } from './prompt-builder'
 import { generateInitialCode, retryCodeGeneration } from './code-generation'
+import { stripSharedBlocksFromPrompt } from '../prompt-dedup'
 
 const logger = createLogger('CodeRetryManager')
 
@@ -71,8 +72,9 @@ export async function executeCodeRetry(
     generationTimeMs += Date.now() - generationStart
   } else {
     // 对齐历史上下文，确保后续重试包含“原始提示词 + 首次代码”
+    const compactOriginalPrompt = stripSharedBlocksFromPrompt(context.originalPrompt, context.promptOverrides)
     context.messages.push(
-      { role: 'user', content: context.originalPrompt },
+      { role: 'user', content: compactOriginalPrompt || '请按照系统规则生成可运行代码。' },
       { role: 'assistant', content: currentCode }
     )
   }
