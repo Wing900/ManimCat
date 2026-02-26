@@ -202,6 +202,10 @@ pinned: false
 | `CODE_RETRY_MAX_RETRIES` | `4` | 代码修复重试次数 |
 | `MEDIA_RETENTION_HOURS` | `72` | 图片/视频文件保留小时数 |
 | `MEDIA_CLEANUP_INTERVAL_MINUTES` | `60` | 媒体清理任务执行间隔（分钟） |
+| `JOB_RESULT_RETENTION_HOURS` | `24` | 任务结果与阶段信息保留小时数 |
+| `USAGE_RETENTION_DAYS` | `90` | 用量统计（按天聚合）保留天数 |
+| `METRICS_USAGE_RATE_LIMIT_MAX` | `30` | 用量接口每个 IP 的窗口最大请求数 |
+| `METRICS_USAGE_RATE_LIMIT_WINDOW_MS` | `60000` | 用量接口限流窗口时长（毫秒） |
 
 **示例 `.env` 文件：**
 

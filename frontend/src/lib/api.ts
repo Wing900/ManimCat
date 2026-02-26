@@ -1,4 +1,12 @@
-import type { GenerateRequest, GenerateResponse, JobResult, ApiError, PromptDefaults, ModifyRequest } from '../types/api';
+import type {
+  GenerateRequest,
+  GenerateResponse,
+  JobResult,
+  ApiError,
+  PromptDefaults,
+  ModifyRequest,
+  UsageMetricsResponse
+} from '../types/api';
 import { loadSettings } from './settings';
 
 const API_BASE = '/api';
@@ -94,3 +102,16 @@ export async function cancelJob(jobId: string): Promise<void> {
   }
 }
 
+export async function getUsageMetrics(days = 7, signal?: AbortSignal): Promise<UsageMetricsResponse> {
+  const response = await fetch(`${API_BASE}/metrics/usage?days=${days}`, {
+    headers: getAuthHeaders(),
+    signal,
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw new Error(error.error || '获取用量统计失败');
+  }
+
+  return response.json();
+}

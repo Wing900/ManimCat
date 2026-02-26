@@ -125,6 +125,7 @@ export interface FailedJobResult {
     error: string
     details?: string
     cancelReason?: string
+    outputMode?: OutputMode
   }
   timestamp: number
 }

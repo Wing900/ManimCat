@@ -10,22 +10,41 @@
 import { redisClient, REDIS_KEYS, generateRedisKey } from '../config/redis'
 import { videoQueue } from '../config/bull'
 import { getCancelReason, isJobCancelled } from './job-cancel-store'
+import { recordUsageFinalization } from './usage-metrics'
 import { JobCancelledError } from '../utils/errors'
 import { createLogger } from '../utils/logger'
-import type { JobResult, ProcessingStage } from '../types'
+import type { CompletedJobResult, FailedJobResult, JobResult, ProcessingStage } from '../types'
 
 const logger = createLogger('JobStore')
 
 const JOB_RESULTS_GROUP = 'job-results'
 const JOB_RESULT_KEY_PREFIX = `${REDIS_KEYS.JOB_RESULT}`
 const JOB_STAGE_KEY_PREFIX = `${REDIS_KEYS.JOB_RESULT}:stage`
+const DEFAULT_JOB_RESULT_RETENTION_HOURS = 24
+type StorableJobResult = Pick<CompletedJobResult, 'status' | 'data'> | Pick<FailedJobResult, 'status' | 'data'>
+
+function parsePositiveInteger(input: string | undefined, fallback: number): number {
+  const value = Number(input)
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallback
+  }
+  return Math.floor(value)
+}
+
+function getJobResultRetentionSeconds(): number {
+  const retentionHours = parsePositiveInteger(
+    process.env.JOB_RESULT_RETENTION_HOURS,
+    DEFAULT_JOB_RESULT_RETENTION_HOURS
+  )
+  return retentionHours * 60 * 60
+}
 
 /**
  * 使用 Redis 存储任务结果
  */
 export async function storeJobResult(
   jobId: string,
-  result: Omit<JobResult, 'timestamp'>
+  result: StorableJobResult
 ): Promise<void> {
   if (result.status === 'completed' && (await isJobCancelled(jobId))) {
     const reason = await getCancelReason(jobId)
@@ -40,10 +59,22 @@ export async function storeJobResult(
   }
 
   try {
+    const retentionSeconds = getJobResultRetentionSeconds()
     await redisClient.set(key, JSON.stringify(data))
-    // 设置过期时间：7 天后自动清理
-    await redisClient.expire(key, 7 * 24 * 60 * 60)
+    await redisClient.expire(key, retentionSeconds)
     logger.info('任务结果已存储', { jobId, status: result.status })
+
+    const isCancelled = result.status === 'failed' ? Boolean(result.data.cancelReason) : false
+    const renderMs = result.status === 'completed' ? result.data.timings?.total : undefined
+    const outputMode = result.data.outputMode
+
+    await recordUsageFinalization({
+      jobId,
+      status: result.status,
+      outputMode,
+      isCancelled,
+      renderMs
+    })
   } catch (error) {
     logger.error('存储任务结果失败', { jobId, error })
     throw error
@@ -148,9 +179,9 @@ export async function storeJobStage(
   const key = generateRedisKey(JOB_STAGE_KEY_PREFIX, jobId)
 
   try {
+    const retentionSeconds = getJobResultRetentionSeconds()
     await redisClient.set(key, stage)
-    // 设置过期时间：与 job result 相同，7 天后自动清理
-    await redisClient.expire(key, 7 * 24 * 60 * 60)
+    await redisClient.expire(key, retentionSeconds)
     logger.debug('任务阶段已存储', { jobId, stage })
   } catch (error) {
     logger.error('存储任务阶段失败', { jobId, error })

@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { videoQueue } from '../config/bull'
 import { storeJobStage } from '../services/job-store'
+import { recordUsageSubmission } from '../services/usage-metrics'
 import { createLogger } from '../utils/logger'
 import { ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
@@ -82,6 +83,8 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     },
     { jobId }
   )
+
+  await recordUsageSubmission('modify', outputMode)
 
   const response: GenerateResponse = {
     success: true,
