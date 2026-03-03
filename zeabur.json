@@ -29,6 +29,16 @@
           "description": "Server port"
         },
         {
+          "key": "LOG_LEVEL",
+          "value": "info",
+          "description": "Server log level"
+        },
+        {
+          "key": "PROD_SUMMARY_LOG_ONLY",
+          "value": "true",
+          "description": "Only emit per-job summary logs in production"
+        },
+        {
           "key": "REDIS_HOST",
           "value": "${REDIS_HOST}",
           "description": "Redis host (auto-injected by Zeabur)"

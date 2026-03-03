@@ -35,6 +35,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PROD_SUMMARY_LOG_ONLY=${PROD_SUMMARY_LOG_ONLY:-true}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}

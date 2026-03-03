@@ -9,8 +9,22 @@
 
 - **修复代码**：修复以下失败的代码，确保它能正常运行
 - **纯代码输出**：严禁输出 Markdown 代码块标识符，严禁包含任何解释性文字
-- **锚点协议**：输出必须以 ### START ### 开始，以 ### END ### 结束，两个锚点之间只允许出现代码
-- **结构规范**：核心类名固定为 `MainScene`（若为 3D 场景则继承自 `ThreeDScene`）。必须使用全部导入 `from manim import *`
+{{#if isVideo}}
+- **锚点协议（视频）**：输出必须以 ### START ### 开始，以 ### END ### 结束，两个锚点之间只允许出现代码
+- **结构规范（视频）**：核心类名固定为 `MainScene`（若为 3D 场景则继承自 `ThreeDScene`）。必须使用全部导入 `from manim import *`
+{{/if}}
+{{#if isImage}}
+- **锚点协议（图片）**：输出必须只包含 YON_IMAGE 锚点块，块外禁止任何字符。
+- **图片锚点格式**：
+  - `### YON_IMAGE_1_START ###`
+  - `...python code...`
+  - `### YON_IMAGE_1_END ###`
+  - `### YON_IMAGE_2_START ###`
+  - `...python code...`
+  - `### YON_IMAGE_2_END ###`
+- **编号规则（图片）**：编号必须从 1 开始且连续递增。
+- **结构规范（图片）**：每个锚点块只负责一张图，必须包含可渲染的 Scene 类，统一使用 `from manim import *`。
+{{/if}}
 
 ## 行为层
 
