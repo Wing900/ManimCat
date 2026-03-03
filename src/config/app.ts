@@ -65,11 +65,11 @@ export const appConfig = {
  * 验证必需的环境变量
  */
 export function validateConfig(): void {
-  const required = ['OPENAI_API_KEY']
-  const missing = required.filter(key => !process.env[key])
-
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+  const openaiApiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!openaiApiKey) {
+    console.warn(
+      '[Config] OPENAI_API_KEY is not set. Default backend AI client is disabled; provide customApiConfig per request.'
+    )
   }
 }
 
