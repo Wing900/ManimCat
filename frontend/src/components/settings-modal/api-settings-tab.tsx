@@ -46,7 +46,7 @@ export function ApiSettingsTab({ apiConfig, testResult, onUpdate }: ApiSettingsT
         type="password"
         label="ManimCat API 密钥"
         value={apiConfig.manimcatApiKey}
-        placeholder="留空则跳过认证"
+        placeholder="可填单个，或用逗号/换行配置多组"
         onChange={(value) => onUpdate({ manimcatApiKey: value })}
       />
       <FloatingInput
@@ -54,7 +54,7 @@ export function ApiSettingsTab({ apiConfig, testResult, onUpdate }: ApiSettingsT
         type="text"
         label="API 地址"
         value={apiConfig.apiUrl}
-        placeholder="https://api.xiaomimimo.com/v1"
+        placeholder="支持逗号/换行多地址（与密钥按顺序配对）"
         onChange={(value) => onUpdate({ apiUrl: value })}
       />
       <FloatingInput
@@ -62,7 +62,7 @@ export function ApiSettingsTab({ apiConfig, testResult, onUpdate }: ApiSettingsT
         type="password"
         label="API 密钥"
         value={apiConfig.apiKey}
-        placeholder="sk-..."
+        placeholder="支持逗号/换行多密钥"
         onChange={(value) => onUpdate({ apiKey: value })}
       />
       <FloatingInput
@@ -70,7 +70,7 @@ export function ApiSettingsTab({ apiConfig, testResult, onUpdate }: ApiSettingsT
         type="text"
         label="模型名称"
         value={apiConfig.model}
-        placeholder="mimo-v2-flash"
+        placeholder="支持逗号/换行多模型（可选）"
         onChange={(value) => onUpdate({ model: value })}
       />
       <TestResultBanner testResult={testResult} />

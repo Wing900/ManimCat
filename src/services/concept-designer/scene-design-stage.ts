@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../utils/logger'
-import { SYSTEM_PROMPTS, generateConceptDesignerPrompt } from '../../prompts'
+import { generateConceptDesignerPrompt, getRoleSystemPrompt } from '../../prompts'
 import type { OutputMode, PromptOverrides, ReferenceImage } from '../../types'
 import {
   applyPromptTemplate,
@@ -12,6 +12,7 @@ import {
   normalizeMessageContent,
   shouldRetryWithoutImages
 } from '../concept-designer-utils'
+import { createChatCompletionText } from '../openai-stream'
 
 const logger = createLogger('SceneDesignStage')
 
@@ -42,94 +43,113 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
 
   try {
     const seed = generateUniqueSeed(concept)
-    const systemPrompt = promptOverrides?.roles?.conceptDesigner?.system || SYSTEM_PROMPTS.conceptDesigner
+    const systemPrompt = getRoleSystemPrompt('conceptDesigner', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.conceptDesigner?.user
     const userPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, seed, outputMode }, promptOverrides)
       : generateConceptDesignerPrompt(concept, seed, outputMode)
 
-    logger.info('开始阶段1：生成场景设计方案', {
+    logger.info('\u5F00\u59CB\u9636\u6BB51\uFF1A\u751F\u6210\u573A\u666F\u8BBE\u8BA1\u65B9\u6848', {
       concept,
       outputMode,
       seed,
       hasImages: !!referenceImages?.length
     })
 
-    let response: Awaited<ReturnType<typeof client.chat.completions.create>>
+    let content = ''
+    let mode: 'stream' | 'stream-partial' | 'non-stream' = 'stream'
+    let fallbackResponse: OpenAI.Chat.Completions.ChatCompletion | undefined
     if (onCheckpoint) await onCheckpoint()
 
     try {
-      response = await client.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: buildVisionUserMessage(userPrompt, referenceImages) }
-        ],
-        temperature: designerTemperature,
-        max_tokens: designerMaxTokens
-      })
+      const completion = await createChatCompletionText(
+        client,
+        {
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: buildVisionUserMessage(userPrompt, referenceImages) }
+          ],
+          temperature: designerTemperature,
+          max_tokens: designerMaxTokens
+        },
+        { fallbackToNonStream: true, usageLabel: 'scene-design' }
+      )
+      content = completion.content
+      mode = completion.mode
+      fallbackResponse = completion.response
     } catch (error) {
       if (referenceImages && referenceImages.length > 0 && shouldRetryWithoutImages(error)) {
-        logger.warn('模型不支持图片输入，使用纯文本重试', {
+        logger.warn('\u6A21\u578B\u4E0D\u652F\u6301\u56FE\u7247\u8F93\u5165\uFF0C\u4F7F\u7528\u7EAF\u6587\u672C\u91CD\u8BD5', {
           concept,
           seed,
           error: error instanceof Error ? error.message : String(error)
         })
-        response = await client.chat.completions.create({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: designerTemperature,
-          max_tokens: designerMaxTokens
-        })
+        const completion = await createChatCompletionText(
+          client,
+          {
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: designerTemperature,
+            max_tokens: designerMaxTokens
+          },
+          { fallbackToNonStream: true, usageLabel: 'scene-design-text-fallback' }
+        )
+        content = completion.content
+        mode = completion.mode
+        fallbackResponse = completion.response
       } else {
         throw error
       }
     }
     if (onCheckpoint) await onCheckpoint()
 
-    const content = normalizeMessageContent(response.choices[0]?.message?.content)
-    if (!content) {
-      logger.warn('设计者返回空内容', {
+    const normalizedContent = normalizeMessageContent(content)
+    if (!normalizedContent) {
+      logger.warn('\u8BBE\u8BA1\u8005\u8FD4\u56DE\u7A7A\u5185\u5BB9', {
         concept,
         seed,
+        mode,
         model,
         systemPromptLength: systemPrompt.length,
         userPromptLength: userPrompt.length,
-        diagnostics: buildCompletionDiagnostics(response)
+        diagnostics: fallbackResponse ? buildCompletionDiagnostics(fallbackResponse) : { mode: 'stream' }
       })
       return ''
     }
 
-    const extractedDesign = extractDesignFromResponse(content)
+    const extractedDesign = extractDesignFromResponse(normalizedContent)
     const cleanedDesign = cleanDesignText(extractedDesign)
     if (cleanedDesign.changes.length > 0) {
-      logger.info('设计方案已清洗', {
+      logger.info('\u8BBE\u8BA1\u65B9\u6848\u5DF2\u6E05\u6D17', {
         concept,
         seed,
+        mode,
         changes: cleanedDesign.changes,
-        originalLength: content.length,
+        originalLength: normalizedContent.length,
         cleanedLength: cleanedDesign.text.length
       })
     }
 
     if (!cleanedDesign.text) {
-      logger.warn('设计者返回空方案')
+      logger.warn('\u8BBE\u8BA1\u8005\u8FD4\u56DE\u7A7A\u65B9\u6848')
       return ''
     }
 
-    logger.info('阶段1：场景设计方案生成成功', {
+    logger.info('\u9636\u6BB51\uFF1A\u573A\u666F\u8BBE\u8BA1\u65B9\u6848\u751F\u6210\u6210\u529F', {
       concept,
       seed,
+      mode,
       designLength: cleanedDesign.text.length
     })
 
     return cleanedDesign.text
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
-      logger.error('设计者 API 错误', {
+      logger.error('\u8BBE\u8BA1\u8005 API \u9519\u8BEF', {
         concept,
         status: error.status,
         code: error.code,
@@ -137,13 +157,13 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
         message: error.message
       })
     } else if (error instanceof Error) {
-      logger.error('设计者生成失败', {
+      logger.error('\u8BBE\u8BA1\u8005\u751F\u6210\u5931\u8D25', {
         concept,
         errorName: error.name,
         errorMessage: error.message
       })
     } else {
-      logger.error('设计者生成失败（未知错误）', { concept, error: String(error) })
+      logger.error('\u8BBE\u8BA1\u8005\u751F\u6210\u5931\u8D25\uFF08\u672A\u77E5\u9519\u8BEF\uFF09', { concept, error: String(error) })
     }
     return ''
   }

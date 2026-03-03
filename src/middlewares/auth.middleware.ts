@@ -7,6 +7,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { createLogger } from '../utils/logger'
 import { AuthenticationError } from '../utils/errors'
 import { extractBearerToken } from '../utils/auth-utils'
+import { getAllowedManimcatApiKeys, hasManimcatApiKey } from '../utils/manimcat-auth'
 
 const logger = createLogger('AuthMiddleware')
 
@@ -19,13 +20,12 @@ export function authMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  const manimcatApiKey = process.env.MANIMCAT_API_KEY
-  
+  const allowedKeys = getAllowedManimcatApiKeys()
 
-  // 必须配置 ManimCat API 密钥
-  if (!manimcatApiKey) {
-    logger.warn('认证中间件：未配置 MANIMCAT_API_KEY，拒绝请求', { path: req.path })
-    throw new AuthenticationError('服务未配置 MANIMCAT_API_KEY，无法访问接口')
+  // 必须配置至少一个 ManimCat API 密钥
+  if (allowedKeys.length === 0) {
+    logger.warn('认证中间件：未配置 MANIMCAT_API_KEY(S)，拒绝请求', { path: req.path })
+    throw new AuthenticationError('服务未配置 MANIMCAT_API_KEY 或 MANIMCAT_API_KEYS，无法访问接口')
   }
 
   const authHeader = req.headers?.authorization
@@ -40,7 +40,7 @@ export function authMiddleware(
     throw new AuthenticationError('无效的 authorization 头格式。使用格式：Bearer <api-key>')
   }
 
-  const isValid = manimcatApiKey === token
+  const isValid = hasManimcatApiKey(token)
   if (!isValid) {
     logger.warn('认证中间令：无效的 API 密钥', {
       path: req.path,

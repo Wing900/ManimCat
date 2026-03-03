@@ -1,11 +1,12 @@
 import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
-import { SYSTEM_PROMPTS, generateCodeEditPrompt, getSharedModule } from '../prompts'
+import { generateCodeEditPrompt, getRoleSystemPrompt, getSharedModule } from '../prompts'
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../types'
 import {
   createCustomOpenAIClient,
   initializeDefaultOpenAIClient
 } from './openai-client-factory'
+import { createChatCompletionText } from './openai-stream'
 
 const logger = createLogger('CodeEditService')
 
@@ -13,7 +14,7 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || 'glm-4-flash'
 const CODER_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
 const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '1200', 10)
 const openaiClient: OpenAI | null = initializeDefaultOpenAIClient((error) => {
-  logger.warn('OpenAI 客户端初始化失败', { error })
+  logger.warn('OpenAI \u5BA2\u6237\u7AEF\u521D\u59CB\u5316\u5931\u8D25', { error })
 })
 
 function createCustomClient(config: CustomApiConfig): OpenAI {
@@ -66,12 +67,12 @@ export async function generateEditedManimCode(
   const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
 
   if (!client) {
-    logger.warn('OpenAI 客户端不可用')
+    logger.warn('OpenAI \u5BA2\u6237\u7AEF\u4E0D\u53EF\u7528')
     return ''
   }
 
   try {
-    const baseSystemPrompt = promptOverrides?.roles?.codeEdit?.system || SYSTEM_PROMPTS.codeEdit
+    const baseSystemPrompt = getRoleSystemPrompt('codeEdit', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.codeEdit?.user
     const baseUserPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, instructions, code, outputMode }, promptOverrides)
@@ -79,32 +80,35 @@ export async function generateEditedManimCode(
     const systemPrompt = baseSystemPrompt
     const userPrompt = baseUserPrompt
 
-    logger.info('开始 AI 修改代码', { concept, outputMode })
+    logger.info('\u5F00\u59CB AI \u4FEE\u6539\u4EE3\u7801', { concept, outputMode })
 
     const model = customApiConfig?.model?.trim() || OPENAI_MODEL
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: CODER_TEMPERATURE,
-      max_tokens: MAX_TOKENS
-    })
+    const { content, mode } = await createChatCompletionText(
+      client,
+      {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: CODER_TEMPERATURE,
+        max_tokens: MAX_TOKENS
+      },
+      { fallbackToNonStream: true, usageLabel: 'code-edit' }
+    )
 
-    const content = response.choices[0]?.message?.content || ''
     if (!content) {
-      logger.warn('AI 修改返回空内容')
+      logger.warn('AI \u4FEE\u6539\u8FD4\u56DE\u7A7A\u5185\u5BB9')
       return ''
     }
 
     const extracted = extractCodeFromResponse(content, outputMode)
-    logger.info('AI 修改完成', { concept, outputMode, length: extracted.length })
+    logger.info('AI \u4FEE\u6539\u5B8C\u6210', { concept, outputMode, mode, length: extracted.length })
     return extracted
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
-      logger.error('AI 修改 API 错误', {
+      logger.error('AI \u4FEE\u6539 API \u9519\u8BEF', {
         concept,
         status: error.status,
         code: error.code,
@@ -112,9 +116,9 @@ export async function generateEditedManimCode(
         message: error.message
       })
     } else if (error instanceof Error) {
-      logger.error('AI 修改失败', { concept, errorName: error.name, errorMessage: error.message })
+      logger.error('AI \u4FEE\u6539\u5931\u8D25', { concept, errorName: error.name, errorMessage: error.message })
     } else {
-      logger.error('AI 修改失败，未知错误', { concept, error: String(error) })
+      logger.error('AI \u4FEE\u6539\u5931\u8D25\uFF0C\u672A\u77E5\u9519\u8BEF', { concept, error: String(error) })
     }
     return ''
   }
@@ -123,4 +127,3 @@ export async function generateEditedManimCode(
 export function isCodeEditAvailable(): boolean {
   return openaiClient !== null
 }
-

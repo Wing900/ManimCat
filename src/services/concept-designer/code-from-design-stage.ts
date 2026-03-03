@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../utils/logger'
-import { SYSTEM_PROMPTS, generateCodeGenerationPrompt } from '../../prompts'
+import { generateCodeGenerationPrompt, getRoleSystemPrompt } from '../../prompts'
 import type { OutputMode, PromptOverrides } from '../../types'
 import {
   applyPromptTemplate,
@@ -9,6 +9,7 @@ import {
   generateUniqueSeed,
   normalizeMessageContent
 } from '../concept-designer-utils'
+import { createChatCompletionText } from '../openai-stream'
 
 const logger = createLogger('CodeFromDesignStage')
 
@@ -25,8 +26,8 @@ interface CodeFromDesignStageParams {
 }
 
 /**
- * 阶段2：代码生成者
- * 接收场景设计方案，输出 Manim 代码
+ * \u9636\u6BB52\uFF1A\u4EE3\u7801\u751F\u6210\u8005
+ * \u63A5\u6536\u573A\u666F\u8BBE\u8BA1\u65B9\u6848\uFF0C\u8F93\u51FA Manim \u4EE3\u7801
  */
 export async function generateCodeFromDesignStage(params: CodeFromDesignStageParams): Promise<string> {
   const {
@@ -43,49 +44,54 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
 
   try {
     const seed = generateUniqueSeed(`${concept}-${sceneDesign.slice(0, 20)}`)
-    const systemPrompt = promptOverrides?.roles?.codeGeneration?.system || SYSTEM_PROMPTS.codeGeneration
+    const systemPrompt = getRoleSystemPrompt('codeGeneration', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.codeGeneration?.user
     const userPrompt = userPromptOverride
       ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign, outputMode }, promptOverrides)
       : generateCodeGenerationPrompt(concept, seed, sceneDesign, outputMode)
 
-    logger.info('开始阶段2：根据设计方案生成代码', { concept, outputMode, seed })
+    logger.info('\u5F00\u59CB\u9636\u6BB52\uFF1A\u6839\u636E\u8BBE\u8BA1\u65B9\u6848\u751F\u6210\u4EE3\u7801', { concept, outputMode, seed })
     if (onCheckpoint) await onCheckpoint()
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: coderTemperature,
-      max_tokens: maxTokens
-    })
+    const { content, mode, response } = await createChatCompletionText(
+      client,
+      {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: coderTemperature,
+        max_tokens: maxTokens
+      },
+      { fallbackToNonStream: true, usageLabel: 'code-generation' }
+    )
     if (onCheckpoint) await onCheckpoint()
 
-    const content = normalizeMessageContent(response.choices[0]?.message?.content)
-    if (!content) {
-      logger.warn('代码生成者返回空内容', {
+    const normalizedContent = normalizeMessageContent(content)
+    if (!normalizedContent) {
+      logger.warn('\u4EE3\u7801\u751F\u6210\u8005\u8FD4\u56DE\u7A7A\u5185\u5BB9', {
         concept,
         seed,
+        mode,
         model,
         systemPromptLength: systemPrompt.length,
         userPromptLength: userPrompt.length,
-        diagnostics: buildCompletionDiagnostics(response)
+        diagnostics: response ? buildCompletionDiagnostics(response) : { mode: 'stream' }
       })
       return ''
     }
 
-    logger.info('阶段2：代码生成成功', { concept, seed, codeLength: content.length })
+    logger.info('\u9636\u6BB52\uFF1A\u4EE3\u7801\u751F\u6210\u6210\u529F', { concept, seed, mode, codeLength: normalizedContent.length })
 
     if (outputMode === 'image') {
-      return content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+      return normalizedContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
     }
 
-    return extractCodeFromResponse(content)
+    return extractCodeFromResponse(normalizedContent)
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
-      logger.error('代码生成者 API 错误', {
+      logger.error('\u4EE3\u7801\u751F\u6210\u8005 API \u9519\u8BEF', {
         concept,
         status: error.status,
         code: error.code,
@@ -93,13 +99,13 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
         message: error.message
       })
     } else if (error instanceof Error) {
-      logger.error('代码生成者失败', {
+      logger.error('\u4EE3\u7801\u751F\u6210\u8005\u5931\u8D25', {
         concept,
         errorName: error.name,
         errorMessage: error.message
       })
     } else {
-      logger.error('代码生成者失败（未知错误）', { concept, error: String(error) })
+      logger.error('\u4EE3\u7801\u751F\u6210\u8005\u5931\u8D25\uFF08\u672A\u77E5\u9519\u8BEF\uFF09', { concept, error: String(error) })
     }
     return ''
   }

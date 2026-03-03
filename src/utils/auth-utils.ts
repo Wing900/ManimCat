@@ -1,5 +1,6 @@
 import type { Request } from 'express'
 import { AuthenticationError } from './errors'
+import { getAllowedManimcatApiKeys, hasManimcatApiKey } from './manimcat-auth'
 
 export function extractBearerToken(authHeader: string | string[] | undefined): string {
   if (!authHeader) return ''
@@ -16,13 +17,13 @@ export function extractBearerToken(authHeader: string | string[] | undefined): s
 }
 
 export function requirePromptOverrideAuth(req: Pick<Request, 'headers'>): void {
-  const manimcatApiKey = process.env.MANIMCAT_API_KEY
-  if (!manimcatApiKey) {
-    throw new AuthenticationError('Prompt overrides require MANIMCAT_API_KEY to be set.')
+  const keys = getAllowedManimcatApiKeys()
+  if (keys.length === 0) {
+    throw new AuthenticationError('Prompt overrides require MANIMCAT_API_KEY or MANIMCAT_API_KEYS to be set.')
   }
 
   const token = extractBearerToken(req.headers?.authorization)
-  if (!token || token !== manimcatApiKey) {
-    throw new AuthenticationError('Prompt overrides require a valid MANIMCAT_API_KEY token.')
+  if (!token || !hasManimcatApiKey(token)) {
+    throw new AuthenticationError('Prompt overrides require a valid ManimCat API key token.')
   }
 }

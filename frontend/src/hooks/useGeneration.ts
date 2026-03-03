@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../lib/api';
-import { loadCustomConfig } from '../lib/custom-ai';
+import { pickNextCustomProfile } from '../lib/custom-ai';
 import { loadSettings } from '../lib/settings';
 import { loadPrompts } from './usePrompts';
 import type { GenerateRequest, JobResult, ProcessingStage, ModifyRequest } from '../types/api';
@@ -34,14 +34,15 @@ export function useGeneration(): UseGenerationReturn {
   const pollCountRef = useRef(0);
   const pollIntervalRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const jobAuthKeyRef = useRef<string | undefined>(undefined);
 
-  const requestCancel = useCallback(async (id: string | null) => {
+  const requestCancel = useCallback(async (id: string | null, authKey?: string) => {
     if (!id) {
       return;
     }
 
     try {
-      await cancelJob(id);
+      await cancelJob(id, authKey ? { authKeyOverride: authKey } : undefined);
     } catch (err) {
       console.warn('取消任务失败', err);
     }
@@ -80,7 +81,12 @@ export function useGeneration(): UseGenerationReturn {
       pollCountRef.current++;
 
       try {
-        const data = await getJobStatus(id, abortControllerRef.current?.signal);
+        const authKey = jobAuthKeyRef.current;
+        const data = await getJobStatus(
+          id,
+          abortControllerRef.current?.signal,
+          authKey ? { authKeyOverride: authKey } : undefined
+        );
 
         if (data.status === 'completed') {
           if (pollIntervalRef.current) {
@@ -110,7 +116,7 @@ export function useGeneration(): UseGenerationReturn {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
           }
-          await requestCancel(id);
+          await requestCancel(id, jobAuthKeyRef.current);
           setStatus('error');
           setError(`生成超时（${maxPollCount}秒），请尝试更简单的概念或增加超时时间`);
         }
@@ -130,7 +136,7 @@ export function useGeneration(): UseGenerationReturn {
         }
 
         console.error('轮询错误:', err);
-        await requestCancel(id);
+        await requestCancel(id, jobAuthKeyRef.current);
 
         if (err instanceof Error && (err.message.includes('未找到任务') || err.message.includes('失效'))) {
           if (pollIntervalRef.current) {
@@ -155,11 +161,15 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts();
-      const customApiConfig = loadCustomConfig() || undefined;
+      const selectedProfile = pickNextCustomProfile();
+      const customApiConfig = selectedProfile?.customApiConfig || undefined;
+      const requestAuthKey = selectedProfile?.manimcatApiKey || undefined;
       const response = await generateAnimation(
         { ...request, promptOverrides, customApiConfig },
-        abortControllerRef.current.signal
+        abortControllerRef.current.signal,
+        requestAuthKey ? { authKeyOverride: requestAuthKey } : undefined
       );
+      jobAuthKeyRef.current = requestAuthKey;
       startPolling(response.jobId);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -180,11 +190,15 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts();
-      const customApiConfig = loadCustomConfig() || undefined;
+      const selectedProfile = pickNextCustomProfile();
+      const customApiConfig = selectedProfile?.customApiConfig || undefined;
+      const requestAuthKey = selectedProfile?.manimcatApiKey || undefined;
       const response = await modifyAnimation(
         { ...request, promptOverrides, customApiConfig },
-        abortControllerRef.current.signal
+        abortControllerRef.current.signal,
+        requestAuthKey ? { authKeyOverride: requestAuthKey } : undefined
       );
+      jobAuthKeyRef.current = requestAuthKey;
       startPolling(response.jobId);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -205,12 +219,16 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts();
-      const customApiConfig = loadCustomConfig() || undefined;
+      const selectedProfile = pickNextCustomProfile();
+      const customApiConfig = selectedProfile?.customApiConfig || undefined;
+      const requestAuthKey = selectedProfile?.manimcatApiKey || undefined;
 
       const response = await generateAnimation(
         { ...request, promptOverrides, customApiConfig },
-        abortControllerRef.current.signal
+        abortControllerRef.current.signal,
+        requestAuthKey ? { authKeyOverride: requestAuthKey } : undefined
       );
+      jobAuthKeyRef.current = requestAuthKey;
       startPolling(response.jobId);
 
     } catch (err) {
@@ -228,6 +246,7 @@ export function useGeneration(): UseGenerationReturn {
     setResult(null);
     setJobId(null);
     setStage('analyzing');
+    jobAuthKeyRef.current = undefined;
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
@@ -238,12 +257,13 @@ export function useGeneration(): UseGenerationReturn {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
-    void requestCancel(jobId);
+    void requestCancel(jobId, jobAuthKeyRef.current);
     abortControllerRef.current?.abort();
     setStatus('idle');
     setError(null);
     setJobId(null);
     setStage('analyzing');
+    jobAuthKeyRef.current = undefined;
   }, [jobId, requestCancel]);
 
   return {

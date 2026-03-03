@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ApiConfig, SettingsConfig, VideoConfig } from '../../types/api';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../lib/settings';
+import { buildCustomProfilesFromFields } from '../../lib/custom-ai';
 import type { TabType, TestResult } from './types';
 
 interface UseSettingsModalParams {
@@ -55,7 +56,14 @@ export function useSettingsModal({
     const apiUrlInput = config.api.apiUrl.trim();
     const apiKeyInput = config.api.apiKey.trim();
     const modelInput = config.api.model.trim();
-    const manimcatKey = config.api.manimcatApiKey.trim();
+    const profileCandidates = buildCustomProfilesFromFields({
+      apiUrl: apiUrlInput,
+      apiKey: apiKeyInput,
+      model: modelInput,
+      manimcatApiKey: config.api.manimcatApiKey.trim(),
+    });
+    const firstProfile = profileCandidates[0];
+    const manimcatKey = firstProfile?.manimcatApiKey || config.api.manimcatApiKey.trim();
     const hasCustomConfig = Boolean(apiUrlInput || apiKeyInput || modelInput);
 
     if (!manimcatKey) {
@@ -88,9 +96,9 @@ export function useSettingsModal({
           hasCustomConfig
             ? {
                 customApiConfig: {
-                  apiUrl: apiUrlInput,
-                  apiKey: apiKeyInput,
-                  model: modelInput,
+                  apiUrl: firstProfile?.customApiConfig.apiUrl || apiUrlInput,
+                  apiKey: firstProfile?.customApiConfig.apiKey || apiKeyInput,
+                  model: firstProfile?.customApiConfig.model || modelInput,
                 },
               }
             : {}
@@ -107,6 +115,7 @@ export function useSettingsModal({
             statusCode: response.status,
             statusText: response.statusText,
             duration,
+            profileCount: profileCandidates.length || 0,
           },
         });
         return;

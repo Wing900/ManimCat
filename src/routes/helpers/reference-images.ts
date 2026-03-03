@@ -15,12 +15,11 @@ export const referenceImageSchema = z
   })
   .superRefine((value, ctx) => {
     const isHttpUrl = /^https?:\/\//i.test(value.url)
-    const isDataUrl = /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(value.url)
 
-    if (!isHttpUrl && !isDataUrl) {
+    if (!isHttpUrl) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Reference image only supports http(s) URLs or data URLs'
+        message: 'Reference image only supports http(s) URLs'
       })
     }
   })

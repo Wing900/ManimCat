@@ -29,6 +29,7 @@ const LOG_LEVEL_MAP: Record<string, LogLevel> = {
  * 当前日志级别
  */
 const currentLogLevel = LOG_LEVEL_MAP[appConfig.logging.level] || LogLevel.INFO
+const prodSummaryLogOnly = appConfig.nodeEnv === 'production' && process.env.PROD_SUMMARY_LOG_ONLY === 'true'
 
 /**
  * 格式化时间戳
@@ -128,12 +129,21 @@ class Logger {
     return { ...meta, context: this.context }
   }
 
+  private shouldEmit(meta?: any): boolean {
+    if (!prodSummaryLogOnly) {
+      return true
+    }
+
+    return meta && typeof meta === 'object' && meta._logType === 'job_summary'
+  }
+
   /**
    * 调试日志
    */
   debug(message: string, meta?: any): void {
-    if (currentLogLevel <= LogLevel.DEBUG) {
-      console.debug(formatMessage('DEBUG', message, this.addContext(meta)))
+    const contextMeta = this.addContext(meta)
+    if (currentLogLevel <= LogLevel.DEBUG && this.shouldEmit(contextMeta)) {
+      console.debug(formatMessage('DEBUG', message, contextMeta))
     }
   }
 
@@ -141,8 +151,9 @@ class Logger {
    * 信息日志
    */
   info(message: string, meta?: any): void {
-    if (currentLogLevel <= LogLevel.INFO) {
-      console.log(formatMessage('INFO', message, this.addContext(meta)))
+    const contextMeta = this.addContext(meta)
+    if (currentLogLevel <= LogLevel.INFO && this.shouldEmit(contextMeta)) {
+      console.log(formatMessage('INFO', message, contextMeta))
     }
   }
 
@@ -150,8 +161,9 @@ class Logger {
    * 警告日志
    */
   warn(message: string, meta?: any): void {
-    if (currentLogLevel <= LogLevel.WARN) {
-      console.warn(formatMessage('WARN', message, this.addContext(meta)))
+    const contextMeta = this.addContext(meta)
+    if (currentLogLevel <= LogLevel.WARN && this.shouldEmit(contextMeta)) {
+      console.warn(formatMessage('WARN', message, contextMeta))
     }
   }
 
@@ -159,8 +171,9 @@ class Logger {
    * 错误日志
    */
   error(message: string, meta?: any): void {
-    if (currentLogLevel <= LogLevel.ERROR) {
-      console.error(formatMessage('ERROR', message, this.addContext(meta)))
+    const contextMeta = this.addContext(meta)
+    if (currentLogLevel <= LogLevel.ERROR && this.shouldEmit(contextMeta)) {
+      console.error(formatMessage('ERROR', message, contextMeta))
     }
   }
 

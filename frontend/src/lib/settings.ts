@@ -18,6 +18,13 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
   }
 };
 
+function getFirstListValue(input: string): string {
+  return input
+    .split(/[\n,]+/g)
+    .map((item) => item.trim())
+    .find(Boolean) || '';
+}
+
 function createDefaultSettings(): SettingsConfig {
   return {
     api: { ...DEFAULT_SETTINGS.api },
@@ -79,8 +86,9 @@ export function saveSettings(settings: SettingsConfig): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(sanitized));
   localStorage.setItem(SETTINGS_VERSION_KEY, SETTINGS_VERSION);
 
-  if (sanitized.api.manimcatApiKey) {
-    localStorage.setItem('manimcat_api_key', sanitized.api.manimcatApiKey);
+  const defaultManimcatApiKey = getFirstListValue(sanitized.api.manimcatApiKey);
+  if (defaultManimcatApiKey) {
+    localStorage.setItem('manimcat_api_key', defaultManimcatApiKey);
   } else {
     localStorage.removeItem('manimcat_api_key');
   }
