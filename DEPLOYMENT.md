@@ -163,41 +163,86 @@ git push
 
 ## 前端多组 Custom API 分流
 
-前端设置页的这四个输入框支持“单值”或“多值（逗号/换行分隔）”：
+### 整体架构
 
-- `API 地址`
-- `API 密钥`
-- `模型名称`
-- `ManimCat API 密钥`
+ManimCat 的 AI 调用有两种来源：
 
-系统会按顺序配对并轮询使用（round-robin）：
+1. **后端默认 client**：由服务器的 `OPENAI_API_KEY` + `CUSTOM_API_URL` + `OPENAI_MODEL` 创建，服务器出钱。
+2. **前端 Custom API**：用户在前端设置页自行填写 API 地址/密钥/模型，用户出钱。
 
-1. `url[0] + key[0] + model[0] + manimcatKey[0]`
-2. `url[1] + key[1] + model[1] + manimcatKey[1]`
-3. ...
+当前端填写了 Custom API 配置时，请求会携带 `customApiConfig` 发送到后端，后端使用用户提供的 key 调用 AI；
+如果前端没有填写，后端会使用服务器自己的默认 client。
 
-规则说明：
+### 多 Profile 配置
 
-- `API 地址` 和 `API 密钥` 必填才能组成有效配置项。
-- `模型名称`、`ManimCat API 密钥`可缺省；缺省时会回退到同组可用值或默认行为。
-- 每次发起任务会自动选择下一组配置，提交/轮询/取消使用同一组 `ManimCat` key。
+前端设置页的四个输入框都支持**逗号或换行分隔**填写多个值：
 
-示例（可直接粘贴到设置页）：
+| 字段 | 是否必填 | 说明 |
+|------|---------|------|
+| API 地址 | 必填 | 缺少则该组配置**跳过** |
+| API 密钥 | 必填 | 缺少则该组配置**跳过** |
+| 模型名称 | 可选 | 留空时后端回退到服务器的 `OPENAI_MODEL` |
+| ManimCat API 密钥 | 可选 | 用于后端认证（如果开启了 `MANIMCAT_API_KEY`） |
+
+系统按索引位置一一配对，生成多个 Profile，每次请求自动轮换（round-robin）：
+
+```
+Profile 0 = url[0] + key[0] + model[0] + manimcatKey[0]
+Profile 1 = url[1] + key[1] + model[1] + manimcatKey[1]
+...
+```
+
+### 值的对齐规则
+
+| 情况 | 行为 |
+|------|------|
+| 只写了 **1 个值** | 所有 Profile 复用这个值 |
+| 写了 **N 个值** | 严格按索引对应 |
+| 某个索引位置 **超出范围** | 该字段为空字符串 |
+
+例如 URL 只写 1 个、Key 写 2 个 → 两个 Profile 都复用同一个 URL。
+
+### 示例
+
+#### 场景 1：两个不同的 API 提供商轮换
 
 ```text
-API 地址:
-https://api-a.example.com/v1
-https://api-b.example.com/v1
-
-API 密钥:
-sk-a
-sk-b
-
-模型名称:
-model-a
-model-b
-
-ManimCat API 密钥:
-mc-a
-mc-b
+API 地址:      https://api-a.example.com/v1, https://api-b.example.com/v1
+API 密钥:      sk-a, sk-b
+模型名称:      qwen-plus, glm-4-flash
+ManimCat 密钥: mc-a, mc-b
 ```
+
+结果：Profile 0 用 api-a + qwen-plus，Profile 1 用 api-b + glm-4-flash，交替使用。
+
+#### 场景 2：同一个 URL、两个 Key 分散限流
+
+```text
+API 地址:      https://api.example.com/v1
+API 密钥:      sk-main, sk-backup
+模型名称:      qwen-plus
+ManimCat 密钥: mc-key
+```
+
+结果：两个 Profile 共享同一个 URL、同一个模型、同一个认证 key，只是 API 密钥不同。适合同一提供商有多个 key 时分散请求压力。
+
+#### 场景 3：一个 Key 用指定模型，另一个 Key 用服务器默认模型
+
+```text
+API 地址:      https://api.example.com/v1
+API 密钥:      sk-premium, sk-free
+模型名称:      qwen-plus,
+ManimCat 密钥: mc-a, mc-b
+```
+
+注意模型名称 `qwen-plus,`（末尾有逗号）→ 拆分后得到 `[“qwen-plus”]`，只有 1 个值。
+按”只写了 1 个值”的规则，两个 Profile 都会使用 `qwen-plus`。
+
+如果你希望第二个 Profile 使用不同的模型，需要显式写两个值：
+
+```text
+模型名称:      qwen-plus, glm-4-flash
+```
+
+> **注意**：模型名称留空时，后端会回退到服务器环境变量 `OPENAI_MODEL` 的值（默认 `glm-4-flash`）。
+> 目前没有”禁止某个 Key 使用 AI”的机制——只要请求通过认证，就可以调用 AI。

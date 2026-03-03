@@ -201,7 +201,7 @@ pinned: false
 | `JOB_TIMEOUT` | `600000` | 任务超时（毫秒） |
 | `MANIM_TIMEOUT` | `600000` | Manim 渲染超时（毫秒） |
 | `LOG_LEVEL` | `info` | 日志级别（debug/info/warn/error） |
-| `PROD_SUMMARY_LOG_ONLY` | `false` | 生产环境仅输出任务摘要日志（每任务一条） |
+| `PROD_SUMMARY_LOG_ONLY` | `true` | 生产环境仅输出任务摘要日志（每任务一条） |
 | `OPENAI_STREAM_INCLUDE_USAGE` | `false` | 流式请求是否尝试记录 usage token（需上游支持） |
 | `CODE_RETRY_MAX_RETRIES` | `4` | 代码修复重试次数 |
 | `MEDIA_RETENTION_HOURS` | `72` | 图片/视频文件保留小时数 |
