@@ -24,8 +24,8 @@ export function authMiddleware(
 
   // 必须配置至少一个 ManimCat API 密钥
   if (allowedKeys.length === 0) {
-    logger.warn('认证中间件：未配置 MANIMCAT_API_KEY(S)，拒绝请求', { path: req.path })
-    throw new AuthenticationError('服务未配置 MANIMCAT_API_KEY 或 MANIMCAT_API_KEYS，无法访问接口')
+    logger.warn('认证中间件：未配置 MANIMCAT_ROUTE_KEYS，拒绝请求', { path: req.path })
+    throw new AuthenticationError('服务未配置 MANIMCAT_ROUTE_KEYS，无法访问接口')
   }
 
   const authHeader = req.headers?.authorization

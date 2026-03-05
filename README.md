@@ -201,8 +201,6 @@ pinned: false
 | `OPENAI_MODEL` | `glm-4-flash` | OpenAI 模型 |
 | `OPENAI_TIMEOUT` | `600000` | OpenAI 请求超时（毫秒） |
 | `CUSTOM_API_URL` | - | 自定义 OpenAI 兼容 API |
-| `MANIMCAT_API_KEY` | - | API 访问密钥（可选） |
-| `MANIMCAT_API_KEYS` | - | 多个 API 访问密钥（逗号/换行分隔，可选） |
 | `MANIMCAT_ROUTE_KEYS` | - | 按 ManimCat key 进行上游映射的 key 列表（逗号/换行分隔） |
 | `MANIMCAT_ROUTE_API_URLS` | - | 上游 API 地址列表（与 `MANIMCAT_ROUTE_KEYS` 按索引配对） |
 | `MANIMCAT_ROUTE_API_KEYS` | - | 上游 API 密钥列表（与 `MANIMCAT_ROUTE_KEYS` 按索引配对） |

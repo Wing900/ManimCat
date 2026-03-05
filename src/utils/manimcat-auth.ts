@@ -9,10 +9,8 @@ function splitKeyList(input: string | undefined): string[] {
 }
 
 export function getAllowedManimcatApiKeys(): string[] {
-  const single = splitKeyList(process.env.MANIMCAT_API_KEY)
-  const multi = splitKeyList(process.env.MANIMCAT_API_KEYS)
   const routed = splitKeyList(process.env.MANIMCAT_ROUTE_KEYS)
-  const unique = new Set<string>([...single, ...multi, ...routed])
+  const unique = new Set<string>([...routed])
   return Array.from(unique)
 }
 

@@ -19,7 +19,7 @@ export function extractBearerToken(authHeader: string | string[] | undefined): s
 export function requirePromptOverrideAuth(req: Pick<Request, 'headers'>): void {
   const keys = getAllowedManimcatApiKeys()
   if (keys.length === 0) {
-    throw new AuthenticationError('Prompt overrides require MANIMCAT_API_KEY or MANIMCAT_API_KEYS to be set.')
+    throw new AuthenticationError('Prompt overrides require MANIMCAT_ROUTE_KEYS to be set.')
   }
 
   const token = extractBearerToken(req.headers?.authorization)

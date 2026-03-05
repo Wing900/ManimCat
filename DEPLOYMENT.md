@@ -40,8 +40,6 @@ MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
 ```env
 OPENAI_MODEL=glm-4-flash
 CUSTOM_API_URL=https://your-proxy-api/v1
-MANIMCAT_API_KEY=your-api-key
-MANIMCAT_API_KEYS=your-api-key-2,your-api-key-3
 MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
 MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
 MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
@@ -106,11 +104,7 @@ PROD_SUMMARY_LOG_ONLY=true
 # 如果你的上游模型/网关支持 stream_options.include_usage，可以开启
 OPENAI_STREAM_INCLUDE_USAGE=true
 
-# 至少配置一个 key
-MANIMCAT_API_KEY=your-api-key-1
-# 可选：配置多个 key（逗号或换行分隔）
-MANIMCAT_API_KEYS=your-api-key-2,your-api-key-3
-# 可选：按 key 路由到不同上游
+# 按 key 路由到不同上游
 MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
 MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
 MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
@@ -183,8 +177,6 @@ MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
 ```env
 OPENAI_MODEL=glm-4-flash
 CUSTOM_API_URL=https://your-proxy-api/v1
-MANIMCAT_API_KEY=your-api-key
-MANIMCAT_API_KEYS=your-api-key-2,your-api-key-3
 MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
 MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
 MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
@@ -238,7 +230,7 @@ MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
 2. 以 `MANIMCAT_ROUTE_KEYS` 为主索引逐项配对。
 3. `apiUrl` 或 `apiKey` 缺失的条目会被跳过。
 4. `model` 可留空，留空时回退到 `OPENAI_MODEL`。
-5. `MANIMCAT_ROUTE_KEYS` 会自动加入认证白名单（无需重复写到 `MANIMCAT_API_KEYS`）。
+5. `MANIMCAT_ROUTE_KEYS` 本身就是认证白名单。
 
 ### 上游选择优先级（高 -> 低）
 
