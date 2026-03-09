@@ -1,4 +1,5 @@
 import type { ReferenceImage } from '../../types/api';
+import { useI18n } from '../../i18n';
 
 interface ReferenceImageListProps {
   images: ReferenceImage[];
@@ -7,6 +8,8 @@ interface ReferenceImageListProps {
 }
 
 export function ReferenceImageList({ images, loading, onRemove }: ReferenceImageListProps) {
+  const { t } = useI18n();
+
   if (images.length === 0) {
     return null;
   }
@@ -17,7 +20,7 @@ export function ReferenceImageList({ images, loading, onRemove }: ReferenceImage
         <div key={idx} className="relative group">
           <img
             src={img.url}
-            alt={`参考图片 ${idx + 1}`}
+            alt={t('reference.alt', { index: idx + 1 })}
             className="w-16 h-16 object-cover rounded-lg border border-border/50"
           />
           <button

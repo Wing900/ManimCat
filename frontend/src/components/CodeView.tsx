@@ -3,6 +3,7 @@
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight, vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useEffect, useState } from 'react';
+import { useI18n } from '../i18n';
 
 interface CodeViewProps {
   code: string;
@@ -12,6 +13,7 @@ interface CodeViewProps {
 }
 
 export function CodeView({ code, editable = false, onChange, disabled = false }: CodeViewProps) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDark, setIsDark] = useState(
@@ -56,15 +58,15 @@ export function CodeView({ code, editable = false, onChange, disabled = false }:
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
       {/* 顶部工具栏 */}
       <div className="flex items-center justify-between px-4 py-2.5">
-        <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">生成的代码</h3>
+        <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('codeView.title')}</h3>
         <div className="flex items-center gap-3">
           {editable && (
             <button
               onClick={() => setIsEditing((prev) => !prev)}
-              disabled={disabled}
-              className="text-xs text-text-secondary/70 hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isEditing ? '预览' : '编辑'}
+            disabled={disabled}
+            className="text-xs text-text-secondary/70 hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+              {isEditing ? t('common.preview') : t('common.edit')}
             </button>
           )}
           <button
@@ -76,14 +78,14 @@ export function CodeView({ code, editable = false, onChange, disabled = false }:
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                已复制
+                {t('common.copied')}
               </>
             ) : (
               <>
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-                复制
+                {t('common.copy')}
               </>
             )}
           </button>

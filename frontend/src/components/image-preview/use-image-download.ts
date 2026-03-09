@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import JSZip from 'jszip';
+import { useI18n } from '../../i18n';
 
 interface UseImageDownloadResult {
   isDownloadingSingle: boolean;
@@ -25,6 +26,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export function useImageDownload(imageUrls: string[]): UseImageDownloadResult {
+  const { t } = useI18n();
   const [isDownloadingSingle, setIsDownloadingSingle] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
@@ -42,7 +44,7 @@ export function useImageDownload(imageUrls: string[]): UseImageDownloadResult {
     try {
       const response = await fetch(getAbsoluteUrl(activeImage));
       if (!response.ok) {
-        throw new Error(`下载失败: ${response.status}`);
+        throw new Error(t('download.singleFailed', { status: response.status }));
       }
       const blob = await response.blob();
       downloadBlob(blob, `${timestampPrefix}-image-${activeIndex + 1}.png`);
@@ -64,7 +66,7 @@ export function useImageDownload(imageUrls: string[]): UseImageDownloadResult {
         urls.map(async (url, index) => {
           const response = await fetch(getAbsoluteUrl(url));
           if (!response.ok) {
-            throw new Error(`图片 ${index + 1} 下载失败: ${response.status}`);
+            throw new Error(t('download.batchFailed', { index: index + 1, status: response.status }));
           }
           const blob = await response.blob();
           zip.file(`${timestampPrefix}-image-${index + 1}.png`, blob);

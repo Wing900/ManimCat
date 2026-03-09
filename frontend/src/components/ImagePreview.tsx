@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ImageLightbox } from './image-preview/lightbox';
 import { useImageDownload } from './image-preview/use-image-download';
+import { useI18n } from '../i18n';
 
 interface ImagePreviewProps {
   imageUrls: string[];
 }
 
 export function ImagePreview({ imageUrls }: ImagePreviewProps) {
+  const { t } = useI18n();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -28,7 +30,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
   return (
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5">
-        <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">图片预览</h3>
+        <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('image.title')}</h3>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsLightboxOpen(true)}
@@ -38,7 +40,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h6m0 0v6m0-6l-7 7M9 21H3m0 0v-6m0 6l7-7" />
             </svg>
-            放大预览
+            {t('image.openLightbox')}
           </button>
           <button
             onClick={() => void handleDownloadSingle(activeImage, activeIndex)}
@@ -48,7 +50,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            {isDownloadingSingle ? '下载中...' : '下载'}
+            {isDownloadingSingle ? t('image.downloading') : t('common.download')}
           </button>
           <button
             onClick={() => void handleDownloadAll(imageUrls)}
@@ -58,7 +60,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            {isDownloadingAll ? '打包中...' : '下载全部'}
+            {isDownloadingAll ? t('image.zipping') : t('image.downloadAll')}
           </button>
         </div>
       </div>
@@ -69,12 +71,12 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             type="button"
             onClick={() => setIsLightboxOpen(true)}
             className="w-full h-full cursor-zoom-in"
-            title="点击放大预览"
+            title={t('image.openTitle')}
           >
-            <img src={activeImage} alt={`图片 ${activeIndex + 1}`} className="w-full h-full object-contain" />
+            <img src={activeImage} alt={t('image.itemAlt', { index: activeIndex + 1 })} className="w-full h-full object-contain" />
           </button>
         ) : (
-          <p className="text-xs text-text-secondary/60">暂无图片输出</p>
+          <p className="text-xs text-text-secondary/60">{t('image.empty')}</p>
         )}
       </div>
 
@@ -92,7 +94,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
               >
                 <img
                   src={url}
-                  alt={`缩略图 ${index + 1}`}
+                  alt={t('image.thumbAlt', { index: index + 1 })}
                   className="w-16 h-12 object-cover"
                 />
               </button>

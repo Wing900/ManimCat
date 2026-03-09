@@ -1,45 +1,47 @@
 import { useEffect } from 'react';
 import type { ProcessingStage } from '../types/api';
+import { useI18n } from '../i18n';
 
 type GenerationStatus = 'idle' | 'processing' | 'completed' | 'error';
 
-const BASE_TITLE = 'ManimCat - 数学动画生成器';
-
-function getStageTitle(stage: ProcessingStage): string {
+function getStageTitle(stage: ProcessingStage, t: ReturnType<typeof useI18n>['t']): string {
   switch (stage) {
     case 'analyzing':
-      return '分析题意';
+      return t('tab.stage.analyzing');
     case 'generating':
-      return '生成代码';
+      return t('tab.stage.generating');
     case 'refining':
-      return '优化代码';
+      return t('tab.stage.refining');
     case 'rendering':
     case 'still-rendering':
-      return '渲染视频';
+      return t('tab.stage.rendering');
     default:
-      return '处理中';
+      return t('tab.stage.default');
   }
 }
 
-function getTabTitle(status: GenerationStatus, stage: ProcessingStage): string {
+function getTabTitle(status: GenerationStatus, stage: ProcessingStage, t: ReturnType<typeof useI18n>['t']): string {
   if (status === 'processing') {
-    return `( •̀ᴗ•́ )و 生成中 · ${getStageTitle(stage)} - ManimCat`;
+    return t('tab.processing', { stage: getStageTitle(stage, t) });
   }
   if (status === 'completed') {
-    return '(ﾉ>ω<)ﾉ 已完成，点击查看 - ManimCat';
+    return t('tab.completed');
   }
   if (status === 'error') {
-    return "(；′⌒`) 生成失败，点击重试 - ManimCat";
+    return t('tab.error');
   }
-  return BASE_TITLE;
+  return t('tab.base');
 }
 
 export function useTabTitle(status: GenerationStatus, stage: ProcessingStage): void {
+  const { t } = useI18n();
+
   useEffect(() => {
-    document.title = getTabTitle(status, stage);
+    const baseTitle = t('tab.base');
+    document.title = getTabTitle(status, stage, t);
 
     return () => {
-      document.title = BASE_TITLE;
+      document.title = baseTitle;
     };
-  }, [status, stage]);
+  }, [status, stage, t]);
 }

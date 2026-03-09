@@ -6,6 +6,7 @@ import { loadSettings } from '../lib/settings';
 import { FormToolbar } from './input-form/form-toolbar';
 import { ReferenceImageList } from './input-form/reference-image-list';
 import { useReferenceImages } from './input-form/use-reference-images';
+import { useI18n } from '../i18n';
 
 interface InputFormProps {
   onSubmit: (data: {
@@ -18,6 +19,7 @@ interface InputFormProps {
 }
 
 export function InputForm({ onSubmit, loading }: InputFormProps) {
+  const { t } = useI18n();
   const [concept, setConcept] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [quality, setQuality] = useState<Quality>(loadSettings().video.quality);
@@ -39,7 +41,7 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
 
   const handleSubmit = useCallback(() => {
     if (concept.trim().length < 5) {
-      setError('请至少输入 5 个字符描述你想要动画的内容');
+      setError(t('form.error.minLength'));
       textareaRef.current?.focus();
       return;
     }
@@ -51,7 +53,7 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
       outputMode,
       referenceImages: images.length > 0 ? images : undefined,
     });
-  }, [concept, quality, outputMode, images, onSubmit]);
+  }, [concept, quality, outputMode, images, onSubmit, t]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -67,11 +69,11 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
 
   useEffect(() => {
     if (concept.length > 0 && concept.length < 5) {
-      setError('请至少输入 5 个字符');
+      setError(t('form.error.minLengthShort'));
     } else {
       setError(null);
     }
-  }, [concept]);
+  }, [concept, t]);
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -94,14 +96,14 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
               isDragging ? 'text-accent' : error ? 'text-red-500' : 'text-text-secondary'
             }`}
           >
-            {isDragging ? '松开以添加图片' : error ? error : '描述你想要的动画'}
+            {isDragging ? t('form.label.dragging') : error ? error : t('form.label.default')}
           </label>
           <textarea
             ref={textareaRef}
             id="concept"
             name="concept"
             rows={4}
-            placeholder="例如：展示单位圆上正弦和余弦的关系...（支持拖入或粘贴参考图片）"
+            placeholder={t('form.placeholder')}
             disabled={loading}
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
@@ -143,11 +145,11 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  生成中...
+                  {t('form.submitting')}
                 </>
               ) : (
                 <>
-                  {outputMode === 'image' ? '生成图片' : '生成动画'}
+                  {outputMode === 'image' ? t('form.submit.image') : t('form.submit.video')}
                   <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
@@ -159,7 +161,7 @@ export function InputForm({ onSubmit, loading }: InputFormProps) {
         </div>
 
         <p className="text-center text-xs text-text-secondary/50">
-          按 <kbd className="px-1.5 py-0.5 bg-bg-secondary/50 rounded text-[10px]">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-bg-secondary/50 rounded text-[10px]">Enter</kbd> 快速提交
+          {t('form.shortcutPrefix')} <kbd className="px-1.5 py-0.5 bg-bg-secondary/50 rounded text-[10px]">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-bg-secondary/50 rounded text-[10px]">Enter</kbd> {t('form.shortcutSuffix')}
         </p>
       </form>
     </div>

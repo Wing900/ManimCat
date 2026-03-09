@@ -8,6 +8,7 @@ import type {
   UsageMetricsResponse
 } from '../types/api';
 import { loadSettings } from './settings';
+import { localizeApiMessage, translate } from '../i18n';
 
 const API_BASE = '/api';
 
@@ -46,7 +47,7 @@ export async function modifyAnimation(
 
   if (!response.ok) {
     const error: ApiError = await response.json();
-    throw new Error(error.error || 'AI 修改失败');
+    throw new Error(error.error ? localizeApiMessage(error.error) : translate('api.modifyFailed'));
   }
 
   return response.json();
@@ -69,10 +70,10 @@ export async function uploadReferenceImage(file: File, signal?: AbortSignal): Pr
   });
 
   if (!response.ok) {
-    let message = '图片上传失败';
+    let message = translate('api.uploadFailed');
     try {
       const error: ApiError = await response.json();
-      message = error.error || message;
+      message = error.error ? localizeApiMessage(error.error) : message;
     } catch {
       // ignore json parse errors and keep default message
     }
@@ -99,7 +100,7 @@ export async function generateAnimation(
 
   if (!response.ok) {
     const error: ApiError = await response.json();
-    throw new Error(error.error || '生成请求失败');
+    throw new Error(error.error ? localizeApiMessage(error.error) : translate('api.generateFailed'));
   }
 
   return response.json();
@@ -131,7 +132,7 @@ export async function getJobStatus(
 
   if (!response.ok) {
     const error: ApiError = await response.json();
-    throw new Error(error.error || '查询任务状态失败');
+    throw new Error(error.error ? localizeApiMessage(error.error) : translate('api.jobStatusFailed'));
   }
 
   return response.json();
@@ -145,7 +146,7 @@ export async function cancelJob(jobId: string, options: RequestAuthOptions = {})
 
   if (!response.ok) {
     const error: ApiError = await response.json();
-    throw new Error(error.error || '取消任务失败');
+    throw new Error(error.error ? localizeApiMessage(error.error) : translate('api.cancelFailed'));
   }
 }
 
@@ -157,7 +158,7 @@ export async function getUsageMetrics(days = 7, signal?: AbortSignal): Promise<U
 
   if (!response.ok) {
     const error: ApiError = await response.json();
-    throw new Error(error.error || '获取用量统计失败');
+    throw new Error(error.error ? localizeApiMessage(error.error) : translate('api.usageFailed'));
   }
 
   return response.json();

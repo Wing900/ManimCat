@@ -1,11 +1,15 @@
 // 支持作者对话框组件
 
+import { useI18n } from '../i18n';
+
 interface DonationModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 export function DonationModal({ isOpen, onClose }: DonationModalProps) {
+  const { t } = useI18n();
+
   if (!isOpen) return null;
 
   return (
@@ -21,7 +25,7 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
             <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h1a1 1 0 011 1v5a1 1 0 01-1 1h-1m-6.854 8.03l-1.772-1.603a4.5 4.5 0 00-6.267 0L6.97 21h8.13l-.648-.57a4.5 4.5 0 00-6.267 0l-.94.85M14.5 9l-1-4h-5l-1 4h7z" />
             </svg>
-            <h2 className="text-lg font-medium text-text-primary">请喝可乐</h2>
+            <h2 className="text-lg font-medium text-text-primary">{t('donation.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -34,7 +38,7 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
         </div>
 
         <p className="text-text-secondary text-sm mb-6 leading-relaxed">
-          如果你觉得可爱的 ManimCat 有帮助到你或者有所启发，欢迎请作者喝瓶可口可乐~
+          {t('donation.description')}
         </p>
 
         <div className="flex gap-3">
@@ -45,13 +49,13 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
             onClick={onClose}
             className="flex-1 px-4 py-2.5 text-sm text-bg-primary bg-accent hover:bg-accent-hover rounded-xl transition-all active:scale-95 active:duration-75 font-medium text-center"
           >
-            支持一下
+            {t('donation.support')}
           </a>
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary bg-bg-primary hover:bg-bg-tertiary rounded-xl transition-all active:scale-95 active:duration-75 text-center"
           >
-            下次一定
+            {t('donation.maybeLater')}
           </button>
         </div>
       </div>

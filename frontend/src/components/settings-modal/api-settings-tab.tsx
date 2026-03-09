@@ -1,6 +1,7 @@
 import type { ApiConfig } from '../../types/api';
 import type { TestResult } from './types';
 import { TestResultBanner } from './test-result-banner';
+import { useI18n } from '../../i18n';
 
 interface ApiSettingsTabProps {
   apiConfig: ApiConfig;
@@ -39,38 +40,40 @@ function FloatingInput(props: {
 }
 
 export function ApiSettingsTab({ apiConfig, testResult, onUpdate }: ApiSettingsTabProps) {
+  const { t } = useI18n();
+
   return (
     <>
       <FloatingInput
         id="manimcatApiKey"
         type="password"
-        label="ManimCat API 密钥"
+        label={t('settings.api.manimcatKey')}
         value={apiConfig.manimcatApiKey}
-        placeholder="可填单个，或用逗号/换行配置多组"
+        placeholder={t('settings.api.manimcatKeyPlaceholder')}
         onChange={(value) => onUpdate({ manimcatApiKey: value })}
       />
       <FloatingInput
         id="apiUrl"
         type="text"
-        label="API 地址"
+        label={t('settings.api.url')}
         value={apiConfig.apiUrl}
-        placeholder="支持逗号/换行多地址（与密钥按顺序配对）"
+        placeholder={t('settings.api.urlPlaceholder')}
         onChange={(value) => onUpdate({ apiUrl: value })}
       />
       <FloatingInput
         id="apiKey"
         type="password"
-        label="API 密钥"
+        label={t('settings.api.key')}
         value={apiConfig.apiKey}
-        placeholder="支持逗号/换行多密钥"
+        placeholder={t('settings.api.keyPlaceholder')}
         onChange={(value) => onUpdate({ apiKey: value })}
       />
       <FloatingInput
         id="model"
         type="text"
-        label="模型名称"
+        label={t('settings.api.model')}
         value={apiConfig.model}
-        placeholder="支持逗号/换行多模型（可选）"
+        placeholder={t('settings.api.modelPlaceholder')}
         onChange={(value) => onUpdate({ model: value })}
       />
       <TestResultBanner testResult={testResult} />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getUsageMetrics } from '../lib/api';
 import type { UsageDailyPoint, UsageMetricsResponse } from '../types/api';
+import { useI18n } from '../i18n';
 
 interface UsageDashboardProps {
   isOpen: boolean;
@@ -10,8 +11,8 @@ interface UsageDashboardProps {
 const RANGE_OPTIONS = [7, 14, 30] as const;
 const REFRESH_INTERVAL_MS = 30_000;
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('zh-CN').format(Math.round(value));
+function formatNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale).format(Math.round(value));
 }
 
 function formatPercent(value: number): string {
@@ -42,6 +43,7 @@ function getMaxDailyValue(daily: UsageDailyPoint[]): number {
 }
 
 export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
+  const { locale, t } = useI18n();
   const [shouldRender, setShouldRender] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(isOpen);
   const [rangeDays, setRangeDays] = useState<(typeof RANGE_OPTIONS)[number]>(7);
@@ -89,7 +91,7 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
         }
-        setError(err instanceof Error ? err.message : '加载统计数据失败');
+        setError(err instanceof Error ? err.message : t('usage.loadFailed'));
       } finally {
         if (active) {
           setLoading(false);
@@ -107,7 +109,7 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
       controller.abort();
       clearInterval(timer);
     };
-  }, [isOpen, rangeDays]);
+  }, [isOpen, rangeDays, t]);
 
   const chartRows = useMemo(() => data?.daily ?? [], [data]);
   const maxDailyValue = useMemo(() => getMaxDailyValue(chartRows), [chartRows]);
@@ -128,15 +130,15 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
           <button
             onClick={onClose}
             className="p-2 text-text-secondary/70 hover:text-text-primary hover:bg-bg-tertiary/50 rounded-lg transition-colors"
-            aria-label="关闭用量面板"
+            aria-label={t('usage.close')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <div>
-            <p className="text-sm font-medium text-text-primary">用量面板</p>
-            <p className="text-[11px] text-text-secondary/60">每 30 秒自动刷新</p>
+            <p className="text-sm font-medium text-text-primary">{t('usage.title')}</p>
+            <p className="text-[11px] text-text-secondary/60">{t('usage.refresh')}</p>
           </div>
         </div>
 
@@ -151,7 +153,7 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
                   : 'bg-bg-secondary/50 text-text-secondary/80 hover:text-text-primary'
               }`}
             >
-              {days} 天
+              {t('common.days', { count: days })}
             </button>
           ))}
         </div>
@@ -175,20 +177,20 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
         {data ? (
           <div className="space-y-5 animate-fade-in">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <MetricCard title="提交任务" value={formatNumber(data.totals.submittedTotal)} hint={`${data.rangeDays} 天累计`} />
-              <MetricCard title="成功任务" value={formatNumber(data.totals.completedTotal)} hint="渲染完成" />
-              <MetricCard title="成功率" value={formatPercent(data.totals.successRate)} hint="completed / submitted" />
-              <MetricCard title="平均渲染耗时" value={formatDuration(data.totals.avgRenderMs)} hint="仅统计成功任务" />
-              <MetricCard title="失败任务" value={formatNumber(data.totals.failedTotal)} hint={`取消 ${formatNumber(data.totals.cancelledTotal)} 次`} />
-              <MetricCard title="视频完成" value={formatNumber(data.totals.completedVideo)} hint="outputMode=video" />
-              <MetricCard title="图片完成" value={formatNumber(data.totals.completedImage)} hint="outputMode=image" />
-              <MetricCard title="队列积压" value={formatNumber(data.queue.waiting + data.queue.delayed)} hint={`处理中 ${formatNumber(data.queue.active)}`} />
+              <MetricCard title={t('usage.metric.submitted')} value={formatNumber(data.totals.submittedTotal, locale)} hint={t('usage.metric.submittedHint', { count: data.rangeDays })} />
+              <MetricCard title={t('usage.metric.completed')} value={formatNumber(data.totals.completedTotal, locale)} hint={t('usage.metric.completedHint')} />
+              <MetricCard title={t('usage.metric.successRate')} value={formatPercent(data.totals.successRate)} hint={t('usage.metric.successRateHint')} />
+              <MetricCard title={t('usage.metric.avgRender')} value={formatDuration(data.totals.avgRenderMs)} hint={t('usage.metric.avgRenderHint')} />
+              <MetricCard title={t('usage.metric.failed')} value={formatNumber(data.totals.failedTotal, locale)} hint={t('usage.metric.failedHint', { count: formatNumber(data.totals.cancelledTotal, locale) })} />
+              <MetricCard title={t('usage.metric.video')} value={formatNumber(data.totals.completedVideo, locale)} hint="outputMode=video" />
+              <MetricCard title={t('usage.metric.image')} value={formatNumber(data.totals.completedImage, locale)} hint="outputMode=image" />
+              <MetricCard title={t('usage.metric.queue')} value={formatNumber(data.queue.waiting + data.queue.delayed, locale)} hint={t('usage.metric.queueHint', { count: formatNumber(data.queue.active, locale) })} />
             </div>
 
             <div className="rounded-2xl bg-bg-secondary/25 border border-bg-tertiary/30 p-4 sm:p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-text-primary">日趋势</h3>
-                <p className="text-xs text-text-secondary/70">提交/成功（最近 {data.rangeDays} 天）</p>
+                <h3 className="text-sm font-medium text-text-primary">{t('usage.chart.title')}</h3>
+                <p className="text-xs text-text-secondary/70">{t('usage.chart.subtitle', { count: data.rangeDays })}</p>
               </div>
 
               <div className="h-52 sm:h-60 flex items-end gap-2 sm:gap-3 overflow-x-auto pb-2">
@@ -209,7 +211,7 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
                       </div>
                       <span className="text-[10px] text-text-secondary/70">{formatDateLabel(item.date)}</span>
                       <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity -translate-y-20 bg-bg-secondary border border-bg-tertiary/40 text-[11px] text-text-secondary px-2 py-1 rounded-md shadow-md">
-                        提交 {item.submittedTotal} / 成功 {item.completedTotal}
+                        {t('usage.chart.tooltip', { submitted: item.submittedTotal, completed: item.completedTotal })}
                       </div>
                     </div>
                   );
@@ -219,36 +221,36 @@ export function UsageDashboard({ isOpen, onClose }: UsageDashboardProps) {
 
             <div className="rounded-2xl bg-bg-secondary/25 border border-bg-tertiary/30 overflow-hidden">
               <div className="px-4 py-3 border-b border-bg-tertiary/30 flex items-center justify-between">
-                <h3 className="text-sm font-medium text-text-primary">最近 10 天</h3>
-                <p className="text-xs text-text-secondary/60">{new Date(data.timestamp).toLocaleString()}</p>
+                <h3 className="text-sm font-medium text-text-primary">{t('usage.table.title')}</h3>
+                <p className="text-xs text-text-secondary/60">{new Date(data.timestamp).toLocaleString(locale)}</p>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-text-secondary/70 text-xs bg-bg-secondary/30">
                     <tr>
-                      <th className="text-left px-4 py-2.5 font-medium">日期</th>
-                      <th className="text-right px-4 py-2.5 font-medium">提交</th>
-                      <th className="text-right px-4 py-2.5 font-medium">成功</th>
-                      <th className="text-right px-4 py-2.5 font-medium">失败</th>
-                      <th className="text-right px-4 py-2.5 font-medium">成功率</th>
-                      <th className="text-right px-4 py-2.5 font-medium">平均耗时</th>
+                      <th className="text-left px-4 py-2.5 font-medium">{t('usage.table.date')}</th>
+                      <th className="text-right px-4 py-2.5 font-medium">{t('usage.table.submitted')}</th>
+                      <th className="text-right px-4 py-2.5 font-medium">{t('usage.table.completed')}</th>
+                      <th className="text-right px-4 py-2.5 font-medium">{t('usage.table.failed')}</th>
+                      <th className="text-right px-4 py-2.5 font-medium">{t('usage.table.successRate')}</th>
+                      <th className="text-right px-4 py-2.5 font-medium">{t('usage.table.avgDuration')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {latestTenRows.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-4 py-6 text-center text-text-secondary/60 text-xs">
-                          暂无数据
+                          {t('usage.table.empty')}
                         </td>
                       </tr>
                     ) : (
                       latestTenRows.map((row) => (
                         <tr key={row.date} className="border-t border-bg-tertiary/20 hover:bg-bg-secondary/20 transition-colors">
                           <td className="px-4 py-2.5 text-text-primary">{row.date}</td>
-                          <td className="px-4 py-2.5 text-right text-text-secondary">{formatNumber(row.submittedTotal)}</td>
-                          <td className="px-4 py-2.5 text-right text-text-secondary">{formatNumber(row.completedTotal)}</td>
-                          <td className="px-4 py-2.5 text-right text-text-secondary">{formatNumber(row.failedTotal)}</td>
+                          <td className="px-4 py-2.5 text-right text-text-secondary">{formatNumber(row.submittedTotal, locale)}</td>
+                          <td className="px-4 py-2.5 text-right text-text-secondary">{formatNumber(row.completedTotal, locale)}</td>
+                          <td className="px-4 py-2.5 text-right text-text-secondary">{formatNumber(row.failedTotal, locale)}</td>
                           <td className="px-4 py-2.5 text-right text-text-secondary">{formatPercent(row.successRate)}</td>
                           <td className="px-4 py-2.5 text-right text-text-secondary">{formatDuration(row.avgRenderMs)}</td>
                         </tr>

@@ -4,6 +4,7 @@ import { pickNextCustomProfile } from '../lib/custom-ai';
 import { loadSettings } from '../lib/settings';
 import { loadPrompts } from './usePrompts';
 import type { GenerateRequest, JobResult, ProcessingStage, ModifyRequest } from '../types/api';
+import { localizeApiMessage, useI18n } from '../i18n';
 
 interface UseGenerationReturn {
   status: 'idle' | 'processing' | 'completed' | 'error';
@@ -25,6 +26,7 @@ function getTimeoutConfig(): number {
 }
 
 export function useGeneration(): UseGenerationReturn {
+  const { t } = useI18n();
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
   const [result, setResult] = useState<JobResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +46,9 @@ export function useGeneration(): UseGenerationReturn {
     try {
       await cancelJob(id, authKey ? { authKeyOverride: authKey } : undefined);
     } catch (err) {
-      console.warn('取消任务失败', err);
+      console.warn(t('generation.cancelFailed'), err);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     return () => {
@@ -100,9 +102,9 @@ export function useGeneration(): UseGenerationReturn {
           }
           setStatus('error');
           if (data.cancel_reason) {
-            setError(`任务已取消：${data.cancel_reason}`);
+            setError(t('generation.cancelled', { reason: data.cancel_reason }));
           } else {
-            setError(data.error || '生成失败');
+            setError(data.error ? localizeApiMessage(data.error) : t('generation.failed'));
           }
         } else {
           if (data.stage) {
@@ -118,7 +120,7 @@ export function useGeneration(): UseGenerationReturn {
           }
           await requestCancel(id, jobAuthKeyRef.current);
           setStatus('error');
-          setError(`生成超时（${maxPollCount}秒），请尝试更简单的概念或增加超时时间`);
+          setError(t('generation.timeout', { seconds: maxPollCount }));
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -126,30 +128,38 @@ export function useGeneration(): UseGenerationReturn {
         }
 
         if (err instanceof Error && (err.message.includes('ECONNREFUSED') || err.message.includes('Failed to fetch'))) {
-          console.error('后端连接断开，停止轮询');
+          console.error('Backend disconnected, stop polling');
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
           }
           setStatus('error');
-          setError('后端服务已断开，请刷新页面重试');
+          setError(t('generation.backendDisconnected'));
           return;
         }
 
         console.error('轮询错误:', err);
         await requestCancel(id, jobAuthKeyRef.current);
 
-        if (err instanceof Error && (err.message.includes('未找到任务') || err.message.includes('失效'))) {
+        if (
+          err instanceof Error &&
+          (
+            err.message.includes('未找到任务') ||
+            err.message.includes('失效') ||
+            err.message.includes('Job not found') ||
+            err.message.includes('expired')
+          )
+        ) {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
           }
           setStatus('error');
-          setError('任务已失效（可能因服务重启），请重新生成');
+          setError(t('generation.jobExpired'));
           return;
         }
       }
     }, POLL_INTERVAL);
-  }, [requestCancel, updateStage]);
+  }, [requestCancel, t, updateStage]);
 
   const renderWithCode = useCallback(async (request: GenerateRequest & { code: string }) => {
     setStatus('processing');
@@ -176,9 +186,9 @@ export function useGeneration(): UseGenerationReturn {
         return;
       }
       setStatus('error');
-      setError(err instanceof Error ? err.message : '重新渲染失败');
+      setError(err instanceof Error ? err.message : t('generation.rerenderFailed'));
     }
-  }, [startPolling]);
+  }, [startPolling, t]);
 
   const modifyWithAI = useCallback(async (request: ModifyRequest) => {
     setStatus('processing');
@@ -205,9 +215,9 @@ export function useGeneration(): UseGenerationReturn {
         return;
       }
       setStatus('error');
-      setError(err instanceof Error ? err.message : 'AI 修改失败');
+      setError(err instanceof Error ? err.message : t('generation.modifyFailed'));
     }
-  }, [startPolling]);
+  }, [startPolling, t]);
 
   const generate = useCallback(async (request: GenerateRequest) => {
     setStatus('processing');
@@ -236,9 +246,9 @@ export function useGeneration(): UseGenerationReturn {
         return;
       }
       setStatus('error');
-      setError(err instanceof Error ? err.message : '生成请求失败');
+      setError(err instanceof Error ? err.message : t('generation.requestFailed'));
     }
-  }, [startPolling]);
+  }, [startPolling, t]);
 
   const reset = useCallback(() => {
     setStatus('idle');

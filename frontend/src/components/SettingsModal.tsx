@@ -4,6 +4,7 @@ import type { SettingsConfig } from '../types/api';
 import { ApiSettingsTab } from './settings-modal/api-settings-tab';
 import { VideoSettingsTab } from './settings-modal/video-settings-tab';
 import { useSettingsModal } from './settings-modal/use-settings-modal';
+import { useI18n } from '../i18n';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
+  const { t } = useI18n();
   const {
     config,
     activeTab,
@@ -30,7 +32,7 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-bg-secondary rounded-2xl p-8 max-w-md w-full shadow-xl">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-medium text-text-primary">设置</h2>
+          <h2 className="text-xl font-medium text-text-primary">{t('settings.title')}</h2>
           <button
             onClick={onClose}
             className="p-2 text-text-secondary/60 hover:text-text-secondary transition-colors"
@@ -50,7 +52,7 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
                 : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary/30'
             }`}
           >
-            API 设置
+            {t('settings.tab.api')}
           </button>
           <button
             onClick={() => setActiveTab('video')}
@@ -60,7 +62,7 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
                 : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary/30'
             }`}
           >
-            视频配置
+            {t('settings.tab.video')}
           </button>
         </div>
 
@@ -79,13 +81,13 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
             disabled={testResult.status === 'testing'}
             className="flex-1 px-6 py-3.5 text-sm font-medium text-accent hover:text-accent-hover bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-accent/20"
           >
-            测试连接
+            {t('settings.test')}
           </button>
           <button
             onClick={handleSave}
             className="flex-1 px-6 py-3.5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-accent/20 shadow-lg shadow-accent/25"
           >
-            保存
+            {t('common.save')}
           </button>
         </div>
       </div>

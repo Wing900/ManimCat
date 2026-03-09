@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { JobTimings } from '../types/api';
-
-const timingLabels: Array<{ key: keyof JobTimings; label: string }> = [
-  { key: 'analyze', label: '分析' },
-  { key: 'edit', label: '修改' },
-  { key: 'retry', label: '代码生成' },
-  { key: 'render', label: '渲染' },
-  { key: 'store', label: '存储' },
-];
+import { useI18n } from '../i18n';
 
 function formatDuration(ms: number): string {
   if (ms >= 1000) {
@@ -21,9 +14,18 @@ interface TimingPanelProps {
 }
 
 export function TimingPanel({ timings }: TimingPanelProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   const { total, items } = useMemo(() => {
+    const timingLabels: Array<{ key: keyof JobTimings; label: string }> = [
+      { key: 'analyze', label: t('timing.analyze') },
+      { key: 'edit', label: t('timing.edit') },
+      { key: 'retry', label: t('timing.retry') },
+      { key: 'render', label: t('timing.render') },
+      { key: 'store', label: t('timing.store') },
+    ];
+
     const items = timingLabels
       .map(({ key, label }) => ({ key, label, value: timings[key] }))
       .filter((item) => typeof item.value === 'number');
@@ -33,7 +35,7 @@ export function TimingPanel({ timings }: TimingPanelProps) {
       : items.reduce((sum, item) => sum + (item.value || 0), 0);
 
     return { total, items };
-  }, [timings]);
+  }, [t, timings]);
 
   if (!items.length) {
     return null;
@@ -64,7 +66,7 @@ export function TimingPanel({ timings }: TimingPanelProps) {
           aria-expanded={isOpen}
           className="flex items-center gap-2 px-3 py-2 rounded-full bg-bg-secondary/80 text-xs text-text-secondary/90 shadow-lg shadow-black/10 backdrop-blur border border-bg-secondary/60 hover:text-text-primary hover:bg-bg-secondary transition-colors"
         >
-          <span className="text-[11px] tracking-wide">耗时</span>
+          <span className="text-[11px] tracking-wide">{t('timing.title')}</span>
           <span className="text-text-primary font-medium">{formatDuration(total)}</span>
           <svg
             className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`}

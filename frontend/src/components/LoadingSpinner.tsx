@@ -1,6 +1,7 @@
 // 加载动画组件 - 大猫头 + 波浪猫爪
 
 import { useEffect, useState } from 'react';
+import { useI18n } from '../i18n';
 
 // ============================================================================
 // 类型 & 配置
@@ -15,11 +16,11 @@ interface LoadingSpinnerProps {
 }
 
 const STAGE_CONFIG = {
-  analyzing:         { text: '正在分析概念...', start: 0, target: 20 },
-  generating:        { text: '正在生成代码...', start: 20, target: 66 },
-  refining:          { text: '正在优化结果...', start: 66, target: 85 },
-  rendering:         { text: '正在渲染内容...', start: 85, target: 97 },
-  'still-rendering': { text: '仍在渲染中...', start: 85, target: 97 },
+  analyzing:         { key: 'loading.analyzing', start: 0, target: 20 },
+  generating:        { key: 'loading.generating', start: 20, target: 66 },
+  refining:          { key: 'loading.refining', start: 66, target: 85 },
+  rendering:         { key: 'loading.rendering', start: 85, target: 97 },
+  'still-rendering': { key: 'loading.stillRendering', start: 85, target: 97 },
 } as const;
 
 // ============================================================================
@@ -180,8 +181,9 @@ function WavingPaws() {
 // ============================================================================
 
 export function LoadingSpinner({ stage, jobId, onCancel }: LoadingSpinnerProps) {
+  const { t } = useI18n();
   const progress = usePerceivedProgress(stage);
-  const { text } = STAGE_CONFIG[stage];
+  const { key } = STAGE_CONFIG[stage];
 
   return (
     <div className="flex flex-col items-center justify-center py-6">
@@ -195,7 +197,7 @@ export function LoadingSpinner({ stage, jobId, onCancel }: LoadingSpinnerProps) 
 
       {/* 状态文字 + 百分比 */}
       <div className="mt-4 text-center">
-        <p className="text-base text-text-primary/80">{text}</p>
+        <p className="text-base text-text-primary/80">{t(key)}</p>
         <p className="text-sm text-text-secondary/60 tabular-nums mt-1">
           {Math.round(progress)}%
         </p>
@@ -213,7 +215,7 @@ export function LoadingSpinner({ stage, jobId, onCancel }: LoadingSpinnerProps) 
             onClick={onCancel}
             className="text-xs text-text-secondary/40 hover:text-red-500 transition-colors"
           >
-            取消
+            {t('common.cancel')}
           </button>
         )}
       </div>

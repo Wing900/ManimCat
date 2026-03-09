@@ -14,10 +14,12 @@ import ManimCatLogo from './components/ManimCatLogo';
 import { TopLeftActions } from './components/app/top-left-actions';
 import { TopRightActions } from './components/app/top-right-actions';
 import { StatusContent } from './components/app/status-content';
+import { useI18n } from './i18n';
 
 function App() {
   const { status, result, error, jobId, stage, generate, renderWithCode, modifyWithAI, reset, cancel } = useGeneration();
   useTabTitle(status, stage);
+  const { t } = useI18n();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
@@ -95,7 +97,7 @@ function App() {
             <ManimCatLogo className="w-16 h-16" />
             <h1 className="text-5xl sm:text-6xl font-light tracking-tight text-text-primary">ManimCat</h1>
           </div>
-          <p className="text-sm text-text-secondary/70 max-w-lg mx-auto">用 AI 驱动 Manim 生成数学动画</p>
+          <p className="text-sm text-text-secondary/70 max-w-lg mx-auto">{t('app.subtitle')}</p>
         </div>
 
         <div className="mb-6">
@@ -120,6 +122,13 @@ function App() {
 
       {status === 'completed' && result?.timings && <TimingPanel timings={result.timings} />}
 
+      <div
+        aria-hidden="true"
+        className="fixed right-4 bottom-4 z-30 pointer-events-none select-none text-[10px] font-medium uppercase tracking-[0.32em] text-text-secondary/25"
+      >
+        Bin
+      </div>
+
       <style>{`
         @keyframes fadeInUp {
           0% { opacity: 0; transform: translateY(30px); }
@@ -127,7 +136,7 @@ function App() {
         }
       `}</style>
 
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={(config) => console.log('保存配置:', config)} />
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
       <PromptsManager isOpen={promptsOpen} onClose={() => setPromptsOpen(false)} />
       <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
       <UsageDashboard isOpen={usageOpen} onClose={() => setUsageOpen(false)} />

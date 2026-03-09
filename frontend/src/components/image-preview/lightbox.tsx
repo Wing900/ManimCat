@@ -1,3 +1,5 @@
+import { useI18n } from '../../i18n';
+
 interface ImageLightboxProps {
   isOpen: boolean;
   activeImage?: string;
@@ -19,6 +21,8 @@ export function ImageLightbox({
   onZoomIn,
   onClose,
 }: ImageLightboxProps) {
+  const { t } = useI18n();
+
   if (!isOpen || !activeImage) {
     return null;
   }
@@ -27,7 +31,7 @@ export function ImageLightbox({
     <div className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-sm flex flex-col">
       <div className="flex items-center justify-between px-5 py-3 text-white/90">
         <div className="text-xs">
-          放大预览 · 图片 {activeIndex + 1}/{total}
+          {t('image.lightboxTitle', { current: activeIndex + 1, total })}
         </div>
         <div className="flex items-center gap-3">
           <button type="button" onClick={onZoomOut} className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-xs">
@@ -38,14 +42,14 @@ export function ImageLightbox({
             +
           </button>
           <button type="button" onClick={onClose} className="px-2 py-1 rounded bg-white/15 hover:bg-white/25 text-xs">
-            关闭
+            {t('common.close')}
           </button>
         </div>
       </div>
       <div className="flex-1 flex items-center justify-center overflow-auto px-6 pb-6">
         <img
           src={activeImage}
-          alt={`放大图片 ${activeIndex + 1}`}
+          alt={t('image.lightboxAlt', { index: activeIndex + 1 })}
           className="max-w-none"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
         />

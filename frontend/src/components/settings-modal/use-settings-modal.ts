@@ -3,6 +3,7 @@ import type { ApiConfig, SettingsConfig, VideoConfig } from '../../types/api';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../lib/settings';
 import { buildCustomProfilesFromFields } from '../../lib/custom-ai';
 import type { TabType, TestResult } from './types';
+import { useI18n } from '../../i18n';
 
 interface UseSettingsModalParams {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export function useSettingsModal({
   onClose,
   onSave,
 }: UseSettingsModalParams): UseSettingsModalResult {
+  const { t } = useI18n();
   const [config, setConfig] = useState<SettingsConfig>(DEFAULT_SETTINGS);
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<TabType>('api');
@@ -69,7 +71,7 @@ export function useSettingsModal({
     if (!manimcatKey) {
       setTestResult({
         status: 'error',
-        message: '请先填写 ManimCat API 密钥',
+        message: t('settings.test.needManimcatKey'),
       });
       return;
     }
@@ -77,12 +79,12 @@ export function useSettingsModal({
     if (hasCustomConfig && (!apiUrlInput || !apiKeyInput)) {
       setTestResult({
         status: 'error',
-        message: '请填入 API 地址和密钥',
+        message: t('settings.test.needUrlAndKey'),
       });
       return;
     }
 
-    setTestResult({ status: 'testing', message: '测试中...', details: {} });
+    setTestResult({ status: 'testing', message: t('settings.test.testing'), details: {} });
 
     const startTime = performance.now();
     try {
@@ -110,7 +112,7 @@ export function useSettingsModal({
       if (response.ok) {
         setTestResult({
           status: 'success',
-          message: `连接成功！(${duration}ms)`,
+          message: t('settings.test.success', { duration }),
           details: {
             statusCode: response.status,
             statusText: response.statusText,
@@ -142,7 +144,7 @@ export function useSettingsModal({
       const duration = Math.round(performance.now() - startTime);
       setTestResult({
         status: 'error',
-        message: error instanceof Error ? error.message : '连接失败',
+        message: error instanceof Error ? error.message : t('settings.test.failed'),
         details: {
           error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
           duration,

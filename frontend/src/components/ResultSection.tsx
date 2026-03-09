@@ -4,6 +4,7 @@ import { CodeView } from './CodeView';
 import { ImagePreview } from './ImagePreview';
 import { VideoPreview } from './VideoPreview';
 import type { OutputMode } from '../types/api';
+import { useI18n } from '../i18n';
 
 interface ResultSectionProps {
   code: string;
@@ -32,6 +33,7 @@ export function ResultSection({
   onAiModify,
   isBusy = false
 }: ResultSectionProps) {
+  const { t } = useI18n();
   const hasActions = onRerender || onAiModify;
 
   return (
@@ -61,20 +63,20 @@ export function ResultSection({
         <div className="flex flex-wrap items-center justify-center gap-3">
           {onRerender && (
             <button
-              onClick={onRerender}
-              disabled={isBusy}
-              className="px-5 py-2 text-xs font-medium text-text-secondary/80 hover:text-text-primary bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              重新渲染
+            onClick={onRerender}
+            disabled={isBusy}
+            className="px-5 py-2 text-xs font-medium text-text-secondary/80 hover:text-text-primary bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+              {t('result.rerender')}
             </button>
           )}
           {onAiModify && (
             <button
-              onClick={onAiModify}
-              disabled={isBusy}
-              className="px-5 py-2 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-accent/20"
-            >
-              AI修改
+            onClick={onAiModify}
+            disabled={isBusy}
+            className="px-5 py-2 text-xs font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-accent/20"
+          >
+              {t('result.aiModify')}
             </button>
           )}
         </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReferenceImage } from '../../types/api';
 import { MAX_IMAGE_SIZE, MAX_IMAGES } from './constants';
 import { uploadReferenceImage } from '../../lib/api';
+import { useI18n } from '../../i18n';
 
 interface UseReferenceImagesResult {
   images: ReferenceImage[];
@@ -17,6 +18,7 @@ interface UseReferenceImagesResult {
 }
 
 export function useReferenceImages(): UseReferenceImagesResult {
+  const { t } = useI18n();
   const [images, setImages] = useState<ReferenceImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -28,13 +30,13 @@ export function useReferenceImages(): UseReferenceImagesResult {
       const fileArray = Array.from(files).filter((f) => f.type.startsWith('image/'));
 
       if (fileArray.length === 0) {
-        setImageError('请选择有效的图片文件');
+        setImageError(t('reference.invalidFile'));
         return;
       }
 
       const remaining = MAX_IMAGES - images.length;
       if (remaining <= 0) {
-        setImageError(`最多只能添加 ${MAX_IMAGES} 张图片`);
+        setImageError(t('reference.limit', { count: MAX_IMAGES }));
         return;
       }
 
@@ -43,7 +45,7 @@ export function useReferenceImages(): UseReferenceImagesResult {
       try {
         for (const file of toAdd) {
           if (file.size > MAX_IMAGE_SIZE) {
-            throw new Error(`图片大小不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`);
+            throw new Error(t('reference.maxSize', { size: MAX_IMAGE_SIZE / 1024 / 1024 }));
           }
         }
 
@@ -58,10 +60,10 @@ export function useReferenceImages(): UseReferenceImagesResult {
         );
         setImages((prev) => [...prev, ...newImages]);
       } catch (err) {
-        setImageError(err instanceof Error ? err.message : '图片处理失败');
+        setImageError(err instanceof Error ? err.message : t('reference.processFailed'));
       }
     },
-    [images.length]
+    [images.length, t]
   );
 
   const removeImage = useCallback((index: number) => {

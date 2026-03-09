@@ -1,5 +1,6 @@
 import type { OutputMode, Quality } from '../../types/api';
 import { MAX_IMAGES, QUALITY_OPTIONS } from './constants';
+import { useI18n } from '../../i18n';
 
 interface FormToolbarProps {
   loading: boolean;
@@ -22,6 +23,8 @@ export function FormToolbar({
   onChangeOutputMode,
   onUploadFiles,
 }: FormToolbarProps) {
+  const { t } = useI18n();
+
   return (
     <div className="flex items-center justify-between gap-4 flex-wrap mt-2">
       <div className="flex items-center gap-2">
@@ -43,7 +46,9 @@ export function FormToolbar({
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          {imageCount > 0 ? `参考图 ${imageCount}/${MAX_IMAGES}` : '参考图'}
+          {imageCount > 0
+            ? t('form.referenceImagesCount', { count: imageCount, max: MAX_IMAGES })
+            : t('form.referenceImages')}
         </button>
       </div>
 
@@ -76,7 +81,7 @@ export function FormToolbar({
               : 'text-text-secondary/60 hover:text-text-secondary hover:bg-bg-secondary/50'
           }`}
         >
-          视频
+          {t('form.output.video')}
         </button>
         <button
           type="button"
@@ -88,7 +93,7 @@ export function FormToolbar({
               : 'text-text-secondary/60 hover:text-text-secondary hover:bg-bg-secondary/50'
           }`}
         >
-          图片
+          {t('form.output.image')}
         </button>
       </div>
     </div>

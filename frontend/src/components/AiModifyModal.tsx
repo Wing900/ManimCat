@@ -1,5 +1,7 @@
 // AI 修改对话框
 
+import { useI18n } from '../i18n';
+
 interface AiModifyModalProps {
   isOpen: boolean;
   value: string;
@@ -10,6 +12,8 @@ interface AiModifyModalProps {
 }
 
 export function AiModifyModal({ isOpen, value, loading = false, onChange, onClose, onSubmit }: AiModifyModalProps) {
+  const { t } = useI18n();
+
   if (!isOpen) return null;
 
   return (
@@ -22,7 +26,7 @@ export function AiModifyModal({ isOpen, value, loading = false, onChange, onClos
             <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            <h2 className="text-lg font-medium text-text-primary">AI修改</h2>
+            <h2 className="text-lg font-medium text-text-primary">{t('aiModify.title')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -35,7 +39,7 @@ export function AiModifyModal({ isOpen, value, loading = false, onChange, onClos
         </div>
 
         <p className="text-text-secondary text-sm mb-4">
-          请描述你希望 AI 如何修改当前代码。
+          {t('aiModify.description')}
         </p>
 
         <div className="relative mb-6">
@@ -43,14 +47,14 @@ export function AiModifyModal({ isOpen, value, loading = false, onChange, onClos
             htmlFor="aiModifyInput"
             className="absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary"
           >
-            修改意见
+            {t('aiModify.label')}
           </label>
           <textarea
             id="aiModifyInput"
             rows={5}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="例如：让标题更醒目，加入颜色渐变，缩短动画时长..."
+            placeholder={t('aiModify.placeholder')}
             className="w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all resize-none"
           />
         </div>
@@ -61,14 +65,14 @@ export function AiModifyModal({ isOpen, value, loading = false, onChange, onClos
             disabled={loading}
             className="flex-1 px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary bg-bg-primary hover:bg-bg-tertiary rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={onSubmit}
             disabled={loading || value.trim().length === 0}
             className="flex-1 px-4 py-2.5 text-sm text-white bg-accent hover:bg-accent-hover rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? '提交中...' : '提交修改'}
+            {loading ? t('aiModify.submitting') : t('aiModify.submit')}
           </button>
         </div>
       </div>

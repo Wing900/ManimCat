@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '../i18n';
 
 function resolveInitialTheme() {
   if (typeof window === 'undefined') {
@@ -11,6 +12,7 @@ function resolveInitialTheme() {
 
 export function ThemeToggle() {
   const [isDark, setIsDark] = useState(resolveInitialTheme);
+  const { t } = useI18n();
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -21,8 +23,8 @@ export function ThemeToggle() {
     <button
       onClick={() => setIsDark((prev) => !prev)}
       className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
-      aria-label={isDark ? '切换到亮色主题' : '切换到暗黑主题'}
-      title={isDark ? '切换到亮色主题' : '切换到暗黑主题'}
+      aria-label={isDark ? t('theme.light') : t('theme.dark')}
+      title={isDark ? t('theme.light') : t('theme.dark')}
     >
       {isDark ? (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,4 +48,3 @@ export function ThemeToggle() {
     </button>
   );
 }
-

@@ -2,6 +2,7 @@ import { InputForm } from '../InputForm';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { ResultSection } from '../ResultSection';
 import type { JobResult, OutputMode, ProcessingStage, Quality, ReferenceImage } from '../../types/api';
+import { useI18n } from '../../i18n';
 
 interface LastRequest {
   concept: string;
@@ -43,6 +44,8 @@ export function StatusContent({
   onResetAll,
   onCancel,
 }: StatusContentProps) {
+  const { t } = useI18n();
+
   if (status === 'idle') {
     return <InputForm onSubmit={onSubmit} loading={false} />;
   }
@@ -82,7 +85,7 @@ export function StatusContent({
             onClick={onResetAll}
             className="px-8 py-2.5 text-sm text-text-secondary/80 hover:text-accent transition-colors bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full"
           >
-            生成新的内容
+            {t('result.newContent')}
           </button>
         </div>
       </div>
@@ -99,8 +102,8 @@ export function StatusContent({
             </svg>
           </div>
           <div className="flex-1">
-            <p className="text-text-primary font-medium mb-1">出错了</p>
-            <p className="text-text-secondary text-sm">{error || '生成失败，请重试'}</p>
+            <p className="text-text-primary font-medium mb-1">{t('result.errorTitle')}</p>
+            <p className="text-text-secondary text-sm">{error || t('result.errorFallback')}</p>
           </div>
         </div>
         <div className="mt-4 flex gap-3">
@@ -108,7 +111,7 @@ export function StatusContent({
             onClick={onResetAll}
             className="px-4 py-2 text-sm text-accent hover:text-accent-hover transition-colors"
           >
-            重试
+            {t('common.retry')}
           </button>
         </div>
       </div>

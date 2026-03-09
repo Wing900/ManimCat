@@ -1,6 +1,7 @@
 import { CustomSelect } from '../CustomSelect';
 import type { Quality, VideoConfig } from '../../types/api';
 import { DEFAULT_SETTINGS } from '../../lib/settings';
+import { useI18n } from '../../i18n';
 
 interface VideoSettingsTabProps {
   videoConfig: VideoConfig;
@@ -8,17 +9,19 @@ interface VideoSettingsTabProps {
 }
 
 export function VideoSettingsTab({ videoConfig, onUpdate }: VideoSettingsTabProps) {
+  const { t } = useI18n();
+
   return (
     <>
       <CustomSelect
         options={[
-          { value: 'low' as Quality, label: '低 (480p)' },
-          { value: 'medium' as Quality, label: '中 (720p)' },
-          { value: 'high' as Quality, label: '高 (1080p)' },
+          { value: 'low' as Quality, label: t('settings.video.quality.low') },
+          { value: 'medium' as Quality, label: t('settings.video.quality.medium') },
+          { value: 'high' as Quality, label: t('settings.video.quality.high') },
         ]}
         value={videoConfig.quality}
         onChange={(value) => onUpdate({ quality: value })}
-        label="默认值"
+        label={t('settings.video.quality')}
       />
 
       <CustomSelect
@@ -29,21 +32,21 @@ export function VideoSettingsTab({ videoConfig, onUpdate }: VideoSettingsTabProp
         ]}
         value={videoConfig.frameRate}
         onChange={(value) => onUpdate({ frameRate: value })}
-        label="帧率"
+        label={t('settings.video.frameRate')}
       />
 
       <CustomSelect
         options={[
-          { value: 60, label: '1 分钟' },
-          { value: 120, label: '2 分钟' },
-          { value: 180, label: '3 分钟' },
-          { value: 300, label: '5 分钟' },
-          { value: 600, label: '10 分钟' },
-          { value: 1200, label: '20 分钟' },
+          { value: 60, label: t('settings.video.timeout.60') },
+          { value: 120, label: t('settings.video.timeout.120') },
+          { value: 180, label: t('settings.video.timeout.180') },
+          { value: 300, label: t('settings.video.timeout.300') },
+          { value: 600, label: t('settings.video.timeout.600') },
+          { value: 1200, label: t('settings.video.timeout.1200') },
         ]}
         value={videoConfig.timeout ?? DEFAULT_SETTINGS.video.timeout}
         onChange={(value) => onUpdate({ timeout: value })}
-        label="生成超时"
+        label={t('settings.video.timeout')}
       />
     </>
   );

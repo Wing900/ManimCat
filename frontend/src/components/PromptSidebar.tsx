@@ -4,25 +4,10 @@
 
 import type { RoleType, SharedModuleType } from '../types/api';
 import type { SelectionType } from '../hooks/usePrompts';
+import { useI18n } from '../i18n';
 
 // ============================================================================
 // 配置
-// ============================================================================
-
-const ROLE_LABELS: Record<RoleType, string> = {
-  conceptDesigner: '概念设计者',
-  codeGeneration: '代码生成者',
-  codeRetry: '重试者',
-  codeEdit: '修改者'
-};
-
-const SHARED_LABELS: Record<SharedModuleType, string> = {
-  knowledge: '知识层',
-  rules: '规范层'
-};
-
-// ============================================================================
-// 组件
 // ============================================================================
 
 interface Props {
@@ -31,6 +16,20 @@ interface Props {
 }
 
 export function PromptSidebar({ selection, onSelect }: Props) {
+  const { t } = useI18n();
+
+  const roleLabels: Record<RoleType, string> = {
+    conceptDesigner: t('prompts.role.conceptDesigner'),
+    codeGeneration: t('prompts.role.codeGeneration'),
+    codeRetry: t('prompts.role.codeRetry'),
+    codeEdit: t('prompts.role.codeEdit')
+  };
+
+  const sharedLabels: Record<SharedModuleType, string> = {
+    knowledge: t('prompts.shared.knowledge'),
+    rules: t('prompts.shared.rules')
+  };
+
   const isRoleSelected = (role: RoleType, promptType: 'system' | 'user') =>
     selection.kind === 'role' &&
     selection.role === role &&
@@ -45,14 +44,14 @@ export function PromptSidebar({ selection, onSelect }: Props) {
         {/* 角色提示词 */}
         <div>
           <h3 className="px-3 py-1.5 text-xs font-medium text-text-secondary/50 uppercase tracking-wider">
-            角色
+            {t('prompts.roleSection')}
           </h3>
           <div className="space-y-0.5">
-            {(Object.keys(ROLE_LABELS) as RoleType[]).map(role => (
+            {(Object.keys(roleLabels) as RoleType[]).map(role => (
               <div key={role}>
                 {/* 角色名 */}
                 <div className="px-3 py-1.5 text-xs text-text-secondary/70">
-                  {ROLE_LABELS[role]}
+                  {roleLabels[role]}
                 </div>
                 {/* System / User 按钮 */}
                 <div className="flex gap-1 px-3 pb-1">
@@ -64,7 +63,7 @@ export function PromptSidebar({ selection, onSelect }: Props) {
                         : 'text-text-secondary/60 hover:bg-bg-tertiary/50 hover:text-text-secondary'
                     }`}
                   >
-                    System
+                    {t('common.system')}
                   </button>
                   <button
                     onClick={() => onSelect({ kind: 'role', role, promptType: 'user' })}
@@ -74,7 +73,7 @@ export function PromptSidebar({ selection, onSelect }: Props) {
                         : 'text-text-secondary/60 hover:bg-bg-tertiary/50 hover:text-text-secondary'
                     }`}
                   >
-                    User
+                    {t('common.user')}
                   </button>
                 </div>
               </div>
@@ -88,10 +87,10 @@ export function PromptSidebar({ selection, onSelect }: Props) {
         {/* 共享模块 */}
         <div>
           <h3 className="px-3 py-1.5 text-xs font-medium text-text-secondary/50 uppercase tracking-wider">
-            共享模块
+            {t('prompts.sharedSection')}
           </h3>
           <div className="space-y-0.5">
-            {(Object.keys(SHARED_LABELS) as SharedModuleType[]).map(module => (
+            {(Object.keys(sharedLabels) as SharedModuleType[]).map(module => (
               <button
                 key={module}
                 onClick={() => onSelect({ kind: 'shared', module })}
@@ -101,7 +100,7 @@ export function PromptSidebar({ selection, onSelect }: Props) {
                     : 'text-text-secondary/70 hover:bg-bg-tertiary/50 hover:text-text-secondary'
                 }`}
               >
-                {SHARED_LABELS[module]}
+                {sharedLabels[module]}
               </button>
             ))}
           </div>
