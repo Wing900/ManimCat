@@ -1,7 +1,8 @@
 // 设置模态框 - MD3 风格
 
 import type { SettingsConfig } from '../types/api';
-import { ApiSettingsTab } from './settings-modal/api-settings-tab';
+import { FloatingInput } from './settings-modal/FloatingInput';
+import { TestResultBanner } from './settings-modal/test-result-banner';
 import { VideoSettingsTab } from './settings-modal/video-settings-tab';
 import { useSettingsModal } from './settings-modal/use-settings-modal';
 import { useI18n } from '../i18n';
@@ -19,11 +20,10 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
     activeTab,
     testResult,
     setActiveTab,
-    updateApiConfig,
+    updateManimcatApiKey,
     updateVideoConfig,
-    handleSave,
-    handleTest,
-  } = useSettingsModal({ isOpen, onClose, onSave });
+    handleTestBackend,
+  } = useSettingsModal({ isOpen, onSave });
 
   if (!isOpen) return null;
 
@@ -68,26 +68,36 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
 
         <div className="space-y-5">
           {activeTab === 'api' && (
-            <ApiSettingsTab apiConfig={config.api} testResult={testResult} onUpdate={updateApiConfig} />
+            <>
+              <FloatingInput
+                id="manimcatApiKey"
+                type="password"
+                label={t('settings.api.manimcatKey')}
+                value={config.api.manimcatApiKey}
+                placeholder={t('settings.api.manimcatKeyPlaceholder')}
+                onChange={updateManimcatApiKey}
+              />
+              <TestResultBanner testResult={testResult} />
+            </>
           )}
           {activeTab === 'video' && (
             <VideoSettingsTab videoConfig={config.video} onUpdate={updateVideoConfig} />
           )}
         </div>
 
-        <div className="mt-8 flex gap-3">
+        <div className="mt-8 grid grid-cols-2 gap-3">
           <button
-            onClick={handleTest}
-            disabled={testResult.status === 'testing'}
-            className="flex-1 px-6 py-3.5 text-sm font-medium text-accent hover:text-accent-hover bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-accent/20"
+            onClick={onClose}
+            className="px-6 py-3.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-accent/20"
           >
-            {t('settings.test')}
+            {t('common.close')}
           </button>
           <button
-            onClick={handleSave}
-            className="flex-1 px-6 py-3.5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-accent/20 shadow-lg shadow-accent/25"
+            onClick={handleTestBackend}
+            disabled={testResult.status === 'testing'}
+            className="px-6 py-3.5 text-sm font-medium text-accent hover:text-accent-hover bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-accent/20"
           >
-            {t('common.save')}
+            {t('settings.test')}
           </button>
         </div>
       </div>

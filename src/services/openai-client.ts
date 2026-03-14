@@ -35,6 +35,21 @@ export interface BackendTestResult {
   content: string
 }
 
+export async function listBackendAIModels(customApiConfig?: CustomApiConfig): Promise<string[]> {
+  const client = customApiConfig ? createCustomClient(customApiConfig) : openaiClient
+
+  if (!client) {
+    throw new Error('OpenAI client is unavailable')
+  }
+
+  const response = await client.models.list()
+  const models = response.data
+    .map((model) => model.id)
+    .filter((id) => typeof id === 'string' && id.trim().length > 0)
+
+  return Array.from(new Set(models)).sort((a, b) => a.localeCompare(b))
+}
+
 /**
  * 创建自定义 OpenAI 客户端
  */

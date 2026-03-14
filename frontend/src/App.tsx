@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { PromptsManager } from './components/PromptsManager';
 import { DonationModal } from './components/DonationModal';
 import { UsageDashboard } from './components/UsageDashboard';
+import { ProviderConfigModal } from './components/ProviderConfigModal';
 import ManimCatLogo from './components/ManimCatLogo';
 import { TopLeftActions } from './components/app/top-left-actions';
 import { TopRightActions } from './components/app/top-right-actions';
@@ -24,6 +25,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
+  const [providersOpen, setProvidersOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [aiModifyInput, setAiModifyInput] = useState('');
@@ -84,7 +86,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
-      <TopLeftActions onOpenDonation={() => setDonationOpen(true)} />
+      <TopLeftActions onOpenDonation={() => setDonationOpen(true)} onOpenProviders={() => setProvidersOpen(true)} />
       <TopRightActions
         onOpenUsage={() => setUsageOpen(true)}
         onOpenPrompts={() => setPromptsOpen(true)}
@@ -139,6 +141,7 @@ function App() {
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
       <PromptsManager isOpen={promptsOpen} onClose={() => setPromptsOpen(false)} />
       <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
+      <ProviderConfigModal isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
       <UsageDashboard isOpen={usageOpen} onClose={() => setUsageOpen(false)} />
       <AiModifyModal
         isOpen={aiModifyOpen}

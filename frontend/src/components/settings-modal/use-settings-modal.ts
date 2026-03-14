@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
-import type { ApiConfig, SettingsConfig, VideoConfig } from '../../types/api';
+import { useEffect, useRef, useState } from 'react';
+import type { SettingsConfig } from '../../types/api';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../lib/settings';
-import { buildCustomProfilesFromFields } from '../../lib/custom-ai';
 import type { TabType, TestResult } from './types';
 import { useI18n } from '../../i18n';
 
 interface UseSettingsModalParams {
   isOpen: boolean;
-  onClose: () => void;
   onSave: (config: SettingsConfig) => void;
 }
 
@@ -16,71 +14,61 @@ interface UseSettingsModalResult {
   activeTab: TabType;
   testResult: TestResult;
   setActiveTab: (tab: TabType) => void;
-  updateApiConfig: (updates: Partial<ApiConfig>) => void;
-  updateVideoConfig: (updates: Partial<VideoConfig>) => void;
-  handleSave: () => void;
-  handleTest: () => Promise<void>;
+  updateManimcatApiKey: (value: string) => void;
+  updateVideoConfig: (updates: Partial<SettingsConfig['video']>) => void;
+  handleTestBackend: () => Promise<void>;
 }
 
-export function useSettingsModal({
-  isOpen,
-  onClose,
-  onSave,
-}: UseSettingsModalParams): UseSettingsModalResult {
+export function useSettingsModal({ isOpen, onSave }: UseSettingsModalParams): UseSettingsModalResult {
   const { t } = useI18n();
   const [config, setConfig] = useState<SettingsConfig>(DEFAULT_SETTINGS);
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<TabType>('api');
+  const autoSaveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setConfig(loadSettings());
-      setTestResult({ status: 'idle', message: '' });
-      setActiveTab('api');
+    if (!isOpen) {
+      return;
     }
+    setConfig(loadSettings());
+    setTestResult({ status: 'idle', message: '' });
+    setActiveTab('api');
   }, [isOpen]);
 
-  const updateApiConfig = (updates: Partial<ApiConfig>) => {
-    setConfig((prev) => ({ ...prev, api: { ...prev.api, ...updates } }));
-  };
-
-  const updateVideoConfig = (updates: Partial<VideoConfig>) => {
-    setConfig((prev) => ({ ...prev, video: { ...prev.video, ...updates } }));
-  };
-
-  const handleSave = () => {
-    saveSettings(config);
-    onSave(config);
-    onClose();
-  };
-
-  const handleTest = async () => {
-    const apiUrlInput = config.api.apiUrl.trim();
-    const apiKeyInput = config.api.apiKey.trim();
-    const modelInput = config.api.model.trim();
-    const profileCandidates = buildCustomProfilesFromFields({
-      apiUrl: apiUrlInput,
-      apiKey: apiKeyInput,
-      model: modelInput,
-      manimcatApiKey: config.api.manimcatApiKey.trim(),
-    });
-    const firstProfile = profileCandidates[0];
-    const manimcatKey = firstProfile?.manimcatApiKey || config.api.manimcatApiKey.trim();
-    const hasCustomConfig = Boolean(apiUrlInput || apiKeyInput || modelInput);
-
-    if (!manimcatKey) {
-      setTestResult({
-        status: 'error',
-        message: t('settings.test.needManimcatKey'),
-      });
+  useEffect(() => {
+    if (!isOpen) {
       return;
     }
 
-    if (hasCustomConfig && (!apiUrlInput || !apiKeyInput)) {
-      setTestResult({
-        status: 'error',
-        message: t('settings.test.needUrlAndKey'),
-      });
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      saveSettings(config);
+      onSave(config);
+    }, 500);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [config, isOpen, onSave]);
+
+  const updateManimcatApiKey = (value: string) => {
+    setConfig((prev) => ({ ...prev, api: { ...prev.api, manimcatApiKey: value } }));
+  };
+
+  const updateVideoConfig = (updates: Partial<SettingsConfig['video']>) => {
+    setConfig((prev) => ({ ...prev, video: { ...prev.video, ...updates } }));
+  };
+
+  const handleTestBackend = async () => {
+    const manimcatKey = config.api.manimcatApiKey.trim();
+    if (!manimcatKey) {
+      setTestResult({ status: 'error', message: t('settings.test.needManimcatKey') });
       return;
     }
 
@@ -94,17 +82,7 @@ export function useSettingsModal({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${manimcatKey}`,
         },
-        body: JSON.stringify(
-          hasCustomConfig
-            ? {
-                customApiConfig: {
-                  apiUrl: firstProfile?.customApiConfig.apiUrl || apiUrlInput,
-                  apiKey: firstProfile?.customApiConfig.apiKey || apiKeyInput,
-                  model: firstProfile?.customApiConfig.model || modelInput,
-                },
-              }
-            : {}
-        ),
+        body: JSON.stringify({}),
       });
 
       const duration = Math.round(performance.now() - startTime);
@@ -113,22 +91,12 @@ export function useSettingsModal({
         setTestResult({
           status: 'success',
           message: t('settings.test.success', { duration }),
-          details: {
-            statusCode: response.status,
-            statusText: response.statusText,
-            duration,
-            profileCount: profileCandidates.length || 0,
-          },
+          details: { statusCode: response.status, statusText: response.statusText, duration },
         });
         return;
       }
 
       const responseBody = await response.text();
-      const headers: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-
       setTestResult({
         status: 'error',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -136,7 +104,6 @@ export function useSettingsModal({
           statusCode: response.status,
           statusText: response.statusText,
           responseBody: responseBody.slice(0, 2000),
-          headers,
           duration,
         },
       });
@@ -145,10 +112,7 @@ export function useSettingsModal({
       setTestResult({
         status: 'error',
         message: error instanceof Error ? error.message : t('settings.test.failed'),
-        details: {
-          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
-          duration,
-        },
+        details: { error: error instanceof Error ? `${error.name}: ${error.message}` : String(error), duration },
       });
     }
   };
@@ -158,9 +122,9 @@ export function useSettingsModal({
     activeTab,
     testResult,
     setActiveTab,
-    updateApiConfig,
+    updateManimcatApiKey,
     updateVideoConfig,
-    handleSave,
-    handleTest,
+    handleTestBackend,
   };
 }
+

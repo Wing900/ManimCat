@@ -2,9 +2,10 @@ import { useI18n } from '../../i18n';
 
 interface TopLeftActionsProps {
   onOpenDonation: () => void;
+  onOpenProviders: () => void;
 }
 
-export function TopLeftActions({ onOpenDonation }: TopLeftActionsProps) {
+export function TopLeftActions({ onOpenDonation, onOpenProviders }: TopLeftActionsProps) {
   const { t } = useI18n();
 
   return (
@@ -27,6 +28,19 @@ export function TopLeftActions({ onOpenDonation }: TopLeftActionsProps) {
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h1a4 4 0 010 8h-1m-3.413-8.866A6.501 6.501 0 0012 3c-1.93 0-3.694.84-4.9 2.176M4 20h16a1 1 0 001-1v-1a1 1 0 00-1-1H4a1 1 0 00-1 1v1a1 1 0 001 1zm1-9.5V12a3 3 0 003 3h8a3 3 0 003-3v-1.5M9 8h6" />
+        </svg>
+      </button>
+      <button
+        onClick={onOpenProviders}
+        className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
+        title={t('topbar.providers')}
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="6" cy="3" r="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="6" cy="15" r="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="18" cy="21" r="3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M18 21a9 9 0 0 0-9-9v-2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="6" y1="6" x2="6" y2="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
     </div>

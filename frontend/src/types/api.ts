@@ -16,13 +16,23 @@ export interface ReferenceImage {
 
 /** API 配置 */
 export interface ApiConfig {
-  apiUrl: string;
-  apiKey: string;
-  model: string;
   manimcatApiKey: string;
+  providers: AIProvider[];
+  activeProviderId: string | null;
 }
 
 export interface CustomApiConfig {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export type AIProviderType = 'openai' | 'google';
+
+export interface AIProvider {
+  id: string;
+  name: string;
+  type: AIProviderType;
   apiUrl: string;
   apiKey: string;
   model: string;

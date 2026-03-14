@@ -1,15 +1,14 @@
-import type { SettingsConfig } from '../types/api';
+import type { AIProvider, AIProviderType, SettingsConfig } from '../types/api';
 
 const SETTINGS_KEY = 'manimcat_settings';
 const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
-const SETTINGS_VERSION = '2';
+const SETTINGS_VERSION = '3';
 
 export const DEFAULT_SETTINGS: SettingsConfig = {
   api: {
-    apiUrl: '',
-    apiKey: '',
-    model: '',
-    manimcatApiKey: ''
+    manimcatApiKey: '',
+    providers: [],
+    activeProviderId: null
   },
   video: {
     quality: 'low',
@@ -23,6 +22,52 @@ function getFirstListValue(input: string): string {
     .split(/[\n,]+/g)
     .map((item) => item.trim())
     .find(Boolean) || '';
+}
+
+function createProviderId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `provider_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeProviderType(type: unknown): AIProviderType {
+  return type === 'google' ? 'google' : 'openai';
+}
+
+function sanitizeProviders(raw: unknown): AIProvider[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const providers: AIProvider[] = raw
+    .filter((item) => item && typeof item === 'object')
+    .map((item, index) => {
+      const provider = item as Partial<AIProvider>;
+      const id = typeof provider.id === 'string' && provider.id.trim() ? provider.id.trim() : createProviderId();
+      const name =
+        typeof provider.name === 'string' && provider.name.trim() ? provider.name.trim() : `Provider ${index + 1}`;
+
+      return {
+        id,
+        name,
+        type: normalizeProviderType(provider.type),
+        apiUrl: typeof provider.apiUrl === 'string' ? provider.apiUrl : '',
+        apiKey: typeof provider.apiKey === 'string' ? provider.apiKey : '',
+        model: typeof provider.model === 'string' ? provider.model : '',
+      };
+    });
+
+  const seen = new Set<string>();
+  return providers.map((provider) => {
+    if (!seen.has(provider.id)) {
+      seen.add(provider.id);
+      return provider;
+    }
+    const id = createProviderId();
+    seen.add(id);
+    return { ...provider, id };
+  });
 }
 
 function createDefaultSettings(): SettingsConfig {
@@ -41,13 +86,23 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
   const quality = parsed.video?.quality;
   const frameRate = parsed.video?.frameRate;
   const timeout = parsed.video?.timeout;
+  const providers = sanitizeProviders((parsed.api as unknown as { providers?: unknown } | undefined)?.providers);
+  const activeProviderIdRaw = (parsed.api as unknown as { activeProviderId?: unknown } | undefined)?.activeProviderId;
+  const activeProviderId =
+    typeof activeProviderIdRaw === 'string' && providers.some((provider) => provider.id === activeProviderIdRaw)
+      ? activeProviderIdRaw
+      : providers.length > 0
+        ? providers[0].id
+        : null;
 
   return {
     api: {
-      apiUrl: typeof parsed.api?.apiUrl === 'string' ? parsed.api.apiUrl : DEFAULT_SETTINGS.api.apiUrl,
-      apiKey: typeof parsed.api?.apiKey === 'string' ? parsed.api.apiKey : DEFAULT_SETTINGS.api.apiKey,
-      model: typeof parsed.api?.model === 'string' ? parsed.api.model : DEFAULT_SETTINGS.api.model,
-      manimcatApiKey: typeof parsed.api?.manimcatApiKey === 'string' ? parsed.api.manimcatApiKey : DEFAULT_SETTINGS.api.manimcatApiKey
+      manimcatApiKey:
+        typeof (parsed.api as unknown as { manimcatApiKey?: unknown } | undefined)?.manimcatApiKey === 'string'
+          ? ((parsed.api as unknown as { manimcatApiKey: string }).manimcatApiKey)
+          : DEFAULT_SETTINGS.api.manimcatApiKey,
+      providers,
+      activeProviderId
     },
     video: {
       quality: quality === 'low' || quality === 'medium' || quality === 'high' ? quality : DEFAULT_SETTINGS.video.quality,
@@ -57,8 +112,92 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
   };
 }
 
+function splitListInput(input: string | undefined): string[] {
+  if (!input) {
+    return [];
+  }
+  return input
+    .split(/[\n,]+/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function valueByIndex(values: string[], index: number): string {
+  if (values.length === 0) {
+    return '';
+  }
+  if (values.length === 1) {
+    return values[0];
+  }
+  return values[index] || '';
+}
+
+function guessProviderType(apiUrl: string): AIProviderType {
+  const normalized = apiUrl.toLowerCase();
+  if (normalized.includes('generativelanguage.googleapis.com') || normalized.includes('/v1beta/openai')) {
+    return 'google';
+  }
+  return 'openai';
+}
+
+function migrateLegacyApiToProviders(legacy: { apiUrl?: string; apiKey?: string; model?: string }): AIProvider[] {
+  const urls = splitListInput(legacy.apiUrl);
+  const keys = splitListInput(legacy.apiKey);
+  const models = splitListInput(legacy.model);
+  const maxCount = Math.max(urls.length, keys.length, models.length, 0);
+
+  if (maxCount === 0) {
+    return [];
+  }
+
+  const providers: AIProvider[] = [];
+  for (let i = 0; i < maxCount; i += 1) {
+    const apiUrl = valueByIndex(urls, i);
+    const apiKey = valueByIndex(keys, i);
+    const model = valueByIndex(models, i);
+
+    if (!apiUrl && !apiKey && !model) {
+      continue;
+    }
+
+    providers.push({
+      id: createProviderId(),
+      name: maxCount > 1 ? `Provider ${i + 1}` : 'Default Provider',
+      type: guessProviderType(apiUrl),
+      apiUrl,
+      apiKey,
+      model,
+    });
+  }
+
+  return providers;
+}
+
 function migrateSettings(raw: unknown, fromVersion: string | null): SettingsConfig {
-  const sanitized = sanitizeSettings(raw);
+  if (!raw || typeof raw !== 'object') {
+    return createDefaultSettings();
+  }
+
+  const parsed = raw as Record<string, unknown>;
+  const api = (parsed.api && typeof parsed.api === 'object' ? (parsed.api as Record<string, unknown>) : null);
+  const isLegacyApiShape = Boolean(api && typeof api.apiUrl === 'string' && !('providers' in api));
+
+  const normalizedToV3: unknown = isLegacyApiShape
+    ? {
+        ...parsed,
+        api: {
+          manimcatApiKey: typeof api?.manimcatApiKey === 'string' ? api.manimcatApiKey : '',
+          providers: migrateLegacyApiToProviders({
+            apiUrl: typeof api?.apiUrl === 'string' ? api.apiUrl : '',
+            apiKey: typeof api?.apiKey === 'string' ? api.apiKey : '',
+            model: typeof api?.model === 'string' ? api.model : '',
+          }),
+          activeProviderId: null,
+        },
+      }
+    : raw;
+
+  const sanitized = sanitizeSettings(normalizedToV3);
 
   // v1 -> v2: 旧默认值为 600 秒，升级为 1200 秒作为新默认层级
   if ((fromVersion === null || fromVersion === '1') && sanitized.video.timeout === 600) {

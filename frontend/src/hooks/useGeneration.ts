@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../lib/api';
-import { pickNextCustomProfile } from '../lib/custom-ai';
 import { loadSettings } from '../lib/settings';
+import { getActiveProvider, providerToCustomApiConfig } from '../lib/ai-providers';
 import { loadPrompts } from './usePrompts';
 import type { GenerateRequest, JobResult, ProcessingStage, ModifyRequest } from '../types/api';
 import { localizeApiMessage, useI18n } from '../i18n';
@@ -25,6 +25,15 @@ function getTimeoutConfig(): number {
   return loadSettings().video.timeout || 1200;
 }
 
+function hasIncompleteCustomProvider(provider: { apiUrl: string; apiKey: string; model: string } | null): boolean {
+  if (!provider) {
+    return false;
+  }
+  const hasAny = Boolean(provider.apiUrl.trim() || provider.apiKey.trim() || provider.model.trim());
+  const hasRequired = Boolean(provider.apiUrl.trim() && provider.apiKey.trim());
+  return hasAny && !hasRequired;
+}
+
 export function useGeneration(): UseGenerationReturn {
   const { t, locale } = useI18n();
   const [status, setStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
@@ -36,15 +45,14 @@ export function useGeneration(): UseGenerationReturn {
   const pollCountRef = useRef(0);
   const pollIntervalRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const jobAuthKeyRef = useRef<string | undefined>(undefined);
 
-  const requestCancel = useCallback(async (id: string | null, authKey?: string) => {
+  const requestCancel = useCallback(async (id: string | null) => {
     if (!id) {
       return;
     }
 
     try {
-      await cancelJob(id, authKey ? { authKeyOverride: authKey } : undefined);
+      await cancelJob(id);
     } catch (err) {
       console.warn(t('generation.cancelFailed'), err);
     }
@@ -83,11 +91,9 @@ export function useGeneration(): UseGenerationReturn {
       pollCountRef.current++;
 
       try {
-        const authKey = jobAuthKeyRef.current;
         const data = await getJobStatus(
           id,
           abortControllerRef.current?.signal,
-          authKey ? { authKeyOverride: authKey } : undefined
         );
 
         if (data.status === 'completed') {
@@ -118,7 +124,7 @@ export function useGeneration(): UseGenerationReturn {
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
           }
-          await requestCancel(id, jobAuthKeyRef.current);
+          await requestCancel(id);
           setStatus('error');
           setError(t('generation.timeout', { seconds: maxPollCount }));
         }
@@ -138,7 +144,7 @@ export function useGeneration(): UseGenerationReturn {
         }
 
         console.error('轮询错误:', err);
-        await requestCancel(id, jobAuthKeyRef.current);
+        await requestCancel(id);
 
         if (
           err instanceof Error &&
@@ -171,15 +177,16 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts(locale);
-      const selectedProfile = pickNextCustomProfile();
-      const customApiConfig = selectedProfile?.customApiConfig || undefined;
-      const requestAuthKey = selectedProfile?.manimcatApiKey || undefined;
+      const settings = loadSettings();
+      const activeProvider = getActiveProvider(settings.api);
+      const customApiConfig = providerToCustomApiConfig(activeProvider);
+      if (hasIncompleteCustomProvider(activeProvider) && !customApiConfig) {
+        throw new Error(t('settings.test.needUrlAndKey'));
+      }
       const response = await generateAnimation(
         { ...request, promptOverrides, customApiConfig },
         abortControllerRef.current.signal,
-        requestAuthKey ? { authKeyOverride: requestAuthKey } : undefined
       );
-      jobAuthKeyRef.current = requestAuthKey;
       startPolling(response.jobId);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -200,15 +207,16 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts(locale);
-      const selectedProfile = pickNextCustomProfile();
-      const customApiConfig = selectedProfile?.customApiConfig || undefined;
-      const requestAuthKey = selectedProfile?.manimcatApiKey || undefined;
+      const settings = loadSettings();
+      const activeProvider = getActiveProvider(settings.api);
+      const customApiConfig = providerToCustomApiConfig(activeProvider);
+      if (hasIncompleteCustomProvider(activeProvider) && !customApiConfig) {
+        throw new Error(t('settings.test.needUrlAndKey'));
+      }
       const response = await modifyAnimation(
         { ...request, promptOverrides, customApiConfig },
         abortControllerRef.current.signal,
-        requestAuthKey ? { authKeyOverride: requestAuthKey } : undefined
       );
-      jobAuthKeyRef.current = requestAuthKey;
       startPolling(response.jobId);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -229,16 +237,17 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts(locale);
-      const selectedProfile = pickNextCustomProfile();
-      const customApiConfig = selectedProfile?.customApiConfig || undefined;
-      const requestAuthKey = selectedProfile?.manimcatApiKey || undefined;
+      const settings = loadSettings();
+      const activeProvider = getActiveProvider(settings.api);
+      const customApiConfig = providerToCustomApiConfig(activeProvider);
+      if (hasIncompleteCustomProvider(activeProvider) && !customApiConfig) {
+        throw new Error(t('settings.test.needUrlAndKey'));
+      }
 
       const response = await generateAnimation(
         { ...request, promptOverrides, customApiConfig },
         abortControllerRef.current.signal,
-        requestAuthKey ? { authKeyOverride: requestAuthKey } : undefined
       );
-      jobAuthKeyRef.current = requestAuthKey;
       startPolling(response.jobId);
 
     } catch (err) {
@@ -256,7 +265,6 @@ export function useGeneration(): UseGenerationReturn {
     setResult(null);
     setJobId(null);
     setStage('analyzing');
-    jobAuthKeyRef.current = undefined;
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
@@ -267,13 +275,12 @@ export function useGeneration(): UseGenerationReturn {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
-    void requestCancel(jobId, jobAuthKeyRef.current);
+    void requestCancel(jobId);
     abortControllerRef.current?.abort();
     setStatus('idle');
     setError(null);
     setJobId(null);
     setStage('analyzing');
-    jobAuthKeyRef.current = undefined;
   }, [jobId, requestCancel]);
 
   return {
