@@ -45,6 +45,15 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
   const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
   const effectiveCustomApiConfig = customApiConfig ?? routedCustomApiConfig
 
+  if (customApiConfig) {
+    const apiUrl = (customApiConfig.apiUrl || '').trim()
+    const apiKey = (customApiConfig.apiKey || '').trim()
+    const model = (customApiConfig.model || '').trim()
+    if (!apiUrl || !apiKey || !model) {
+      throw new ValidationError('自定义 API 配置不完整：需要 apiUrl/apiKey/model')
+    }
+  }
+
   if (!effectiveCustomApiConfig) {
     throw new ValidationError('未配置上游 AI：请为当前 key 配置 MANIMCAT_ROUTE_API_URLS/MANIMCAT_ROUTE_API_KEYS/MANIMCAT_ROUTE_MODELS，或在请求中提供 customApiConfig')
   }

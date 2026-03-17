@@ -20,9 +20,18 @@ function createBaseConfig(): OpenAIBaseConfig {
 }
 
 export function createCustomOpenAIClient(config: CustomApiConfig): OpenAI {
+  const apiUrl = (config.apiUrl || '').trim().replace(/\/+$/, '')
+  const apiKey = (config.apiKey || '').trim()
+
+  // Guardrail: if apiKey is missing, the OpenAI SDK may fall back to OPENAI_API_KEY env var.
+  // We never want that behavior in this project: upstream must be explicitly configured per request/route.
+  if (!apiUrl || !apiKey) {
+    throw new Error('Upstream apiUrl/apiKey is missing')
+  }
+
   return new OpenAI({
     ...createBaseConfig(),
-    baseURL: config.apiUrl.trim().replace(/\/+$/, ''),
-    apiKey: config.apiKey
+    baseURL: apiUrl,
+    apiKey
   })
 }

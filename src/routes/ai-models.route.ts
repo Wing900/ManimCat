@@ -35,6 +35,20 @@ router.post(
       const parsed = bodySchema.parse(req.body || {})
       const manimcatKey = res.locals.manimcatApiKey as string | undefined
       const routed = resolveCustomApiConfigByManimcatKey(manimcatKey)
+
+      if (parsed.customApiConfig) {
+        const apiUrl = (parsed.customApiConfig.apiUrl || '').trim()
+        const apiKey = (parsed.customApiConfig.apiKey || '').trim()
+        if (!apiUrl || !apiKey) {
+          const duration = Date.now() - start
+          return res.status(400).json({
+            success: false,
+            error: '自定义 API 配置不完整：需要 apiUrl/apiKey',
+            duration
+          })
+        }
+      }
+
       const effectiveConfig = parsed.customApiConfig ?? routed
 
       if (!effectiveConfig) {
