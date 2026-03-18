@@ -62,6 +62,10 @@ function App() {
     generate(data);
   };
 
+  const handleBackToHome = () => {
+    reset();
+  };
+
   const handleRerender = () => {
     if (!lastRequest || !currentCode.trim()) return;
     renderWithCode({ ...lastRequest, code: currentCode });
@@ -125,6 +129,7 @@ function App() {
             onRerender={handleRerender}
             onAiModifyOpen={() => setAiModifyOpen(true)}
             onResetAll={resetAll}
+            onBackToHome={handleBackToHome}
             onCancel={cancel}
             onOpenProviders={() => setProvidersOpen(true)}
           />
