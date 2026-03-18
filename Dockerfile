@@ -34,15 +34,36 @@ RUN npm install && npm --prefix frontend install
 # 6. 复制源码并构建 React
 COPY . .
 
-# 7. 下载 BGM 音频文件（HF Space 同步时排除了二进制文件）
-RUN mkdir -p src/audio/tracks && \
-    curl -fsSL --retry 5 --retry-delay 5 -o src/audio/tracks/clavier-music-soft-piano-music-312509.mp3 \
-      "https://github.com/Wing900/ManimCat/raw/main/src/audio/tracks/clavier-music-soft-piano-music-312509.mp3" && \
-    curl -fsSL --retry 5 --retry-delay 5 -o src/audio/tracks/the_mountain-soft-piano-background-444129.mp3 \
-      "https://github.com/Wing900/ManimCat/raw/main/src/audio/tracks/the_mountain-soft-piano-background-444129.mp3" && \
-    curl -fsSL --retry 5 --retry-delay 5 -o src/audio/tracks/viacheslavstarostin-relaxing-soft-piano-music-431679.mp3 \
-      "https://github.com/Wing900/ManimCat/raw/main/src/audio/tracks/viacheslavstarostin-relaxing-soft-piano-music-431679.mp3" || true && \
-    ls -lh src/audio/tracks/
+# 7. 下载 BGM 音频文件（HF Space 同步时可能排除二进制文件）
+#    之前写法使用了 `... && ... && ... || true`，会把前面下载失败静默吞掉。
+RUN set -eux; \
+    mkdir -p src/audio/tracks; \
+    for file in \
+      clavier-music-soft-piano-music-312509.mp3 \
+      the_mountain-soft-piano-background-444129.mp3 \
+      viacheslavstarostin-relaxing-soft-piano-music-431679.mp3; do \
+      rm -f "src/audio/tracks/$file"; \
+      for url in \
+        "https://raw.githubusercontent.com/Wing900/ManimCat/main/src/audio/tracks/$file" \
+        "https://github.com/Wing900/ManimCat/raw/main/src/audio/tracks/$file"; do \
+        echo "Downloading $file from $url"; \
+        if curl -fL --retry 8 --retry-delay 3 --connect-timeout 10 --max-time 120 -o "src/audio/tracks/$file" "$url"; then \
+          break; \
+        fi; \
+      done; \
+      if [ ! -s "src/audio/tracks/$file" ]; then \
+        echo "WARNING: failed to download $file"; \
+        rm -f "src/audio/tracks/$file"; \
+      fi; \
+    done; \
+    echo "Downloaded tracks:"; \
+    ls -lh src/audio/tracks || true; \
+    track_count="$(find src/audio/tracks -maxdepth 1 -type f -name '*.mp3' | wc -l)"; \
+    echo "BGM track count: $track_count"; \
+    if [ "$track_count" -eq 0 ]; then \
+      echo "ERROR: no BGM tracks available after download"; \
+      exit 1; \
+    fi
 
 RUN npm run build
 
