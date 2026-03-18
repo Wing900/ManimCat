@@ -86,7 +86,7 @@ export async function generateCode(
           sceneDesign: result.sceneDesign
         }
       }
-      throw new Error('两阶段 AI 未返回有效代码')
+      throw new Error('两阶段 AI 未返回有效代码：代码阶段返回空结果')
     } catch (error) {
       logger.error('AI generation failed', { jobId, error: String(error) })
       throw error

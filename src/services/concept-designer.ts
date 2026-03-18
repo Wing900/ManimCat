@@ -69,7 +69,7 @@ export async function generateTwoStageAIManimCode(
 
   if (!sceneDesign) {
     logger.warn('场景设计方案生成失败，中止流程')
-    return { code: '', sceneDesign: '' }
+    throw new Error('Scene design stage returned empty result')
   }
   if (onCheckpoint) await onCheckpoint()
 
@@ -91,6 +91,10 @@ export async function generateTwoStageAIManimCode(
     hasSceneDesign: !!sceneDesign,
     hasCode: !!code
   })
+
+  if (!code || !code.trim()) {
+    throw new Error('Code generation stage returned empty code')
+  }
 
   return { code, sceneDesign }
 }

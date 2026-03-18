@@ -121,7 +121,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
         userPromptLength: userPrompt.length,
         diagnostics: fallbackResponse ? buildCompletionDiagnostics(fallbackResponse) : { mode: 'stream' }
       })
-      return ''
+      throw new Error('Scene design stage returned empty content from AI response')
     }
 
     const extractedDesign = extractDesignFromResponse(normalizedContent)
@@ -139,7 +139,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
 
     if (!cleanedDesign.text) {
       logger.warn('设计者返回空方案')
-      return ''
+      throw new Error('Scene design stage produced empty design after cleaning')
     }
 
     logger.info('阶段1：场景设计方案生成成功', {
@@ -168,6 +168,6 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
     } else {
       logger.error('设计者生成失败（未知错误）', { concept, error: String(error) })
     }
-    return ''
+    throw new Error(`Scene design stage failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }

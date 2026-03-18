@@ -1,4 +1,4 @@
-import { redisClient } from '../config/redis'
+﻿import { redisClient } from '../config/redis'
 import { getSupabaseClient } from '../database/client'
 import type { OutputMode } from '../types'
 import { createLogger } from '../utils/logger'
@@ -215,13 +215,13 @@ function buildDailyPoint(date: string, counters: DailyCounters): UsageDailyPoint
 }
 
 /**
- * 同时更新数据库和 Redis 的计数器
+ * 鍚屾椂鏇存柊鏁版嵁搴撳拰 Redis 鐨勮鏁板櫒
  */
 async function incrementDailyCounters(dateString: string, counters: Partial<DailyCounters>): Promise<void> {
   const key = getDailyKey(dateString)
   const retentionSeconds = getUsageRetentionSeconds()
 
-  // 1. 同步到 Redis (保持实时缓存)
+  // 1. 鍚屾鍒?Redis (淇濇寔瀹炴椂缂撳瓨)
   try {
     const tx = redisClient.multi()
     for (const field of DAILY_FIELDS) {
@@ -233,10 +233,10 @@ async function incrementDailyCounters(dateString: string, counters: Partial<Dail
     tx.expire(key, retentionSeconds)
     await tx.exec()
   } catch (err) {
-    logger.warn('Redis 用量统计更新失败', { dateString, error: serializeError(err) })
+    logger.warn('Redis 鐢ㄩ噺缁熻鏇存柊澶辫触', { dateString, error: serializeError(err) })
   }
 
-  // 2. 同步到数据库 (持久化)
+  // 2. 鍚屾鍒版暟鎹簱 (鎸佷箙鍖?
   const db = getSupabaseClient()
   if (db) {
     try {
@@ -254,7 +254,7 @@ async function incrementDailyCounters(dateString: string, counters: Partial<Dail
       })
       if (error) throw error
     } catch (err) {
-      logger.error('数据库用量统计更新失败', { dateString, error: serializeError(err) })
+      logger.error('Failed to sync usage metrics to database', { dateString, error: serializeError(err) })
     }
   }
 }
@@ -273,7 +273,7 @@ export async function recordUsageSubmission(
   try {
     await incrementDailyCounters(dateString, counters)
   } catch (error) {
-    logger.warn('记录任务提交用量失败', { source, error: serializeError(error) })
+    logger.warn('璁板綍浠诲姟鎻愪氦鐢ㄩ噺澶辫触', { source, error: serializeError(error) })
   }
 }
 
@@ -310,7 +310,7 @@ export async function recordUsageFinalization(args: {
 
     await incrementDailyCounters(dateString, counters)
   } catch (error) {
-    logger.warn('记录任务完成用量失败', { jobId, status, error: serializeError(error) })
+    logger.warn('璁板綍浠诲姟瀹屾垚鐢ㄩ噺澶辫触', { jobId, status, error: serializeError(error) })
   }
 }
 
@@ -344,7 +344,7 @@ function getEmptyCounters(): DailyCounters {
 }
 
 /**
- * 获取用量汇总，优先从数据库获取（持久化），如果数据库不可用则退而求其次使用 Redis
+ * 鑾峰彇鐢ㄩ噺姹囨€伙紝浼樺厛浠庢暟鎹簱鑾峰彇锛堟寔涔呭寲锛夛紝濡傛灉鏁版嵁搴撲笉鍙敤鍒欓€€鑰屾眰鍏舵浣跨敤 Redis
  */
 export async function getUsageSummary(days: number): Promise<UsageSummary> {
   const retentionDays = getUsageRetentionDays()
@@ -355,7 +355,7 @@ export async function getUsageSummary(days: number): Promise<UsageSummary> {
   const db = getSupabaseClient()
 
   if (db) {
-    // 1. 尝试从数据库获取
+    // 1. 灏濊瘯浠庢暟鎹簱鑾峰彇
     try {
       const { data: rows, error } = await db
         .from('usage_stats')
@@ -386,12 +386,11 @@ export async function getUsageSummary(days: number): Promise<UsageSummary> {
         return buildDailyPoint(date, counters)
       })
     } catch (err) {
-      logger.warn('从数据库获取用量概览失败，尝试回退到 Redis', { error: serializeError(err) })
-      db = null // 标记数据库失败，进入 Redis 逻辑
+      logger.warn('浠庢暟鎹簱鑾峰彇鐢ㄩ噺姒傝澶辫触锛屽皾璇曞洖閫€鍒?Redis', { error: serializeError(err) })
     }
   }
 
-  // 2. 如果数据库不可用，或者获取失败，则使用 Redis (原本的逻辑)
+  // 2. 濡傛灉鏁版嵁搴撲笉鍙敤锛屾垨鑰呰幏鍙栧け璐ワ紝鍒欎娇鐢?Redis (鍘熸湰鐨勯€昏緫)
   if (daily.length === 0) {
     const pipeline = redisClient.pipeline()
     for (const date of dates) {

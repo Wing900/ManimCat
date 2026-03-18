@@ -82,7 +82,7 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
         userPromptLength: userPrompt.length,
         diagnostics: response ? buildCompletionDiagnostics(response) : { mode: 'stream' }
       })
-      return ''
+      throw new Error('Code generation stage returned empty content from AI response')
     }
 
     logger.info('阶段2：代码生成成功', { concept, seed, mode, codeLength: normalizedContent.length })
@@ -110,6 +110,6 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
     } else {
       logger.error('代码生成者失败（未知错误）', { concept, error: String(error) })
     }
-    return ''
+    throw new Error(`Code generation stage failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
