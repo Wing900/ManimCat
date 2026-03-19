@@ -47,9 +47,15 @@ export function useProblemFraming(): UseProblemFramingResult {
   const [plan, setPlan] = useState<ProblemFramingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<GenerationDraft | null>(null);
+  const [feedbackHistory, setFeedbackHistory] = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const callPlanner = useCallback(async (request: GenerationDraft, feedback?: string, currentPlan?: ProblemFramingPlan | null) => {
+  const callPlanner = useCallback(async (
+    request: GenerationDraft,
+    feedback?: string,
+    currentPlan?: ProblemFramingPlan | null,
+    history?: string[]
+  ) => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
 
@@ -64,6 +70,7 @@ export function useProblemFraming(): UseProblemFramingResult {
       {
         concept: request.concept,
         feedback,
+        feedbackHistory: history && history.length ? history : undefined,
         currentPlan: currentPlan || undefined,
         locale,
         referenceImages: request.referenceImages,
@@ -78,9 +85,12 @@ export function useProblemFraming(): UseProblemFramingResult {
     setStatus('loading');
     setError(null);
     setDraft(request);
+    const trimmedFeedback = feedback?.trim();
+    const nextHistory = trimmedFeedback ? [trimmedFeedback] : [];
+    setFeedbackHistory(nextHistory);
 
     try {
-      const response = await callPlanner(request, feedback);
+      const response = await callPlanner(request, trimmedFeedback, undefined, nextHistory);
       setPlan(response.plan);
       setStatus('ready');
     } catch (err) {
@@ -99,10 +109,13 @@ export function useProblemFraming(): UseProblemFramingResult {
 
     setStatus('loading');
     setError(null);
+    const trimmedFeedback = feedback.trim();
+    const nextHistory = trimmedFeedback ? [...feedbackHistory, trimmedFeedback] : feedbackHistory;
 
     try {
-      const response = await callPlanner(draft, feedback, plan);
+      const response = await callPlanner(draft, trimmedFeedback, plan, nextHistory);
       setPlan(response.plan);
+      setFeedbackHistory(nextHistory);
       setStatus('ready');
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -111,7 +124,7 @@ export function useProblemFraming(): UseProblemFramingResult {
       setStatus('error');
       setError(err instanceof Error ? err.message : t('generation.problemFramingFailed'));
     }
-  }, [callPlanner, draft, plan, t]);
+  }, [callPlanner, draft, feedbackHistory, plan, t]);
 
   const reset = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -119,6 +132,7 @@ export function useProblemFraming(): UseProblemFramingResult {
     setPlan(null);
     setError(null);
     setDraft(null);
+    setFeedbackHistory([]);
   }, []);
 
   return {

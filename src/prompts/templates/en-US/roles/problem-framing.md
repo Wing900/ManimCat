@@ -6,6 +6,11 @@ Adjustment request:
 {{instructions}}
 {{/if}}
 
+{{#if feedbackHistory}}
+Feedback history in chronological order (carry forward already-established constraints unless the user explicitly changes them):
+{{feedbackHistory}}
+{{/if}}
+
 {{#if sceneDesign}}
 Current plan to revise:
 {{sceneDesign}}

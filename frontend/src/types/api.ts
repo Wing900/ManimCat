@@ -125,6 +125,7 @@ export interface ProblemFramingPlan {
 export interface ProblemFramingRequest {
   concept: string;
   feedback?: string;
+  feedbackHistory?: string[];
   locale?: PromptLocale;
   currentPlan?: ProblemFramingPlan;
   referenceImages?: ReferenceImage[];

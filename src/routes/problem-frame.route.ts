@@ -27,6 +27,7 @@ const currentPlanSchema = z.object({
 const bodySchema = z.object({
   concept: z.string().min(1, '概念不能为空'),
   feedback: z.string().max(4000).optional(),
+  feedbackHistory: z.array(z.string().max(4000)).max(20).optional(),
   locale: z.enum(['zh-CN', 'en-US']).optional(),
   currentPlan: currentPlanSchema.optional(),
   referenceImages: referenceImagesSchema,
@@ -65,6 +66,7 @@ router.post('/problem-frame', authMiddleware, asyncHandler(async (req, res) => {
   const plan = await generateProblemFramingPlan({
     concept,
     feedback: parsed.feedback?.trim(),
+    feedbackHistory: parsed.feedbackHistory?.map((item) => item.trim()).filter(Boolean),
     currentPlan: parsed.currentPlan,
     referenceImages: parsed.referenceImages,
     promptOverrides: parsed.promptOverrides,

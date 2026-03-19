@@ -6,6 +6,11 @@
 {{instructions}}
 {{/if}}
 
+{{#if feedbackHistory}}
+历史调整意见（按时间顺序保留，请继承其中已经明确的约束，不要无故丢掉）：
+{{feedbackHistory}}
+{{/if}}
+
 {{#if sceneDesign}}
 当前方案（请在此基础上调整，而不是完全跑题）：
 {{sceneDesign}}

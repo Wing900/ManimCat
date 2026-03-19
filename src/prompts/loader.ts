@@ -27,6 +27,7 @@ export interface TemplateVariables {
   concept?: string
   seed?: string
   sceneDesign?: string
+  feedbackHistory?: string
   errorMessage?: string
   attempt?: number
   instructions?: string

@@ -29,6 +29,7 @@ export interface ProblemFramingPlan {
 interface ProblemFramingParams {
   concept: string
   feedback?: string
+  feedbackHistory?: string[]
   currentPlan?: ProblemFramingPlan
   referenceImages?: ReferenceImage[]
   customApiConfig: CustomApiConfig
@@ -144,6 +145,7 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
     {
       concept: params.concept,
       instructions: params.feedback,
+      feedbackHistory: params.feedbackHistory?.length ? params.feedbackHistory.map((item, index) => `${index + 1}. ${item}`).join('\n') : undefined,
       sceneDesign: params.currentPlan ? JSON.stringify(params.currentPlan, null, 2) : undefined
     },
     promptOverrides
