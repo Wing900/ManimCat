@@ -1,0 +1,27 @@
+﻿ManimCat Non-Commercial License v1.0
+
+Copyright (c) 2026 ManimCat Author and Contributors
+
+1) Grant
+Permission is granted to use, copy, modify, and redistribute the licensed
+materials for personal, educational, research, and other non-commercial
+purposes.
+
+2) Commercial Restriction
+Without prior written permission from the copyright holder, you may not use
+the licensed materials for commercial purposes, including but not limited to:
+- selling products or services based on the licensed materials;
+- offering paid hosted/API/SaaS services based on the licensed materials;
+- embedding the licensed materials into paid subscription software or services;
+- redistributing for direct commercial gain.
+
+3) Attribution
+Redistributions must retain this license text and provide clear attribution to
+ManimCat.
+
+4) No Warranty
+THE LICENSED MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+5) Scope Control
+This license applies only to files explicitly designated in `LICENSE_POLICY.md`.
+All other files follow the licenses designated there.

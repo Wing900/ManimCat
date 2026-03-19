@@ -44,7 +44,7 @@
   <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-MIT-607D8B?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/License-Mixed-607D8B?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center" style="font-size: 18px;">
@@ -296,6 +296,10 @@ MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
 
   - 背景音乐：视频渲染后自动混入钢琴 BGM（-20dB，随机选曲+随机起点，末尾 3 秒淡出），可在视频设置中开关
 
+  - 独立的渲染失败事件采集与管理员 JSON 导出能力：可收集模型输出中的 Manim 失败代码片段，帮助定位问题并持续改进服务稳定性
+
+  - 等待过程内置 2048 小游戏：用于缓解长时间渲染等待的无聊感
+
 
 
 <details>
@@ -344,27 +348,10 @@ MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
 
 ##  开源与版权声明 
 
-### 1. 软件协议 
-本项目后端架构及前端部分实现参考/使用了 [manim-video-generator](https://github.com/rohitg00/manim-video-generator) 的核心思想。
-*   继承部分代码遵循 **MIT License**。
-*   本项目新增的重构代码、任务队列逻辑及前端组件，同样以 **MIT License** 向开源社区开放。
+本项目授权细则见 `LICENSE_POLICY.md`。
 
-### 2. 核心资产版权声明 
-
-**以下内容为本人（ManimCat 作者）原创，严禁任何形式的商用行为：**
-
-*   **提示词工程**：本项目中 `src/prompts/` 目录下所有高度优化的 Manim 代码生成提示词及逻辑，均为本人原创。
-*   **API Index Data**：本人自行爬取、清洗并制作的 Manim v0.18.2 API 索引表及相关强约束规则。
-*   **特定算法逻辑**：针对思考模型的正则清理算法及 fallback 容错机制。
-
-**未经本人书面许可，任何人不得将上述“核心资产”用于：**
-1.  直接打包作为付费产品销售。
-2.  集成在付费订阅制的商业 AI 服务中。
-3.  在未注明出处的情况下进行二次分发并获利。
-
-> 事实上，作者已经关注到市面上存在一些闭源商业项目，正利用类似的 AI + Manim 思路向数学教育工作者收取高额费用进行盈利。然而，开源社区目前仍缺乏针对教育场景深度优化的成熟项目。
-
-> ManimCat 的诞生正是为了对标并挑战这些闭源商业软件。 我希望通过开源的方式，让每一位老师都能廉价地享受到 AI 带来的教学可视化便利————你只需要支付api的费用，幸运的是，对于优秀的中国LLM大模型来说，这些花费很廉价。为了保护这一愿景不被商业机构剽窃并反向收割用户，我坚决禁止任何对本项目核心提示词及索引数据的商业授权。
+*   第三方来源与归属说明见 `THIRD_PARTY_NOTICES.md`。
+*   中文版第三方来源与归属说明见 `THIRD_PARTY_NOTICES.zh-CN.md`。
 
 ## 维护说明
 
@@ -393,6 +380,3 @@ MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
 
 
 
-## 社区贡献
-
-- 2026-03：社区贡献者新增了独立的渲染失败事件采集与管理员 JSON 导出能力。该能力可收集模型输出中的 Manim 失败代码片段，帮助定位问题并持续改进服务稳定性。

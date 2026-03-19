@@ -1,4 +1,4 @@
----
+﻿---
 title: ManimCat
 emoji: 🐱
 colorFrom: gray
@@ -54,7 +54,7 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
   <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-MIT-607D8B?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/License-Mixed-607D8B?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center" style="font-size: 18px;">
@@ -286,6 +286,8 @@ I made fairly extensive modifications and refactors to the original project so i
 - Workspace: unified full-screen management page combining generation history, prompt management, and usage dashboard with a left rail navigation
 - Generation history: persistent history stored in Supabase (text-only: prompt, code, metadata; videos/images are not stored), feature-flagged via `ENABLE_HISTORY_DB`
 - Background music: automatic piano BGM mixing after video render (-20dB, random track and start offset, 3-second fade-out), toggleable in video settings
+- Standalone render-failure event collection and admin JSON export, capturing failed Manim code snippets from model outputs for debugging and reliability improvements
+- A built-in 2048 mini-game during waiting states to make long renders less boring
 
 <details>
   <summary>Prompt feature notes</summary>
@@ -329,29 +331,10 @@ The system supports **8 prompt types**, divided into two major categories:
 
 ## License and Copyright
 
-### 1. Software License
+Licensing details are defined in `LICENSE_POLICY.md` (Chinese) and `LICENSE_POLICY.en.md` (English).
 
-The backend architecture and parts of the frontend implementation in this project reference or build upon the core ideas of [manim-video-generator](https://github.com/rohitg00/manim-video-generator).
-
-- Inherited portions of the code remain under the **MIT License**
-- The new refactored code, queue logic, and frontend components added by this project are also released to the open-source community under the **MIT License**
-
-### 2. Copyright Notice for Core Assets
-
-**The following content is original work by me, the author of ManimCat, and is strictly prohibited from commercial use in any form:**
-
-- **Prompt engineering**: all highly optimized Manim code generation prompts and related logic under `src/prompts/`
-- **API index data**: the Manim v0.18.2 API index tables and related high-constraint rules that I personally crawled, cleaned, and produced
-- **Specific algorithmic logic**: regex-based cleanup logic for reasoning-model output and fallback tolerance mechanisms
-
-**Without my written permission, no one may use the above "core assets" for any of the following:**
-1. Packaging them directly into a paid product
-2. Integrating them into a paid subscription-based commercial AI service
-3. Redistributing them for profit without attribution
-
-> In practice, I have already noticed closed-source commercial projects charging math educators high fees by using similar AI + Manim ideas. Yet the open-source world still lacks mature tools deeply optimized for educational use cases.
-
-> ManimCat was created precisely to challenge those closed-source commercial tools. I want every teacher to enjoy AI-powered teaching visualization at a low cost through open source. In practice, you only need to pay for API usage, and fortunately those costs are still inexpensive with strong Chinese LLMs. To protect that vision from being copied by commercial actors and turned back against users, I firmly prohibit commercial licensing of this project's core prompts and index data.
+- Third-party attribution and notices: `THIRD_PARTY_NOTICES.md`
+- Chinese third-party notices: `THIRD_PARTY_NOTICES.zh-CN.md`
 
 ## Maintenance Notes
 
@@ -376,7 +359,3 @@ If this project gave you useful ideas or helped you in some way, that is already
 - Original project author
 - Linux.do community
 - Alibaba Cloud Bailian
-
-## Community Contributions
-
-- 2026-03: A community contributor added standalone render-failure event collection and admin JSON export. The feature captures failed Manim code snippets from model outputs to help diagnose errors and continuously improve service reliability.
