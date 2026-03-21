@@ -26,6 +26,7 @@ interface StudioPageProps {
   isBusy: boolean;
   lastRequest: LastRequest | null;
   onConceptChange: (value: string) => void;
+  onSecretStudioOpen?: () => void;
   onSubmit: (data: LastRequest) => void;
   onCodeChange: (code: string) => void;
   onRerender: () => void;
@@ -60,6 +61,7 @@ export function StudioPage({
   isBusy,
   lastRequest,
   onConceptChange,
+  onSecretStudioOpen,
   onSubmit,
   onCodeChange,
   onRerender,
@@ -113,6 +115,7 @@ export function StudioPage({
             stage={stage}
             concept={concept}
             onConceptChange={onConceptChange}
+            onSecretStudioOpen={onSecretStudioOpen}
             currentCode={currentCode}
             isBusy={isBusy}
             lastRequest={lastRequest}

@@ -11,6 +11,7 @@ import { useI18n } from '../i18n';
 interface InputFormProps {
   concept: string;
   onConceptChange: (value: string) => void;
+  onSecretStudioOpen?: () => void;
   onSubmit: (data: {
     concept: string;
     quality: Quality;
@@ -20,12 +21,15 @@ interface InputFormProps {
   loading: boolean;
 }
 
-export function InputForm({ concept, onConceptChange, onSubmit, loading }: InputFormProps) {
+const STUDIO_KEYWORD = 'hellocats';
+
+export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubmit, loading }: InputFormProps) {
   const { t } = useI18n();
   const [localError, setLocalError] = useState<string | null>(null);
   const [quality, setQuality] = useState<Quality>(loadSettings().video.quality);
   const [outputMode, setOutputMode] = useState<OutputMode>('video');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const studioKeywordTriggeredRef = useRef(false);
 
   const {
     images,
@@ -64,6 +68,18 @@ export function InputForm({ concept, onConceptChange, onSubmit, loading }: Input
   };
 
   useEffect(() => {
+    const normalizedConcept = concept.trim().toLowerCase();
+
+    if (normalizedConcept === STUDIO_KEYWORD && !loading) {
+      if (!studioKeywordTriggeredRef.current) {
+        studioKeywordTriggeredRef.current = true;
+        onSecretStudioOpen?.();
+      }
+      return;
+    }
+
+    studioKeywordTriggeredRef.current = false;
+
     if (concept.trim().length === 0) {
       setLocalError(null);
       return;
@@ -75,7 +91,7 @@ export function InputForm({ concept, onConceptChange, onSubmit, loading }: Input
     }
 
     setLocalError(null);
-  }, [concept, t]);
+  }, [concept, loading, onSecretStudioOpen, t]);
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

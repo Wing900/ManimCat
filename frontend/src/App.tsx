@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { OutputMode, Quality, ReferenceImage } from './types/api';
 import { useGeneration } from './hooks/useGeneration';
 import { useProblemFraming } from './hooks/useProblemFraming';
@@ -11,7 +11,14 @@ import { ProviderConfigModal } from './components/ProviderConfigModal';
 import { Workspace } from './components/Workspace';
 import { StudioPage } from './pages/StudioPage';
 import { Game2048Page } from './pages/Game2048Page';
+import { StudioShell } from './studio/StudioShell';
+import { StudioTransitionOverlay } from './studio/StudioTransitionOverlay';
 import { useI18n } from './i18n';
+
+type Screen = 'classic' | 'studio' | 'game';
+
+const STUDIO_TRANSITION_MS = 2000;
+const STUDIO_EXIT_DELAY_MS = 800;
 
 function App() {
   const { status, result, error, jobId, stage, generate, renderWithCode, modifyWithAI, reset, cancel } = useGeneration();
@@ -28,8 +35,12 @@ function App() {
   const [aiModifyInput, setAiModifyInput] = useState('');
   const [currentCode, setCurrentCode] = useState('');
   const [concept, setConcept] = useState('');
-  const [page, setPage] = useState<'studio' | 'game'>('studio');
+  const [screen, setScreen] = useState<Screen>('classic');
+  const [studioTransitionVisible, setStudioTransitionVisible] = useState(false);
+  const [studioIsExiting, setStudioIsExiting] = useState(false);
+  const [studioShellExiting, setStudioShellExiting] = useState(false);
   const [problemAdjustment, setProblemAdjustment] = useState('');
+  const studioTransitionTimerRef = useRef<number | null>(null);
   const [lastRequest, setLastRequest] = useState<{
     concept: string;
     quality: Quality;
@@ -43,6 +54,14 @@ function App() {
     }
   }, [result?.code]);
 
+  useEffect(() => {
+    return () => {
+      if (studioTransitionTimerRef.current) {
+        window.clearTimeout(studioTransitionTimerRef.current);
+      }
+    };
+  }, []);
+
   const resetAll = () => {
     reset();
     setCurrentCode('');
@@ -50,9 +69,64 @@ function App() {
     setLastRequest(null);
     setAiModifyInput('');
     setAiModifyOpen(false);
-    setPage('studio');
+    setScreen('classic');
+    setStudioTransitionVisible(false);
+    setStudioIsExiting(false);
+    setStudioShellExiting(false);
     setProblemAdjustment('');
+    if (studioTransitionTimerRef.current) {
+      window.clearTimeout(studioTransitionTimerRef.current);
+      studioTransitionTimerRef.current = null;
+    }
     problemFraming.reset();
+  };
+
+  const handleOpenStudio = () => {
+    if (studioTransitionVisible || screen === 'studio') {
+      return;
+    }
+
+    setStudioIsExiting(false);
+    setStudioShellExiting(false);
+    setStudioTransitionVisible(true);
+    
+    studioTransitionTimerRef.current = window.setTimeout(() => {
+      setConcept('');
+      setScreen('studio');
+      
+      studioTransitionTimerRef.current = window.setTimeout(() => {
+        setStudioIsExiting(true);
+        
+        studioTransitionTimerRef.current = window.setTimeout(() => {
+          setStudioTransitionVisible(false);
+          setStudioIsExiting(false);
+          studioTransitionTimerRef.current = null;
+        }, STUDIO_EXIT_DELAY_MS);
+      }, 300);
+    }, STUDIO_TRANSITION_MS);
+  };
+
+  const handleExitStudio = () => {
+    if (studioTransitionVisible) return;
+
+    setStudioIsExiting(false);
+    setStudioShellExiting(true); // Studio 界面开始退场动画
+    setStudioTransitionVisible(true); // 遮罩开始升起
+
+    studioTransitionTimerRef.current = window.setTimeout(() => {
+      setScreen('classic');
+      setStudioShellExiting(false);
+      
+      studioTransitionTimerRef.current = window.setTimeout(() => {
+        setStudioIsExiting(true);
+        
+        studioTransitionTimerRef.current = window.setTimeout(() => {
+          setStudioTransitionVisible(false);
+          setStudioIsExiting(false);
+          studioTransitionTimerRef.current = null;
+        }, STUDIO_EXIT_DELAY_MS);
+      }, 300);
+    }, STUDIO_TRANSITION_MS);
   };
 
   const handleSubmit = (data: {
@@ -128,14 +202,14 @@ function App() {
     if (status !== 'processing') {
       return;
     }
-    setPage('game');
+    setScreen('game');
   };
 
   const isBusy = status === 'processing';
 
   return (
     <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
-      {page === 'studio' ? (
+      {screen === 'classic' ? (
         <StudioPage
           status={status}
           result={result}
@@ -147,6 +221,7 @@ function App() {
           isBusy={isBusy}
           lastRequest={lastRequest}
           onConceptChange={setConcept}
+          onSecretStudioOpen={handleOpenStudio}
           onSubmit={handleSubmit}
           onCodeChange={setCurrentCode}
           onRerender={handleRerender}
@@ -169,6 +244,8 @@ function App() {
           onProblemClose={handleProblemClose}
           onProblemGenerate={handleProblemGenerate}
         />
+      ) : screen === 'studio' ? (
+        <StudioShell onExit={handleExitStudio} isExiting={studioShellExiting} />
       ) : (
         <Game2048Page
           board={game.board}
@@ -181,9 +258,11 @@ function App() {
           generationStage={stage}
           onMove={game.move}
           onRestart={game.restart}
-          onBackToStudio={() => setPage('studio')}
+          onBackToStudio={() => setScreen('classic')}
         />
       )}
+
+      <StudioTransitionOverlay visible={studioTransitionVisible} isExiting={studioIsExiting} />
 
       <style>{`
         @keyframes fadeInUp {

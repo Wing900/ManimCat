@@ -19,6 +19,7 @@ interface StatusContentProps {
   stage: ProcessingStage;
   concept: string;
   onConceptChange: (value: string) => void;
+  onSecretStudioOpen?: () => void;
   currentCode: string;
   isBusy: boolean;
   lastRequest: LastRequest | null;
@@ -55,6 +56,7 @@ export function StatusContent({
   stage,
   concept,
   onConceptChange,
+  onSecretStudioOpen,
   currentCode,
   isBusy,
   lastRequest,
@@ -71,7 +73,15 @@ export function StatusContent({
   const { t } = useI18n();
 
   if (status === 'idle') {
-    return <InputForm concept={concept} onConceptChange={onConceptChange} onSubmit={onSubmit} loading={false} />;
+    return (
+      <InputForm
+        concept={concept}
+        onConceptChange={onConceptChange}
+        onSecretStudioOpen={onSecretStudioOpen}
+        onSubmit={onSubmit}
+        loading={false}
+      />
+    );
   }
 
   if (status === 'processing') {

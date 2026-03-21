@@ -124,3 +124,86 @@ select option:checked {
 .problem-paw {
   animation: paw-stamp 1.2s ease-in-out infinite;
 }
+
+@keyframes studio-transition-enter {
+  0% { opacity: 0; backdrop-filter: blur(0px); }
+  100% { opacity: 1; backdrop-filter: blur(12px); }
+}
+
+@keyframes studio-cover-full {
+  0% { opacity: 0; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes studio-grid-rise {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 0.15; transform: translateY(0); }
+}
+
+@keyframes studio-paw-fall {
+  0% { opacity: 0; transform: translateY(40px) scale(0.85); filter: blur(8px); }
+  100% { opacity: 0.25; transform: translateY(0) scale(1); filter: blur(0px); }
+}
+
+@keyframes studio-line-grow {
+  0% { transform: scaleX(0); opacity: 0; }
+  100% { transform: scaleX(1); opacity: 0.3; }
+}
+
+@keyframes studio-entrance {
+  0% { opacity: 0; transform: scale(0.985); filter: blur(8px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+}
+
+.animate-studio-entrance {
+  animation: studio-entrance 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-studio-exit {
+  animation: studio-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+}
+
+.studio-transition-enter {
+  animation: studio-transition-enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.studio-transition-exit {
+  animation: studio-transition-enter 0.8s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+}
+
+.studio-cover-full {
+  animation: studio-cover-full 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.studio-cover-full-exit {
+  animation: studio-cover-full 0.8s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+}
+
+.studio-transition-grid {
+  background-image:
+    linear-gradient(rgba(var(--border-rgb), 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--border-rgb), 0.2) 1px, transparent 1px);
+  background-size: 120px 120px;
+  mask-image: radial-gradient(circle at center, black, transparent 75%);
+  animation: studio-grid-rise 2s ease-out forwards;
+}
+
+.studio-paw-print {
+  opacity: 0;
+  transform-origin: center;
+  animation: studio-paw-fall 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.studio-paw-print-1 { animation-delay: 0.4s; }
+.studio-paw-print-2 { animation-delay: 0.6s; }
+.studio-paw-print-3 { animation-delay: 0.8s; }
+
+.studio-transition-line {
+  opacity: 0;
+  animation: studio-line-grow 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards;
+}
+
+/* 移除 sweep 扫光，改为更高级的平滑渐变 */
+.studio-transition-sweep {
+  display: none;
+}

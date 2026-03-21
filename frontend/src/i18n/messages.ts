@@ -304,7 +304,21 @@ export const messages = {
     'timing.retry': '代码生成',
     'timing.render': '渲染',
     'timing.store': '存储',
-    'timing.title': '耗时'
+    'timing.title': '耗时',
+    'studio.title': 'Studio',
+    'studio.exit': '退出工作室',
+    'studio.loading': '猫猫加载中...',
+    'studio.description': '中控区负责对话、引用与命令编排。状态将随项目实时更新。',
+    'studio.commandLine': '命令行',
+    'studio.inputPlaceholder': '输入指令，如：@Scene_01 增加渐变动画...',
+    'studio.assets.title': '资产库',
+    'studio.assets.description': '资产将持续保留在当前工作区中。',
+    'studio.assets.state.editing': '编辑中',
+    'studio.assets.state.draft': '草稿',
+    'studio.assets.state.ready': '就绪',
+    'studio.assets.newEntry': '新建条目',
+    'studio.pipeline.title': '流水线',
+    'studio.pipeline.autoUpdate': '状态自动更新中'
   },
   'en-US': {
     'app.subtitle': 'Generate mathematical animations with AI and Manim',
@@ -611,7 +625,21 @@ export const messages = {
     'timing.retry': 'Code Gen',
     'timing.render': 'Render',
     'timing.store': 'Store',
-    'timing.title': 'Timing'
+    'timing.title': 'Timing',
+    'studio.title': 'Studio',
+    'studio.exit': 'Exit Studio',
+    'studio.loading': 'Cats Loading...',
+    'studio.description': 'Command center for chats, refs, and pipelines. Real-time updates with project state.',
+    'studio.commandLine': 'Command Line',
+    'studio.inputPlaceholder': 'Type command, e.g. @Scene_01 add Write animation...',
+    'studio.assets.title': 'Assets',
+    'studio.assets.description': 'Assets will stay persistent in current workspace.',
+    'studio.assets.state.editing': 'Editing',
+    'studio.assets.state.draft': 'Draft',
+    'studio.assets.state.ready': 'Ready',
+    'studio.assets.newEntry': 'New Entry',
+    'studio.pipeline.title': 'Pipeline',
+    'studio.pipeline.autoUpdate': 'Status auto-updating'
   }
 } as const;
 
