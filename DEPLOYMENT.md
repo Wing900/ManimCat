@@ -2,154 +2,184 @@
 
 English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.zh-CN.md)
 
-This document covers three deployment paths:
+This guide only documents deployment paths that match the current repository state.
 
-- local native deployment
-- local Docker deployment
-- Hugging Face Spaces deployment with Docker
+## How the project actually runs
+
+- Backend: Node.js + Express
+- Frontend: built by Vite, then served by the backend
+- Queue and job state: Redis
+- Rendering runtime: Python + ManimCE + LaTeX + `ffmpeg`
+- AI upstreams: preferably configured with `MANIMCAT_ROUTE_*`, or passed per request through `customApiConfig`
+
+## Which path to choose
+
+- Run it on your own machine with the least abstraction: local native deployment
+- Keep the runtime closer to production: Docker Compose
+- Deploy to Hugging Face: Docker Space
 
 ## 1. Local Native Deployment
 
 ### Prerequisites
 
-1. Node.js 18+
-2. Redis running on `localhost:6379` or equivalent
-3. Python / Manim runtime
-4. `mypy`
-5. LaTeX (`texlive`)
-6. `ffmpeg`
-7. `Xvfb`
+- Node.js 18+
+- Redis 7+ reachable at `localhost:6379` by default
+- Python 3.11+
+- Manim Community Edition 0.19.x
+- `mypy`
+- LaTeX
+- `ffmpeg`
 
-### Setup
+### 1. Clone and configure
 
 ```bash
-git clone https://github.com/yourusername/ManimCat.git
+git clone https://github.com/Wing900/ManimCat.git
 cd ManimCat
 cp .env.example .env
 ```
 
-Configure at least one AI source:
+Configure at least one routed upstream:
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+MANIMCAT_ROUTE_KEYS=demo-key
+MANIMCAT_ROUTE_API_URLS=https://api.example.com/v1
+MANIMCAT_ROUTE_API_KEYS=sk-example
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini
 ```
 
-Optional:
+Common optional variables:
 
 ```env
+PORT=3000
 LOG_LEVEL=info
 PROD_SUMMARY_LOG_ONLY=false
 ```
 
-Install dependencies:
+### 2. Install dependencies
 
 ```bash
 npm install
+npm --prefix frontend install
 python -m pip install mypy
-cd frontend && npm install
-cd ..
 ```
 
-Build and start:
+### 3. Start
+
+Development:
+
+```bash
+npm run dev
+```
+
+Production-style run:
 
 ```bash
 npm run build
 npm start
 ```
 
-Open: `http://localhost:3000`
+Notes:
+
+- `npm run build` currently builds the frontend only.
+- `npm start` runs `tsx src/server.ts`, so the backend does not depend on precompiled JS output.
+
+### 4. Verify
+
+- App: `http://localhost:3000`
+- Health: `http://localhost:3000/health`
 
 ---
 
-## 2. Local Docker Deployment
+## 2. Docker Compose Deployment
 
-### Prerequisites
+This is the most practical default. The repo already includes Redis, the Manim runtime, and the Node runtime in the deployment path.
 
-1. Docker 20.10+
-2. Docker Compose 2.0+
-
-### Setup
+### 1. Prepare environment variables
 
 ```bash
 cp .env.production .env
 ```
 
-Set at least one AI source:
+Set at least one upstream profile:
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+MANIMCAT_ROUTE_KEYS=demo-key
+MANIMCAT_ROUTE_API_URLS=https://api.example.com/v1
+MANIMCAT_ROUTE_API_KEYS=sk-example
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini
 ```
 
-Recommended production settings:
+If needed, change ports:
 
 ```env
-NODE_ENV=production
-LOG_LEVEL=info
-PROD_SUMMARY_LOG_ONLY=true
+PORT=3000
+REDIS_PORT=6379
 ```
 
-Build and run:
+### 2. Build and run
 
 ```bash
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
 
-Open: `http://localhost:3000`
+### 3. Verify
+
+```bash
+docker compose ps
+```
+
+- App: `http://localhost:3000`
+- Health: `http://localhost:3000/health`
+
+Notes:
+
+- Compose exposes port `3000` to the host.
+- Inside Compose, Redis is reached through service name `redis`.
+- Generated videos are persisted in the `video-storage` volume at `/app/public/videos`.
 
 ---
 
 ## 3. Hugging Face Spaces Deployment
 
-### Notes
+### Requirements
 
-- Use a Docker Space
-- Default port is `7860`
-- Environment variables must be configured in Space Settings, not only in repo files
-- Seeing `injecting env (0) from .env` in startup logs is normal and does not mean Space variables failed
+- Use a Docker Space.
+- The app port is `7860`.
+- Environment variables must be defined in Space Settings, not only in a checked-in `.env` file.
 
-### Steps
+### 1. Use the existing root `Dockerfile`
 
-1. Clone your Space repository:
+The repository `Dockerfile` is already the Hugging Face compatible one:
 
-```bash
-git clone https://huggingface.co/spaces/YOUR_USERNAME/YOUR_SPACE_NAME
-cd YOUR_SPACE_NAME
-```
+- based on `manimcommunity/manim:stable`
+- installs Node.js, Redis, CJK fonts, and `ffmpeg`
+- starts with `node start-with-redis-hf.cjs`
+- defaults to `PORT=7860`
 
-2. Copy the project into the Space repo and use the Hugging Face Dockerfile when applicable.
+Do not follow older instructions that mention `Dockerfile.huggingface`. That file is not part of the current repo.
 
-3. In Space Settings, configure at least:
+### 2. Configure Space Settings
+
+Minimum variables:
 
 ```env
 PORT=7860
 NODE_ENV=production
+MANIMCAT_ROUTE_KEYS=demo-key
+MANIMCAT_ROUTE_API_URLS=https://api.example.com/v1
+MANIMCAT_ROUTE_API_KEYS=sk-example
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini
 ```
 
-And one AI source:
+Recommended:
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
-```
-
-Recommended production logging:
-
-```env
-NODE_ENV=production
 LOG_LEVEL=info
 PROD_SUMMARY_LOG_ONLY=true
 ```
 
-4. Commit and push:
+### 3. Push
 
 ```bash
 git add .
@@ -157,144 +187,120 @@ git commit -m "Deploy ManimCat"
 git push
 ```
 
-Open: `https://YOUR_SPACE.hf.space/`
+After deployment:
+
+- App: `https://YOUR_SPACE.hf.space/`
+- Health: `https://YOUR_SPACE.hf.space/health`
 
 ---
 
-## 4. Key-Based Upstream Routing
+## Upstream Routing
 
-When you want different users to always hit different upstream providers, configure:
+`MANIMCAT_ROUTE_*` is the recommended server-side routing mechanism. It acts as both:
+
+- the Bearer-key whitelist
+- the mapping from key to `apiUrl/apiKey/model`
+
+Example:
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
+MANIMCAT_ROUTE_KEYS=user_a,user_b
 MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
 MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini,gemini-2.5-flash
 ```
 
 Rules:
 
 1. All four variables support comma-separated or newline-separated values.
 2. `MANIMCAT_ROUTE_KEYS` is the primary index.
-3. Entries without `apiUrl` or `apiKey` are skipped.
-4. Empty `model` disables that key (backend is reachable but no model is available).
-5. `MANIMCAT_ROUTE_KEYS` also acts as the auth whitelist.
+3. Entries missing `apiUrl` or `apiKey` are skipped.
+4. If a variable only provides one value, that value is reused for all entries.
+5. If `model` is empty, the key can still authenticate but has no usable model.
 
 Priority:
 
-1. request body `customApiConfig` (when enabled on the frontend)
-2. `MANIMCAT_ROUTE_*` matching the current Bearer key
+1. request-body `customApiConfig`
+2. server-side `MANIMCAT_ROUTE_*`
+
+Use server-side routing when different users should always hit different upstreams. Use the frontend provider settings when one browser user wants to manage multiple providers locally.
 
 ---
 
-## 5. Frontend Multi-Profile Custom API
+## Optional: Supabase Persistence
 
-The frontend settings page still supports multiple `url/key/model/manimcatKey` profiles with round-robin selection per browser session.
+There are two optional persistence layers:
 
-Use that when a single user wants to manage multiple upstreams locally.
+- generation history: `ENABLE_HISTORY_DB=true`
+- Studio Agent session/work persistence: `ENABLE_STUDIO_DB=true`
 
-If you want stable upstream routing per user, prefer server-side `MANIMCAT_ROUTE_*`.
+Shared connection variables:
 
----
-
-## 6. Generation History (Optional, Supabase)
-
-ManimCat supports persistent generation history powered by Supabase. Only text data is stored (prompt, generated code, metadata). Videos and images are **not** stored in the database.
-
-### Setup
-
-1. Create a free project at [supabase.com](https://supabase.com)
-2. Run the migration SQL in the Supabase SQL Editor:
-
-```sql
--- File: src/database/migrations/001_create_history.sql
--- This script sets up:
--- 1. history: stores task results
--- 2. usage_stats: stores persistent daily metrics
--- 3. increment_usage: atomic counter function (RPC)
-
-create table if not exists history (
-  id          uuid primary key default gen_random_uuid(),
-  client_id   text not null,
-  prompt      text not null,
-  code        text,
-  output_mode text not null check (output_mode in ('video', 'image')),
-  quality     text not null check (quality in ('low', 'medium', 'high')),
-  status      text not null check (status in ('completed', 'failed')),
-  error       text,
-  created_at  timestamptz not null default now()
-);
-create index if not exists idx_history_client_created on history (client_id, created_at desc);
-create index if not exists idx_history_status on history (status);
-
-create table if not exists usage_stats (
-  date               date primary key,
-  submitted_total    integer default 0,
-  submitted_generate integer default 0,
-  submitted_modify   integer default 0,
-  completed_total    integer default 0,
-  failed_total       integer default 0,
-  cancelled_total    integer default 0,
-  completed_video    integer default 0,
-  completed_image    integer default 0,
-  render_ms_sum      bigint default 0,
-  updated_at         timestamptz default now()
-);
-
-create or replace function increment_usage(
-  target_date date,
-  inc_submitted_total int default 0,
-  inc_submitted_generate int default 0,
-  inc_submitted_modify int default 0,
-  inc_completed_total int default 0,
-  inc_failed_total int default 0,
-  inc_cancelled_total int default 0,
-  inc_completed_video int default 0,
-  inc_completed_image int default 0,
-  inc_render_ms_sum bigint default 0
-)
-returns void
-language plpgsql
-security definer
-as $$
-begin
-  insert into usage_stats (date, submitted_total, submitted_generate, submitted_modify, completed_total, failed_total, cancelled_total, completed_video, completed_image, render_ms_sum)
-  values (target_date, inc_submitted_total, inc_submitted_generate, inc_submitted_modify, inc_completed_total, inc_failed_total, inc_cancelled_total, inc_completed_video, inc_completed_image, inc_render_ms_sum)
-  on conflict (date) do update
-  set
-    submitted_total    = usage_stats.submitted_total + excluded.submitted_total,
-    submitted_generate = usage_stats.submitted_generate + excluded.submitted_generate,
-    submitted_modify   = usage_stats.submitted_modify + excluded.submitted_modify,
-    completed_total    = usage_stats.completed_total + excluded.completed_total,
-    failed_total       = usage_stats.failed_total + excluded.failed_total,
-    cancelled_total    = usage_stats.cancelled_total + excluded.cancelled_total,
-    completed_video    = usage_stats.completed_video + excluded.completed_video,
-    completed_image    = usage_stats.completed_image + excluded.completed_image,
-    render_ms_sum      = usage_stats.render_ms_sum + excluded.render_ms_sum,
-    updated_at         = now();
-end;
-$$;
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-key
 ```
 
-3. Add the following environment variables:
+### Generation history
+
+Apply:
+
+- `src/database/migrations/001_create_history.sql`
+
+If you also want render-failure export, apply:
+
+- `src/database/migrations/002_create_render_failure_events.sql`
+
+Then configure:
 
 ```env
 ENABLE_HISTORY_DB=true
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-supabase-anon-key
-```
-
-When `ENABLE_HISTORY_DB` is `false` (the default), the history API returns empty results and no database connection is made.
-
-## Optional: Render Failure Event Export
-
-Add these environment variables when you want to collect and export render-failure-only events:
-
-```env
 ENABLE_RENDER_FAILURE_LOG=true
 ADMIN_EXPORT_TOKEN=replace_with_long_random_token
 ```
 
-Notes:
-- Requires database mode enabled and migration `src/database/migrations/002_create_render_failure_events.sql` applied.
-- Export endpoint: `GET /api/admin/render-failures/export` with header `x-admin-token`.
+Export endpoint:
+
+- `GET /api/admin/render-failures/export`
+- header: `x-admin-token`
+
+### Studio Agent persistence
+
+Apply:
+
+- `src/database/migrations/003_create_studio_agent.sql`
+
+Then enable:
+
+```env
+ENABLE_STUDIO_DB=true
+```
+
+---
+
+## Troubleshooting
+
+### The UI loads, but jobs fail immediately
+
+Check:
+
+- `MANIMCAT_ROUTE_*` is fully configured
+- the request includes a valid Bearer key
+- the matched route entry does not have an empty `model`
+
+### `/health` shows unhealthy Redis or queue
+
+Check:
+
+- Redis is actually running
+- `REDIS_HOST` and `REDIS_PORT` match your environment
+- in Docker Compose, the backend is pointing to service `redis`
+
+### The container starts locally, but Hugging Face build fails
+
+Check:
+
+- the Space SDK is Docker
+- env vars were added in Space Settings
+- you did not follow stale instructions mentioning `Dockerfile.huggingface`
+

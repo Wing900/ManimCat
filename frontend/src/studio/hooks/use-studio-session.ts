@@ -100,6 +100,12 @@ export function useStudioSession() {
 
   const runCommand = useStudioRun({
     session: state.entities.session,
+    onUserMessageSubmitted: (message) => {
+      dispatch({
+        type: 'user_message_submitted',
+        message,
+      })
+    },
     onRunStarted: (run, pendingPermissions) => {
       dispatch({
         type: 'run_started',

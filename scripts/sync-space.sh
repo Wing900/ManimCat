@@ -24,6 +24,33 @@ EXCLUDE_PATTERNS=(
   "src/audio/tracks/*.mp3"
 )
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HF_README_FRONTMATTER_PATH="$SCRIPT_DIR/hf-readme-frontmatter.txt"
+
+update_space_readme() {
+  local readme_path="README.md"
+  [[ -f "$readme_path" && -f "$HF_README_FRONTMATTER_PATH" ]] || return 0
+
+  local temp_body
+  temp_body="$(mktemp)"
+
+  awk '
+    BEGIN { in_frontmatter = 0; frontmatter_done = 0 }
+    NR == 1 && $0 == "---" { in_frontmatter = 1; next }
+    in_frontmatter && $0 == "---" && !frontmatter_done { frontmatter_done = 1; next }
+    in_frontmatter && !frontmatter_done { next }
+    { print }
+  ' "$readme_path" > "$temp_body"
+
+  {
+    cat "$HF_README_FRONTMATTER_PATH"
+    printf "\n\n"
+    cat "$temp_body"
+  } > "$readme_path"
+
+  rm -f "$temp_body"
+}
+
 current="$(git branch --show-current)"
 if [ "$current" != "$SOURCE_BRANCH" ]; then
   echo "Error: please checkout $SOURCE_BRANCH first"
@@ -73,6 +100,7 @@ fi
 
 git checkout --orphan "$TEMP_BRANCH" >/dev/null
 temp_branch_created=1
+update_space_readme
 git add -A
 
 for pattern in "${EXCLUDE_PATTERNS[@]}"; do

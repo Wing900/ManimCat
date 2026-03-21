@@ -8,10 +8,12 @@ import type {
   StudioWorkStore
 } from '../domain/types'
 import type { JobResult } from '../../types'
+import type { StudioBlobStore } from '../storage/studio-blob-store'
 
 export interface StudioRenderWorkSyncStores {
   workStore: StudioWorkStore
   workResultStore: StudioWorkResultStore
+  blobStore?: StudioBlobStore
 }
 
 export async function syncRenderWorkFromTask(
@@ -43,7 +45,7 @@ export async function syncRenderWorkFromTask(
     return updatedWork ? { work: updatedWork } : { work }
   }
 
-  const nextWorkResult = buildRenderWorkResult(work.id, task, renderResult)
+  const nextWorkResult = await buildRenderWorkResult(work.id, task, renderResult, stores.blobStore)
   const persistedResult = work.currentResultId
     ? await stores.workResultStore.update(work.currentResultId, nextWorkResult)
     : await stores.workResultStore.create(createStudioWorkResult(nextWorkResult))
@@ -75,14 +77,15 @@ function getRenderResult(task: StudioTask): JobResult | null {
   return candidate as JobResult
 }
 
-function buildRenderWorkResult(
+async function buildRenderWorkResult(
   workId: string,
   task: StudioTask,
-  result: JobResult
-): Omit<StudioWorkResult, 'id' | 'createdAt'> {
+  result: JobResult,
+  blobStore?: StudioBlobStore
+): Promise<Omit<StudioWorkResult, 'id' | 'createdAt'>> {
   if (result.status === 'completed') {
     const outputMode = result.data.outputMode
-    const attachments = buildCompletedAttachments(result)
+    const attachments = await buildCompletedAttachments(result, blobStore)
     const summary = outputMode === 'video'
       ? `Render completed${result.data.videoUrl ? `: ${result.data.videoUrl}` : ''}`
       : `Render completed with ${result.data.imageCount ?? result.data.imageUrls?.length ?? 0} image output(s)`
@@ -124,28 +127,53 @@ function buildRenderWorkResult(
   }
 }
 
-function buildCompletedAttachments(result: Extract<JobResult, { status: 'completed' }>): StudioFileAttachment[] | undefined {
+async function buildCompletedAttachments(
+  result: Extract<JobResult, { status: 'completed' }>,
+  blobStore?: StudioBlobStore
+): Promise<StudioFileAttachment[] | undefined> {
   const attachments: StudioFileAttachment[] = []
 
   if (result.data.videoUrl) {
-    attachments.push({
-      kind: 'file',
+    attachments.push(await resolveAttachment({
+      blobStore,
       path: result.data.videoUrl,
       name: fileNameFromPath(result.data.videoUrl),
       mimeType: 'video/mp4'
-    })
+    }))
   }
 
   for (const imageUrl of result.data.imageUrls ?? []) {
-    attachments.push({
-      kind: 'file',
+    attachments.push(await resolveAttachment({
+      blobStore,
       path: imageUrl,
       name: fileNameFromPath(imageUrl),
       mimeType: 'image/png'
-    })
+    }))
   }
 
   return attachments.length > 0 ? attachments : undefined
+}
+
+async function resolveAttachment(input: {
+  blobStore?: StudioBlobStore
+  path: string
+  name?: string
+  mimeType?: string
+}): Promise<StudioFileAttachment> {
+  if (!input.blobStore) {
+    return {
+      kind: 'file',
+      path: input.path,
+      name: input.name,
+      mimeType: input.mimeType,
+    }
+  }
+
+  return input.blobStore.resolveAttachment({
+    path: input.path,
+    name: input.name,
+    mimeType: input.mimeType,
+  })
 }
 
 function toWorkStatus(taskStatus: StudioTask['status']): StudioWork['status'] {

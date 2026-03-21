@@ -19,7 +19,7 @@ export function StudioPermissionPanel({
   onReply,
 }: StudioPermissionPanelProps) {
   return (
-    <section>
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.28em] text-text-secondary/45">权限审批</div>
@@ -30,7 +30,7 @@ export function StudioPermissionPanel({
         </span>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
         {requests.map((request, index) => {
           const replying = Boolean(replyingPermissionIds[request.id])
           return (

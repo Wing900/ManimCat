@@ -1,9 +1,10 @@
 import type { StudioExternalEvent } from '../protocol/studio-agent-events'
-import type { StudioPermissionRequest, StudioRun, StudioSessionSnapshot } from '../protocol/studio-agent-types'
+import type { StudioMessage, StudioPermissionRequest, StudioRun, StudioSessionSnapshot } from '../protocol/studio-agent-types'
 import {
   createInitialStudioState,
   mergeStudioSnapshot,
   replacePendingPermissions,
+  upsertMessages,
   upsertRuns,
   upsertTasks,
   upsertWorkResults,
@@ -17,6 +18,7 @@ export type StudioStateAction =
   | { type: 'snapshot_failed'; error: string }
   | { type: 'event_status'; status: StudioSessionState['connection']['eventStatus']; error?: string | null }
   | { type: 'event_received'; event: StudioExternalEvent }
+  | { type: 'user_message_submitted'; message: StudioMessage }
   | { type: 'run_started'; run: StudioRun; pendingPermissions: StudioPermissionRequest[] }
   | { type: 'permission_reply_started'; requestId: string }
   | { type: 'permission_reply_finished'; requests: StudioPermissionRequest[] }
@@ -57,6 +59,11 @@ export function studioEventReducer(
       }
     case 'event_received':
       return applyStudioExternalEvent(state, action.event)
+    case 'user_message_submitted':
+      return {
+        ...state,
+        entities: upsertMessages(state.entities, [action.message]),
+      }
     case 'run_started':
       return {
         ...state,

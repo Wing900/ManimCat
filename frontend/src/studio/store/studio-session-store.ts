@@ -1,4 +1,5 @@
 import type {
+  StudioMessage,
   StudioPermissionRequest,
   StudioRun,
   StudioSessionSnapshot,
@@ -59,6 +60,14 @@ export function mergeStudioSnapshot(
       activeRunId: pickLatestRunId(snapshot.runs),
     },
     error: null,
+  }
+}
+
+export function upsertMessages(state: StudioEntityState, messages: StudioMessage[]): StudioEntityState {
+  return {
+    ...state,
+    messagesById: mergeRecord(state.messagesById, messages),
+    messageOrder: mergeOrderedIds(state.messageOrder, messages, compareByCreatedAt),
   }
 }
 

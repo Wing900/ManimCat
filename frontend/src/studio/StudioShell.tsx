@@ -22,7 +22,7 @@ export function StudioShell({ onExit, isExiting }: StudioShellProps) {
 
   return (
     <div
-      className={`min-h-screen bg-bg-primary text-text-primary studio-shell-root ${
+      className={`h-screen overflow-hidden bg-bg-primary text-text-primary studio-shell-root ${
         isExiting ? 'animate-studio-exit' : 'animate-studio-entrance'
       }`}
     >
@@ -31,7 +31,7 @@ export function StudioShell({ onExit, isExiting }: StudioShellProps) {
         <div className="absolute bottom-[-5%] right-[-5%] h-[35%] w-[35%] rounded-full bg-accent-rgb/5 blur-[100px]" />
       </div>
 
-      <div className="relative flex min-h-screen overflow-hidden backdrop-blur-[2px]">
+      <div className="relative flex h-screen min-h-0 overflow-hidden backdrop-blur-[2px]">
         <StudioAssetsPanel
           session={studio.session}
           works={studio.workSummaries}

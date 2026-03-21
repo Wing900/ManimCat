@@ -29,8 +29,8 @@ export function StudioAssetsPanel({
   const previewAttachment = result?.attachments?.find(isPreviewAttachment) ?? result?.attachments?.[0] ?? null
 
   return (
-    <aside className="flex w-[360px] shrink-0 flex-col gap-6 px-6 pb-6 pt-8 shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.04)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.2)]">
-      <div>
+    <aside className="flex h-full min-h-0 w-[360px] shrink-0 flex-col gap-6 overflow-hidden px-6 pb-6 pt-8 shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.04)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.2)]">
+      <div className="shrink-0">
         <div className="flex items-center justify-between">
           <div className="text-[10px] uppercase tracking-[0.34em] text-text-secondary/45">预览区</div>
           <span className="studio-paw-float text-sm opacity-30">🐾</span>
@@ -48,7 +48,7 @@ export function StudioAssetsPanel({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-border/10 bg-bg-secondary/30">
+      <section className="shrink-0 overflow-hidden rounded-xl border border-border/10 bg-bg-secondary/30">
         <div className="aspect-video bg-black/[0.04]">
           <PreviewSurface attachment={previewAttachment} result={result} />
         </div>
@@ -62,7 +62,7 @@ export function StudioAssetsPanel({
         </div>
       </section>
 
-      <section>
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.28em] text-text-secondary/45">作品列表</div>
@@ -71,7 +71,7 @@ export function StudioAssetsPanel({
           <div className="rounded-full bg-bg-secondary/50 px-3 py-1 text-xs text-text-secondary/65">{works.length}</div>
         </div>
 
-        <div className="mt-4 space-y-1.5">
+        <div className="mt-4 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
           {works.map((entry) => {
             const { work: item, latestTask, result: itemResult } = entry
             const selected = item.id === selectedWorkId

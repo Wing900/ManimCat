@@ -13,6 +13,7 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
     'Use tools directly when they are needed. Do not invent tool results or claim work was done unless the tool actually completed.',
     'Prefer the smallest safe next action. Read before editing when the target file is not already known.',
     'When you have enough information and no tool is needed, answer normally in plain text.',
+    'Keep replies compact and readable. Avoid markdown bold markers, avoid decorative formatting, and avoid excessive blank lines.',
     'If user clarification is truly required, call the question tool instead of guessing.',
     'For subagent work, use the task tool. For local skills, use the skill tool. For code review, prefer ai-review or reviewer subagent when appropriate.',
     'The render tool already inherits the current provider chain from Studio. Do not ask the user to pass provider config inside tool arguments.'

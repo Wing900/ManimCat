@@ -13,6 +13,56 @@ $excludePatterns = @(
   'src/audio/tracks/*.mp3'
 )
 
+$hfReadmeFrontmatterPath = Join-Path $PSScriptRoot 'hf-readme-frontmatter.txt'
+
+function Remove-ReadmeFrontmatter {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Content
+  )
+
+  if (-not $Content.StartsWith("---`n") -and -not $Content.StartsWith("---`r`n")) {
+    return $Content
+  }
+
+  $normalized = $Content -replace "`r`n", "`n"
+  $lines = $normalized -split "`n"
+  if ($lines.Count -lt 3 -or $lines[0] -ne '---') {
+    return $Content
+  }
+
+  for ($i = 1; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -eq '---') {
+      $remaining = if ($i + 1 -lt $lines.Count) {
+        ($lines[($i + 1)..($lines.Count - 1)] -join "`n").TrimStart("`n")
+      } else {
+        ''
+      }
+
+      if ([string]::IsNullOrEmpty($remaining)) {
+        return ''
+      }
+
+      return $remaining
+    }
+  }
+
+  return $Content
+}
+
+function Update-SpaceReadme {
+  $readmePath = Join-Path (Get-Location) 'README.md'
+  if (-not (Test-Path $readmePath) -or -not (Test-Path $hfReadmeFrontmatterPath)) {
+    return
+  }
+
+  $frontmatter = [System.IO.File]::ReadAllText($hfReadmeFrontmatterPath).Trim()
+  $readmeBody = [System.IO.File]::ReadAllText($readmePath)
+  $strippedBody = (Remove-ReadmeFrontmatter -Content $readmeBody).TrimStart()
+  $updatedReadme = "$frontmatter`r`n`r`n$strippedBody"
+  [System.IO.File]::WriteAllText($readmePath, $updatedReadme)
+}
+
 function Invoke-Git {
   param(
     [Parameter(Mandatory = $true)]
@@ -88,6 +138,8 @@ try {
 
   Invoke-Git -Args @('checkout', '--orphan', $TempBranch) -ErrorMessage 'Failed to create orphan temp branch.'
   $createdTempBranch = $true
+
+  Update-SpaceReadme
 
   Invoke-Git -Args @('add', '-A') -ErrorMessage 'Failed to stage files on temp branch.'
 

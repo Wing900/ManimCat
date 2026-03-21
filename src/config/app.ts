@@ -25,8 +25,8 @@ export const appConfig = {
 
   // 超时配置
   timeout: {
-    request: parseInt(process.env.REQUEST_TIMEOUT || '600000', 10),  // 请求超时 10 分钟
-    job: parseInt(process.env.JOB_TIMEOUT || '600000', 10)          // 任务超时 10 分钟
+    request: parseInt(process.env.REQUEST_TIMEOUT || '600000', 10),
+    job: parseInt(process.env.JOB_TIMEOUT || '600000', 10)
   },
 
   // 日志配置
@@ -49,7 +49,7 @@ export const appConfig = {
       medium: '-qm',
       high: '-qh'
     },
-    timeout: parseInt(process.env.MANIM_TIMEOUT || '600000', 10)  // 10 分钟
+    timeout: parseInt(process.env.MANIM_TIMEOUT || '600000', 10)
   },
 
   // 文件系统配置
@@ -59,9 +59,6 @@ export const appConfig = {
   }
 } as const
 
-/**
- * 验证必需的环境变量
- */
 export function validateConfig(): void {
   const routeKeys = process.env.MANIMCAT_ROUTE_KEYS?.trim()
   const routeApiUrls = process.env.MANIMCAT_ROUTE_API_URLS?.trim()
@@ -76,23 +73,14 @@ export function validateConfig(): void {
   }
 }
 
-/**
- * 开发模式检查
- */
 export function isDevelopment(): boolean {
   return appConfig.nodeEnv === 'development'
 }
 
-/**
- * 生产模式检查
- */
 export function isProduction(): boolean {
   return appConfig.nodeEnv === 'production'
 }
 
-/**
- * 打印配置信息（隐藏敏感信息）
- */
 export function printConfig(): void {
   console.log('📋 Application Configuration:')
   console.log(`  - Environment: ${appConfig.nodeEnv}`)
@@ -102,4 +90,5 @@ export function printConfig(): void {
   console.log(`  - LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`)
   console.log(`  - PROD_SUMMARY_LOG_ONLY: ${process.env.PROD_SUMMARY_LOG_ONLY ?? '(unset, defaults to true in production)'}`)
   console.log(`  - ENABLE_HISTORY_DB: ${process.env.ENABLE_HISTORY_DB || 'false'}`)
+  console.log(`  - ENABLE_STUDIO_DB: ${process.env.ENABLE_STUDIO_DB || 'false'}`)
 }

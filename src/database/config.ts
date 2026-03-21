@@ -4,26 +4,38 @@
  */
 
 export interface DatabaseConfig {
-  /** 是否启用持久化历史记录 */
-  enabled: boolean
-  /** Supabase 项目 URL */
+  historyEnabled: boolean
+  studioEnabled: boolean
   supabaseUrl: string
-  /** Supabase anon/service key */
   supabaseKey: string
 }
 
 export function getDatabaseConfig(): DatabaseConfig {
   return {
-    enabled: process.env.ENABLE_HISTORY_DB === 'true',
+    historyEnabled: process.env.ENABLE_HISTORY_DB === 'true',
+    studioEnabled: process.env.ENABLE_STUDIO_DB === 'true',
     supabaseUrl: process.env.SUPABASE_URL?.trim() || '',
     supabaseKey: process.env.SUPABASE_KEY?.trim() || '',
   }
 }
 
+export function isSupabaseConfigured(): boolean {
+  const cfg = getDatabaseConfig()
+  return Boolean(cfg.supabaseUrl) && Boolean(cfg.supabaseKey)
+}
+
 /**
- * 检查数据库配置是否就绪
+ * 检查历史记录数据库配置是否就绪
  */
 export function isDatabaseReady(): boolean {
   const cfg = getDatabaseConfig()
-  return cfg.enabled && Boolean(cfg.supabaseUrl) && Boolean(cfg.supabaseKey)
+  return cfg.historyEnabled && isSupabaseConfigured()
+}
+
+/**
+ * 检查 Studio 持久化数据库配置是否就绪
+ */
+export function isStudioDatabaseReady(): boolean {
+  const cfg = getDatabaseConfig()
+  return cfg.studioEnabled && isSupabaseConfigured()
 }

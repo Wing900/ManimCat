@@ -2,170 +2,184 @@
 
 简体中文 | [English](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.md)
 
-本文档包含三种部署方式：本地部署、本地 Docker 部署、Hugging Face Spaces（Docker）。
+这份文档只保留当前项目实际可用的部署路径，并尽量压缩为最短步骤。
 
-三种部署都是可行的，hf的部署使用免费的服务器已经足够。
+## 先确认项目怎么运行
 
-## 本地部署
+- 后端是 Node.js + Express。
+- 前端由 Vite 构建，产物由后端静态托管。
+- 任务队列和状态依赖 Redis。
+- 实际渲染依赖 Python、ManimCE、LaTeX、`ffmpeg`。
+- 上游 AI 不再依赖 `OPENAI_API_KEY` 这类单一全局变量，推荐使用 `MANIMCAT_ROUTE_*`，或由前端按请求传 `customApiConfig`。
 
-### 阶段 1: 准备 Node 环境
+## 选择哪种部署方式
 
-1. 安装 Node.js >= 18
-2. 安装 Redis 7 并保持 `localhost:6379` 可用
-3. 安装 Python 3.11、Manim Community Edition 0.19.2、mypy、LaTeX (texlive)、ffmpeg、Xvfb
+- 只想本机跑起来：用“本地原生部署”。
+- 想减少环境差异：用“Docker Compose”。
+- 想部署到 Hugging Face Space：用“Hugging Face Spaces”。
 
-### 阶段 2: 拉取代码并配置环境变量
+## 一、本地原生部署
+
+### 前置条件
+
+- Node.js 18+
+- Redis 7+，默认可通过 `localhost:6379` 访问
+- Python 3.11+
+- Manim Community Edition 0.19.x
+- `mypy`
+- LaTeX
+- `ffmpeg`
+
+### 1. 拉代码并准备环境变量
 
 ```bash
-git clone https://github.com/yourusername/ManimCat.git
+git clone https://github.com/Wing900/ManimCat.git
 cd ManimCat
 cp .env.example .env
 ```
 
-在 `.env` 中配置服务端按 key 分流（推荐）：
+至少配置一组服务端上游路由：
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+MANIMCAT_ROUTE_KEYS=demo-key
+MANIMCAT_ROUTE_API_URLS=https://api.example.com/v1
+MANIMCAT_ROUTE_API_KEYS=sk-example
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini
 ```
 
-可选：
+常用可选项：
 
 ```env
+PORT=3000
 LOG_LEVEL=info
 PROD_SUMMARY_LOG_ONLY=false
 ```
 
-### 阶段 3: 安装依赖
+### 2. 安装依赖
 
 ```bash
 npm install
+npm --prefix frontend install
 python -m pip install mypy
-cd frontend && npm install
-cd ..
 ```
 
-### 阶段 4: 构建并启动
+### 3. 启动
+
+开发模式：
+
+```bash
+npm run dev
+```
+
+生产式启动：
 
 ```bash
 npm run build
 npm start
 ```
 
-访问：`http://localhost:3000`
+说明：
+
+- `npm run build` 当前只构建前端。
+- `npm start` 直接用 `tsx src/server.ts` 启动后端，不依赖预编译 JS。
+
+### 4. 验证
+
+- 页面：`http://localhost:3000`
+- 健康检查：`http://localhost:3000/health`
 
 ---
 
-## 本地 Docker 部署
+## 二、Docker Compose 部署
 
-### 阶段 1: 准备 Docker 环境
+这是最推荐的部署方式，仓库已经内置 Redis、Manim 运行时和 Node 运行时。
 
-1. 安装 Docker 20.10+ 与 Docker Compose 2.0+
-
-### 阶段 2: 配置环境变量
+### 1. 准备环境变量
 
 ```bash
 cp .env.production .env
 ```
 
-在 `.env` 中配置服务端按 key 分流（推荐）：
+至少填写一组上游：
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+MANIMCAT_ROUTE_KEYS=demo-key
+MANIMCAT_ROUTE_API_URLS=https://api.example.com/v1
+MANIMCAT_ROUTE_API_KEYS=sk-example
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini
 ```
 
-生产推荐额外设置：
+如需改端口：
 
 ```env
-NODE_ENV=production
-LOG_LEVEL=info
-PROD_SUMMARY_LOG_ONLY=true
-
-# 按 key 路由到不同上游
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+PORT=3000
+REDIS_PORT=6379
 ```
 
-### 阶段 3: 构建并启动
+### 2. 构建并启动
 
 ```bash
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
 
-### 阶段 4: 验证服务
+### 3. 验证
 
-访问：`http://localhost:3000`
+```bash
+docker compose ps
+```
+
+- 页面：`http://localhost:3000`
+- 健康检查：`http://localhost:3000/health`
+
+说明：
+
+- Compose 对外暴露 `3000`。
+- 容器内 Redis 服务名固定为 `redis`。
+- 生成的视频会持久化到 volume，默认挂载到 `/app/public/videos`。
 
 ---
 
-## Hugging Face 部署（Docker）
+## 三、Hugging Face Spaces 部署
 
-### 前置说明
+### 前提
 
-- 需要 Docker Space（SDK 选择 Docker）
-- 推荐 CPU upgrade（4 vCPU / 32GB）
-- 默认端口为 7860
-- Hugging Face 运行时环境变量来自 **Space Settings -> Variables/Secrets**，不是仓库里的 `.env`
-- 启动日志出现 `injecting env (0) from .env` 属于正常现象，不代表 Settings 变量未生效
+- Space 类型必须选 Docker。
+- 运行端口使用 `7860`。
+- 环境变量必须配置在 Space Settings，不是只写进仓库 `.env`。
 
-### 步骤
+### 1. 直接使用仓库根目录的 `Dockerfile`
 
-1. 准备 Space 仓库
+当前仓库里的 `Dockerfile` 已经是 Hugging Face Space 可用版本：
 
-```bash
-git clone https://huggingface.co/spaces/YOUR_USERNAME/YOUR_SPACE_NAME
-cd YOUR_SPACE_NAME
-```
+- 基于 `manimcommunity/manim:stable`
+- 容器内安装 Node.js、Redis、中文字体、`ffmpeg`
+- 启动命令是 `node start-with-redis-hf.cjs`
+- 默认监听 `PORT=7860`
 
-2. 复制项目文件
+不需要再额外复制一个 `Dockerfile.huggingface`，仓库里也没有这个文件。
 
-```bash
-cp -r /path/to/ManimCat/* .
-cp Dockerfile.huggingface Dockerfile
-```
+### 2. 在 Space Settings 配置变量
 
-3. 在 Space Settings 中配置变量（必须在 Settings 中设置）
-
-至少设置：
+至少配置：
 
 ```env
 PORT=7860
 NODE_ENV=production
+MANIMCAT_ROUTE_KEYS=demo-key
+MANIMCAT_ROUTE_API_URLS=https://api.example.com/v1
+MANIMCAT_ROUTE_API_KEYS=sk-example
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini
 ```
 
-并配置服务端按 key 分流：
-
-```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
-MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
-MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
-```
-
-可选：
+建议再补上：
 
 ```env
 LOG_LEVEL=info
 PROD_SUMMARY_LOG_ONLY=true
 ```
 
-如果你希望生产环境只保留每任务一条摘要日志，请确保以下三项都已在 Settings 配置并重启 Space：
-
-```env
-NODE_ENV=production
-LOG_LEVEL=info
-PROD_SUMMARY_LOG_ONLY=true
-```
-
-4. 推送并等待构建
+### 3. 推送代码
 
 ```bash
 git add .
@@ -173,147 +187,120 @@ git commit -m "Deploy ManimCat"
 git push
 ```
 
-部署完成后访问：`https://YOUR_SPACE.hf.space/`
+部署完成后访问：
+
+- 页面：`https://YOUR_SPACE.hf.space/`
+- 健康检查：`https://YOUR_SPACE.hf.space/health`
 
 ---
 
-## 按 ManimCat Key 分流（推荐）
+## 上游路由配置
 
-### 目标
+推荐使用 `MANIMCAT_ROUTE_*` 做服务端路由。它同时承担两件事：
 
-当你需要区分“测试用户 / 正式用户”时，推荐在服务端用 `MANIMCAT_ROUTE_*` 做固定路由：
+- Bearer key 白名单
+- key 到上游 `apiUrl/apiKey/model` 的映射
 
-- `user_key_a` 走上游 A（例如 `https://api-a.example.com/v1 + qwen3.5-plus + sk-a`）
-- `user_key_b` 走上游 B（例如 `https://api-b.example.com/v1 + gemini-3-flash-preview + sk-b`）
-
-### 配置方式
+示例：
 
 ```env
-MANIMCAT_ROUTE_KEYS=user_key_a,user_key_b
+MANIMCAT_ROUTE_KEYS=user_a,user_b
 MANIMCAT_ROUTE_API_URLS=https://api-a.example.com/v1,https://api-b.example.com/v1
 MANIMCAT_ROUTE_API_KEYS=sk-a,sk-b
-MANIMCAT_ROUTE_MODELS=qwen3.5-plus,gemini-3-flash-preview
+MANIMCAT_ROUTE_MODELS=gpt-4o-mini,gemini-2.5-flash
 ```
 
 规则：
 
-1. 以上四组变量都支持逗号或换行分隔。
-2. 以 `MANIMCAT_ROUTE_KEYS` 为主索引逐项配对。
+1. 四组变量都支持逗号或换行分隔。
+2. `MANIMCAT_ROUTE_KEYS` 是主索引。
 3. `apiUrl` 或 `apiKey` 缺失的条目会被跳过。
-4. `model` 留空表示禁用该 key（后端可达但无可用模型）。
-5. `MANIMCAT_ROUTE_KEYS` 本身就是认证白名单。
+4. 如果某一组变量只写了一个值，这个值会复用到全部条目。
+5. `model` 留空时，该 key 仍可认证，但当前没有可用模型。
 
-### 上游选择优先级（高 -> 低）
+请求优先级：
 
-1. 请求体 `customApiConfig`（前端“激活自定义”时）
-2. 命中 `MANIMCAT_ROUTE_*`（按 Bearer key 映射）
+1. 请求体里的 `customApiConfig`
+2. 服务端 `MANIMCAT_ROUTE_*`
 
-## 前端多组 Custom API（可选）
-
-前端设置页仍支持多组 `url/key/model/manimcatKey` 轮询；它适合“同一浏览器用户自管多组上游”。  
-如果你希望”不同用户固定走不同上游”，优先使用上面的服务端 `MANIMCAT_ROUTE_*`。
+如果要给不同用户固定分配不同上游，用服务端路由；如果只是单个浏览器本地切换多个 provider，用前端设置页即可。
 
 ---
 
-## 生成历史（可选，Supabase）
+## 可选：Supabase 持久化
 
-ManimCat 支持基于 Supabase 的持久化生成历史。数据库仅存储文字数据（提示词、生成的代码、元数据），**不存储**视频和图片文件。
+项目有两类可选持久化：
 
-### 设置
+- 生成历史：`ENABLE_HISTORY_DB=true`
+- Studio Agent 会话与工作流：`ENABLE_STUDIO_DB=true`
 
-1. 在 [supabase.com](https://supabase.com) 创建一个免费项目
-2. 在 Supabase SQL Editor 中运行迁移 SQL 脚本：
+公共连接配置：
 
-```sql
--- 文件: src/database/migrations/001_create_history.sql
--- 此脚本设置：
--- 1. history: 存储任务结果
--- 2. usage_stats: 存储持久化每日用量
--- 3. increment_usage: 原子计数器函数 (RPC)
-
-create table if not exists history (
-  id          uuid primary key default gen_random_uuid(),
-  client_id   text not null,
-  prompt      text not null,
-  code        text,
-  output_mode text not null check (output_mode in ('video', 'image')),
-  quality     text not null check (quality in ('low', 'medium', 'high')),
-  status      text not null check (status in ('completed', 'failed')),
-  error       text,
-  created_at  timestamptz not null default now()
-);
-create index if not exists idx_history_client_created on history (client_id, created_at desc);
-create index if not exists idx_history_status on history (status);
-
-create table if not exists usage_stats (
-  date               date primary key,
-  submitted_total    integer default 0,
-  submitted_generate integer default 0,
-  submitted_modify   integer default 0,
-  completed_total    integer default 0,
-  failed_total       integer default 0,
-  cancelled_total    integer default 0,
-  completed_video    integer default 0,
-  completed_image    integer default 0,
-  render_ms_sum      bigint default 0,
-  updated_at         timestamptz default now()
-);
-
-create or replace function increment_usage(
-  target_date date,
-  inc_submitted_total int default 0,
-  inc_submitted_generate int default 0,
-  inc_submitted_modify int default 0,
-  inc_completed_total int default 0,
-  inc_failed_total int default 0,
-  inc_cancelled_total int default 0,
-  inc_completed_video int default 0,
-  inc_completed_image int default 0,
-  inc_render_ms_sum bigint default 0
-)
-returns void
-language plpgsql
-security definer
-as $$
-begin
-  insert into usage_stats (date, submitted_total, submitted_generate, submitted_modify, completed_total, failed_total, cancelled_total, completed_video, completed_image, render_ms_sum)
-  values (target_date, inc_submitted_total, inc_submitted_generate, inc_submitted_modify, inc_completed_total, inc_failed_total, inc_cancelled_total, inc_completed_video, inc_completed_image, inc_render_ms_sum)
-  on conflict (date) do update
-  set
-    submitted_total    = usage_stats.submitted_total + excluded.submitted_total,
-    submitted_generate = usage_stats.submitted_generate + excluded.submitted_generate,
-    submitted_modify   = usage_stats.submitted_modify + excluded.submitted_modify,
-    completed_total    = usage_stats.completed_total + excluded.completed_total,
-    failed_total       = usage_stats.failed_total + excluded.failed_total,
-    cancelled_total    = usage_stats.cancelled_total + excluded.cancelled_total,
-    completed_video    = usage_stats.completed_video + excluded.completed_video,
-    completed_image    = usage_stats.completed_image + excluded.completed_image,
-    render_ms_sum      = usage_stats.render_ms_sum + excluded.render_ms_sum,
-    updated_at         = now();
-end;
-$$;
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-key
 ```
 
+### 生成历史
 
-3. 在 `.env` 中添加以下环境变量：
+先执行迁移：
+
+- `src/database/migrations/001_create_history.sql`
+
+如需渲染失败事件导出，再执行：
+
+- `src/database/migrations/002_create_render_failure_events.sql`
+
+对应变量：
 
 ```env
 ENABLE_HISTORY_DB=true
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-supabase-anon-key
-```
-
-当 `ENABLE_HISTORY_DB` 为 `false`（默认值）时，历史记录 API 返回空结果，不会建立数据库连接。
-
-## 可选：渲染失败事件导出
-
-如果你希望采集并导出“仅渲染失败”事件，请增加以下环境变量：
-
-```env
 ENABLE_RENDER_FAILURE_LOG=true
 ADMIN_EXPORT_TOKEN=replace_with_long_random_token
 ```
 
-说明：
-- 依赖数据库模式，并需要先执行迁移 `src/database/migrations/002_create_render_failure_events.sql`。
-- 导出接口：`GET /api/admin/render-failures/export`，请求头需携带 `x-admin-token`。
+导出接口：
+
+- `GET /api/admin/render-failures/export`
+- 请求头：`x-admin-token`
+
+### Studio Agent 持久化
+
+先执行迁移：
+
+- `src/database/migrations/003_create_studio_agent.sql`
+
+再开启：
+
+```env
+ENABLE_STUDIO_DB=true
+```
+
+---
+
+## 排查清单
+
+### 页面能开，但提交任务失败
+
+优先检查：
+
+- `MANIMCAT_ROUTE_*` 是否完整配置
+- 请求头里是否带了合法 Bearer key
+- 当前 key 对应的 `model` 是否为空
+
+### `/health` 里 `redis` 或 `queue` 不健康
+
+优先检查：
+
+- Redis 是否真的启动
+- `REDIS_HOST` / `REDIS_PORT` 是否匹配
+- Docker 部署时后端是否连到了容器内 `redis`
+
+### 容器能起，但 Space 一直构建失败
+
+优先检查：
+
+- Space SDK 是否选了 Docker
+- 是否把环境变量写到了 Space Settings
+- 是否错误照搬了旧文档里的 `Dockerfile.huggingface`
+

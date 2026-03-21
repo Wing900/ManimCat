@@ -8,6 +8,7 @@ import type {
   StudioWorkResultStore,
   StudioWorkStore
 } from '../domain/types'
+import type { StudioBlobStore } from '../storage/studio-blob-store'
 import { publishRenderFailureFeedback } from '../works/render-failure-feedback'
 import { syncRenderWorkFromTask } from '../works/render-work-sync'
 import { getBullJobStatus, getJobResult, getJobStage } from '../../services/job-store'
@@ -21,6 +22,7 @@ interface SyncStudioRenderTaskInput {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
   eventBus: StudioEventBus
+  blobStore?: StudioBlobStore
 }
 
 export async function syncStudioRenderTask(input: SyncStudioRenderTaskInput): Promise<void> {
@@ -116,7 +118,8 @@ async function publishRenderSync(
 ): Promise<void> {
   const synced = await syncRenderWorkFromTask({
     workStore: input.workStore,
-    workResultStore: input.workResultStore
+    workResultStore: input.workResultStore,
+    blobStore: input.blobStore
   }, task)
 
   if (!synced) {
