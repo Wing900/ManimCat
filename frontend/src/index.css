@@ -151,16 +151,25 @@ select option:checked {
 }
 
 @keyframes studio-entrance {
-  0% { opacity: 0; transform: scale(0.985); filter: blur(8px); }
+  0% { opacity: 0; transform: scale(0.98); filter: blur(12px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+}
+
+@keyframes classic-entrance {
+  0% { opacity: 0; transform: scale(1.02); filter: blur(8px); }
   100% { opacity: 1; transform: scale(1); filter: blur(0px); }
 }
 
 .animate-studio-entrance {
-  animation: studio-entrance 2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: studio-entrance 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-studio-exit {
-  animation: studio-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+  animation: studio-entrance 1.2s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+}
+
+.animate-classic-entrance {
+  animation: classic-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .studio-transition-enter {

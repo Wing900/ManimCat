@@ -39,6 +39,7 @@ function App() {
   const [studioTransitionVisible, setStudioTransitionVisible] = useState(false);
   const [studioIsExiting, setStudioIsExiting] = useState(false);
   const [studioShellExiting, setStudioShellExiting] = useState(false);
+  const [isReturningFromStudio, setIsReturningFromStudio] = useState(false);
   const [problemAdjustment, setProblemAdjustment] = useState('');
   const studioTransitionTimerRef = useRef<number | null>(null);
   const [lastRequest, setLastRequest] = useState<{
@@ -116,6 +117,7 @@ function App() {
     studioTransitionTimerRef.current = window.setTimeout(() => {
       setScreen('classic');
       setStudioShellExiting(false);
+      setIsReturningFromStudio(true); // 开启 Classic 入场动画
       
       studioTransitionTimerRef.current = window.setTimeout(() => {
         setStudioIsExiting(true);
@@ -123,6 +125,7 @@ function App() {
         studioTransitionTimerRef.current = window.setTimeout(() => {
           setStudioTransitionVisible(false);
           setStudioIsExiting(false);
+          setIsReturningFromStudio(false);
           studioTransitionTimerRef.current = null;
         }, STUDIO_EXIT_DELAY_MS);
       }, 300);
@@ -210,40 +213,42 @@ function App() {
   return (
     <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
       {screen === 'classic' ? (
-        <StudioPage
-          status={status}
-          result={result}
-          error={error}
-          jobId={jobId}
-          stage={stage}
-          concept={concept}
-          currentCode={currentCode}
-          isBusy={isBusy}
-          lastRequest={lastRequest}
-          onConceptChange={setConcept}
-          onSecretStudioOpen={handleOpenStudio}
-          onSubmit={handleSubmit}
-          onCodeChange={setCurrentCode}
-          onRerender={handleRerender}
-          onAiModifyOpen={() => setAiModifyOpen(true)}
-          onResetAll={resetAll}
-          onBackToHome={handleBackToHome}
-          onCancel={cancel}
-          onOpenDonation={() => setDonationOpen(true)}
-          onOpenProviders={() => setProvidersOpen(true)}
-          onOpenWorkspace={() => setWorkspaceOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenGame={handleOpenGame}
-          problemOpen={problemFraming.status !== 'idle'}
-          problemStatus={problemFraming.status === 'idle' ? 'loading' : problemFraming.status}
-          problemPlan={problemFraming.plan}
-          problemError={problemFraming.error}
-          problemAdjustment={problemAdjustment}
-          onProblemAdjustmentChange={setProblemAdjustment}
-          onProblemRetry={handleProblemRetry}
-          onProblemClose={handleProblemClose}
-          onProblemGenerate={handleProblemGenerate}
-        />
+        <div className={isReturningFromStudio ? 'animate-classic-entrance' : ''}>
+          <StudioPage
+            status={status}
+            result={result}
+            error={error}
+            jobId={jobId}
+            stage={stage}
+            concept={concept}
+            currentCode={currentCode}
+            isBusy={isBusy}
+            lastRequest={lastRequest}
+            onConceptChange={setConcept}
+            onSecretStudioOpen={handleOpenStudio}
+            onSubmit={handleSubmit}
+            onCodeChange={setCurrentCode}
+            onRerender={handleRerender}
+            onAiModifyOpen={() => setAiModifyOpen(true)}
+            onResetAll={resetAll}
+            onBackToHome={handleBackToHome}
+            onCancel={cancel}
+            onOpenDonation={() => setDonationOpen(true)}
+            onOpenProviders={() => setProvidersOpen(true)}
+            onOpenWorkspace={() => setWorkspaceOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenGame={handleOpenGame}
+            problemOpen={problemFraming.status !== 'idle'}
+            problemStatus={problemFraming.status === 'idle' ? 'loading' : problemFraming.status}
+            problemPlan={problemFraming.plan}
+            problemError={problemFraming.error}
+            problemAdjustment={problemAdjustment}
+            onProblemAdjustmentChange={setProblemAdjustment}
+            onProblemRetry={handleProblemRetry}
+            onProblemClose={handleProblemClose}
+            onProblemGenerate={handleProblemGenerate}
+          />
+        </div>
       ) : screen === 'studio' ? (
         <StudioShell onExit={handleExitStudio} isExiting={studioShellExiting} />
       ) : (
