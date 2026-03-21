@@ -22,23 +22,28 @@ const STAGE_CONFIG = {
 
 function usePerceivedProgress(stage: Stage): number {
   const [progress, setProgress] = useState(0);
-  const [prevStage, setPrevStage] = useState(stage);
-  const [stageStartProgress, setStageStartProgress] = useState(0);
-  const [enteredAt, setEnteredAt] = useState(Date.now());
+  const prevStageRef = useRef(stage);
+  const stageStartProgressRef = useRef(0);
+  const enteredAtRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (stage !== prevStage) {
-      setPrevStage(stage);
-      setEnteredAt(Date.now());
-      setStageStartProgress((current) => Math.max(current, progress, STAGE_CONFIG[stage].start));
+    if (enteredAtRef.current === null) {
+      enteredAtRef.current = Date.now();
     }
-  }, [stage, prevStage, progress]);
+
+    if (stage !== prevStageRef.current) {
+      prevStageRef.current = stage;
+      enteredAtRef.current = Date.now();
+      stageStartProgressRef.current = Math.max(stageStartProgressRef.current, progress, STAGE_CONFIG[stage].start);
+    }
+  }, [stage, progress]);
 
   useEffect(() => {
     const id = setInterval(() => {
+      const enteredAt = enteredAtRef.current ?? Date.now();
       const elapsed = (Date.now() - enteredAt) / 1000;
       const { target } = STAGE_CONFIG[stage];
-      const start = Math.max(stageStartProgress, STAGE_CONFIG[stage].start);
+      const start = Math.max(stageStartProgressRef.current, STAGE_CONFIG[stage].start);
       const range = Math.max(0, target - start);
       const quickGain = range * 0.72 * (1 - Math.exp(-elapsed / 5));
       const comfortGain = elapsed > 10 ? Math.floor((elapsed - 10) / 4) : 0;
@@ -46,7 +51,7 @@ function usePerceivedProgress(stage: Stage): number {
       setProgress((current) => Math.max(current, next));
     }, 120);
     return () => clearInterval(id);
-  }, [stage, enteredAt, stageStartProgress]);
+  }, [stage]);
 
   return Math.min(97, progress);
 }

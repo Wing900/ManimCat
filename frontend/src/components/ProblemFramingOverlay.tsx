@@ -6,7 +6,6 @@ import { useI18n } from '../i18n';
 interface ProblemFramingOverlayProps {
   open: boolean;
   status: 'loading' | 'ready' | 'error';
-  concept: string;
   plan: ProblemFramingPlan | null;
   error: string | null;
   adjustment: string;
@@ -86,7 +85,6 @@ function CanvasTransition() {
 export function ProblemFramingOverlay({
   open,
   status,
-  concept,
   plan,
   error,
   adjustment,
@@ -96,11 +94,67 @@ export function ProblemFramingOverlay({
   onGenerate,
   onClose,
 }: ProblemFramingOverlayProps) {
+  if (!open) {
+    return null;
+  }
+
+  const planKey = plan
+    ? `${status}-${plan.summary}-${plan.steps.map((step) => `${step.title}:${step.content}`).join('|')}`
+    : `empty-${status}`;
+
+  return (
+    <ProblemFramingOverlayContent
+      key={planKey}
+      status={status}
+      plan={plan}
+      error={error}
+      adjustment={adjustment}
+      generating={generating}
+      onAdjustmentChange={onAdjustmentChange}
+      onRetry={onRetry}
+      onGenerate={onGenerate}
+      onClose={onClose}
+    />
+  );
+}
+
+interface ProblemFramingOverlayContentProps {
+  status: 'loading' | 'ready' | 'error';
+  plan: ProblemFramingPlan | null;
+  error: string | null;
+  adjustment: string;
+  generating: boolean;
+  onAdjustmentChange: (value: string) => void;
+  onRetry: () => void;
+  onGenerate: () => void;
+  onClose: () => void;
+}
+
+function ProblemFramingOverlayContent({
+  status,
+  plan,
+  error,
+  adjustment,
+  generating,
+  onAdjustmentChange,
+  onRetry,
+  onGenerate,
+  onClose,
+}: ProblemFramingOverlayContentProps) {
   const { t } = useI18n();
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
-  const [draftSteps, setDraftSteps] = useState<Array<{ title: string; content: string }>>([]);
-  const [cardPositions, setCardPositions] = useState<CardPosition[]>([]);
+  const [draftSteps, setDraftSteps] = useState<Array<{ title: string; content: string }>>(() =>
+    plan ? plan.steps.map((step) => ({ title: step.title, content: step.content })) : []
+  );
+  const [cardPositions, setCardPositions] = useState<CardPosition[]>(() =>
+    plan
+      ? plan.steps.map((_, index) => {
+          const layout = CARD_LAYOUTS[index] || CARD_LAYOUTS[index % CARD_LAYOUTS.length];
+          return { x: layout.x, y: layout.y, rotate: layout.rotate };
+        })
+      : []
+  );
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const statusKey =
@@ -111,38 +165,8 @@ export function ProblemFramingOverlay({
         : 'problem.status.error';
 
   useEffect(() => {
-    if (!open) {
-      setConfirmDiscardOpen(false);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!plan) {
-      setDraftSteps([]);
-      setCardPositions([]);
-      setActiveStepIndex(null);
-      return;
-    }
-
-    setDraftSteps(plan.steps.map((step) => ({ title: step.title, content: step.content })));
-    setCardPositions(
-      plan.steps.map((_, index) => {
-        const layout = CARD_LAYOUTS[index] || CARD_LAYOUTS[index % CARD_LAYOUTS.length];
-        return { x: layout.x, y: layout.y, rotate: layout.rotate };
-      })
-    );
-    setActiveStepIndex(null);
-  }, [plan]);
-
-  useEffect(() => {
-    if (!open) {
-      dragStateRef.current = null;
-    }
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
+    dragStateRef.current = null;
+  }, []);
 
   const stepCount = plan?.steps.length || 4;
 
@@ -175,18 +199,13 @@ export function ProblemFramingOverlay({
   };
 
   const getRenderedPosition = (index: number, position: CardPosition): CardPosition => {
-    const canvas = canvasRef.current;
-
-    if (activeStepIndex === index && canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const maxXPercent = rect.width > 0 ? ((rect.width - EXPANDED_CARD.width) / rect.width) * 100 : 100;
-      const maxYPercent = rect.height > 0 ? ((rect.height - EXPANDED_CARD.height) / rect.height) * 100 : 100;
+    if (activeStepIndex === index) {
       const centeredX = position.x + (50 - position.x) * ACTIVE_CARD_CENTER_PULL;
       const centeredY = position.y + (44 - position.y) * ACTIVE_CARD_CENTER_PULL;
 
       return {
-        x: Math.max(2, Math.min(maxXPercent, centeredX)),
-        y: Math.max(3, Math.min(maxYPercent, centeredY)),
+        x: Math.max(2, Math.min(72, centeredX)),
+        y: Math.max(3, Math.min(58, centeredY)),
         rotate: 0,
       };
     }

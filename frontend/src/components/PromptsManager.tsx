@@ -2,7 +2,6 @@
  * 提示词管理器 - 简洁风格
  */
 
-import { useEffect, useState } from 'react';
 import { PromptSidebar } from './PromptSidebar';
 import { usePrompts } from '../hooks/usePrompts';
 import type { RoleType, SharedModuleType } from '../types/api';
@@ -28,21 +27,6 @@ export function PromptsManager({ isOpen, onClose }: Props) {
     restoreCurrent,
     hasOverride
   } = usePrompts();
-
-  const [shouldRender, setShouldRender] = useState(isOpen);
-  const [isVisible, setIsVisible] = useState(isOpen);
-
-  // 动画控制
-  useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true);
-      setTimeout(() => setIsVisible(true), 50);
-    } else {
-      setIsVisible(false);
-      const timeout = setTimeout(() => setShouldRender(false), 300);
-      return () => clearTimeout(timeout);
-    }
-  }, [isOpen]);
 
   // 获取当前标题
   const getTitle = () => {
@@ -81,7 +65,7 @@ export function PromptsManager({ isOpen, onClose }: Props) {
       : t('prompts.shared.rulesDescription');
   };
 
-  if (!shouldRender) return null;
+  if (!isOpen) return null;
 
   const content = getCurrentContent();
   const isModified = hasOverride();
@@ -89,7 +73,7 @@ export function PromptsManager({ isOpen, onClose }: Props) {
   return (
     <div
       className={`fixed inset-0 z-50 flex flex-col bg-bg-primary transition-all duration-300 ${
-        isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        'opacity-100'
       }`}
     >
       {/* 顶栏 */}

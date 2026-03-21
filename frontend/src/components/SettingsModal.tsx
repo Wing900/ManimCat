@@ -1,5 +1,3 @@
-// 设置模态框 - MD3 风格
-
 import type { SettingsConfig } from '../types/api';
 import { FloatingInput } from './settings-modal/FloatingInput';
 import { TestResultBanner } from './settings-modal/test-result-banner';
@@ -14,7 +12,15 @@ interface SettingsModalProps {
   onSave: (config: SettingsConfig) => void;
 }
 
-export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
+export function SettingsModal(props: SettingsModalProps) {
+  if (!props.isOpen) {
+    return null;
+  }
+
+  return <SettingsModalContent {...props} />;
+}
+
+function SettingsModalContent({ isOpen, onClose, onSave }: SettingsModalProps) {
   const { t } = useI18n();
   const { shouldRender, isExiting } = useModalTransition(isOpen);
   const {
@@ -25,21 +31,19 @@ export function SettingsModal({ isOpen, onClose, onSave }: SettingsModalProps) {
     updateManimcatApiKey,
     updateVideoConfig,
     handleTestBackend,
-  } = useSettingsModal({ isOpen, onSave });
+  } = useSettingsModal({ onSave });
 
   if (!shouldRender) return null;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      {/* 沉浸式背景 */}
-      <div 
+      <div
         className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md transition-opacity duration-300 ${
           isExiting ? 'opacity-0' : 'animate-overlay-wash-in'
-        }`} 
-        onClick={onClose} 
+        }`}
+        onClick={onClose}
       />
 
-      {/* 模态框主体 */}
       <div className={`relative bg-bg-secondary rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-border/5 ${
         isExiting ? 'animate-fade-out-soft' : 'animate-fade-in-soft'
       }`}>

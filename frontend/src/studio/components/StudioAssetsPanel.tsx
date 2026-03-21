@@ -1,9 +1,15 @@
-import type { StudioFileAttachment, StudioRun, StudioSession, StudioWork, StudioWorkResult } from '../protocol/studio-agent-types'
-import { formatStudioTime, studioStatusBadge } from '../theme'
+import type { StudioFileAttachment, StudioRun, StudioSession, StudioTask, StudioWork, StudioWorkResult } from '../protocol/studio-agent-types'
+import { formatStudioTime, studioStatusBadge, truncateStudioText } from '../theme'
+
+interface StudioWorkListItem {
+  work: StudioWork
+  latestTask: StudioTask | null
+  result: StudioWorkResult | null
+}
 
 interface StudioAssetsPanelProps {
   session: StudioSession | null
-  works: StudioWork[]
+  works: StudioWorkListItem[]
   selectedWorkId: string | null
   work: StudioWork | null
   result: StudioWorkResult | null
@@ -25,7 +31,10 @@ export function StudioAssetsPanel({
   return (
     <aside className="flex w-[360px] shrink-0 flex-col gap-6 px-6 pb-6 pt-8 shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.04)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.2)]">
       <div>
-        <div className="text-[10px] uppercase tracking-[0.34em] text-text-secondary/45">预览区</div>
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase tracking-[0.34em] text-text-secondary/45">预览区</div>
+          <span className="studio-paw-float text-sm opacity-30">🐾</span>
+        </div>
         <div className="mt-3 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-medium text-text-primary/90">{work?.title ?? '等待产出'}</h2>
@@ -63,7 +72,8 @@ export function StudioAssetsPanel({
         </div>
 
         <div className="mt-4 space-y-1.5">
-          {works.map((item) => {
+          {works.map((entry) => {
+            const { work: item, latestTask, result: itemResult } = entry
             const selected = item.id === selectedWorkId
             return (
               <button
@@ -84,6 +94,10 @@ export function StudioAssetsPanel({
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${studioStatusBadge(item.status)}`}>
                     {translateWorkStatus(item.status)}
                   </span>
+                </div>
+                <div className="mt-2 space-y-1 text-[11px] leading-5 text-text-secondary/58">
+                  <div>{latestTask ? `Task: ${truncateStudioText(latestTask.title, 42)}` : 'Task: waiting'}</div>
+                  <div className="text-text-primary/64">{itemResult ? truncateStudioText(itemResult.summary, 54) : 'Result: pending'}</div>
                 </div>
               </button>
             )

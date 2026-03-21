@@ -1,6 +1,6 @@
 // 支持作者对话框组件
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useI18n } from '../i18n';
 import { useModalTransition } from '../hooks/useModalTransition';
 
@@ -17,13 +17,6 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
   const { shouldRender, isExiting } = useModalTransition(isOpen);
   const [showQR, setShowQR] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setShowQR(false);
-      setImgLoaded(false);
-    }
-  }, [isOpen]);
 
   if (!shouldRender) return null;
 

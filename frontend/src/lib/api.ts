@@ -12,7 +12,7 @@ import type {
   ProblemFramingResponse
 } from '../types/api';
 import { loadSettings } from './settings';
-import { localizeApiMessage, translate } from '../i18n';
+import { localizeApiMessage, translate } from '../i18n/runtime';
 
 const API_BASE = '/api';
 

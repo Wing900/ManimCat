@@ -2,7 +2,7 @@
  * 工作空间 - 合并 历史记录 / 提示词管理 / 用量统计
  */
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { HistoryPanel } from './HistoryPanel';
 import { usePrompts } from '../hooks/usePrompts';
 import { PromptSidebar } from './PromptSidebar';
@@ -43,7 +43,7 @@ export function Workspace({ isOpen, onClose, initialModule = 'history', onReuseP
     usage: t('workspace.breadcrumb.usage'),
   };
 
-  const railItems: { id: WorkspaceModule; label: string; icon: JSX.Element }[] = [
+  const railItems: { id: WorkspaceModule; label: string; icon: ReactNode }[] = [
     {
       id: 'history',
       label: t('workspace.rail.history'),

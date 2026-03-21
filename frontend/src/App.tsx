@@ -50,12 +50,6 @@ function App() {
   } | null>(null);
 
   useEffect(() => {
-    if (result?.code) {
-      setCurrentCode(result.code);
-    }
-  }, [result?.code]);
-
-  useEffect(() => {
     return () => {
       if (studioTransitionTimerRef.current) {
         window.clearTimeout(studioTransitionTimerRef.current);
@@ -162,6 +156,7 @@ function App() {
     const problemPlan = problemFraming.plan;
     setLastRequest(draft);
     setConcept(draft.concept);
+    setCurrentCode('');
     setProblemAdjustment('');
     problemFraming.reset();
     generate({ ...draft, problemPlan });
@@ -173,15 +168,18 @@ function App() {
   };
 
   const handleRerender = () => {
-    if (!lastRequest || !currentCode.trim()) {
+    const code = currentCode.trim() || result?.code?.trim() || '';
+    if (!lastRequest || !code) {
       return;
     }
 
-    renderWithCode({ ...lastRequest, code: currentCode });
+    setCurrentCode('');
+    renderWithCode({ ...lastRequest, code });
   };
 
   const handleAiModifySubmit = () => {
-    if (!lastRequest || !currentCode.trim()) {
+    const code = currentCode.trim() || result?.code?.trim() || '';
+    if (!lastRequest || !code) {
       return;
     }
 
@@ -192,12 +190,13 @@ function App() {
 
     setAiModifyOpen(false);
     setAiModifyInput('');
+    setCurrentCode('');
     modifyWithAI({
       concept: lastRequest.concept,
       outputMode: lastRequest.outputMode,
       quality: lastRequest.quality,
       instructions,
-      code: currentCode,
+      code,
     });
   };
 
@@ -221,7 +220,7 @@ function App() {
             jobId={jobId}
             stage={stage}
             concept={concept}
-            currentCode={currentCode}
+            currentCode={currentCode || result?.code || ''}
             isBusy={isBusy}
             lastRequest={lastRequest}
             onConceptChange={setConcept}
@@ -276,10 +275,10 @@ function App() {
         }
       `}</style>
 
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
-      <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
-      <ProviderConfigModal isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
-      <Workspace isOpen={workspaceOpen} onClose={() => setWorkspaceOpen(false)} />
+      <SettingsModal key={`settings-${settingsOpen ? 'open' : 'closed'}`} isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
+      <DonationModal key={`donation-${donationOpen ? 'open' : 'closed'}`} isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
+      <ProviderConfigModal key={`providers-${providersOpen ? 'open' : 'closed'}`} isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={(config) => console.log(t('app.settingsSaved'), config)} />
+      <Workspace key={`workspace-${workspaceOpen ? 'open' : 'closed'}`} isOpen={workspaceOpen} onClose={() => setWorkspaceOpen(false)} />
       <AiModifyModal
         isOpen={aiModifyOpen}
         value={aiModifyInput}

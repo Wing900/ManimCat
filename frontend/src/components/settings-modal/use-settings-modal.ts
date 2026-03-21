@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SettingsConfig } from '../../types/api';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../lib/settings';
+import { loadSettings, saveSettings } from '../../lib/settings';
 import { getActiveProvider, providerToCustomApiConfig } from '../../lib/ai-providers';
 import type { TabType, TestResult } from './types';
 import { useI18n } from '../../i18n';
 
 interface UseSettingsModalParams {
-  isOpen: boolean;
   onSave: (config: SettingsConfig) => void;
 }
 
@@ -20,27 +19,14 @@ interface UseSettingsModalResult {
   handleTestBackend: () => Promise<void>;
 }
 
-export function useSettingsModal({ isOpen, onSave }: UseSettingsModalParams): UseSettingsModalResult {
+export function useSettingsModal({ onSave }: UseSettingsModalParams): UseSettingsModalResult {
   const { t } = useI18n();
-  const [config, setConfig] = useState<SettingsConfig>(DEFAULT_SETTINGS);
+  const [config, setConfig] = useState<SettingsConfig>(() => loadSettings());
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<TabType>('api');
   const autoSaveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    setConfig(loadSettings());
-    setTestResult({ status: 'idle', message: '' });
-    setActiveTab('api');
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
@@ -56,7 +42,7 @@ export function useSettingsModal({ isOpen, onSave }: UseSettingsModalParams): Us
         autoSaveTimerRef.current = null;
       }
     };
-  }, [config, isOpen, onSave]);
+  }, [config, onSave]);
 
   const updateManimcatApiKey = (value: string) => {
     setConfig((prev) => ({ ...prev, api: { ...prev.api, manimcatApiKey: value } }));
@@ -92,13 +78,13 @@ export function useSettingsModal({ isOpen, onSave }: UseSettingsModalParams): Us
       const duration = Math.round(performance.now() - startTime);
 
       if (response.ok) {
-        const payload = await response.json().catch(() => null);
-        const warning = payload && typeof payload === 'object' && 'warning' in payload ? String((payload as any).warning) : '';
+        const payload = (await response.json().catch(() => null)) as { warning?: unknown } | null;
+        const warning = payload && typeof payload.warning === 'string' ? payload.warning : '';
 
         setTestResult({
           status: 'success',
           message: warning ? `${t('settings.test.success', { duration })} — ${warning}` : t('settings.test.success', { duration }),
-          details: { statusCode: response.status, statusText: response.statusText, duration, warning: warning || undefined },
+          details: { statusCode: response.status, statusText: response.statusText, duration },
         });
         return;
       }

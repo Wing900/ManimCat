@@ -232,6 +232,17 @@ select option:checked {
   50% { opacity: 0; }
 }
 
+/* Studio 猫爪轻浮动 */
+@keyframes studio-paw-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-3px) rotate(3deg); }
+}
+
+.studio-paw-float {
+  animation: studio-paw-float 3s ease-in-out infinite;
+  display: inline-block;
+}
+
 .studio-cursor {
   animation: blink-cursor 1s step-end infinite;
   color: rgba(var(--text-secondary-rgb), 0.4);

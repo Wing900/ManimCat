@@ -1,6 +1,6 @@
 // 输入表单组件 - MD3 风格
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { OutputMode, Quality, ReferenceImage } from '../types/api';
 import { loadSettings } from '../lib/settings';
 import { FormToolbar } from './input-form/form-toolbar';
@@ -22,7 +22,7 @@ interface InputFormProps {
 }
 
 const STUDIO_KEYWORD = 'hellocats';
-const TRIGGER_DELAY_MS = 1600;
+const TRIGGER_DELAY_MS = 1200;
 
 export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubmit, loading }: InputFormProps) {
   const { t } = useI18n();
@@ -47,6 +47,17 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
     handleDragLeave,
   } = useReferenceImages();
 
+  const derivedError = useMemo(() => {
+    const trimmed = concept.trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (trimmed.length < 5) {
+      return t('form.error.minLengthShort');
+    }
+    return null;
+  }, [concept, t]);
+
   const handleSubmit = useCallback(() => {
     if (concept.trim().length < 5) {
       setLocalError(t('form.error.minLength'));
@@ -70,46 +81,6 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
     }
   };
 
-  useEffect(() => {
-    const normalizedConcept = concept.trim().toLowerCase();
-
-    if (normalizedConcept === STUDIO_KEYWORD && !loading) {
-      if (!studioKeywordTriggeredRef.current) {
-        studioKeywordTriggeredRef.current = true;
-        setIsRecognizing(true);
-        
-        // 增加启动反应时间
-        triggerTimerRef.current = window.setTimeout(() => {
-          onSecretStudioOpen?.();
-          setIsRecognizing(false);
-        }, TRIGGER_DELAY_MS);
-      }
-      return;
-    }
-
-    // 如果中途输错了，取消触发
-    if (studioKeywordTriggeredRef.current && normalizedConcept !== STUDIO_KEYWORD) {
-      studioKeywordTriggeredRef.current = false;
-      setIsRecognizing(false);
-      if (triggerTimerRef.current) {
-        clearTimeout(triggerTimerRef.current);
-        triggerTimerRef.current = null;
-      }
-    }
-
-    if (concept.trim().length === 0) {
-      setLocalError(null);
-      return;
-    }
-
-    if (concept.trim().length < 5) {
-      setLocalError(t('form.error.minLengthShort'));
-      return;
-    }
-
-    setLocalError(null);
-  }, [concept, loading, onSecretStudioOpen, t]);
-
   // 组件卸载时清理定时器
   useEffect(() => {
     return () => {
@@ -120,6 +91,34 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     handleSubmit();
+  };
+
+  const handleConceptChange = (value: string) => {
+    onConceptChange(value);
+
+    const normalizedConcept = value.trim().toLowerCase();
+    if (normalizedConcept === STUDIO_KEYWORD && !loading) {
+      if (!studioKeywordTriggeredRef.current) {
+        studioKeywordTriggeredRef.current = true;
+        setIsRecognizing(true);
+        triggerTimerRef.current = window.setTimeout(() => {
+          onSecretStudioOpen?.();
+          setIsRecognizing(false);
+        }, TRIGGER_DELAY_MS);
+      }
+      return;
+    }
+
+    if (studioKeywordTriggeredRef.current && normalizedConcept !== STUDIO_KEYWORD) {
+      studioKeywordTriggeredRef.current = false;
+      setIsRecognizing(false);
+      if (triggerTimerRef.current) {
+        clearTimeout(triggerTimerRef.current);
+        triggerTimerRef.current = null;
+      }
+    }
+
+    setLocalError(null);
   };
 
   return (
@@ -135,10 +134,10 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
           <label
             htmlFor="concept"
             className={`absolute left-4 -top-2.5 px-2 bg-bg-primary text-xs font-medium transition-all z-10 ${
-              isDragging || isRecognizing ? 'text-accent' : localError ? 'text-red-500' : 'text-text-secondary'
+              isDragging || isRecognizing ? 'text-accent' : (localError || derivedError) ? 'text-red-500' : 'text-text-secondary'
             }`}
           >
-            {isDragging ? t('form.label.dragging') : isRecognizing ? '暗号确认中...' : localError ? localError : t('form.label.default')}
+            {isDragging ? t('form.label.dragging') : isRecognizing ? '暗号确认中...' : localError || derivedError || t('form.label.default')}
           </label>
           <textarea
             ref={textareaRef}
@@ -148,14 +147,14 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
             placeholder={t('form.placeholder')}
             disabled={loading || isRecognizing}
             value={concept}
-            onChange={(e) => onConceptChange(e.target.value)}
+            onChange={(e) => handleConceptChange(e.target.value)}
             onKeyDown={handleTextareaKeyDown}
             className={`w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 transition-all resize-none ${
               isDragging
                 ? 'ring-2 ring-accent/50 bg-accent/5 border-2 border-dashed border-accent/30'
                 : isRecognizing
                   ? 'ring-2 ring-accent/40 bg-accent/[0.03] animate-pulse'
-                  : localError
+                  : (localError || derivedError)
                     ? 'focus:ring-red-500/20 bg-red-50/50 dark:bg-red-900/10'
                     : 'focus:ring-accent/20 focus:bg-bg-secondary/70'
             }`}

@@ -4,7 +4,8 @@ import { loadSettings } from '../lib/settings';
 import { getActiveProvider, providerToCustomApiConfig } from '../lib/ai-providers';
 import { loadPrompts } from './usePrompts';
 import type { GenerateRequest, JobResult, ProcessingStage, ModifyRequest } from '../types/api';
-import { localizeApiMessage, useI18n } from '../i18n';
+import { useI18n } from '../i18n';
+import { localizeApiMessage } from '../i18n/runtime';
 
 interface UseGenerationReturn {
   status: 'idle' | 'processing' | 'completed' | 'error';

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ImageLightbox } from './image-preview/lightbox';
 import { useImageDownload } from './image-preview/use-image-download';
 import { useI18n } from '../i18n';
@@ -13,18 +13,8 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const { isDownloadingSingle, isDownloadingAll, handleDownloadAll, handleDownloadSingle } = useImageDownload(imageUrls);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [imageUrls.join('|')]);
-
-  useEffect(() => {
-    if (!isLightboxOpen) {
-      setZoom(1);
-    }
-  }, [isLightboxOpen]);
-
-  const activeImage = imageUrls[activeIndex];
+  const safeActiveIndex = Math.min(activeIndex, Math.max(0, imageUrls.length - 1));
+  const activeImage = imageUrls[safeActiveIndex];
   const hasImages = imageUrls.length > 0;
 
   return (
@@ -43,7 +33,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             {t('image.openLightbox')}
           </button>
           <button
-            onClick={() => void handleDownloadSingle(activeImage, activeIndex)}
+            onClick={() => void handleDownloadSingle(activeImage, safeActiveIndex)}
             disabled={!hasImages || isDownloadingSingle || isDownloadingAll}
             className="text-xs text-text-secondary/70 hover:text-accent transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -73,7 +63,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
             className="w-full h-full cursor-zoom-in"
             title={t('image.openTitle')}
           >
-            <img src={activeImage} alt={t('image.itemAlt', { index: activeIndex + 1 })} className="w-full h-full object-contain" />
+            <img src={activeImage} alt={t('image.itemAlt', { index: safeActiveIndex + 1 })} className="w-full h-full object-contain" />
           </button>
         ) : (
           <p className="text-xs text-text-secondary/60">{t('image.empty')}</p>
@@ -89,7 +79,7 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
                 type="button"
                 onClick={() => setActiveIndex(index)}
                 className={`shrink-0 rounded-md overflow-hidden border transition-all ${
-                  index === activeIndex ? 'border-accent' : 'border-border/50 opacity-80 hover:opacity-100'
+                  index === safeActiveIndex ? 'border-accent' : 'border-border/50 opacity-80 hover:opacity-100'
                 }`}
               >
                 <img
@@ -106,12 +96,15 @@ export function ImagePreview({ imageUrls }: ImagePreviewProps) {
       <ImageLightbox
         isOpen={isLightboxOpen}
         activeImage={activeImage}
-        activeIndex={activeIndex}
+        activeIndex={safeActiveIndex}
         total={imageUrls.length}
         zoom={zoom}
         onZoomOut={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
         onZoomIn={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 10) / 10))}
-        onClose={() => setIsLightboxOpen(false)}
+        onClose={() => {
+          setIsLightboxOpen(false);
+          setZoom(1);
+        }}
       />
     </div>
   );

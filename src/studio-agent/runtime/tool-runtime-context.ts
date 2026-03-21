@@ -5,6 +5,7 @@ import type {
   StudioSessionStore,
   StudioToolContext
 } from '../domain/types'
+import type { CustomApiConfig } from '../../types'
 
 export interface StudioSubagentRunRequest {
   projectId: string
@@ -15,6 +16,7 @@ export interface StudioSubagentRunRequest {
   subagentType: 'reviewer' | 'designer'
   skillName?: string
   files?: string[]
+  customApiConfig?: CustomApiConfig
 }
 
 export interface StudioSubagentRunResult {

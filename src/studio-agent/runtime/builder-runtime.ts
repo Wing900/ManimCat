@@ -1,3 +1,4 @@
+import type { CustomApiConfig } from '../../types'
 import type {
   StudioAssistantMessage,
   StudioEventBus,
@@ -75,12 +76,14 @@ export class StudioBuilderRuntime {
     run: StudioRun
     assistantMessage: StudioAssistantMessage
     plan: StudioRuntimeTurnPlan
+    customApiConfig?: CustomApiConfig
   }): Promise<void> {
     await this.runner.runWithPlan({
       projectId: input.projectId,
       session: input.session,
       inputText: input.run.inputText,
-      plan: input.plan
+      plan: input.plan,
+      customApiConfig: input.customApiConfig
     })
   }
 
@@ -88,6 +91,7 @@ export class StudioBuilderRuntime {
     projectId: string
     session: StudioSession
     inputText: string
+    customApiConfig?: CustomApiConfig
   }): Promise<StudioSubagentRunResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
     return this.runner.run(input)
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AIProvider, AIProviderType, CustomApiConfig, SettingsConfig } from '../types/api';
 import { loadSettings, saveSettings } from '../lib/settings';
 import { GOOGLE_OPENAI_COMPAT_URL, OPENAI_DEFAULT_URL } from '../lib/ai-providers';
@@ -156,7 +156,7 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
     setMetadataError(null);
     setDeleteDialogOpen(false);
     setTestDialogOpen(false);
-  }, [isOpen, selectedProvider?.id]);
+  }, [isOpen, selectedProvider]);
 
   useEffect(() => {
     if (!isOpen || !selectedProvider) {
@@ -166,7 +166,7 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
       return;
     }
     setMetadataText(JSON.stringify(toProviderMetadataJson(selectedProvider), null, 2));
-  }, [isOpen, selectedProvider?.id, selectedProvider?.apiUrl, selectedProvider?.apiKey, selectedProvider?.model]);
+  }, [isOpen, selectedProvider]);
 
   const setActiveProvider = (id: string) => {
     const isAlreadyActive = config.api.activeProviderId === id;
@@ -252,7 +252,7 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
     }, 400);
   };
 
-  const fetchModelsForSelectedProvider = async (provider: AIProvider) => {
+  const fetchModelsForSelectedProvider = useCallback(async (provider: AIProvider) => {
     const manimcatKey = config.api.manimcatApiKey.trim();
     if (!manimcatKey) {
       return;
@@ -284,7 +284,7 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
     } finally {
       setFetchingModels(false);
     }
-  };
+  }, [config.api.manimcatApiKey]);
 
   useEffect(() => {
     if (!isOpen || !selectedProvider) {
@@ -305,7 +305,7 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
         modelFetchTimerRef.current = null;
       }
     };
-  }, [isOpen, selectedProvider?.id, selectedProvider?.apiUrl, selectedProvider?.apiKey]);
+  }, [fetchModelsForSelectedProvider, isOpen, selectedProvider]);
 
   const handleTest = async () => {
     setTestDialogOpen(true);

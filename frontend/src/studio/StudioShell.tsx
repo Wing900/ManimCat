@@ -34,7 +34,7 @@ export function StudioShell({ onExit, isExiting }: StudioShellProps) {
       <div className="relative flex min-h-screen overflow-hidden backdrop-blur-[2px]">
         <StudioAssetsPanel
           session={studio.session}
-          works={studio.works}
+          works={studio.workSummaries}
           selectedWorkId={effectiveSelectedWorkId}
           work={selected.work}
           result={selected.result}
@@ -62,6 +62,7 @@ export function StudioShell({ onExit, isExiting }: StudioShellProps) {
           latestQuestion={studio.latestQuestion}
           snapshotStatus={studio.state.connection.snapshotStatus}
           eventStatus={studio.state.connection.eventStatus}
+          errorMessage={studio.state.error ?? studio.state.connection.eventError}
           onReply={studio.replyPermission}
           onRefresh={studio.refresh}
         />

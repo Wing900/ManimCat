@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import JSZip from 'jszip';
 import { useI18n } from '../../i18n';
 
@@ -29,12 +29,12 @@ export function useImageDownload(imageUrls: string[]): UseImageDownloadResult {
   const { t } = useI18n();
   const [isDownloadingSingle, setIsDownloadingSingle] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
-
-  const timestampPrefix = useMemo(() => {
+  void imageUrls.length;
+  const [timestampPrefix] = useState(() => {
     const now = new Date();
     const pad = (value: number) => String(value).padStart(2, '0');
     return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  }, [imageUrls.join('|')]);
+  });
 
   const handleDownloadSingle = async (activeImage: string | undefined, activeIndex: number) => {
     if (!activeImage || isDownloadingSingle) {

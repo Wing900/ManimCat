@@ -137,7 +137,6 @@ export function StudioPage({
       <ProblemFramingOverlay
         open={problemOpen}
         status={problemStatus}
-        concept={concept}
         plan={problemPlan}
         error={problemError}
         adjustment={problemAdjustment}

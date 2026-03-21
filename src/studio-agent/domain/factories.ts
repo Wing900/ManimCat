@@ -14,6 +14,7 @@ import type {
   StudioTaskType,
   StudioTextPart,
   StudioToolPart,
+  StudioUserMessage,
   StudioWork,
   StudioWorkResult,
   StudioWorkResultKind,
@@ -147,6 +148,21 @@ export function createStudioAssistantMessage(input: {
     role: 'assistant',
     agent: input.agent,
     parts: [],
+    createdAt: timestamp,
+    updatedAt: timestamp
+  }
+}
+
+export function createStudioUserMessage(input: {
+  sessionId: string
+  text: string
+}): StudioUserMessage {
+  const timestamp = nowIso()
+  return {
+    id: `msg_${randomUUID()}`,
+    sessionId: input.sessionId,
+    role: 'user',
+    text: input.text,
     createdAt: timestamp,
     updatedAt: timestamp
   }

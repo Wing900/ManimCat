@@ -7,6 +7,7 @@ import {
   sendStudioError,
   sendStudioSuccess
 } from './helpers/studio-agent-responses'
+import { parseStudioCreateRunRequest } from './helpers/studio-agent-run-request'
 
 const router = express.Router()
 
@@ -119,11 +120,10 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
 }))
 
 router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) => {
-  const sessionId = typeof req.body.sessionId === 'string' ? req.body.sessionId.trim() : ''
-  const inputText = typeof req.body.inputText === 'string' ? req.body.inputText : ''
-  const projectId = typeof req.body.projectId === 'string' && req.body.projectId.trim()
-    ? req.body.projectId.trim()
-    : 'default-project'
+  const parsed = parseStudioCreateRunRequest(req.body)
+  const sessionId = parsed.sessionId
+  const inputText = parsed.inputText
+  const projectId = parsed.projectId ?? 'default-project'
 
   if (!sessionId || !inputText.trim()) {
     return sendStudioError(res, 400, 'INVALID_INPUT', 'sessionId and inputText are required')
@@ -137,7 +137,8 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
   const result = await studioRuntime.runtime.run({
     projectId,
     session,
-    inputText
+    inputText,
+    customApiConfig: parsed.customApiConfig
   })
 
   await studioRuntime.syncSession(session.id)

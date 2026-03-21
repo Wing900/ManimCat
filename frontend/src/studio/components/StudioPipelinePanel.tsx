@@ -6,7 +6,7 @@ import type {
   StudioWork,
   StudioWorkResult,
 } from '../protocol/studio-agent-types'
-import type { StudioReviewMetadata } from '../protocol/studio-review-types'
+import type { StudioReviewViewModel } from '../store/studio-selectors'
 import { formatStudioTime, studioSeverityBadge, truncateStudioText } from '../theme'
 import { StudioPermissionPanel } from './StudioPermissionPanel'
 import { StudioTaskTimeline } from './StudioTaskTimeline'
@@ -16,13 +16,14 @@ interface StudioPipelinePanelProps {
   work: StudioWork | null
   result: StudioWorkResult | null
   tasks: StudioTask[]
-  review: StudioReviewMetadata | null
+  review: StudioReviewViewModel | null
   requests: StudioPermissionRequest[]
   replyingPermissionIds: Record<string, boolean>
   latestAssistantText: string
   latestQuestion: { question: string; details?: string } | null
   snapshotStatus: 'idle' | 'loading' | 'ready' | 'error'
   eventStatus: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
+  errorMessage?: string | null
   onReply: (requestId: string, reply: StudioPermissionDecision) => Promise<void> | void
   onRefresh: () => Promise<void> | void
 }
@@ -39,10 +40,11 @@ export function StudioPipelinePanel({
   latestQuestion,
   snapshotStatus,
   eventStatus,
+  errorMessage,
   onReply,
   onRefresh,
 }: StudioPipelinePanelProps) {
-  const findings = review?.findings ?? review?.review?.findings ?? []
+  const findings = review?.findings ?? []
   const activeTask =
     [...tasks].reverse().find((task) => task.status === 'running' || task.status === 'queued' || task.status === 'pending_confirmation') ??
     tasks.at(-1) ??
@@ -54,7 +56,10 @@ export function StudioPipelinePanel({
       <section>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-text-secondary/45">执行区</div>
+            <div className="flex items-center gap-2">
+              <div className="text-[10px] uppercase tracking-[0.3em] text-text-secondary/45">执行区</div>
+              <span className="studio-paw-float text-sm opacity-30" style={{ animationDelay: '1.5s' }}>🐾</span>
+            </div>
             <div className="mt-2 text-base font-medium text-text-primary/88">{work?.title ?? '等待执行目标'}</div>
           </div>
           <button
@@ -83,6 +88,16 @@ export function StudioPipelinePanel({
             <div className="text-[10px] uppercase tracking-[0.3em] text-amber-700/65 dark:text-amber-400/65">待确认问题</div>
             <div className="mt-3 text-sm leading-7 text-text-primary/86">{latestQuestion.question}</div>
             {latestQuestion.details && <div className="mt-2 text-xs leading-6 text-text-secondary/62">{latestQuestion.details}</div>}
+          </section>
+          <SectionDivider />
+        </>
+      )}
+
+      {errorMessage && (
+        <>
+          <section className="border-l-2 border-rose-500/40 pl-4">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-rose-700/65 dark:text-rose-400/65">状态异常</div>
+            <div className="mt-3 text-sm leading-7 text-text-primary/86">{errorMessage}</div>
           </section>
           <SectionDivider />
         </>
