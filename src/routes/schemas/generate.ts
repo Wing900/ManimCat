@@ -28,5 +28,6 @@ export const generateBodySchema = z.object({
   code: z.string().optional(),
   customApiConfig: customApiConfigSchema.optional(),
   promptOverrides: promptOverridesSchema.optional(),
-  videoConfig: videoConfigSchema.optional()
+  videoConfig: videoConfigSchema.optional(),
+  renderCacheKey: z.string().min(1).optional()
 })

@@ -1,5 +1,4 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { createLogger } from '../../../utils/logger'
 import { cleanManimCode } from '../../../utils/manim-code-cleaner'
@@ -9,6 +8,7 @@ import { createRetryContext, executeCodeRetry } from '../../../services/code-ret
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import { JobCancelledError } from '../../../utils/errors'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
+import { resolveRenderCacheWorkspace } from '../../../utils/render-cache-workspace'
 import {
   createRenderFailureEvent,
   extractCodeSnippet,
@@ -119,7 +119,7 @@ async function renderImageBlocks(
   code: string,
   frameRate: number,
   timeoutMs: number,
-  tempDir: string,
+  renderCacheKey: string,
   outputDir: string
 ): Promise<ImageRenderAttempt> {
   try {
@@ -133,7 +133,6 @@ async function renderImageBlocks(
 
     const imageUrls: string[] = []
     let peakMemoryMB = 0
-    const attemptSuffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
 
     for (const block of blocks) {
       await ensureJobNotCancelled(jobId)
@@ -141,11 +140,10 @@ async function renderImageBlocks(
       const stageName = `image-render-${block.index}`
       logger.info('Image render stage started', { jobId, stage: stageName, blockIndex: block.index })
 
-      const blockDir = path.join(tempDir, `attempt-${attemptSuffix}`, `image-${block.index}`)
-      const mediaDir = path.join(blockDir, 'media')
-      const codeFile = path.join(blockDir, 'scene.py')
-
-      fs.mkdirSync(mediaDir, { recursive: true })
+      const blockWorkspace = resolveRenderCacheWorkspace(renderCacheKey, 'image', block.index)
+      const blockDir = blockWorkspace.tempDir
+      const mediaDir = blockWorkspace.mediaDir
+      const codeFile = blockWorkspace.codeFile
 
       const cleaned = cleanManimCode(block.code)
       const sceneName = detectSceneName(cleaned.code)
@@ -233,13 +231,14 @@ export async function renderImages(
   promptOverrides?: PromptOverrides,
   onStageUpdate?: () => Promise<void>,
   clientId?: string,
-  workspaceDirectory?: string
+  workspaceDirectory?: string,
+  renderCacheKey?: string
 ): Promise<RenderResult> {
   const { manimCode, usedAI, generationType, sceneDesign } = codeResult
   const frameRate = videoConfig?.frameRate || 15
   const timeoutMs = resolveJobTimeoutMs(videoConfig)
 
-  const tempDir = path.join(os.tmpdir(), `manim-${jobId}`)
+  const stableRenderCacheKey = renderCacheKey || workspaceDirectory || `job-${jobId}`
   const outputDir = path.join(process.cwd(), 'public', 'images')
 
   const logRenderFailure = async (args: {
@@ -281,114 +280,105 @@ export async function renderImages(
     }
   }
 
-  try {
-    fs.mkdirSync(tempDir, { recursive: true })
-    fs.mkdirSync(outputDir, { recursive: true })
-    await ensureJobNotCancelled(jobId)
+  fs.mkdirSync(outputDir, { recursive: true })
+  await ensureJobNotCancelled(jobId)
 
-    if (onStageUpdate) {
-      await onStageUpdate()
+  if (onStageUpdate) {
+    await onStageUpdate()
+  }
+
+  let finalCode = manimCode
+  let finalImageUrls: string[] = []
+  let finalImageOutputPaths: string[] = []
+  let peakMemoryMB = 0
+
+  const renderWithCode = async (candidateCode: string): Promise<{
+    success: boolean
+    stderr: string
+    stdout: string
+    peakMemoryMB: number
+    exitCode?: number
+    codeSnippet?: string
+  }> => {
+    const attempt = await renderImageBlocks(jobId, quality, candidateCode, frameRate, timeoutMs, stableRenderCacheKey, outputDir)
+    peakMemoryMB = Math.max(peakMemoryMB, attempt.peakMemoryMB)
+    if (attempt.success) {
+      finalImageUrls = attempt.imageUrls
+      finalImageOutputPaths = attempt.outputPaths
     }
-
-    let finalCode = manimCode
-    let finalImageUrls: string[] = []
-    let finalImageOutputPaths: string[] = []
-    let peakMemoryMB = 0
-
-    const renderWithCode = async (candidateCode: string): Promise<{
-      success: boolean
-      stderr: string
-      stdout: string
-      peakMemoryMB: number
-      exitCode?: number
-      codeSnippet?: string
-    }> => {
-      const attempt = await renderImageBlocks(jobId, quality, candidateCode, frameRate, timeoutMs, tempDir, outputDir)
-      peakMemoryMB = Math.max(peakMemoryMB, attempt.peakMemoryMB)
-      if (attempt.success) {
-        finalImageUrls = attempt.imageUrls
-        finalImageOutputPaths = attempt.outputPaths
-      }
-      return {
-        success: attempt.success,
-        stderr: attempt.stderr,
-        stdout: attempt.stdout,
-        peakMemoryMB: attempt.peakMemoryMB,
-        exitCode: attempt.exitCode,
-        codeSnippet: attempt.failedCode
-      }
-    }
-
-    if (usedAI) {
-      const retryContext = createRetryContext(
-        concept,
-        sceneDesign?.trim() || `概念: ${concept}`,
-        promptOverrides,
-        'image'
-      )
-
-      const retryManagerResult = await executeCodeRetry(
-        retryContext,
-        renderWithCode,
-        customApiConfig,
-        manimCode,
-        async (event) => {
-          await logRenderFailure({ ...event, promptRole: 'codeRetry' })
-        },
-        async () => ensureJobNotCancelled(jobId)
-      )
-      if (typeof retryManagerResult.generationTimeMs === 'number' && timings) {
-        timings.retry = retryManagerResult.generationTimeMs
-      }
-      if (!retryManagerResult.success) {
-        throw new Error(
-          `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
-        )
-      }
-
-      finalCode = retryManagerResult.code
-    } else {
-      const singleAttempt = await renderImageBlocks(jobId, quality, manimCode, frameRate, timeoutMs, tempDir, outputDir)
-      peakMemoryMB = Math.max(peakMemoryMB, singleAttempt.peakMemoryMB)
-      if (!singleAttempt.success) {
-        await logRenderFailure({
-          attempt: 1,
-          code: manimCode,
-          codeSnippet: singleAttempt.failedCode,
-          stderr: singleAttempt.stderr,
-          stdout: singleAttempt.stdout,
-          peakMemoryMB: singleAttempt.peakMemoryMB,
-          exitCode: singleAttempt.exitCode,
-          promptRole: 'single-render'
-        })
-        throw new Error(singleAttempt.stderr || 'Manim image render failed')
-      }
-      finalImageUrls = singleAttempt.imageUrls
-      finalImageOutputPaths = singleAttempt.outputPaths
-    }
-
-    await ensureJobNotCancelled(jobId)
-
-    const workspaceImagePaths = writeImagesIntoWorkspace(workspaceDirectory, jobId, finalImageOutputPaths)
-
     return {
-      jobId,
+      success: attempt.success,
+      stderr: attempt.stderr,
+      stdout: attempt.stdout,
+      peakMemoryMB: attempt.peakMemoryMB,
+      exitCode: attempt.exitCode,
+      codeSnippet: attempt.failedCode
+    }
+  }
+
+  if (usedAI) {
+    const retryContext = createRetryContext(
       concept,
-      outputMode: 'image',
-      manimCode: finalCode,
-      usedAI,
-      generationType,
-      quality,
-      imageUrls: finalImageUrls,
-      imageCount: finalImageUrls.length,
-      workspaceImagePaths,
-      renderPeakMemoryMB: peakMemoryMB || undefined
+      sceneDesign?.trim() || `概念: ${concept}`,
+      promptOverrides,
+      'image'
+    )
+
+    const retryManagerResult = await executeCodeRetry(
+      retryContext,
+      renderWithCode,
+      customApiConfig,
+      manimCode,
+      async (event) => {
+        await logRenderFailure({ ...event, promptRole: 'codeRetry' })
+      },
+      async () => ensureJobNotCancelled(jobId)
+    )
+    if (typeof retryManagerResult.generationTimeMs === 'number' && timings) {
+      timings.retry = retryManagerResult.generationTimeMs
     }
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true })
-    } catch (error) {
-      logger.warn('Cleanup failed', { jobId, error })
+    if (!retryManagerResult.success) {
+      throw new Error(
+        `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
+      )
     }
+
+    finalCode = retryManagerResult.code
+  } else {
+    const singleAttempt = await renderImageBlocks(jobId, quality, manimCode, frameRate, timeoutMs, stableRenderCacheKey, outputDir)
+    peakMemoryMB = Math.max(peakMemoryMB, singleAttempt.peakMemoryMB)
+    if (!singleAttempt.success) {
+      await logRenderFailure({
+        attempt: 1,
+        code: manimCode,
+        codeSnippet: singleAttempt.failedCode,
+        stderr: singleAttempt.stderr,
+        stdout: singleAttempt.stdout,
+        peakMemoryMB: singleAttempt.peakMemoryMB,
+        exitCode: singleAttempt.exitCode,
+        promptRole: 'single-render'
+      })
+      throw new Error(singleAttempt.stderr || 'Manim image render failed')
+    }
+    finalImageUrls = singleAttempt.imageUrls
+    finalImageOutputPaths = singleAttempt.outputPaths
+  }
+
+  await ensureJobNotCancelled(jobId)
+
+  const workspaceImagePaths = writeImagesIntoWorkspace(workspaceDirectory, jobId, finalImageOutputPaths)
+
+  return {
+    jobId,
+    concept,
+    outputMode: 'image',
+    manimCode: finalCode,
+    usedAI,
+    generationType,
+    quality,
+    imageUrls: finalImageUrls,
+    imageCount: finalImageUrls.length,
+    workspaceImagePaths,
+    renderPeakMemoryMB: peakMemoryMB || undefined
   }
 }

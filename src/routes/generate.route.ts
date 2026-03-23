@@ -29,6 +29,7 @@ import type { ProblemFramingPlan } from '../types'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
 import { storeJobAccess } from '../services/job-access-store'
+import { buildClassicRenderCacheKey } from '../utils/render-cache-workspace'
 
 const router = express.Router()
 const logger = createLogger('GenerateRoute')
@@ -43,7 +44,7 @@ function toPreview(value: string, maxLength = 240): string {
 async function handleGenerateRequest(req: express.Request, res: express.Response) {
   const parsed = generateBodySchema.parse(req.body)
 
-  const { concept, problemPlan, outputMode, quality, code, customApiConfig, promptOverrides, videoConfig, referenceImages } = parsed
+  const { concept, problemPlan, outputMode, quality, code, customApiConfig, promptOverrides, videoConfig, referenceImages, renderCacheKey } = parsed
   const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
   const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
   const effectiveCustomApiConfig = customApiConfig ?? routedCustomApiConfig
@@ -74,6 +75,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   const queuedConcept = mergeProblemPlanIntoConcept(sanitizedConcept, problemPlan)
   const sanitizedReferenceImages = sanitizeReferenceImages(referenceImages)
   const clientId = getRequestClientId(req)
+  const stableRenderCacheKey = buildClassicRenderCacheKey(clientId, outputMode, renderCacheKey)
   const submittedAt = new Date().toISOString()
 
   if (sanitizedConcept.length === 0) {
@@ -102,7 +104,8 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     hasCustomApiConfig: !!effectiveCustomApiConfig,
     routeByManimcatKey: !customApiConfig && !!routedCustomApiConfig,
     referenceImageCount: sanitizedReferenceImages?.length || 0,
-    videoConfig
+    videoConfig,
+    renderCacheKey: stableRenderCacheKey
   })
 
   // 设置初始阶段
@@ -126,6 +129,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
       promptOverrides,
       videoConfig,
       clientId,
+      renderCacheKey: stableRenderCacheKey,
       timestamp: submittedAt
     },
     {

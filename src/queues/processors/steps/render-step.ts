@@ -45,7 +45,8 @@ export async function handlePreGeneratedCode(
           jobData.promptOverrides,
           undefined,
           jobData.clientId,
-          jobData.workspaceDirectory
+          jobData.workspaceDirectory,
+          jobData.renderCacheKey
         )
       : await renderVideo(
           jobId,
@@ -58,7 +59,8 @@ export async function handlePreGeneratedCode(
           jobData.promptOverrides,
           undefined,
           jobData.clientId,
-          jobData.workspaceDirectory
+          jobData.workspaceDirectory,
+          jobData.renderCacheKey
         )
 
   timings.render = Date.now() - renderStart

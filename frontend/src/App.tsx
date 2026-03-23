@@ -20,6 +20,10 @@ type Screen = 'classic' | 'studio' | 'game';
 const STUDIO_TRANSITION_MS = 2000;
 const STUDIO_EXIT_DELAY_MS = 800;
 
+function createClassicRenderCacheKey(): string {
+  return `classic-${crypto.randomUUID()}`;
+}
+
 function App() {
   const { status, result, error, jobId, stage, submittedAt, generate, renderWithCode, modifyWithAI, reset, cancel, cancelAndReset } = useGeneration();
   const problemFraming = useProblemFraming();
@@ -47,6 +51,7 @@ function App() {
     quality: Quality;
     outputMode: OutputMode;
     referenceImages?: ReferenceImage[];
+    renderCacheKey: string;
   } | null>(null);
 
   useEffect(() => {
@@ -166,13 +171,14 @@ function App() {
     }
     const draft = problemFraming.draft;
     const problemPlan = problemFraming.plan;
+    const renderCacheKey = createClassicRenderCacheKey();
     setLastCompletedResult(null);
-    setLastRequest(draft);
+    setLastRequest({ ...draft, renderCacheKey });
     setConcept(draft.concept);
     setCurrentCode('');
     setProblemAdjustment('');
     problemFraming.reset();
-    generate({ ...draft, problemPlan });
+    generate({ ...draft, problemPlan, renderCacheKey });
   };
 
   const handleProblemClose = () => {
@@ -204,6 +210,7 @@ function App() {
       quality: lastRequest.quality,
       instructions,
       code,
+      renderCacheKey: lastRequest.renderCacheKey,
     });
   };
 

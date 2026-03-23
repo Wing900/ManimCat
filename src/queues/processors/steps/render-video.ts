@@ -1,5 +1,4 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'path'
 import { createLogger } from '../../../utils/logger'
 import { cleanManimCode } from '../../../utils/manim-code-cleaner'
@@ -10,6 +9,7 @@ import { createRetryContext, executeCodeRetry } from '../../../services/code-ret
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import { storeJobStage } from '../../../services/job-store'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
+import { resolveRenderCacheWorkspace } from '../../../utils/render-cache-workspace'
 import {
   createRenderFailureEvent,
   extractCodeSnippet,
@@ -55,7 +55,8 @@ export async function renderVideo(
   promptOverrides?: PromptOverrides,
   onStageUpdate?: () => Promise<void>,
   clientId?: string,
-  workspaceDirectory?: string
+  workspaceDirectory?: string,
+  renderCacheKey?: string
 ): Promise<RenderResult> {
   const { manimCode, usedAI, generationType, sceneDesign } = codeResult
 
@@ -64,9 +65,11 @@ export async function renderVideo(
 
   logger.info('Rendering video', { jobId, quality, usedAI, frameRate, timeoutMs })
 
-  const tempDir = path.join(os.tmpdir(), `manim-${jobId}`)
-  const mediaDir = path.join(tempDir, 'media')
-  const codeFile = path.join(tempDir, 'scene.py')
+  const stableRenderCacheKey = renderCacheKey || workspaceDirectory || `job-${jobId}`
+  const cacheWorkspace = resolveRenderCacheWorkspace(stableRenderCacheKey, 'video')
+  const tempDir = cacheWorkspace.tempDir
+  const mediaDir = cacheWorkspace.mediaDir
+  const codeFile = cacheWorkspace.codeFile
   const outputDir = path.join(process.cwd(), 'public', 'videos')
 
   const logRenderFailure = async (args: {
@@ -108,161 +111,153 @@ export async function renderVideo(
     }
   }
 
-  try {
-    fs.mkdirSync(tempDir, { recursive: true })
-    fs.mkdirSync(mediaDir, { recursive: true })
-    fs.mkdirSync(outputDir, { recursive: true })
+  fs.mkdirSync(tempDir, { recursive: true })
+  fs.mkdirSync(mediaDir, { recursive: true })
+  fs.mkdirSync(outputDir, { recursive: true })
 
-    let lastRenderedCode = manimCode
-    let lastRenderPeakMemoryMB = 0
+  let lastRenderedCode = manimCode
+  let lastRenderPeakMemoryMB = 0
 
-    const renderCode = async (code: string): Promise<{
-      success: boolean
-      stderr: string
-      stdout: string
-      peakMemoryMB: number
-      exitCode?: number
-      codeSnippet?: string
-    }> => {
-      await ensureJobNotCancelled(jobId)
-      const cleaned = cleanManimCode(code)
-      lastRenderedCode = cleaned.code
-
-      if (cleaned.changes.length > 0) {
-        logger.info('Manim code cleaned', {
-          jobId,
-          changes: cleaned.changes,
-          originalLength: code.length,
-          cleanedLength: cleaned.code.length
-        })
-      }
-
-      fs.writeFileSync(codeFile, cleaned.code, 'utf-8')
-
-      const options: ManimExecuteOptions = {
-        jobId,
-        quality,
-        frameRate,
-        format: 'mp4',
-        sceneName: 'MainScene',
-        tempDir,
-        mediaDir,
-        timeoutMs
-      }
-
-      const result = await executeManimCommand(codeFile, options)
-      lastRenderPeakMemoryMB = result.peakMemoryMB
-      return {
-        ...result,
-        codeSnippet: cleaned.code
-      }
-    }
-
-    let finalCode = manimCode
-    let renderResult: {
-      success: boolean
-      stderr: string
-      stdout: string
-      peakMemoryMB: number
-      exitCode?: number
-      codeSnippet?: string
-    }
-
-    if (usedAI) {
-      logger.info('Using local code-retry for video render', { jobId, hasSceneDesign: !!sceneDesign })
-      await storeJobStage(jobId, 'generating')
-      if (onStageUpdate) await onStageUpdate()
-
-      const retryContext = createRetryContext(
-        concept,
-        sceneDesign?.trim() || `概念: ${concept}`,
-        promptOverrides,
-        'video'
-      )
-      const retryManagerResult = await executeCodeRetry(
-        retryContext,
-        renderCode,
-        customApiConfig,
-        manimCode,
-        async (event) => {
-          await logRenderFailure({ ...event, promptRole: 'codeRetry' })
-        },
-        async () => ensureJobNotCancelled(jobId)
-      )
-
-      if (typeof retryManagerResult.generationTimeMs === 'number') {
-        timings.retry = retryManagerResult.generationTimeMs
-      }
-
-      if (!retryManagerResult.success) {
-        throw new Error(
-          `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
-        )
-      }
-
-      finalCode = retryManagerResult.code
-      renderResult = {
-        success: true,
-        stderr: '',
-        stdout: '',
-        peakMemoryMB: lastRenderPeakMemoryMB
-      }
-    } else {
-      logger.info('Using single render attempt for video', {
-        jobId,
-        reason: 'not_ai_generated'
-      })
-      if (onStageUpdate) await onStageUpdate()
-      renderResult = await renderCode(manimCode)
-      if (!renderResult.success) {
-        await logRenderFailure({
-          attempt: 1,
-          code: manimCode,
-          codeSnippet: renderResult.codeSnippet,
-          stderr: renderResult.stderr,
-          stdout: renderResult.stdout,
-          peakMemoryMB: renderResult.peakMemoryMB,
-          exitCode: renderResult.exitCode,
-          promptRole: 'single-render'
-        })
-        throw new Error(renderResult.stderr || 'Manim render failed')
-      }
-      finalCode = lastRenderedCode
-    }
-
+  const renderCode = async (code: string): Promise<{
+    success: boolean
+    stderr: string
+    stdout: string
+    peakMemoryMB: number
+    exitCode?: number
+    codeSnippet?: string
+  }> => {
     await ensureJobNotCancelled(jobId)
-    const videoPath = findVideoFile(mediaDir, quality, frameRate)
-    if (!videoPath) {
-      throw new Error('Video file not found after render')
+    const cleaned = cleanManimCode(code)
+    lastRenderedCode = cleaned.code
+
+    if (cleaned.changes.length > 0) {
+      logger.info('Manim code cleaned', {
+        jobId,
+        changes: cleaned.changes,
+        originalLength: code.length,
+        cleanedLength: cleaned.code.length
+      })
     }
 
-    const outputFilename = `${jobId}.mp4`
-    const outputPath = path.join(outputDir, outputFilename)
-    fs.copyFileSync(videoPath, outputPath)
+    fs.writeFileSync(codeFile, cleaned.code, 'utf-8')
 
-    if (videoConfig?.bgm !== false) {
-      await addBackgroundMusic(outputPath)
-    }
-
-    const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath)
-
-    return {
+    const options: ManimExecuteOptions = {
       jobId,
-      concept,
-      outputMode: 'video',
-      manimCode: finalCode,
-      usedAI,
-      generationType,
       quality,
-      videoUrl: `/videos/${outputFilename}`,
-      workspaceVideoPath,
-      renderPeakMemoryMB: renderResult.peakMemoryMB
+      frameRate,
+      format: 'mp4',
+      sceneName: 'MainScene',
+      tempDir,
+      mediaDir,
+      timeoutMs
     }
-  } finally {
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true })
-    } catch (error) {
-      logger.warn('Cleanup failed', { jobId, error })
+
+    const result = await executeManimCommand(codeFile, options)
+    lastRenderPeakMemoryMB = result.peakMemoryMB
+    return {
+      ...result,
+      codeSnippet: cleaned.code
     }
+  }
+
+  let finalCode = manimCode
+  let renderResult: {
+    success: boolean
+    stderr: string
+    stdout: string
+    peakMemoryMB: number
+    exitCode?: number
+    codeSnippet?: string
+  }
+
+  if (usedAI) {
+    logger.info('Using local code-retry for video render', { jobId, hasSceneDesign: !!sceneDesign })
+    await storeJobStage(jobId, 'generating')
+    if (onStageUpdate) await onStageUpdate()
+
+    const retryContext = createRetryContext(
+      concept,
+      sceneDesign?.trim() || `概念: ${concept}`,
+      promptOverrides,
+      'video'
+    )
+    const retryManagerResult = await executeCodeRetry(
+      retryContext,
+      renderCode,
+      customApiConfig,
+      manimCode,
+      async (event) => {
+        await logRenderFailure({ ...event, promptRole: 'codeRetry' })
+      },
+      async () => ensureJobNotCancelled(jobId)
+    )
+
+    if (typeof retryManagerResult.generationTimeMs === 'number') {
+      timings.retry = retryManagerResult.generationTimeMs
+    }
+
+    if (!retryManagerResult.success) {
+      throw new Error(
+        `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
+      )
+    }
+
+    finalCode = retryManagerResult.code
+    renderResult = {
+      success: true,
+      stderr: '',
+      stdout: '',
+      peakMemoryMB: lastRenderPeakMemoryMB
+    }
+  } else {
+    logger.info('Using single render attempt for video', {
+      jobId,
+      reason: 'not_ai_generated'
+    })
+    if (onStageUpdate) await onStageUpdate()
+    renderResult = await renderCode(manimCode)
+    if (!renderResult.success) {
+      await logRenderFailure({
+        attempt: 1,
+        code: manimCode,
+        codeSnippet: renderResult.codeSnippet,
+        stderr: renderResult.stderr,
+        stdout: renderResult.stdout,
+        peakMemoryMB: renderResult.peakMemoryMB,
+        exitCode: renderResult.exitCode,
+        promptRole: 'single-render'
+      })
+      throw new Error(renderResult.stderr || 'Manim render failed')
+    }
+    finalCode = lastRenderedCode
+  }
+
+  await ensureJobNotCancelled(jobId)
+  const videoPath = findVideoFile(mediaDir, quality, frameRate)
+  if (!videoPath) {
+    throw new Error('Video file not found after render')
+  }
+
+  const outputFilename = `${jobId}.mp4`
+  const outputPath = path.join(outputDir, outputFilename)
+  fs.copyFileSync(videoPath, outputPath)
+
+  if (videoConfig?.bgm !== false) {
+    await addBackgroundMusic(outputPath)
+  }
+
+  const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath)
+
+  return {
+    jobId,
+    concept,
+    outputMode: 'video',
+    manimCode: finalCode,
+    usedAI,
+    generationType,
+    quality,
+    videoUrl: `/videos/${outputFilename}`,
+    workspaceVideoPath,
+    renderPeakMemoryMB: renderResult.peakMemoryMB
   }
 }

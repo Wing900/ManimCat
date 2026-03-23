@@ -117,6 +117,8 @@ export interface VideoJobData {
   promptOverrides?: PromptOverrides
   /** Studio workspace absolute directory */
   workspaceDirectory?: string
+  /** Stable render cache workspace identity shared across jobs */
+  renderCacheKey?: string
 }
 
 /**
@@ -187,6 +189,7 @@ export interface GenerateRequest {
   outputMode: OutputMode
   promptOverrides?: PromptOverrides
   customApiConfig?: CustomApiConfig
+  renderCacheKey?: string
 }
 
 /**
@@ -200,6 +203,7 @@ export interface ModifyRequest {
   promptOverrides?: PromptOverrides
   videoConfig?: VideoConfig
   customApiConfig?: CustomApiConfig
+  renderCacheKey?: string
 }
 
 /**

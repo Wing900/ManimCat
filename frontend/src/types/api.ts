@@ -106,6 +106,7 @@ export interface GenerateRequest {
   /** Prompt overrides */
   promptOverrides?: PromptOverrides;
   customApiConfig?: CustomApiConfig;
+  renderCacheKey?: string;
 }
 
 export interface ProblemFramingStep {
@@ -148,6 +149,7 @@ export interface ModifyRequest {
   videoConfig?: VideoConfig;
   promptOverrides?: PromptOverrides;
   customApiConfig?: CustomApiConfig;
+  renderCacheKey?: string;
 }
 
 /** 生成响应 */

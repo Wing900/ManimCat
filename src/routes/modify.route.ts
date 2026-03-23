@@ -26,6 +26,7 @@ import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
 import { storeJobAccess } from '../services/job-access-store'
+import { buildClassicRenderCacheKey } from '../utils/render-cache-workspace'
 
 const router = express.Router()
 const logger = createLogger('ModifyRoute')
@@ -38,12 +39,13 @@ const bodySchema = z.object({
   code: z.string().min(1, '原始代码不能为空'),
   customApiConfig: customApiConfigSchema.optional(),
   promptOverrides: promptOverridesSchema.optional(),
-  videoConfig: videoConfigSchema.optional()
+  videoConfig: videoConfigSchema.optional(),
+  renderCacheKey: z.string().min(1).optional()
 })
 
 async function handleModifyRequest(req: express.Request, res: express.Response) {
   const parsed = bodySchema.parse(req.body)
-  const { concept, outputMode, quality, instructions, code, customApiConfig, promptOverrides, videoConfig } = parsed
+  const { concept, outputMode, quality, instructions, code, customApiConfig, promptOverrides, videoConfig, renderCacheKey } = parsed
   const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
   const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
   const effectiveCustomApiConfig = customApiConfig ?? routedCustomApiConfig
@@ -79,6 +81,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     throw new ValidationError('修改意见不能为空', { instructions })
   }
   const clientId = getRequestClientId(req)
+  const stableRenderCacheKey = buildClassicRenderCacheKey(clientId, outputMode, renderCacheKey)
   const submittedAt = new Date().toISOString()
 
   const jobId = uuidv4()
@@ -91,7 +94,8 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     hasCode: !!code,
     hasCustomApiConfig: !!effectiveCustomApiConfig,
     routeByManimcatKey: !customApiConfig && !!routedCustomApiConfig,
-    videoConfig
+    videoConfig,
+    renderCacheKey: stableRenderCacheKey
   })
 
   await storeJobStage(jobId, 'generating', {
@@ -112,6 +116,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
       promptOverrides,
       videoConfig,
       clientId,
+      renderCacheKey: stableRenderCacheKey,
       timestamp: submittedAt
     },
     {
