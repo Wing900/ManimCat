@@ -81,7 +81,7 @@ describe('useStudioRun', () => {
 
   it('submits a run and filters pending permissions to the active session', async () => {
     const session = createSession()
-    const onUserMessageSubmitted = vi.fn()
+    const onOptimisticMessagesCreated = vi.fn()
     const onRunSubmitting = vi.fn()
     const onRunStarted = vi.fn()
     const onSnapshotLoaded = vi.fn()
@@ -98,7 +98,7 @@ describe('useStudioRun', () => {
 
     const { result } = renderHook(() => useStudioRun({
       session,
-      onUserMessageSubmitted,
+      onOptimisticMessagesCreated,
       onRunSubmitting,
       onRunStarted,
       onSnapshotLoaded,
@@ -108,10 +108,17 @@ describe('useStudioRun', () => {
 
     await result.current('render this')
 
-    expect(onUserMessageSubmitted).toHaveBeenCalledWith(expect.objectContaining({
-      role: 'user',
-      sessionId: session.id,
-      text: 'render this',
+    expect(onOptimisticMessagesCreated).toHaveBeenCalledWith(expect.objectContaining({
+      userMessage: expect.objectContaining({
+        role: 'user',
+        sessionId: session.id,
+        text: 'render this',
+      }),
+      assistantMessage: expect.objectContaining({
+        role: 'assistant',
+        sessionId: session.id,
+        agent: session.agentType,
+      }),
     }))
     expect(onRunSubmitting).toHaveBeenCalledOnce()
     expect(onRunStarted).toHaveBeenCalledWith(
@@ -144,7 +151,7 @@ describe('useStudioRun', () => {
 
     const { result } = renderHook(() => useStudioRun({
       session: initialSession,
-      onUserMessageSubmitted: vi.fn(),
+      onOptimisticMessagesCreated: vi.fn(),
       onRunSubmitting: vi.fn(),
       onRunStarted,
       onSnapshotLoaded: vi.fn(),
@@ -172,7 +179,7 @@ describe('useStudioRun', () => {
 
     const { result } = renderHook(() => useStudioRun({
       session,
-      onUserMessageSubmitted: vi.fn(),
+      onOptimisticMessagesCreated: vi.fn(),
       onRunSubmitting: vi.fn(),
       onRunStarted: vi.fn(),
       onSnapshotLoaded: vi.fn(),

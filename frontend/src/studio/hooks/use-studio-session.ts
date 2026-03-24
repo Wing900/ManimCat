@@ -4,6 +4,7 @@ import {
   getPendingStudioPermissions,
   getStudioSessionSnapshot,
 } from '../api/studio-agent-api'
+import { useStudioControls } from '../controls/use-studio-controls'
 import type { StudioKind, StudioPermissionRequest, StudioTask } from '../protocol/studio-agent-types'
 import type { StudioSessionState } from '../store/studio-types'
 import { useStudioEvents } from './use-studio-events'
@@ -12,7 +13,6 @@ import { useStudioRun } from './use-studio-run'
 import { studioEventReducer } from '../store/studio-event-reducer'
 import { createInitialStudioState } from '../store/studio-session-store'
 import { useI18n } from '../../i18n'
-import type { I18nContextValue } from '../../i18n/context'
 import {
   selectLatestAssistantText,
   selectLatestRun,
@@ -165,10 +165,11 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
 
   const runCommand = useStudioRun({
     session: state.entities.session,
-    onUserMessageSubmitted: (message) => {
+    onOptimisticMessagesCreated: ({ userMessage, assistantMessage }) => {
       dispatch({
-        type: 'user_message_submitted',
-        message,
+        type: 'optimistic_messages_created',
+        userMessage,
+        assistantMessage,
       })
     },
     onRunSubmitting: () => {
@@ -200,6 +201,14 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
       })
     },
     recoverSession: () => createFreshSession('replace'),
+  })
+
+  const controls = useStudioControls({
+    session: state.entities.session,
+    onRun: runCommand,
+    onSessionUpdated: async (session) => {
+      await loadSnapshot(session.id, 'merge', { silent: true })
+    },
   })
 
   const { replyPermission } = useStudioPermissions({
@@ -235,13 +244,16 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
     isBusy: selectIsBusy(state),
     replyingPermissionIds: state.runtime.replyingPermissionIds,
     latestQuestion: state.runtime.latestQuestion,
+    permissionModeModal: controls.permissionModeModal,
     workSummaries: selectStudioWorks(state).map((work) => ({
       work,
       latestTask: selectLatestTaskForWork(state, work.id),
       result: selectWorkSummary(state, work).result,
     })),
     refresh,
-    runCommand,
+    runCommand: async (inputText: string) => {
+      await controls.submitInput(inputText)
+    },
     replyPermission,
     selectWork(workId: string | null) {
       const work = selectSelectedWork(state, workId)
@@ -254,7 +266,7 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
   }
 }
 
-function getDefaultStudioTitle(studioKind: StudioKind, t: I18nContextValue['t']): string {
+function getDefaultStudioTitle(studioKind: StudioKind, t: (key: 'studio.plotTitle' | 'studio.manimTitle') => string): string {
   return studioKind === 'plot' ? t('studio.plotTitle') : t('studio.manimTitle')
 }
 
@@ -280,4 +292,3 @@ function hasActiveRenderTask(state: StudioSessionState): boolean {
       && (task.status === 'queued' || task.status === 'running' || task.status === 'pending_confirmation')
     ))
 }
-

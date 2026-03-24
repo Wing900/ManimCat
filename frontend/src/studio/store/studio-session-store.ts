@@ -24,6 +24,8 @@ export function createInitialStudioState(): StudioSessionState {
       submitting: false,
       replacingSession: false,
       assistantTextByRunId: {},
+      optimisticAssistantMessageIdByRunId: {},
+      pendingAssistantMessageId: null,
       replyingPermissionIds: {},
       latestQuestion: null,
     },
@@ -127,6 +129,23 @@ export function replacePendingPermissions(
   }
 }
 
+export function removeMessages(state: StudioEntityState, messageIds: string[]): StudioEntityState {
+  if (messageIds.length === 0) {
+    return state
+  }
+
+  const nextMessagesById = { ...state.messagesById }
+  for (const messageId of messageIds) {
+    delete nextMessagesById[messageId]
+  }
+
+  return {
+    ...state,
+    messagesById: nextMessagesById,
+    messageOrder: state.messageOrder.filter((id) => !messageIds.includes(id)),
+  }
+}
+
 function createEmptyEntityState(): StudioEntityState {
   return {
     session: null,
@@ -164,26 +183,54 @@ function mergeMessages(
   const incomingServerUserMessages = incoming.filter((message): message is Extract<StudioMessage, { role: 'user' }> => {
     return message.role === 'user' && !isOptimisticLocalMessageId(message.id)
   })
+  const incomingServerAssistantMessages = incoming.filter((message): message is Extract<StudioMessage, { role: 'assistant' }> => {
+    return message.role === 'assistant' && !isOptimisticLocalMessageId(message.id)
+  })
 
-  if (incomingServerUserMessages.length === 0) {
-    return merged
+  if (incomingServerUserMessages.length > 0) {
+    for (const [messageId, message] of Object.entries(merged)) {
+      if (message.role !== 'user' || !isOptimisticLocalMessageId(messageId)) {
+        continue
+      }
+
+      const matchedServerMessage = incomingServerUserMessages.find((serverMessage) => (
+        serverMessage.text === message.text && isNearSameTimestamp(serverMessage.createdAt, message.createdAt)
+      ))
+
+      if (matchedServerMessage) {
+        merged[matchedServerMessage.id] = {
+          ...matchedServerMessage,
+          createdAt: message.createdAt,
+        }
+        delete merged[messageId]
+      }
+    }
   }
 
-  for (const [messageId, message] of Object.entries(merged)) {
-    if (message.role !== 'user' || !isOptimisticLocalMessageId(messageId)) {
-      continue
-    }
+  if (incomingServerAssistantMessages.length > 0) {
+    const usedAssistantMessageIds = new Set<string>()
 
-    const matchedServerMessage = incomingServerUserMessages.find((serverMessage) => (
-      serverMessage.text === message.text && isNearSameTimestamp(serverMessage.createdAt, message.createdAt)
-    ))
-
-    if (matchedServerMessage) {
-      merged[matchedServerMessage.id] = {
-        ...matchedServerMessage,
-        createdAt: message.createdAt,
+    for (const [messageId, message] of Object.entries(merged)) {
+      if (message.role !== 'assistant' || !isOptimisticLocalMessageId(messageId)) {
+        continue
       }
-      delete merged[messageId]
+
+      const matchedServerMessage = incomingServerAssistantMessages.find((serverMessage) => {
+        if (usedAssistantMessageIds.has(serverMessage.id)) {
+          return false
+        }
+
+        return isNearSameTimestamp(serverMessage.createdAt, message.createdAt, 30000)
+      })
+
+      if (matchedServerMessage) {
+        usedAssistantMessageIds.add(matchedServerMessage.id)
+        merged[matchedServerMessage.id] = {
+          ...matchedServerMessage,
+          createdAt: message.createdAt,
+        }
+        delete merged[messageId]
+      }
     }
   }
 
@@ -238,9 +285,9 @@ function pickLatestRunId(runs: StudioRun[]): string | null {
 }
 
 function isOptimisticLocalMessageId(messageId: string): boolean {
-  return messageId.startsWith('local-user-')
+  return messageId.startsWith('local-user-') || messageId.startsWith('local-assistant-')
 }
 
-function isNearSameTimestamp(left: string, right: string): boolean {
-  return Math.abs(new Date(left).getTime() - new Date(right).getTime()) < 5000
+function isNearSameTimestamp(left: string, right: string, thresholdMs = 5000): boolean {
+  return Math.abs(new Date(left).getTime() - new Date(right).getTime()) < thresholdMs
 }

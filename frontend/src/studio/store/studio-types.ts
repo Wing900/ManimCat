@@ -37,6 +37,8 @@ export interface StudioRuntimeState {
   submitting: boolean
   replacingSession: boolean
   assistantTextByRunId: Record<string, string>
+  optimisticAssistantMessageIdByRunId: Record<string, string>
+  pendingAssistantMessageId: string | null
   replyingPermissionIds: Record<string, boolean>
   latestQuestion: {
     runId: string

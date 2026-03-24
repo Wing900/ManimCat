@@ -266,8 +266,13 @@ select option:checked {
 }
 
 /* Studio 终端基础样式 */
+.studio-shell-root,
+.studio-shell-root * {
+  font-family: "LXGW WenKai Screen", "LXGW WenKai TC", "LXGW WenKai Lite", "LXGW WenKai", sans-serif !important;
+}
+
 .studio-terminal {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", "LXGW WenKai Screen", monospace;
+  font-family: inherit;
 }
 
 .studio-terminal ::-webkit-scrollbar-thumb {

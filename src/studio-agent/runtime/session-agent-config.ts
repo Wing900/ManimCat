@@ -37,8 +37,10 @@ export function inheritStudioSessionMetadata(session: StudioSession): Record<str
 export function createStudioSessionMetadata(input: {
   existing?: Record<string, unknown>
   agentConfig?: StudioSessionAgentConfig
+  permissionMode?: 'safe' | 'auto' | 'full'
 }): Record<string, unknown> | undefined {
   const toolChoice = normalizeToolChoice(input.agentConfig?.toolChoice)
+  const permissionMode = normalizePermissionMode(input.permissionMode)
   const base = input.existing ? { ...input.existing } : {}
   const existingAgentConfig = base.agentConfig && typeof base.agentConfig === 'object' && !Array.isArray(base.agentConfig)
     ? { ...(base.agentConfig as Record<string, unknown>) }
@@ -47,21 +49,29 @@ export function createStudioSessionMetadata(input: {
   if (!toolChoice) {
     if (!Object.keys(existingAgentConfig).length) {
       delete base.agentConfig
-      return Object.keys(base).length ? base : undefined
+    } else {
+      base.agentConfig = existingAgentConfig
     }
-
-    base.agentConfig = existingAgentConfig
-    return Object.keys(base).length ? base : undefined
+  } else {
+    base.agentConfig = {
+      ...existingAgentConfig,
+      toolChoice,
+    }
   }
 
-  base.agentConfig = {
-    ...existingAgentConfig,
-    toolChoice
+  if (permissionMode) {
+    base.permissionMode = permissionMode
+  } else {
+    delete base.permissionMode
   }
 
-  return base
+  return Object.keys(base).length ? base : undefined
 }
 
 function normalizeToolChoice(value: unknown): StudioToolChoice | undefined {
   return value === 'auto' || value === 'required' || value === 'none' ? value : undefined
+}
+
+function normalizePermissionMode(value: unknown): 'safe' | 'auto' | 'full' | undefined {
+  return value === 'safe' || value === 'auto' || value === 'full' ? value : undefined
 }

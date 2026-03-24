@@ -4,6 +4,7 @@ import type { StudioReviewMetadata } from './studio-review-types'
 export type StudioAgentType = 'builder' | 'reviewer' | 'designer'
 export type StudioKind = 'manim' | 'plot'
 export type StudioPermissionLevel = 'L0' | 'L1' | 'L2' | 'L3' | 'L4'
+export type StudioPermissionMode = 'safe' | 'auto' | 'full'
 export type StudioRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type StudioTaskStatus =
   | 'proposed'
@@ -25,6 +26,15 @@ export interface StudioPermissionRule {
   action: 'allow' | 'ask' | 'deny'
 }
 
+export interface StudioSessionMetadata {
+  studioKind?: StudioKind
+  permissionMode?: StudioPermissionMode
+  agentConfig?: {
+    toolChoice?: 'auto' | 'required' | 'none'
+  }
+  [key: string]: unknown
+}
+
 export interface StudioSession {
   id: string
   projectId: string
@@ -36,6 +46,7 @@ export interface StudioSession {
   directory: string
   permissionLevel: StudioPermissionLevel
   permissionRules: StudioPermissionRule[]
+  metadata?: StudioSessionMetadata
   createdAt: string
   updatedAt: string
 }
@@ -248,6 +259,3 @@ export interface StudioCreateRunInput {
   projectId?: string
   customApiConfig?: CustomApiConfig
 }
-
-
-

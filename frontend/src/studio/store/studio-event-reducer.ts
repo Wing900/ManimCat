@@ -1,5 +1,11 @@
 import type { StudioExternalEvent } from '../protocol/studio-agent-events'
-import type { StudioMessage, StudioPermissionRequest, StudioRun, StudioSessionSnapshot } from '../protocol/studio-agent-types'
+import type {
+  StudioAssistantMessage,
+  StudioMessage,
+  StudioPermissionRequest,
+  StudioRun,
+  StudioSessionSnapshot,
+} from '../protocol/studio-agent-types'
 import {
   createInitialStudioState,
   mergeStudioSnapshot,
@@ -20,7 +26,7 @@ export type StudioStateAction =
   | { type: 'snapshot_failed'; error: string }
   | { type: 'event_status'; status: StudioSessionState['connection']['eventStatus']; error?: string | null }
   | { type: 'event_received'; event: StudioExternalEvent }
-  | { type: 'user_message_submitted'; message: StudioMessage }
+  | { type: 'optimistic_messages_created'; userMessage: StudioMessage; assistantMessage: StudioAssistantMessage }
   | { type: 'run_submitting' }
   | { type: 'run_started'; run: StudioRun; pendingPermissions: StudioPermissionRequest[] }
   | { type: 'run_submit_failed'; error: string }
@@ -106,10 +112,14 @@ export function studioEventReducer(
       }
     case 'event_received':
       return applyStudioExternalEvent(state, action.event)
-    case 'user_message_submitted':
+    case 'optimistic_messages_created':
       return {
         ...state,
-        entities: upsertMessages(state.entities, [action.message]),
+        entities: upsertMessages(state.entities, [action.userMessage, action.assistantMessage]),
+        runtime: {
+          ...state.runtime,
+          pendingAssistantMessageId: action.assistantMessage.id,
+        },
       }
     case 'run_submitting':
       return {
@@ -134,14 +144,25 @@ export function studioEventReducer(
             ...state.runtime.assistantTextByRunId,
             [action.run.id]: '',
           },
+          optimisticAssistantMessageIdByRunId: state.runtime.pendingAssistantMessageId
+            ? {
+              ...state.runtime.optimisticAssistantMessageIdByRunId,
+              [action.run.id]: state.runtime.pendingAssistantMessageId,
+            }
+            : state.runtime.optimisticAssistantMessageIdByRunId,
+          pendingAssistantMessageId: null,
         },
       }
     case 'run_submit_failed':
       return {
         ...state,
+        entities: state.runtime.pendingAssistantMessageId
+          ? upsertMessages(state.entities, [buildFailedAssistantMessage(state, state.runtime.pendingAssistantMessageId, action.error)])
+          : state.entities,
         runtime: {
           ...state.runtime,
           submitting: false,
+          pendingAssistantMessageId: null,
         },
         error: action.error,
       }
@@ -206,18 +227,7 @@ function applyStudioExternalEvent(state: StudioSessionState, event: StudioExtern
         },
       }
     case 'assistant.text':
-      return {
-        ...nextBase,
-        runtime: {
-          ...nextBase.runtime,
-          activeRunId: event.properties.runId,
-          submitting: false,
-          assistantTextByRunId: {
-            ...nextBase.runtime.assistantTextByRunId,
-            [event.properties.runId]: event.properties.text,
-          },
-        },
-      }
+      return applyAssistantTextEvent(nextBase, event.properties.runId, event.properties.text)
     case 'permission.asked': {
       const requests = [
         ...nextBase.entities.pendingPermissionOrder
@@ -266,6 +276,81 @@ function applyStudioExternalEvent(state: StudioSessionState, event: StudioExtern
     default:
       return nextBase
   }
+}
+
+function applyAssistantTextEvent(
+  state: StudioSessionState,
+  runId: string,
+  text: string,
+): StudioSessionState {
+  const assistantMessageId = state.runtime.optimisticAssistantMessageIdByRunId[runId]
+  const entities = assistantMessageId
+    ? upsertMessages(state.entities, [buildStreamingAssistantMessage(state, assistantMessageId, text)])
+    : state.entities
+
+  return {
+    ...state,
+    entities,
+    runtime: {
+      ...state.runtime,
+      activeRunId: runId,
+      submitting: false,
+      assistantTextByRunId: {
+        ...state.runtime.assistantTextByRunId,
+        [runId]: text,
+      },
+    },
+  }
+}
+
+function buildStreamingAssistantMessage(
+  state: StudioSessionState,
+  messageId: string,
+  text: string,
+): StudioAssistantMessage {
+  const existing = state.entities.messagesById[messageId]
+  if (existing?.role === 'assistant') {
+    return {
+      ...existing,
+      updatedAt: new Date().toISOString(),
+      parts: [
+        {
+          id: `${messageId}-text`,
+          messageId,
+          sessionId: existing.sessionId,
+          type: 'text',
+          text,
+        },
+      ],
+    }
+  }
+
+  const sessionId = state.entities.session?.id ?? ''
+  return {
+    id: messageId,
+    sessionId,
+    role: 'assistant',
+    agent: 'builder',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    parts: [
+      {
+        id: `${messageId}-text`,
+        messageId,
+        sessionId,
+        type: 'text',
+        text,
+      },
+    ],
+  }
+}
+
+function buildFailedAssistantMessage(
+  state: StudioSessionState,
+  messageId: string,
+  error: string,
+): StudioAssistantMessage {
+  return buildStreamingAssistantMessage(state, messageId, error)
 }
 
 function uniqPermissions(requests: StudioPermissionRequest[]): StudioPermissionRequest[] {

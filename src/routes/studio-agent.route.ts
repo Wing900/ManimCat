@@ -7,6 +7,7 @@ import {
   sendStudioError,
   sendStudioSuccess
 } from './helpers/studio-agent-responses'
+import { parseStudioPatchSessionRequest } from './helpers/studio-agent-session-control'
 import { parseStudioCreateRunRequest, parseStudioCreateSessionRequest } from './helpers/studio-agent-run-request'
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
 
@@ -50,6 +51,19 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
   ])
 
   sendStudioSuccess(res, { session, messages, runs, sessionEvents, tasks, works, workResults })
+}))
+
+router.patch('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
+  const parsed = parseStudioPatchSessionRequest(req.body)
+  const session = await studioRuntime.updateSession(req.params.sessionId, {
+    permissionMode: parsed.permissionMode,
+  })
+
+  if (!session) {
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
+  }
+
+  sendStudioSuccess(res, { session })
 }))
 
 router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
@@ -207,4 +221,3 @@ router.post('/studio-agent/permissions/reply', authMiddleware, replyPermissionHa
 router.post('/studio-agent/permissions/:requestID/reply', authMiddleware, replyPermissionHandler)
 
 export default router
-

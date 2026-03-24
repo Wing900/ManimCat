@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { StudioCommandPanel } from './StudioCommandPanel'
 import type { StudioMessage, StudioSession } from '../protocol/studio-agent-types'
 
+vi.mock('../../i18n', () => ({
+  useI18n: () => ({
+    t: (_key: string) => '输入指令...',
+  }),
+}))
+
 function createSession(): StudioSession {
   const now = '2026-03-22T00:00:00.000Z'
   return {

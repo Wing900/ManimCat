@@ -3,6 +3,7 @@ import type {
   StudioCreateRunInput,
   StudioCreateSessionInput,
   StudioPermissionDecision,
+  StudioPermissionMode,
   StudioPermissionRequest,
   StudioRun,
   StudioSession,
@@ -10,6 +11,10 @@ import type {
 } from '../protocol/studio-agent-types'
 
 interface CreateSessionResponse {
+  session: StudioSession
+}
+
+interface PatchSessionResponse {
   session: StudioSession
 }
 
@@ -29,6 +34,19 @@ export async function createStudioSession(input: StudioCreateSessionInput): Prom
     method: 'POST',
     headers: getStudioAuthHeaders('application/json'),
     body: JSON.stringify(input),
+  })
+
+  return data.session
+}
+
+export async function updateStudioSession(input: {
+  sessionId: string
+  permissionMode: StudioPermissionMode
+}): Promise<StudioSession> {
+  const data = await studioRequest<PatchSessionResponse>(`/sessions/${encodeURIComponent(input.sessionId)}`, {
+    method: 'PATCH',
+    headers: getStudioAuthHeaders('application/json'),
+    body: JSON.stringify({ permissionMode: input.permissionMode }),
   })
 
   return data.session

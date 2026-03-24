@@ -45,6 +45,13 @@ export function StudioCommandPanel({
     inputRef.current?.focus()
   }
 
+  const focusInput = () => {
+    if (disabled) {
+      return
+    }
+    inputRef.current?.focus()
+  }
+
   const lastMessage = messages.at(-1) ?? null
   const streamIntoLastAssistant =
     Boolean(lastMessage && lastMessage.role === 'assistant' && (isBusy || latestAssistantText || animatedAssistantText))
@@ -69,9 +76,45 @@ export function StudioCommandPanel({
 
   useEffect(() => {
     if (!disabled) {
-      inputRef.current?.focus()
+      focusInput()
     }
   }, [disabled, session?.id])
+
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      if (disabled || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      if (
+        target instanceof HTMLInputElement
+        || target instanceof HTMLTextAreaElement
+        || target?.isContentEditable
+      ) {
+        return
+      }
+
+      if (!shouldRedirectKeyToInput(event)) {
+        return
+      }
+
+      focusInput()
+      if (event.key === 'Backspace') {
+        setInput((current) => current.slice(0, -1))
+        event.preventDefault()
+        return
+      }
+
+      if (event.key.length === 1) {
+        setInput((current) => `${current}${event.key}`)
+        event.preventDefault()
+      }
+    }
+
+    window.addEventListener('keydown', handleWindowKeyDown)
+    return () => window.removeEventListener('keydown', handleWindowKeyDown)
+  }, [disabled])
 
   useEffect(() => {
     if (!latestAssistantText) {
@@ -178,29 +221,6 @@ export function StudioCommandPanel({
             )
           })}
 
-          {(isBusy || latestAssistantText || animatedAssistantText) && !streamIntoLastAssistant && (
-            <div className="group animate-fade-in">
-               <div className="mb-4 flex items-center gap-3">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-accent-rgb/60">{t('studio.agent')}</span>
-                <div className="h-px flex-1 bg-border/5" />
-              </div>
-              {animatedAssistantText ? (
-                <div className="pl-1 text-[15px] leading-8 text-text-primary/90 whitespace-pre-wrap break-words border-l border-accent-rgb/10 ml-1">
-                  {animatedAssistantText}
-                  <span className="studio-type-caret">█</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-4 pl-1 ml-1 border-l border-accent-rgb/10">
-                  <span className="text-[13px] font-mono tracking-widest text-text-secondary/40 italic">{t('common.loading')}</span>
-                  <span className="studio-thinking-dots" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
           <div ref={endRef} />
         </div>
       </div>
@@ -220,8 +240,9 @@ export function StudioCommandPanel({
               }
             }}
             placeholder={disabled ? t('studio.initializing') : t('studio.commandPlaceholder')}
-            disabled={disabled}
-            className="flex-1 bg-transparent text-[14px] font-medium leading-relaxed text-text-primary outline-none placeholder:text-text-secondary/25 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={false}
+            aria-disabled={disabled}
+            className="flex-1 bg-transparent text-[14px] font-medium leading-relaxed text-text-primary outline-none placeholder:text-text-secondary/25"
           />
           <div className="flex items-center gap-2 opacity-30">
              <div className="font-mono text-[9px] uppercase tracking-widest text-text-secondary">{t('studio.enterToSend')}</div>
@@ -268,6 +289,7 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
   const textParts = message.parts.filter((part) => part.type === 'text' || part.type === 'reasoning')
   const toolParts = message.parts.filter((part) => part.type === 'tool')
   const hasStreamedText = streamedText.length > 0
+  const hasRenderableText = textParts.some((part) => part.text.trim())
 
   return (
     <div className={`${isStreamingTarget ? '' : 'animate-fade-in-soft '}group`}>
@@ -299,6 +321,15 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
               {streamedText}
               {showCaret && <span className="studio-type-caret opacity-30">█</span>}
             </div>
+          ) : isStreamingTarget && !hasRenderableText ? (
+            <div className="flex items-center gap-4 border-l border-accent-rgb/10 pl-1 ml-1">
+              <span className="text-[13px] font-mono tracking-widest text-text-secondary/40 italic">{t('common.loading')}</span>
+              <span className="studio-thinking-dots" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
           ) : textParts.map((part, i) => {
             const text = part.text.trim()
             if (!text) return null
@@ -309,7 +340,7 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
             )
           })}
 
-          {!isStreamingTarget && textParts.every((part) => !part.text.trim()) && (
+          {!isStreamingTarget && !hasRenderableText && (
             <div className="text-[13px] italic text-text-secondary/30">
               {t('studio.noResponseOutput')}
             </div>
@@ -386,4 +417,8 @@ function resolveTypingCharsPerSecond(backlog: number, streamRate: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function shouldRedirectKeyToInput(event: KeyboardEvent): boolean {
+  return event.key.length === 1 || event.key === 'Backspace'
 }

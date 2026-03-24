@@ -19,6 +19,7 @@ import type { StudioPersistence } from '../persistence/studio-persistence'
 import { registerPlotStudioTools } from '../plot/register-plot-tools'
 import type { StudioPermissionService } from '../permissions/permission-service'
 import { defaultRulesForLevel } from '../permissions/policy'
+import { resolveStudioPermissionMode, type StudioPermissionMode } from '../session-control/permission-modes'
 import { registerSharedStudioTools } from '../shared/register-shared-tools'
 import { createLocalStudioSkillResolver } from '../skills/local-skill-resolver'
 import type { StudioBlobStore } from '../storage/studio-blob-store'
@@ -70,6 +71,9 @@ export interface StudioRuntimeService {
     toolChoice?: StudioToolChoice
   }) => Promise<StudioSession>
   getSession: (sessionId: string) => Promise<StudioSession | null>
+  updateSession: (sessionId: string, patch: {
+    permissionMode?: StudioPermissionMode
+  }) => Promise<StudioSession | null>
   syncSession: (sessionId: string) => Promise<void>
   listWorkResultsBySessionId: (sessionId: string) => Promise<StudioWorkResult[]>
   listExternalEvents: () => StudioExternalEvent[]
@@ -144,15 +148,15 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         metadata: createStudioSessionMetadata({
           existing: { studioKind },
           agentConfig: {
-            toolChoice: sessionInput.toolChoice
-          }
-        })
+            toolChoice: sessionInput.toolChoice,
+          },
+        }),
       })
 
       if (sessionInput.useDedicatedWorkspace !== false) {
         session.directory = input.workspaceProvider.normalizeDirectory(
           `${studioKind}-studio/${session.id}`,
-          { session }
+          { session },
         )
       }
 
@@ -162,6 +166,23 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     },
     getSession(sessionId: string) {
       return input.persistence.sessionStore.getById(sessionId)
+    },
+    async updateSession(sessionId, patch) {
+      const session = await input.persistence.sessionStore.getById(sessionId)
+      if (!session) {
+        return null
+      }
+
+      if (patch.permissionMode) {
+        const nextMode = resolveStudioPermissionMode(patch.permissionMode, session)
+        return input.persistence.sessionStore.update(sessionId, {
+          permissionLevel: nextMode.permissionLevel,
+          permissionRules: nextMode.permissionRules,
+          metadata: nextMode.metadata,
+        })
+      }
+
+      return session
     },
     async syncSession(sessionId: string): Promise<void> {
       const tasks = await input.persistence.taskStore.listBySessionId(sessionId)
@@ -178,7 +199,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         sessionId,
         sessionEventStore: input.persistence.sessionEventStore,
         messageStore: input.persistence.messageStore,
-        partStore: input.persistence.partStore
+        partStore: input.persistence.partStore,
       })
     },
     async listWorkResultsBySessionId(sessionId: string): Promise<StudioWorkResult[]> {
@@ -237,4 +258,3 @@ async function collectWorkResults(works: StudioWork[], persistence: StudioPersis
 function getDefaultSessionTitle(studioKind: StudioKind): string {
   return studioKind === 'plot' ? 'Plot Studio Session' : 'Manim Studio Session'
 }
-

@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { StudioPermissionModeModal } from './controls/StudioPermissionModeModal'
 import { StudioCommandPanel } from './components/StudioCommandPanel'
 import { useStudioSession } from './hooks/use-studio-session'
 import { PlotPreviewPanel } from './plot/PlotPreviewPanel'
-import { useI18n } from '../i18n'
 
 interface PlotStudioShellProps {
   onExit: () => void
@@ -10,10 +10,9 @@ interface PlotStudioShellProps {
 }
 
 export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
-  const { t } = useI18n()
   const studio = useStudioSession({
     studioKind: 'plot',
-    title: t('studio.plotTitle')
+    title: 'Plot Studio'
   })
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
   const effectiveSelectedWorkId =
@@ -23,44 +22,48 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
   const selected = studio.selectWork(effectiveSelectedWorkId)
 
   return (
-    <div
-      className={`h-screen overflow-hidden bg-bg-primary text-text-primary ${
-        isExiting ? 'animate-studio-exit' : 'animate-studio-entrance'
-      }`}
-    >
-      <div className="relative h-screen overflow-hidden">
-        <div className="flex h-full min-h-0 flex-col xl:flex-row">
-          <div className="min-h-0 bg-white/72 shadow-[12px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-xl xl:w-[36%] xl:min-w-[360px] xl:max-w-[500px]">
-            <StudioCommandPanel
-              session={studio.session}
-              messages={studio.messages}
-              latestAssistantText={studio.latestAssistantText}
-              isBusy={studio.isBusy}
-              disabled={studio.isBusy || studio.state.connection.snapshotStatus !== 'ready'}
-              onRun={studio.runCommand}
-              onExit={onExit}
-            />
-          </div>
+    <>
+      <div
+        className={`h-screen overflow-hidden bg-bg-primary text-text-primary ${
+          isExiting ? 'animate-studio-exit' : 'animate-studio-entrance'
+        }`}
+      >
+        <div className="relative h-screen overflow-hidden">
+          <div className="flex h-full min-h-0 flex-col xl:flex-row">
+            <div className="min-h-0 bg-white/72 shadow-[12px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-xl xl:w-[36%] xl:min-w-[360px] xl:max-w-[500px]">
+              <StudioCommandPanel
+                session={studio.session}
+                messages={studio.messages}
+                latestAssistantText={studio.latestAssistantText}
+                isBusy={studio.isBusy}
+                disabled={studio.isBusy || studio.state.connection.snapshotStatus !== 'ready'}
+                onRun={studio.runCommand}
+                onExit={onExit}
+              />
+            </div>
 
-          <div className="min-h-0 flex-1">
-            <PlotPreviewPanel
-              session={studio.session}
-              works={studio.workSummaries}
-              selectedWorkId={effectiveSelectedWorkId}
-              work={selected.work}
-              result={selected.result}
-              latestRun={studio.latestRun}
-              tasks={selected.tasks}
-              requests={studio.pendingPermissions}
-              replyingPermissionIds={studio.replyingPermissionIds}
-              latestAssistantText={studio.latestAssistantText}
-              errorMessage={studio.state.error ?? studio.state.connection.eventError}
-              onSelectWork={setSelectedWorkId}
-              onReply={studio.replyPermission}
-            />
+            <div className="min-h-0 flex-1">
+              <PlotPreviewPanel
+                session={studio.session}
+                works={studio.workSummaries}
+                selectedWorkId={effectiveSelectedWorkId}
+                work={selected.work}
+                result={selected.result}
+                latestRun={studio.latestRun}
+                tasks={selected.tasks}
+                requests={studio.pendingPermissions}
+                replyingPermissionIds={studio.replyingPermissionIds}
+                latestAssistantText={studio.latestAssistantText}
+                errorMessage={studio.state.error ?? studio.state.connection.eventError}
+                onSelectWork={setSelectedWorkId}
+                onReply={studio.replyPermission}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <StudioPermissionModeModal {...studio.permissionModeModal} />
+    </>
   )
 }

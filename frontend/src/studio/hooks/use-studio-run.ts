@@ -3,6 +3,7 @@ import { StudioApiRequestError } from '../api/client'
 import { createStudioRun } from '../api/studio-agent-api'
 import { buildStudioCreateRunInput } from '../api/studio-run-request'
 import type {
+  StudioAssistantMessage,
   StudioPermissionRequest,
   StudioRun,
   StudioSession,
@@ -12,7 +13,7 @@ import type {
 
 interface UseStudioRunInput {
   session: StudioSession | null
-  onUserMessageSubmitted: (message: StudioUserMessage) => void
+  onOptimisticMessagesCreated: (messages: { userMessage: StudioUserMessage; assistantMessage: StudioAssistantMessage }) => void
   onRunSubmitting: () => void
   onRunStarted: (run: StudioRun, pendingPermissions: StudioPermissionRequest[]) => void
   onSnapshotLoaded: (snapshot: StudioSessionSnapshot, pendingPermissions: StudioPermissionRequest[]) => void
@@ -20,7 +21,7 @@ interface UseStudioRunInput {
   recoverSession: () => Promise<StudioSession>
 }
 
-export function useStudioRun({ session, onUserMessageSubmitted, onRunSubmitting, onRunStarted, onSnapshotLoaded, onError, recoverSession }: UseStudioRunInput) {
+export function useStudioRun({ session, onOptimisticMessagesCreated, onRunSubmitting, onRunStarted, onSnapshotLoaded, onError, recoverSession }: UseStudioRunInput) {
   return useCallback(async (inputText: string) => {
     if (!session) {
       return
@@ -35,8 +36,20 @@ export function useStudioRun({ session, onUserMessageSubmitted, onRunSubmitting,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
+      const optimisticAssistantMessage: StudioAssistantMessage = {
+        id: `local-assistant-${Date.now()}`,
+        sessionId: activeSession.id,
+        role: 'assistant',
+        agent: activeSession.agentType,
+        parts: [],
+        createdAt: optimisticMessage.createdAt,
+        updatedAt: optimisticMessage.updatedAt,
+      }
 
-      onUserMessageSubmitted(optimisticMessage)
+      onOptimisticMessagesCreated({
+        userMessage: optimisticMessage,
+        assistantMessage: optimisticAssistantMessage,
+      })
       onRunSubmitting()
 
       try {
@@ -78,7 +91,7 @@ export function useStudioRun({ session, onUserMessageSubmitted, onRunSubmitting,
       onError(error instanceof Error ? error.message : String(error))
       throw error
     }
-  }, [onError, onRunStarted, onRunSubmitting, onSnapshotLoaded, onUserMessageSubmitted, recoverSession, session])
+  }, [onError, onOptimisticMessagesCreated, onRunStarted, onRunSubmitting, onSnapshotLoaded, recoverSession, session])
 }
 
 function filterPermissionsForSession(requests: StudioPermissionRequest[], sessionId?: string | null) {
