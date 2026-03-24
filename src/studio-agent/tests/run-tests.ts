@@ -706,7 +706,7 @@ async function main() {
           data: {
             outputMode: 'video',
             videoUrl: '/tmp/output.mp4',
-            manimCode: 'from manim import *',
+            code: 'from manim import *',
             usedAI: true,
             quality: 'medium',
             generationType: 'ai'
@@ -906,6 +906,7 @@ main()
     console.error(error)
     process.exit(1)
   })
+
 
 
 

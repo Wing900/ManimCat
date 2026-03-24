@@ -1,4 +1,4 @@
-import type { StudioAgentType, StudioPlannedToolCall, StudioWorkContext } from '../domain/types'
+import type { StudioAgentType, StudioKind, StudioPlannedToolCall, StudioWorkContext } from '../domain/types'
 import type { StudioParsedTurnIntent, StudioParsedTaskIntent } from './turn-plan-intent'
 import { createPlannedCallId } from './turn-plan-intent'
 
@@ -11,6 +11,7 @@ export interface StudioTurnPolicyDecision {
 
 interface ResolveStudioTurnPolicyInput {
   agentType: StudioAgentType
+  studioKind?: StudioKind
   inputText: string
   intent: StudioParsedTurnIntent
   supportedToolNames: Set<string>
@@ -99,7 +100,7 @@ function buildContinuedWorkTask(input: ResolveStudioTurnPolicyInput): StudioPlan
     callId: createPlannedCallId('task'),
     input: {
       subagent_type: currentWork.type === 'review' ? 'reviewer' : 'designer',
-      description: `Continue ${currentWork.type}: ${currentWork.title}`,
+      description: `Continue ` + currentWork.type + ': ' + currentWork.title,
       input: input.inputText
     }
   }

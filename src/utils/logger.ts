@@ -93,7 +93,7 @@ function formatMessage(level: string, message: string, meta?: any): string {
   let metaStr = ''
   if (meta) {
     // 对于大文本字段，不进行截断（如 AI 响应、代码等）
-    const largeTextFields = ['content', 'code', 'response', 'aiResponse', 'manimCode', 'stdout', 'stderr', 'output']
+    const largeTextFields = ['content', 'code', 'response', 'aiResponse', 'stdout', 'stderr', 'output']
     const hasLargeText = largeTextFields.some(field => field in meta)
     
     if (hasLargeText) {
@@ -219,3 +219,4 @@ export const logger = new Logger()
 export function createLogger(context: string): Logger {
   return new Logger(context)
 }
+

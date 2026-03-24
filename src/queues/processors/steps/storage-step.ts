@@ -24,7 +24,8 @@ export async function storeResult(
     jobId,
     concept,
     outputMode,
-    manimCode,
+    code,
+    codeLanguage,
     usedAI,
     generationType,
     quality,
@@ -36,7 +37,6 @@ export async function storeResult(
     renderPeakMemoryMB
   } = renderResult
 
-  // 存储到 Redis（用于 API 查询）
   const normalizedTimings = normalizeTimings(timings)
   await ensureJobNotCancelled(jobId)
 
@@ -49,7 +49,8 @@ export async function storeResult(
       imageCount,
       workspaceVideoPath,
       workspaceImagePaths,
-      manimCode,
+      code,
+      codeLanguage,
       usedAI,
       quality: quality as any,
       generationType: generationType as any,
@@ -59,13 +60,12 @@ export async function storeResult(
   })
   logger.info('Result stored', { jobId, outputMode, videoUrl, imageCount })
 
-  // 写入持久化历史记录（静默失败，不影响主流程）
   if (clientId) {
     try {
       await createHistory({
         client_id: clientId,
         prompt: concept,
-        code: manimCode || null,
+        code: code || null,
         output_mode: outputMode as 'video' | 'image',
         quality: quality as 'low' | 'medium' | 'high',
         status: 'completed'

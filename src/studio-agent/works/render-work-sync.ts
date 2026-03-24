@@ -8,6 +8,7 @@ import type {
   StudioWorkStore
 } from '../domain/types'
 import type { JobResult } from '../../types'
+import { resolveJobResultCode, resolveJobResultCodeLanguage } from '../domain/render-result-metadata'
 import type { StudioBlobStore } from '../storage/studio-blob-store'
 
 export interface StudioRenderWorkSyncStores {
@@ -104,7 +105,8 @@ async function buildRenderWorkResult(
         usedAI: result.data.usedAI,
         renderPeakMemoryMB: result.data.renderPeakMemoryMB,
         timings: result.data.timings,
-        manimCode: result.data.manimCode,
+        code: resolveJobResultCode(result),
+        codeLanguage: resolveJobResultCodeLanguage(result),
         imageCount: result.data.imageCount,
         workspaceVideoPath: result.data.workspaceVideoPath,
         workspaceImagePaths: result.data.workspaceImagePaths

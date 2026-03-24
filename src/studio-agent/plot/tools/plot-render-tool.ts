@@ -85,6 +85,7 @@ async function executePlotRenderTool(
       taskId: task?.id,
       renderId,
       code: input.code,
+      codeLanguage: 'python',
       execution,
     })
 
@@ -105,7 +106,8 @@ async function executePlotRenderTool(
               imageUrls: execution.imageDataUris,
               imageCount: execution.imageDataUris.length,
               workspaceImagePaths: execution.imagePaths,
-              plotCode: input.code,
+              code: input.code,
+              codeLanguage: 'python',
               usedAI: true,
               quality: 'medium',
               generationType: 'studio-plot'
@@ -185,6 +187,7 @@ async function persistWorkResult(input: {
   taskId?: string
   renderId: string
   code: string
+  codeLanguage: 'python'
   execution: Awaited<ReturnType<typeof executeMatplotlibRender>>
 }): Promise<StudioWorkResult | null> {
   if (!input.workId || !input.context.workResultStore) {
@@ -201,6 +204,7 @@ async function persistWorkResult(input: {
       renderId: input.renderId,
       studioKind: 'plot',
       code: input.code,
+      codeLanguage: input.codeLanguage,
       imageCount: input.execution.imageDataUris.length,
       workspaceImagePaths: input.execution.imagePaths,
       scriptPath: input.execution.scriptPath,

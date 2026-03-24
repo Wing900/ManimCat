@@ -20,7 +20,8 @@ export function createStudioDefaultTurnPlanResolver(
 
   return async (input) => {
     const intent = parseStudioTurnIntent(input.inputText)
-    const agentToolNames = new Set(options.registry.listForAgent(input.session.agentType, input.session.studioKind).map((tool) => tool.name))
+    const studioKind = input.session.studioKind ?? 'manim'
+    const agentToolNames = new Set(options.registry.listForAgent(input.session.agentType, studioKind).map((tool) => tool.name))
     const supportedToolNames = new Set(
       [...agentToolNames].filter((toolName) => enabledToolNames.has(toolName))
     )
@@ -30,6 +31,7 @@ export function createStudioDefaultTurnPlanResolver(
 
     const policyDecision = resolveStudioTurnPolicy({
       agentType: input.session.agentType,
+      studioKind,
       inputText: input.inputText,
       intent,
       supportedToolNames,
@@ -39,11 +41,13 @@ export function createStudioDefaultTurnPlanResolver(
     const assistantText = insertStudioReminders({
       assistantText: buildAgentAssistantText({
         agentType: input.session.agentType,
+        studioKind,
         inputText: input.inputText,
         intent,
         policyDecision
       }),
       agentType: input.session.agentType,
+      studioKind,
       unsupportedRequestedTools,
       workContext: input.workContext,
       policyDecision
@@ -57,6 +61,3 @@ export function createStudioDefaultTurnPlanResolver(
     return plan
   }
 }
-
-
-

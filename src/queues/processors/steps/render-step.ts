@@ -27,7 +27,7 @@ export async function handlePreGeneratedCode(
 
   const renderStart = Date.now()
   const codeResult: GenerationResult = {
-    manimCode: preGeneratedCode,
+    code: preGeneratedCode,
     usedAI: false,
     generationType: 'custom-api'
   }
@@ -70,3 +70,4 @@ export async function handlePreGeneratedCode(
 }
 
 export { renderVideo, renderImages }
+

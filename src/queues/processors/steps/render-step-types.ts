@@ -4,7 +4,8 @@ export interface RenderResult {
   jobId: string
   concept: string
   outputMode: OutputMode
-  manimCode: string
+  code: string
+  codeLanguage?: 'python' | 'manim-python'
   usedAI: boolean
   generationType: string
   quality: string

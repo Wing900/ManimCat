@@ -55,6 +55,7 @@ async function executeTaskTool(
       projectId: context.projectId,
       workspaceId: context.session.workspaceId,
       parentSessionId: context.session.id,
+      studioKind: context.session.studioKind,
       agentType: input.subagent_type,
       title: `${input.description} (@${input.subagent_type} subagent)`,
       directory: context.session.directory,

@@ -1,41 +1,26 @@
-﻿/**
- * Type Definitions
- * 鍏ㄥ眬绫诲瀷瀹氫箟
+/**
+ * Shared application types.
  */
 
-/**
- * 瑙嗛璐ㄩ噺閫夐」
- */
 export type VideoQuality = 'low' | 'medium' | 'high'
 export type OutputMode = 'video' | 'image'
 export type PromptLocale = 'zh-CN' | 'en-US'
 
 /**
- * 瑙嗛閰嶇疆
+ * Video render configuration.
  */
 export interface VideoConfig {
-  /** 榛樿璐ㄩ噺 */
   quality: VideoQuality
-  /** 甯х巼 */
   frameRate: number
-  /** 瓒呮椂鏃堕棿锛堢锛夛紝榛樿 1200 绉掞紙20 鍒嗛挓锛? */
   timeout?: number
-  /** 是否添加背景音乐 */
   bgm?: boolean
 }
 
-/**
- * 浠诲姟鐘舵€?
- */
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
-
-/**
- * 澶勭悊闃舵
- */
 export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering'
 
 /**
- * 任务耗时统计（毫秒）
+ * Per-stage timing stats in milliseconds.
  */
 export interface JobTimings {
   analyze?: number
@@ -46,13 +31,10 @@ export interface JobTimings {
   total?: number
 }
 
-/**
- * 鐢熸垚绫诲瀷
- */
 export type GenerationType = 'template' | 'ai' | 'cached'
 
 /**
- * 鑷畾涔?API 閰嶇疆
+ * User-supplied API provider override.
  */
 export interface CustomApiConfig {
   apiUrl: string
@@ -61,7 +43,7 @@ export interface CustomApiConfig {
 }
 
 /**
- * Prompt overrides for generation stages
+ * Prompt overrides for generation stages.
  */
 export interface PromptOverrides {
   locale?: PromptLocale
@@ -91,7 +73,7 @@ export interface ProblemFramingPlan {
 }
 
 /**
- * 瑙嗛鐢熸垚浠诲姟鏁版嵁
+ * Queue payload for a render job.
  */
 export interface VideoJobData {
   jobId: string
@@ -101,28 +83,19 @@ export interface VideoJobData {
   quality: VideoQuality
   outputMode: OutputMode
   timestamp: string
-  /** 前端客户端指纹，用于隔离历史记录 */
   clientId?: string
-  /** 预生成的代码（使用自定义 AI 时） */
   preGeneratedCode?: string
-  /** AI 淇敼鏃剁殑鍘熷浠ｇ爜 */
   editCode?: string
-  /** AI 淇敼鏃剁殑鐢ㄦ埛鎸囦护 */
   editInstructions?: string
-  /** 鑷畾涔?API 閰嶇疆锛堢敤浜庝唬鐮佷慨澶嶏級 */
   customApiConfig?: CustomApiConfig
-  /** 瑙嗛閰嶇疆 */
   videoConfig?: VideoConfig
-  /** Prompt 覆盖 */
   promptOverrides?: PromptOverrides
-  /** Studio workspace absolute directory */
   workspaceDirectory?: string
-  /** Stable render cache workspace identity shared across jobs */
   renderCacheKey?: string
 }
 
 /**
- * 浠诲姟缁撴灉 - 瀹屾垚鐘舵€?
+ * Final successful job result.
  */
 export interface CompletedJobResult {
   status: 'completed'
@@ -133,7 +106,8 @@ export interface CompletedJobResult {
     imageCount?: number
     workspaceVideoPath?: string
     workspaceImagePaths?: string[]
-    manimCode: string
+    code?: string
+    codeLanguage?: 'python' | 'manim-python'
     usedAI: boolean
     quality: VideoQuality
     generationType: GenerationType
@@ -144,7 +118,7 @@ export interface CompletedJobResult {
 }
 
 /**
- * 浠诲姟缁撴灉 - 澶辫触鐘舵€?
+ * Final failed job result.
  */
 export interface FailedJobResult {
   status: 'failed'
@@ -157,13 +131,10 @@ export interface FailedJobResult {
   timestamp: number
 }
 
-/**
- * 浠诲姟缁撴灉鑱斿悎绫诲瀷
- */
 export type JobResult = CompletedJobResult | FailedJobResult
 
 /**
- * 姒傚康缂撳瓨鏁版嵁
+ * Cached completed render metadata.
  */
 export interface ConceptCacheData {
   jobId: string
@@ -172,15 +143,12 @@ export interface ConceptCacheData {
   quality: VideoQuality
   outputMode?: OutputMode
   videoUrl: string
-  manimCode: string
+  code: string
   generationType: GenerationType
   usedAI: boolean
   createdAt: number
 }
 
-/**
- * API 璇锋眰 - 鐢熸垚瑙嗛
- */
 export interface GenerateRequest {
   concept: string
   problemPlan?: ProblemFramingPlan
@@ -192,9 +160,6 @@ export interface GenerateRequest {
   renderCacheKey?: string
 }
 
-/**
- * API 璇锋眰 - AI 淇敼
- */
 export interface ModifyRequest {
   concept: string
   quality?: VideoQuality
@@ -206,9 +171,6 @@ export interface ModifyRequest {
   renderCacheKey?: string
 }
 
-/**
- * API 鍝嶅簲 - 鐢熸垚瑙嗛
- */
 export interface GenerateResponse {
   success: boolean
   jobId: string
@@ -217,9 +179,6 @@ export interface GenerateResponse {
   submittedAt: string
 }
 
-/**
- * API 鍝嶅簲 - 浠诲姟鐘舵€侊紙澶勭悊涓級
- */
 export interface JobStatusProcessingResponse {
   status: 'processing' | 'queued'
   jobId: string
@@ -232,8 +191,7 @@ export interface JobStatusProcessingResponse {
 }
 
 /**
- * API 鍝嶅簲 - 浠诲姟鐘舵€侊紙瀹屾垚锛?
- * 涓庡墠绔?api.ts JobResult 绫诲瀷鍏煎
+ * API response shape for a completed job.
  */
 export interface JobStatusCompletedResponse {
   status: 'completed'
@@ -257,8 +215,7 @@ export interface JobStatusCompletedResponse {
 }
 
 /**
- * API 鍝嶅簲 - 浠诲姟鐘舵€侊紙澶辫触锛?
- * 涓庡墠绔?api.ts JobResult 绫诲瀷鍏煎
+ * API response shape for a failed job.
  */
 export interface JobStatusFailedResponse {
   status: 'failed'
@@ -274,17 +231,11 @@ export interface JobStatusFailedResponse {
   cancel_reason?: string
 }
 
-/**
- * API 鍝嶅簲 - 浠诲姟鐘舵€佽仈鍚堢被鍨?
- */
 export type JobStatusResponse =
   | JobStatusProcessingResponse
   | JobStatusCompletedResponse
   | JobStatusFailedResponse
 
-/**
- * API 鍝嶅簲 - 鍋ュ悍妫€鏌?
- */
 export interface HealthCheckResponse {
   status: 'ok' | 'degraded' | 'down'
   timestamp: string
@@ -303,27 +254,18 @@ export interface HealthCheckResponse {
   }
 }
 
-/**
- * API 閿欒鍝嶅簲
- */
 export interface ErrorResponse {
   error: string
   details?: string
   statusCode?: number
 }
 
-/**
- * Bull 浠诲姟杩涘害鏁版嵁
- */
 export interface JobProgress {
   step: string
   percentage: number
   message?: string
 }
 
-/**
- * Manim 娓叉煋閫夐」
- */
 export interface ManimRenderOptions {
   quality: VideoQuality
   concept: string
@@ -331,9 +273,6 @@ export interface ManimRenderOptions {
   jobId: string
 }
 
-/**
- * 缂撳瓨鏌ヨ缁撴灉
- */
 export interface CacheCheckResult {
   hit: boolean
   data?: ConceptCacheData

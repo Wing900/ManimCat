@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 
@@ -16,7 +16,7 @@ export async function executeMatplotlibRender(input: {
   renderId: string
   code: string
 }): Promise<MatplotlibExecutionResult> {
-  const outputDir = join(input.workspaceDirectory, '.studio', 'plot', input.renderId)
+  const outputDir = join(input.workspaceDirectory, 'renders', input.renderId)
   await mkdir(outputDir, { recursive: true })
 
   const sourcePath = join(outputDir, 'plot_script.py')
@@ -25,8 +25,12 @@ export async function executeMatplotlibRender(input: {
   await writeFile(wrapperPath, buildExecutorScript(), 'utf8')
 
   const { stdout, stderr } = await runPython(wrapperPath, [sourcePath, outputDir])
-  const imagePaths = parseJsonLine(stdout, 'PLOT_OUTPUTS_JSON=') as string[]
-  if (!Array.isArray(imagePaths) || imagePaths.length === 0) {
+  const parsedImagePaths = parseJsonLine(stdout, 'PLOT_OUTPUTS_JSON=') as string[] | undefined
+  const imagePaths = Array.isArray(parsedImagePaths) && parsedImagePaths.length > 0
+    ? parsedImagePaths
+    : await findPngOutputs(outputDir)
+
+  if (imagePaths.length === 0) {
     throw new Error(stderr.trim() || 'Matplotlib execution finished without producing any image output')
   }
 
@@ -43,6 +47,14 @@ export async function executeMatplotlibRender(input: {
     stdout,
     stderr,
   }
+}
+
+async function findPngOutputs(outputDir: string): Promise<string[]> {
+  const entries = await readdir(outputDir, { withFileTypes: true })
+  return entries
+    .filter((entry) => entry.isFile() && /\.png$/i.test(entry.name))
+    .map((entry) => join(outputDir, entry.name))
+    .sort((a, b) => a.localeCompare(b))
 }
 
 async function runPython(scriptPath: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
@@ -113,7 +125,9 @@ function buildExecutorScript(): string {
     '',
     'source_path = sys.argv[1]',
     'output_dir = sys.argv[2]',
-    "namespace = {'plt': plt, '__name__': '__main__'}",
+    'os.makedirs(output_dir, exist_ok=True)',
+    'os.chdir(output_dir)',
+    "namespace = {'plt': plt, '__name__': '__main__', '__file__': source_path}",
     '',
     'with open(source_path, "r", encoding="utf-8") as f:',
     '    source = f.read()',
@@ -121,15 +135,22 @@ function buildExecutorScript(): string {
     'exec(compile(source, source_path, "exec"), namespace)',
     '',
     'figure_numbers = plt.get_fignums()',
-    'if not figure_numbers:',
-    '    raise RuntimeError("No matplotlib figures were created by the script")',
-    '',
     'outputs = []',
     'for index, figure_number in enumerate(figure_numbers, start=1):',
     '    figure = plt.figure(figure_number)',
     '    output_path = os.path.join(output_dir, f"plot_{index}.png")',
     '    figure.savefig(output_path, dpi=160, bbox_inches="tight")',
     '    outputs.append(output_path)',
+    '',
+    'if not outputs:',
+    '    outputs = [',
+    '        os.path.join(output_dir, name)',
+    '        for name in sorted(os.listdir(output_dir))',
+    '        if name.lower().endswith(".png")',
+    '    ]',
+    '',
+    'if not outputs:',
+    '    raise RuntimeError("No matplotlib figures or PNG outputs were produced by the script")',
     '',
     'print("PLOT_OUTPUTS_JSON=" + json.dumps(outputs, ensure_ascii=False))',
   ].join('\n')

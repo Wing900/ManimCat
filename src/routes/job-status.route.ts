@@ -123,7 +123,7 @@ router.get(
           video_url: result.data.videoUrl ?? null,
           image_urls: result.data.imageUrls,
           image_count: result.data.imageCount,
-          code: result.data.manimCode,
+          code: result.data.code,
           used_ai: result.data.usedAI,
           render_quality: result.data.quality,
           generation_type: result.data.generationType,
@@ -153,3 +153,4 @@ router.get(
 )
 
 export default router
+
