@@ -14,6 +14,7 @@ import type {
   StudioWorkStore
 } from '../domain/types'
 import { createCustomOpenAIClient } from '../../services/openai-client-factory'
+import { createLogger } from '../../utils/logger'
 import type { StudioPermissionService } from '../permissions/permission-service'
 import type { StudioToolRegistry } from '../tools/registry'
 import { createStudioToolCallExecutionEvents } from '../runtime/tool-call-adapter'
@@ -35,6 +36,7 @@ import { buildStudioChatTools } from './studio-tool-schema'
 import { buildStudioPreToolCommentary } from '../runtime/pre-tool-commentary'
 
 const DEFAULT_MAX_STEPS = 8
+const logger = createLogger('StudioOpenAIToolLoop')
 
 interface StudioOpenAIToolLoopInput {
   projectId: string
@@ -54,7 +56,8 @@ interface StudioOpenAIToolLoopInput {
   askForConfirmation?: (request: StudioPermissionRequest) => Promise<'once' | 'always' | 'reject'>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
-  setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
+  createAssistantMessage: () => Promise<StudioAssistantMessage>
+  setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig: CustomApiConfig
   maxSteps?: number
   toolChoice?: StudioToolChoice
@@ -82,8 +85,27 @@ export async function* createStudioOpenAIToolLoop(
   let autonomy = readStudioRunAutonomyMetadata(input.run.metadata)
   const maxSteps = input.maxSteps ?? autonomy.maxSteps ?? DEFAULT_MAX_STEPS
   const toolChoice = input.toolChoice ?? 'auto'
+  let currentAssistantMessage = input.assistantMessage
+
+  logger.info('Starting Studio OpenAI tool loop', {
+    sessionId: input.session.id,
+    runId: input.run.id,
+    agent: input.session.agentType,
+    model,
+    toolChoice,
+    maxSteps,
+    initialAssistantMessageId: currentAssistantMessage.id,
+  })
 
   for (let step = 0; step < maxSteps; step += 1) {
+    if (step > 0) {
+      currentAssistantMessage = await input.createAssistantMessage()
+      yield {
+        type: 'assistant-message-start',
+        message: currentAssistantMessage
+      }
+    }
+
     const nextStepCount = autonomy.stepCount + 1
     await input.onCheckpoint?.({
       metadata: buildStudioRunMetadataPatch({
@@ -112,9 +134,19 @@ export async function* createStudioOpenAIToolLoop(
     const assistantText = normalizeAssistantText(message?.content)
     const toolCalls = message?.tool_calls ?? []
 
+    logger.info('Received provider response', {
+      sessionId: input.session.id,
+      runId: input.run.id,
+      step: step + 1,
+      assistantMessageId: currentAssistantMessage.id,
+      finishReason: choice?.finish_reason ?? null,
+      toolCallCount: toolCalls.length,
+      hasAssistantText: Boolean(assistantText),
+    })
+
     await persistProviderMessageSnapshot({
       messageStore: input.messageStore,
-      assistantMessage: input.assistantMessage,
+      assistantMessage: currentAssistantMessage,
       providerMessage: message
     })
 
@@ -202,7 +234,7 @@ export async function* createStudioOpenAIToolLoop(
         projectId: input.projectId,
         session: input.session,
         run: input.run,
-        assistantMessage: input.assistantMessage,
+        assistantMessage: currentAssistantMessage,
         toolCallId,
         toolName,
         toolInput: parsedInput.value,
@@ -216,7 +248,7 @@ export async function* createStudioOpenAIToolLoop(
         askForConfirmation: input.askForConfirmation,
         runSubagent: input.runSubagent,
         resolveSkill: input.resolveSkill,
-        setToolMetadata: input.setToolMetadata,
+        setToolMetadata: (callId, metadata) => input.setToolMetadata(currentAssistantMessage, callId, metadata),
         customApiConfig: input.customApiConfig,
         commentary: hasAssistantText
           ? null
@@ -425,3 +457,4 @@ async function persistProviderMessageSnapshot(input: {
     metadata
   })
 }
+

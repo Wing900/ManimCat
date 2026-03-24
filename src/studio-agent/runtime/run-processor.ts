@@ -51,6 +51,7 @@ export class StudioRunProcessor {
     onDoomLoop?: (toolName: string, toolInput: Record<string, unknown>) => Promise<boolean>
   }): Promise<StudioProcessorOutcome> {
     const toolCalls = new Map<string, StudioToolPart>()
+    let currentAssistantMessage = input.assistantMessage
     let activeTextPartId: string | null = null
     let activeTextValue = ''
     let activeReasoningPartId: string | null = null
@@ -59,6 +60,14 @@ export class StudioRunProcessor {
 
     for await (const event of input.events) {
       switch (event.type) {
+        case 'assistant-message-start': {
+          currentAssistantMessage = event.message
+          activeTextPartId = null
+          activeTextValue = ''
+          activeReasoningPartId = null
+          break
+        }
+
         case 'tool-input-start': {
           input.eventBus?.publish({
             type: 'tool_input_start',
@@ -69,13 +78,13 @@ export class StudioRunProcessor {
             raw: event.raw
           })
           const part = createStudioToolPart({
-            messageId: input.assistantMessage.id,
-            sessionId: input.assistantMessage.sessionId,
+            messageId: currentAssistantMessage.id,
+            sessionId: currentAssistantMessage.sessionId,
             tool: event.toolName,
             callId: event.id,
             raw: event.raw
           })
-          await this.sync.appendPart(input.assistantMessage, part)
+          await this.sync.appendPart(currentAssistantMessage, part)
           toolCalls.set(event.id, part)
           break
         }
@@ -95,7 +104,7 @@ export class StudioRunProcessor {
           }
 
           const allowed = await this.allowToolCall({
-            assistantMessage: input.assistantMessage,
+            assistantMessage: currentAssistantMessage,
             toolName: event.toolName,
             toolInput: event.input,
             onDoomLoop: input.onDoomLoop
@@ -157,7 +166,7 @@ export class StudioRunProcessor {
 
         case 'text-start': {
           activeTextValue = ''
-          activeTextPartId = await this.textStream.startPart(input.assistantMessage, 'text')
+          activeTextPartId = await this.textStream.startPart(currentAssistantMessage, 'text')
           break
         }
 
@@ -183,7 +192,7 @@ export class StudioRunProcessor {
         }
 
         case 'reasoning-start': {
-          activeReasoningPartId = await this.textStream.startPart(input.assistantMessage, 'reasoning')
+          activeReasoningPartId = await this.textStream.startPart(currentAssistantMessage, 'reasoning')
           break
         }
 
@@ -198,8 +207,8 @@ export class StudioRunProcessor {
         }
 
         case 'finish-step': {
-          if (!input.assistantMessage.summary && input.shouldCompact) {
-            needsCompaction = await input.shouldCompact(event.usage, input.assistantMessage)
+          if (!currentAssistantMessage.summary && input.shouldCompact) {
+            needsCompaction = await input.shouldCompact(event.usage, currentAssistantMessage)
           }
           break
         }
@@ -365,4 +374,3 @@ export class StudioRunProcessor {
     })
   }
 }
-

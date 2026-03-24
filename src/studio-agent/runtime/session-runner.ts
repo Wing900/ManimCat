@@ -197,6 +197,15 @@ export class StudioSessionRunner {
     const assistantMessage = await this.createAssistantMessage(input.session)
     const eventBus = this.sharedEventBus ?? new InMemoryStudioEventBus()
 
+    logger.info('Prepared Studio run context', {
+      sessionId: input.session.id,
+      runId: persistedRun.id,
+      agent: input.session.agentType,
+      inputTextLength: input.inputText.length,
+      assistantMessageId: assistantMessage.id,
+      hasCustomApiConfig: hasUsableCustomApiConfig(input.customApiConfig),
+    })
+
     const runningRun = this.runStore
       ? await this.runStore.update(persistedRun.id, { status: 'running' }) ?? { ...persistedRun, status: 'running' }
       : { ...persistedRun, status: 'running' as const }
@@ -355,9 +364,10 @@ export class StudioSessionRunner {
             toolChoice: input.toolChoice
           }),
           resolveSkill: this.resolveSkill,
-          setToolMetadata: (callId, metadata) => {
+          createAssistantMessage: () => this.createAssistantMessage(input.prepared.input.session),
+          setToolMetadata: (assistantMessage, callId, metadata) => {
             void this.processor.applyToolMetadata({
-              assistantMessage: input.prepared.assistantMessage,
+              assistantMessage,
               callId,
               title: metadata.title,
               metadata: metadata.metadata
@@ -408,10 +418,10 @@ export class StudioSessionRunner {
       run: finishedRun
     })
 
-    const refreshedMessage = await this.messageStore.getById(input.assistantMessage.id)
-    const finalAssistantMessage = refreshedMessage && refreshedMessage.role === 'assistant'
-      ? refreshedMessage
-      : input.assistantMessage
+    const finalAssistantMessage = await this.findLatestAssistantMessage(
+      input.input.session.id,
+      input.assistantMessage,
+    )
 
     logger.info('Studio session run completed', {
       sessionId: input.input.session.id,
@@ -450,6 +460,27 @@ export class StudioSessionRunner {
 
     throw input.error
   }
+
+  private async findLatestAssistantMessage(
+    sessionId: string,
+    fallback: StudioAssistantMessage,
+  ): Promise<StudioAssistantMessage> {
+    const messages = await this.messageStore.listBySessionId(sessionId)
+    const latestAssistantMessage = [...messages]
+      .reverse()
+      .find((message): message is StudioAssistantMessage => message.role === 'assistant')
+
+    const resolved = latestAssistantMessage ?? fallback
+
+    logger.info('Resolved final assistant message for run', {
+      sessionId,
+      fallbackMessageId: fallback.id,
+      resolvedMessageId: resolved.id,
+      messageCount: messages.length,
+    })
+
+    return resolved
+  }
 }
 
 function hasUsableCustomApiConfig(config?: CustomApiConfig): config is CustomApiConfig {
@@ -459,3 +490,8 @@ function hasUsableCustomApiConfig(config?: CustomApiConfig): config is CustomApi
 
   return [config.apiUrl, config.apiKey, config.model].every((value) => typeof value === 'string' && value.trim().length > 0)
 }
+
+
+
+
+

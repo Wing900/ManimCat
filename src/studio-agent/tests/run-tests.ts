@@ -8,6 +8,7 @@ import {
   buildStudioSubagentPrompt,
   buildReviewerStructuredReport,
   createRenderStatusSessionEvent,
+  createStudioAssistantMessage,
   createStudioSession,
   createStudioTask,
   createStudioWork,
@@ -30,6 +31,7 @@ import {
   publishRenderFailureFeedback,
   StudioBuilderRuntime,
   StudioPermissionService,
+  StudioRunProcessor,
   StudioToolRegistry,
   defaultRulesForLevel,
   determineStudioAgentLoopAction,
@@ -441,6 +443,66 @@ async function main() {
     assert.ok(assistantTextIndex >= 0)
     assert.ok(toolStartIndex >= 0)
     assert.ok(assistantTextIndex < toolStartIndex)
+  })
+  await run('run processor switches assistant messages between provider turns', async () => {
+    const messageStore = new InMemoryStudioMessageStore()
+    const partStore = new InMemoryStudioPartStore()
+    const processor = new StudioRunProcessor({
+      messageStore,
+      partStore,
+    })
+
+    const session = createStudioSession({
+      projectId: 'project-1',
+      agentType: 'builder',
+      title: 'Processor Session',
+      directory: await createWorkspace(),
+      permissionLevel: 'L4',
+      permissionRules: defaultRulesForLevel('L4')
+    })
+
+    const firstAssistantMessage = await messageStore.createAssistantMessage(createStudioAssistantMessage({
+      sessionId: session.id,
+      agent: 'builder'
+    }))
+    const secondAssistantMessage = await messageStore.createAssistantMessage(createStudioAssistantMessage({
+      sessionId: session.id,
+      agent: 'builder'
+    }))
+
+    async function* events() {
+      yield { type: 'text-start' } as const
+      yield { type: 'text-delta', text: 'first turn' } as const
+      yield { type: 'text-end' } as const
+      yield { type: 'assistant-message-start', message: secondAssistantMessage } as const
+      yield { type: 'text-start' } as const
+      yield { type: 'text-delta', text: 'second turn' } as const
+      yield { type: 'text-end' } as const
+      yield { type: 'finish-step' } as const
+    }
+
+    const outcome = await processor.processStream({
+      session,
+      run: {
+        id: 'run_processor_switch',
+        sessionId: session.id,
+        status: 'running',
+        inputText: 'test',
+        activeAgent: 'builder',
+        createdAt: new Date().toISOString()
+      },
+      assistantMessage: firstAssistantMessage,
+      events: events()
+    })
+
+    const refreshedFirst = await messageStore.getById(firstAssistantMessage.id)
+    const refreshedSecond = await messageStore.getById(secondAssistantMessage.id)
+
+    assert.equal(outcome, 'continue')
+    assert.ok(refreshedFirst && refreshedFirst.role === 'assistant')
+    assert.ok(refreshedSecond && refreshedSecond.role === 'assistant')
+    assert.equal(refreshedFirst && refreshedFirst.role === 'assistant' && refreshedFirst.parts[0]?.type === 'text' ? refreshedFirst.parts[0].text : '', 'first turn')
+    assert.equal(refreshedSecond && refreshedSecond.role === 'assistant' && refreshedSecond.parts[0]?.type === 'text' ? refreshedSecond.parts[0].text : '', 'second turn')
   })
   await run('resolver does not auto-call render for plain render requests', async () => {
     const { registry } = createTestRuntime()
@@ -906,6 +968,8 @@ main()
     console.error(error)
     process.exit(1)
   })
+
+
 
 
 

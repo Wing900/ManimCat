@@ -1,4 +1,4 @@
-import type { StudioFileAttachment } from './message-types'
+import type { StudioAssistantMessage, StudioFileAttachment } from './message-types'
 
 export interface StudioPlannedToolCall {
   toolName: string
@@ -55,6 +55,11 @@ export interface StudioWorkContext {
   lastStaticCheck?: StudioWorkContextLastStaticCheck
   fileChanges?: StudioWorkContextFileChange[]
   pendingEvents?: StudioWorkContextPendingEvent[]
+}
+
+export interface StudioStreamAssistantMessageStart {
+  type: 'assistant-message-start'
+  message: StudioAssistantMessage
 }
 
 export interface StudioStreamToolInputStart {
@@ -121,6 +126,7 @@ export interface StudioStreamFinishStep {
 }
 
 export type StudioProcessorStreamEvent =
+  | StudioStreamAssistantMessageStart
   | StudioStreamToolInputStart
   | StudioStreamToolCall
   | StudioStreamToolResult
@@ -132,4 +138,3 @@ export type StudioProcessorStreamEvent =
   | StudioStreamReasoningDelta
   | StudioStreamReasoningEnd
   | StudioStreamFinishStep
-
