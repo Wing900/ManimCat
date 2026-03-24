@@ -79,10 +79,26 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
     throw new Error('AI edit returned empty code')
   }
 
+  let refinedCode = editedCode
+  if (data.customApiConfig) {
+    await ensureJobNotCancelled(jobId, job)
+    await storeProcessingStage(jobId, 'refining')
+    const staticGuardResult = await runStaticGuardLoop(
+      editedCode,
+      {
+        outputMode,
+        promptOverrides
+      },
+      data.customApiConfig,
+      async () => ensureJobNotCancelled(jobId, job)
+    )
+    refinedCode = staticGuardResult.code
+  }
+
   await ensureJobNotCancelled(jobId, job)
   const renderStart = Date.now()
   const generationResult = {
-    manimCode: editedCode,
+    code: refinedCode,
     usedAI: true,
     generationType: 'ai-edit' as const
   }
@@ -156,7 +172,7 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
     await ensureJobNotCancelled(jobId, job)
     await storeProcessingStage(jobId, 'refining')
     const staticGuardResult = await runStaticGuardLoop(
-      codeResult.manimCode,
+      codeResult.code,
       {
         outputMode,
         promptOverrides
@@ -164,7 +180,7 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
       data.customApiConfig,
       async () => ensureJobNotCancelled(jobId, job)
     )
-    codeResult.manimCode = staticGuardResult.code
+    codeResult.code = staticGuardResult.code
   }
 
   await ensureJobNotCancelled(jobId, job)
@@ -214,3 +230,4 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
     renderPeakMemoryMB: renderResult.renderPeakMemoryMB
   }
 }
+

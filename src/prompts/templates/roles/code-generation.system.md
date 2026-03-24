@@ -46,6 +46,7 @@ The storyboard uses an internal English command language. Treat it as hard instr
 - Write direct, maintainable code.
 - Use `from manim import *`.
 - For video mode, use `MainScene` as the main class unless true 3D is required.
+- For image mode, keep each `YON_IMAGE` block self-contained and independently renderable.
 - Keep comments concise and only where they help maintainability.
 
 ### Language Style

@@ -44,6 +44,8 @@ Output mode: {{outputMode}}
 {{/if}}
 {{#if isImage}}
 - Output only `YON_IMAGE` anchor blocks
+- Number blocks continuously from `YON_IMAGE_1` upward
+- Map one storyboard shot to one block
 - Each block must contain one renderable Scene
 - Use `from manim import *`
 {{/if}}
@@ -61,5 +63,6 @@ Output mode: {{outputMode}}
 ## Constraint Layer
 ### Must Not Do
 - Do not output explanation.
+- Do not use Markdown code fences.
 - Do not leave temporary objects without cleanup if they are no longer needed.
 - Do not ignore the storyboard's placement and transform intent.

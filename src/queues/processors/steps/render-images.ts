@@ -4,7 +4,6 @@ import { createLogger } from '../../../utils/logger'
 import { cleanManimCode } from '../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../utils/manim-executor'
 import { findImageFile } from '../../../utils/file-utils'
-import { createRetryContext, executeCodeRetry } from '../../../services/code-retry/manager'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import { JobCancelledError } from '../../../utils/errors'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
@@ -22,6 +21,7 @@ import {
 import type { GenerationResult } from './analysis-step'
 import type { CustomApiConfig, PromptOverrides, VideoConfig } from '../../../types'
 import type { RenderResult } from './render-step-types'
+import { executeRenderWithRetry } from './render-with-retry'
 
 const logger = createLogger('RenderImageStep')
 
@@ -72,14 +72,14 @@ function parseImageCodeBlocks(code: string): ImageCodeBlock[] {
   }
 
   if (blocks.length === 0) {
-    throw new Error('未检测到任何 YON_IMAGE 锚点代码块')
+    throw new Error('No YON_IMAGE code blocks were found')
   }
 
   const remaining = code
     .replace(/###\s*YON_IMAGE_(\d+)_START\s*###[\s\S]*?###\s*YON_IMAGE_\1_END\s*###/g, '')
     .trim()
   if (remaining.length > 0) {
-    throw new Error('检测到锚点外代码，图片模式仅允许锚点块内容')
+    throw new Error('Image mode only accepts code inside YON_IMAGE blocks')
   }
 
   blocks.sort((a, b) => a.index - b.index)
@@ -91,7 +91,7 @@ function detectSceneName(code: string): string {
   if (match?.[1]) {
     return match[1]
   }
-  throw new Error('图片代码块缺少可渲染的 Scene 类定义')
+  throw new Error('Image code block is missing a renderable Scene class')
 }
 
 function clearPreviousImages(outputDir: string, jobId: string): void {
@@ -165,7 +165,7 @@ async function renderImageBlocks(
       if (!renderResult.success) {
         return {
           success: false,
-          stderr: `图片 ${block.index} 渲染失败: ${renderResult.stderr || 'Manim render failed'}`,
+          stderr: `Image ${block.index} render failed: ${renderResult.stderr || 'Manim render failed'}`,
           stdout: renderResult.stdout || '',
           peakMemoryMB,
           imageUrls: [],
@@ -179,7 +179,7 @@ async function renderImageBlocks(
       if (!imagePath) {
         return {
           success: false,
-          stderr: `图片 ${block.index} 渲染完成但未找到 PNG 输出`,
+          stderr: `Image ${block.index} render completed but no PNG output was found`,
           stdout: '',
           peakMemoryMB,
           imageUrls: [],
@@ -234,7 +234,7 @@ export async function renderImages(
   workspaceDirectory?: string,
   renderCacheKey?: string
 ): Promise<RenderResult> {
-  const { manimCode, usedAI, generationType, sceneDesign } = codeResult
+  const { code, usedAI, generationType, sceneDesign } = codeResult
   const frameRate = videoConfig?.frameRate || 15
   const timeoutMs = resolveJobTimeoutMs(videoConfig)
 
@@ -287,7 +287,6 @@ export async function renderImages(
     await onStageUpdate()
   }
 
-  let finalCode = manimCode
   let finalImageUrls: string[] = []
   let finalImageOutputPaths: string[] = []
   let peakMemoryMB = 0
@@ -316,53 +315,19 @@ export async function renderImages(
     }
   }
 
-  if (usedAI) {
-    const retryContext = createRetryContext(
-      concept,
-      sceneDesign?.trim() || `概念: ${concept}`,
-      promptOverrides,
-      'image'
-    )
-
-    const retryManagerResult = await executeCodeRetry(
-      retryContext,
-      renderWithCode,
-      customApiConfig,
-      manimCode,
-      async (event) => {
-        await logRenderFailure({ ...event, promptRole: 'codeRetry' })
-      },
-      async () => ensureJobNotCancelled(jobId)
-    )
-    if (typeof retryManagerResult.generationTimeMs === 'number' && timings) {
-      timings.retry = retryManagerResult.generationTimeMs
-    }
-    if (!retryManagerResult.success) {
-      throw new Error(
-        `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
-      )
-    }
-
-    finalCode = retryManagerResult.code
-  } else {
-    const singleAttempt = await renderImageBlocks(jobId, quality, manimCode, frameRate, timeoutMs, stableRenderCacheKey, outputDir)
-    peakMemoryMB = Math.max(peakMemoryMB, singleAttempt.peakMemoryMB)
-    if (!singleAttempt.success) {
-      await logRenderFailure({
-        attempt: 1,
-        code: manimCode,
-        codeSnippet: singleAttempt.failedCode,
-        stderr: singleAttempt.stderr,
-        stdout: singleAttempt.stdout,
-        peakMemoryMB: singleAttempt.peakMemoryMB,
-        exitCode: singleAttempt.exitCode,
-        promptRole: 'single-render'
-      })
-      throw new Error(singleAttempt.stderr || 'Manim image render failed')
-    }
-    finalImageUrls = singleAttempt.imageUrls
-    finalImageOutputPaths = singleAttempt.outputPaths
-  }
+  const { finalCode } = await executeRenderWithRetry({
+    concept,
+    outputMode: 'image',
+    sceneDesign,
+    promptOverrides,
+    customApiConfig,
+    initialCode: code,
+    usedAI,
+    timings,
+    renderCode: renderWithCode,
+    logRenderFailure,
+    ensureJobNotCancelled: async () => ensureJobNotCancelled(jobId)
+  })
 
   await ensureJobNotCancelled(jobId)
 
@@ -372,7 +337,8 @@ export async function renderImages(
     jobId,
     concept,
     outputMode: 'image',
-    manimCode: finalCode,
+    code: finalCode,
+    codeLanguage: 'manim-python',
     usedAI,
     generationType,
     quality,

@@ -43,13 +43,16 @@ Requested change: {{instructions}}
 {{/if}}
 {{#if isImage}}
 - Output only `YON_IMAGE` anchor blocks
+- Keep block numbering continuous from `YON_IMAGE_1`
 - Each block must contain one renderable Scene
+- Preserve unaffected blocks unless the requested change requires touching them
 - Use `from manim import *`
 {{/if}}
 
 ## Constraint Layer
 ### Must Not Do
 - Do not output explanation.
+- Do not use Markdown code fences.
 - Do not rewrite unrelated parts of the code.
 - Do not change layout, timing, or naming unless the request requires it.
 

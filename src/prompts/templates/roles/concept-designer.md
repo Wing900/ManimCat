@@ -6,8 +6,9 @@ Output mode: {{outputMode}}
 
 {{#if isImage}}
 This is image mode.
-Treat each shot as a static composition step.
-Overwrite transitions between images must still be explicit.
+Treat each shot as one static composition card.
+The downstream code generator will map one shot to one `YON_IMAGE` block.
+Do not design cross-shot runtime dependencies.
 {{/if}}
 
 ## Goal Layer

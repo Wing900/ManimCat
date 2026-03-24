@@ -36,6 +36,7 @@ Error: {{errorMessage}}
 {{/if}}
 {{#if isImage}}
 - In image mode, preserve the existing `YON_IMAGE` anchor structure and continuous numbering.
+- In image mode, patch the failing block as locally as possible and leave unaffected blocks unchanged.
 {{/if}}
 
 ## Protocol Layer
