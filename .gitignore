@@ -44,6 +44,7 @@ triangle.png
 
 # AI/Dev tools
 .claude/
+.ruff_cache/
 
 # MD files (except README)
 *.md

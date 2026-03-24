@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { StudioPermissionModeModal } from './controls/StudioPermissionModeModal'
 import { StudioCommandPanel } from './components/StudioCommandPanel'
 import { useStudioSession } from './hooks/use-studio-session'
@@ -15,11 +15,40 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
     title: 'Plot Studio'
   })
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
+  const [orderedWorkIds, setOrderedWorkIds] = useState<string[]>([])
+
+  useEffect(() => {
+    const incomingIds = studio.workSummaries.map((entry) => entry.work.id)
+    setOrderedWorkIds((current) => {
+      const preserved = current.filter((id) => incomingIds.includes(id))
+      const appended = incomingIds.filter((id) => !preserved.includes(id))
+      return [...appended, ...preserved]
+    })
+  }, [studio.workSummaries])
+
+  const orderedWorkSummaries = useMemo(() => {
+    const byId = new Map(studio.workSummaries.map((entry) => [entry.work.id, entry]))
+    return orderedWorkIds
+      .map((id) => byId.get(id))
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+  }, [orderedWorkIds, studio.workSummaries])
+
+  useEffect(() => {
+    const latestWorkId = orderedWorkSummaries[0]?.work.id ?? null
+    if (latestWorkId) {
+      setSelectedWorkId(latestWorkId)
+    }
+  }, [orderedWorkSummaries[0]?.work.id, orderedWorkSummaries[0]?.result?.id])
+
   const effectiveSelectedWorkId =
-    selectedWorkId && studio.works.some((work) => work.id === selectedWorkId)
+    selectedWorkId && orderedWorkSummaries.some((entry) => entry.work.id === selectedWorkId)
       ? selectedWorkId
-      : studio.works[0]?.id ?? null
+      : orderedWorkSummaries[0]?.work.id ?? null
   const selected = studio.selectWork(effectiveSelectedWorkId)
+
+  const handleReorderWorks = (nextWorkIds: string[]) => {
+    setOrderedWorkIds(nextWorkIds)
+  }
 
   return (
     <>
@@ -45,7 +74,7 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
             <div className="min-h-0 flex-1">
               <PlotPreviewPanel
                 session={studio.session}
-                works={studio.workSummaries}
+                works={orderedWorkSummaries}
                 selectedWorkId={effectiveSelectedWorkId}
                 work={selected.work}
                 result={selected.result}
@@ -56,6 +85,7 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
                 latestAssistantText={studio.latestAssistantText}
                 errorMessage={studio.state.error ?? studio.state.connection.eventError}
                 onSelectWork={setSelectedWorkId}
+                onReorderWorks={handleReorderWorks}
                 onReply={studio.replyPermission}
               />
             </div>
