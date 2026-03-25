@@ -1,4 +1,3 @@
-import { createLogger } from '../../utils/logger'
 import type { CustomApiConfig } from '../../types'
 import { InMemoryStudioEventBus } from '../events/event-bus'
 import { createStudioUserMessage } from '../domain/factories'
@@ -29,6 +28,7 @@ import type {
   StudioPartStore,
   StudioPermissionDecision,
   StudioPermissionRequest,
+  StudioProcessorStreamEvent,
   StudioRun,
   StudioRunStore,
   StudioRuntimeTurnPlan,
@@ -42,8 +42,7 @@ import type {
   StudioWorkStore
 } from '../domain/types'
 import { StudioToolRegistry } from '../tools/registry'
-
-const logger = createLogger('StudioSessionRunner')
+import { logPlotStudioTiming, readElapsedMs, readRunElapsedMs } from '../observability/plot-studio-timing'
 
 interface StudioSessionRunnerOptions {
   registry: StudioToolRegistry
@@ -77,6 +76,14 @@ interface StudioPreparedRunContext {
   run: StudioRun
   assistantMessage: StudioAssistantMessage
   eventBus: StudioEventBus
+}
+
+interface StudioPreparedRunExecution {
+  events: AsyncGenerator<StudioProcessorStreamEvent>
+  startLog?: {
+    event: string
+    payload: Record<string, unknown>
+  }
 }
 
 export interface StudioBackgroundRunHandle {
@@ -153,12 +160,12 @@ export class StudioSessionRunner {
     toolChoice?: StudioToolChoice
   }): Promise<StudioSubagentRunResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
     const prepared = await this.prepareRun(input)
-    return this.executeResolvedPlan({
+    return this.executePreparedStream(prepared, this.createResolvedPlanExecution({
       prepared,
       plan: input.plan,
       customApiConfig: input.customApiConfig,
       toolChoice: input.toolChoice
-    })
+    }))
   }
 
   async runSubagent(input: StudioSubagentRunRequest): Promise<StudioSubagentRunResult> {
@@ -187,6 +194,7 @@ export class StudioSessionRunner {
   }
 
   private async prepareRun(input: StudioRunRequestInput): Promise<StudioPreparedRunContext> {
+    const prepareStartedAt = Date.now()
     const workContext = await this.buildWorkContext(input)
     const run = this.createRun(input.session, input.inputText, input.runMetadata)
     const persistedRun = this.runStore ? await this.runStore.create(run) : run
@@ -197,12 +205,11 @@ export class StudioSessionRunner {
     const assistantMessage = await this.createAssistantMessage(input.session)
     const eventBus = this.sharedEventBus ?? new InMemoryStudioEventBus()
 
-    logger.info('Prepared Studio run context', {
+    logPlotStudioTiming(input.session.studioKind, 'run.started', {
       sessionId: input.session.id,
       runId: persistedRun.id,
-      agent: input.session.agentType,
-      inputTextLength: input.inputText.length,
       assistantMessageId: assistantMessage.id,
+      prepareDurationMs: readElapsedMs(prepareStartedAt),
       hasCustomApiConfig: hasUsableCustomApiConfig(input.customApiConfig),
     })
 
@@ -225,25 +232,12 @@ export class StudioSessionRunner {
   }
 
   private async executePreparedRun(prepared: StudioPreparedRunContext) {
-    logger.info('Executing prepared studio run', {
-      sessionId: prepared.input.session.id,
-      runId: prepared.run.id,
-      agent: prepared.input.session.agentType,
-      hasCustomApiConfig: hasUsableCustomApiConfig(prepared.input.customApiConfig),
-      requestedToolChoice: prepared.input.toolChoice ?? null,
-    })
-
     if (hasUsableCustomApiConfig(prepared.input.customApiConfig)) {
-      logger.info('Studio run using direct agent loop', {
-        sessionId: prepared.input.session.id,
-        runId: prepared.run.id,
-        model: prepared.input.customApiConfig.model,
-      })
-      return this.executeAgentLoop({
+      return this.executePreparedStream(prepared, this.createAgentLoopExecution({
         prepared,
         customApiConfig: prepared.input.customApiConfig,
         toolChoice: resolveStudioToolChoice({ session: prepared.input.session, override: prepared.input.toolChoice })
-      })
+      }))
     }
 
     const plan = await this.resolveTurnPlan({
@@ -255,19 +249,12 @@ export class StudioSessionRunner {
       workContext: prepared.workContext
     })
 
-    logger.info('Studio run resolved turn plan', {
-      sessionId: prepared.input.session.id,
-      runId: prepared.run.id,
-      hasAssistantText: Boolean(plan.assistantText),
-      toolCallCount: plan.toolCalls?.length ?? 0,
-    })
-
-    return this.executeResolvedPlan({
+    return this.executePreparedStream(prepared, this.createResolvedPlanExecution({
       prepared,
       plan,
       customApiConfig: prepared.input.customApiConfig,
       toolChoice: prepared.input.toolChoice
-    })
+    }))
   }
 
   private async buildWorkContext(input: {
@@ -291,146 +278,137 @@ export class StudioSessionRunner {
     }
   }
 
-  private async executeResolvedPlan(input: {
+  private createResolvedPlanExecution(input: {
     prepared: StudioPreparedRunContext
     plan: StudioRuntimeTurnPlan
     customApiConfig?: CustomApiConfig
     toolChoice?: StudioToolChoice
-  }): Promise<StudioSubagentRunResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
-    try {
-      logger.info('Studio run executing resolved plan stream', {
-        sessionId: input.prepared.input.session.id,
-        runId: input.prepared.run.id,
-        hasAssistantText: Boolean(input.plan.assistantText),
-        toolCallCount: input.plan.toolCalls?.length ?? 0,
-      })
-      const outcome = await this.processor.processStream({
+  }): StudioPreparedRunExecution {
+    return {
+      events: createStudioTurnExecutionStream({
+        projectId: input.prepared.input.projectId,
         session: input.prepared.input.session,
         run: input.prepared.run,
         assistantMessage: input.prepared.assistantMessage,
+        plan: input.plan,
+        registry: this.registry,
         eventBus: input.prepared.eventBus,
-        events: createStudioTurnExecutionStream({
-          projectId: input.prepared.input.projectId,
-          session: input.prepared.input.session,
-          run: input.prepared.run,
-          assistantMessage: input.prepared.assistantMessage,
-          plan: input.plan,
-          registry: this.registry,
-          eventBus: input.prepared.eventBus,
-          permissionService: this.permissionService,
-          sessionStore: this.sessionStore,
-          taskStore: this.taskStore,
-          workStore: this.workStore,
-          workResultStore: this.workResultStore,
-          askForConfirmation: this.askForConfirmation,
-          runSubagent: (request) => this.runSubagent({
-            ...request,
-            customApiConfig: input.customApiConfig,
-            toolChoice: input.toolChoice
-          }),
-          resolveSkill: this.resolveSkill,
-          setToolMetadata: (callId, metadata) => {
-            void this.processor.applyToolMetadata({
-              assistantMessage: input.prepared.assistantMessage,
-              callId,
-              title: metadata.title,
-              metadata: metadata.metadata
-            })
-          },
-          customApiConfig: input.customApiConfig
-        })
-      })
-
-      return this.finalizeSuccessfulRun({
-        input: { session: input.prepared.input.session },
-        run: input.prepared.run,
-        assistantMessage: input.prepared.assistantMessage,
-        outcome,
-        eventBus: input.prepared.eventBus
-      })
-    } catch (error) {
-      return this.handleFailedRun({
-        input: { session: input.prepared.input.session },
-        run: input.prepared.run,
-        error
+        permissionService: this.permissionService,
+        sessionStore: this.sessionStore,
+        taskStore: this.taskStore,
+        workStore: this.workStore,
+        workResultStore: this.workResultStore,
+        askForConfirmation: this.askForConfirmation,
+        runSubagent: (request) => this.runSubagent({
+          ...request,
+          customApiConfig: input.customApiConfig,
+          toolChoice: input.toolChoice
+        }),
+        resolveSkill: this.resolveSkill,
+        setToolMetadata: (callId, metadata) => {
+          void this.processor.applyToolMetadata({
+            assistantMessage: input.prepared.assistantMessage,
+            callId,
+            title: metadata.title,
+            metadata: metadata.metadata
+          })
+        },
+        customApiConfig: input.customApiConfig
       })
     }
   }
 
-  private async executeAgentLoop(input: {
+  private createAgentLoopExecution(input: {
     prepared: StudioPreparedRunContext
     customApiConfig: CustomApiConfig
     toolChoice?: StudioToolChoice
-  }): Promise<StudioSubagentRunResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
-    try {
-      logger.info('Studio run entering OpenAI tool loop', {
-        sessionId: input.prepared.input.session.id,
-        runId: input.prepared.run.id,
-        model: input.customApiConfig.model,
-        toolChoice: input.toolChoice ?? null,
-      })
-      const outcome = await this.processor.processStream({
+  }): StudioPreparedRunExecution {
+    return {
+      startLog: {
+        event: 'loop.started',
+        payload: {
+          sessionId: input.prepared.input.session.id,
+          runId: input.prepared.run.id,
+          model: input.customApiConfig.model,
+          toolChoice: input.toolChoice ?? null,
+          runElapsedMs: readRunElapsedMs(input.prepared.run),
+        }
+      },
+      events: createStudioOpenAIToolLoop({
+        projectId: input.prepared.input.projectId,
         session: input.prepared.input.session,
         run: input.prepared.run,
         assistantMessage: input.prepared.assistantMessage,
+        inputText: input.prepared.input.inputText,
+        messageStore: this.messageStore,
+        registry: this.registry,
         eventBus: input.prepared.eventBus,
-        events: createStudioOpenAIToolLoop({
-          projectId: input.prepared.input.projectId,
-          session: input.prepared.input.session,
-          run: input.prepared.run,
-          assistantMessage: input.prepared.assistantMessage,
-          inputText: input.prepared.input.inputText,
-          messageStore: this.messageStore,
-          registry: this.registry,
-          eventBus: input.prepared.eventBus,
-          permissionService: this.permissionService,
-          sessionStore: this.sessionStore,
-          taskStore: this.taskStore,
-          workStore: this.workStore,
-          workResultStore: this.workResultStore,
-          workContext: input.prepared.workContext,
-          askForConfirmation: this.askForConfirmation,
-          runSubagent: (request) => this.runSubagent({
-            ...request,
-            customApiConfig: input.customApiConfig,
-            toolChoice: input.toolChoice
-          }),
-          resolveSkill: this.resolveSkill,
-          createAssistantMessage: () => this.createAssistantMessage(input.prepared.input.session),
-          setToolMetadata: (assistantMessage, callId, metadata) => {
-            void this.processor.applyToolMetadata({
-              assistantMessage,
-              callId,
-              title: metadata.title,
-              metadata: metadata.metadata
-            })
-          },
+        permissionService: this.permissionService,
+        sessionStore: this.sessionStore,
+        taskStore: this.taskStore,
+        workStore: this.workStore,
+        workResultStore: this.workResultStore,
+        workContext: input.prepared.workContext,
+        askForConfirmation: this.askForConfirmation,
+        runSubagent: (request) => this.runSubagent({
+          ...request,
           customApiConfig: input.customApiConfig,
-          toolChoice: input.toolChoice,
-          onCheckpoint: async (patch) => {
-            const nextRun = this.runStore
-              ? await this.runStore.update(input.prepared.run.id, patch) ?? { ...input.prepared.run, ...patch }
-              : { ...input.prepared.run, ...patch }
-            input.prepared.run = nextRun
-            input.prepared.eventBus.publish({
-              type: 'run_updated',
-              run: nextRun
-            })
-          }
-        })
+          toolChoice: input.toolChoice
+        }),
+        resolveSkill: this.resolveSkill,
+        createAssistantMessage: () => this.createAssistantMessage(input.prepared.input.session),
+        setToolMetadata: (assistantMessage, callId, metadata) => {
+          void this.processor.applyToolMetadata({
+            assistantMessage,
+            callId,
+            title: metadata.title,
+            metadata: metadata.metadata
+          })
+        },
+        customApiConfig: input.customApiConfig,
+        toolChoice: input.toolChoice,
+        onCheckpoint: async (patch) => {
+          const nextRun = this.runStore
+            ? await this.runStore.update(input.prepared.run.id, patch) ?? { ...input.prepared.run, ...patch }
+            : { ...input.prepared.run, ...patch }
+          input.prepared.run = nextRun
+          input.prepared.eventBus.publish({
+            type: 'run_updated',
+            run: nextRun
+          })
+        }
+      })
+    }
+  }
+
+  private async executePreparedStream(
+    prepared: StudioPreparedRunContext,
+    execution: StudioPreparedRunExecution
+  ): Promise<StudioSubagentRunResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
+    try {
+      if (execution.startLog) {
+        logPlotStudioTiming(prepared.input.session.studioKind, execution.startLog.event, execution.startLog.payload)
+      }
+
+      const outcome = await this.processor.processStream({
+        session: prepared.input.session,
+        run: prepared.run,
+        assistantMessage: prepared.assistantMessage,
+        eventBus: prepared.eventBus,
+        events: execution.events
       })
 
       return this.finalizeSuccessfulRun({
-        input: { session: input.prepared.input.session },
-        run: input.prepared.run,
-        assistantMessage: input.prepared.assistantMessage,
+        input: { session: prepared.input.session },
+        run: prepared.run,
+        assistantMessage: prepared.assistantMessage,
         outcome,
-        eventBus: input.prepared.eventBus
+        eventBus: prepared.eventBus
       })
     } catch (error) {
       return this.handleFailedRun({
-        input: { session: input.prepared.input.session },
-        run: input.prepared.run,
+        input: { session: prepared.input.session },
+        run: prepared.run,
         error
       })
     }
@@ -455,12 +433,12 @@ export class StudioSessionRunner {
       input.assistantMessage,
     )
 
-    logger.info('Studio session run completed', {
+    logPlotStudioTiming(input.input.session.studioKind, 'run.completed', {
       sessionId: input.input.session.id,
       runId: input.run.id,
-      agent: input.input.session.agentType,
       outcome: input.outcome,
-      eventCount: input.eventBus.list().length
+      eventCount: input.eventBus.list().length,
+      runElapsedMs: readRunElapsedMs(finishedRun),
     })
 
     return {
@@ -483,12 +461,12 @@ export class StudioSessionRunner {
       run: failedRun
     })
 
-    logger.warn('Studio session run failed', {
+    logPlotStudioTiming(input.input.session.studioKind, 'run.failed', {
       sessionId: input.input.session.id,
       runId: input.run.id,
-      agent: input.input.session.agentType,
-      error: message
-    })
+      error: message,
+      runElapsedMs: readRunElapsedMs(failedRun),
+    }, 'warn')
 
     throw input.error
   }
@@ -504,13 +482,6 @@ export class StudioSessionRunner {
 
     const resolved = latestAssistantMessage ?? fallback
 
-    logger.info('Resolved final assistant message for run', {
-      sessionId,
-      fallbackMessageId: fallback.id,
-      resolvedMessageId: resolved.id,
-      messageCount: messages.length,
-    })
-
     return resolved
   }
 }
@@ -522,8 +493,3 @@ function hasUsableCustomApiConfig(config?: CustomApiConfig): config is CustomApi
 
   return [config.apiUrl, config.apiKey, config.model].every((value) => typeof value === 'string' && value.trim().length > 0)
 }
-
-
-
-
-

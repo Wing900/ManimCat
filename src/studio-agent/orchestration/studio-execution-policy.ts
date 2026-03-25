@@ -26,7 +26,7 @@ const MANIM_POLICY: StudioExecutionPolicy = {
     'Before rendering, make sure the target Manim code exists in the workspace or is fully prepared in the render request.',
     'If the requested scene flow, assets, render mode, or target file is ambiguous, ask before rendering.'
   ],
-  builderContinueText: 'I will continue the current Manim Studio subagent work first.',
+  builderContinueText: '延续当前正在进行的子代理工作。',
   builderTaskIntentText: (subagentType, skillName) => {
     const skillSegment = skillName ? ` using skill "${skillName}"` : ''
     return `I will hand this off to the ${subagentType} subagent${skillSegment}.`
@@ -38,8 +38,8 @@ const MANIM_POLICY: StudioExecutionPolicy = {
       : 'This input did not trigger an automatic planning path in Manim Studio.'
   ),
   builderReminderTexts: {
-    runningWork: (title) => `There is still in-progress work in this session: ${title}`,
-    failedRender: 'The most recent render failed. Check the failure details before attempting another render.',
+    runningWork: (title) => `当前会话存在进行中的 Work：${title}`,
+    failedRender: '最近一次 render 结果失败，请先确认失败原因再尝试。',
     unsupportedTools: (toolNames) => `Automatic planning does not cover these requested tools yet: ${toolNames.join(', ')}.`,
     pendingEvents: (summaries) => `Pending backend updates: ${summaries.join(' | ')}`
   },
@@ -58,7 +58,7 @@ const PLOT_POLICY: StudioExecutionPolicy = {
     'Before rendering, make sure the target matplotlib code exists in the workspace or is fully prepared in the render request.',
     'If the chart type, data source, subplot layout, axes, labels, or output target is ambiguous, ask before rendering.'
   ],
-  builderContinueText: 'I will continue the current Plot Studio subagent work first.',
+  builderContinueText: '延续当前正在进行的子代理工作。',
   builderTaskIntentText: (subagentType, skillName) => {
     const skillSegment = skillName ? ` using skill "${skillName}"` : ''
     return `I will hand this off to the ${subagentType} subagent${skillSegment}.`
@@ -70,8 +70,8 @@ const PLOT_POLICY: StudioExecutionPolicy = {
       : 'This input did not trigger an automatic planning path in Plot Studio.'
   ),
   builderReminderTexts: {
-    runningWork: (title) => `There is still in-progress work in this session: ${title}`,
-    failedRender: 'The most recent plot render failed. Check the failure details before attempting another render.',
+    runningWork: (title) => `当前会话存在进行中的 Work：${title}`,
+    failedRender: '最近一次 render 结果失败，请先确认失败原因再尝试。',
     unsupportedTools: (toolNames) => `Automatic planning does not cover these requested tools yet: ${toolNames.join(', ')}.`,
     pendingEvents: (summaries) => `Pending backend updates: ${summaries.join(' | ')}`
   },
@@ -84,3 +84,6 @@ const PLOT_POLICY: StudioExecutionPolicy = {
 export function getStudioExecutionPolicy(studioKind: StudioKind = 'manim'): StudioExecutionPolicy {
   return studioKind === 'plot' ? PLOT_POLICY : MANIM_POLICY
 }
+
+
+

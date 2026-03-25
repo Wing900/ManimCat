@@ -1,12 +1,9 @@
 import type OpenAI from 'openai'
 import type { StudioAssistantMessage, StudioMessage, StudioToolPart } from '../domain/types'
-import { createLogger } from '../../utils/logger'
 import {
-  summarizeConversationMessageForDebug,
   type StudioStoredAssistantPayload,
   type StudioStoredAssistantToolCall,
 } from './studio-provider-message'
-const logger = createLogger('StudioMessageHistory')
 
 export function buildStudioConversationMessages(input: {
   messages: StudioMessage[]
@@ -36,12 +33,6 @@ function toConversationMessages(message: StudioMessage): OpenAI.Chat.Completions
       assistantMessage,
       ...toolMessages
     ]
-
-    logger.info('Rehydrating stored assistant provider payload', {
-      messageId: message.id,
-      sessionId: message.sessionId,
-      conversationMessages: conversationMessages.map((item) => summarizeConversationMessageForDebug(item)),
-    })
 
     return conversationMessages
   }

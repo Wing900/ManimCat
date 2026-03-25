@@ -1,7 +1,6 @@
 import type OpenAI from 'openai'
-import { createLogger } from '../../utils/logger'
+import { logPlotStudioTiming, readElapsedMs } from '../observability/plot-studio-timing'
 
-const logger = createLogger('StudioProviderRequest')
 const DEFAULT_PROVIDER_TIMEOUT_MS = parsePositiveInteger(
   process.env.STUDIO_PROVIDER_REQUEST_TIMEOUT_MS,
   120000,
@@ -17,6 +16,11 @@ export async function requestStudioChatCompletion(input: {
   runId: string
   step: number
   assistantMessageId: string
+  studioKind?: string
+  runCreatedAt?: string
+  requestMessageCount?: number
+  requestMessageCharsApprox?: number
+  requestToolSchemaCharsApprox?: number
 }): Promise<OpenAI.Chat.Completions.ChatCompletion> {
   const startedAt = Date.now()
 
@@ -30,28 +34,39 @@ export async function requestStudioChatCompletion(input: {
       timeout: DEFAULT_PROVIDER_TIMEOUT_MS,
     })
 
-    logger.info('Studio provider request completed', {
+    logPlotStudioTiming(input.studioKind, 'provider.completed', {
       sessionId: input.sessionId,
       runId: input.runId,
       step: input.step,
-      assistantMessageId: input.assistantMessageId,
-      durationMs: Date.now() - startedAt,
+      durationMs: readElapsedMs(startedAt),
       timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
-      choiceCount: completion.choices.length,
+      finishReason: completion.choices[0]?.finish_reason ?? null,
+      toolCallCount: completion.choices[0]?.message?.tool_calls?.length ?? 0,
+      hasAssistantText: Boolean(completion.choices[0]?.message?.content),
+      promptTokens: completion.usage?.prompt_tokens ?? null,
+      completionTokens: completion.usage?.completion_tokens ?? null,
+      totalTokens: completion.usage?.total_tokens ?? null,
+      requestMessageCount: input.requestMessageCount ?? null,
+      requestMessageCharsApprox: input.requestMessageCharsApprox ?? null,
+      requestToolSchemaCharsApprox: input.requestToolSchemaCharsApprox ?? null,
+      runElapsedMs: input.runCreatedAt ? readElapsedMs(new Date(input.runCreatedAt).getTime()) : null,
     })
 
     return completion
   } catch (error) {
-    logger.warn('Studio provider request failed', {
+    logPlotStudioTiming(input.studioKind, 'provider.failed', {
       sessionId: input.sessionId,
       runId: input.runId,
       step: input.step,
-      assistantMessageId: input.assistantMessageId,
-      durationMs: Date.now() - startedAt,
+      durationMs: readElapsedMs(startedAt),
       timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
       error: error instanceof Error ? error.message : String(error),
       errorName: error instanceof Error ? error.name : undefined,
-    })
+      requestMessageCount: input.requestMessageCount ?? null,
+      requestMessageCharsApprox: input.requestMessageCharsApprox ?? null,
+      requestToolSchemaCharsApprox: input.requestToolSchemaCharsApprox ?? null,
+      runElapsedMs: input.runCreatedAt ? readElapsedMs(new Date(input.runCreatedAt).getTime()) : null,
+    }, 'warn')
     throw error
   }
 }

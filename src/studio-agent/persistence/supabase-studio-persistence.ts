@@ -10,7 +10,6 @@ import type {
   StudioRunStore,
   StudioSession,
   StudioSessionEvent,
-
   StudioSessionStore,
   StudioTask,
   StudioTaskStore,
@@ -102,7 +101,6 @@ type StudioSessionEventRow = {
   updated_at: string
   consumed_at: string | null
 }
-
 
 type StudioTaskRow = {
   id: string
@@ -418,8 +416,8 @@ async function fromMessageRow(client: SupabaseClient, row: StudioMessageRow): Pr
       role: 'assistant',
       agent: row.agent ?? 'builder',
       parts: (data ?? []).map((part) => fromPartRow(part as StudioPartRow)),
-      summary: row.summary ?? undefined,
-      metadata: row.metadata ?? undefined,
+      summary: asOptional(row.summary),
+      metadata: asOptional(row.metadata),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -439,15 +437,15 @@ function fromSessionRow(row: StudioSessionRow): StudioSession {
   return {
     id: row.id,
     projectId: row.project_id,
-    workspaceId: row.workspace_id ?? undefined,
-    parentSessionId: row.parent_session_id ?? undefined,
+    workspaceId: asOptional(row.workspace_id),
+    parentSessionId: asOptional(row.parent_session_id),
     studioKind: readStudioKindFromMetadata(row.metadata),
     agentType: row.agent_type,
     title: row.title,
     directory: row.directory,
     permissionLevel: row.permission_level,
     permissionRules: row.permission_rules ?? [],
-    metadata: row.metadata ?? undefined,
+    metadata: asOptional(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -484,7 +482,7 @@ function fromPartRow(row: StudioPartRow): StudioMessagePart {
     tool: row.tool ?? 'unknown',
     callId: row.call_id ?? row.id,
     state: (row.state ?? { status: 'pending', input: {}, raw: '' }) as StudioMessagePart extends infer _ ? any : never,
-    metadata: row.metadata ?? undefined,
+    metadata: asOptional(row.metadata),
   }
 }
 
@@ -492,15 +490,15 @@ function fromSessionEventRow(row: StudioSessionEventRow): StudioSessionEvent {
   return {
     id: row.id,
     sessionId: row.session_id,
-    runId: row.run_id ?? undefined,
+    runId: asOptional(row.run_id),
     kind: row.kind,
     status: row.status,
     title: row.title,
     summary: row.summary,
-    metadata: row.metadata ?? undefined,
+    metadata: asOptional(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    consumedAt: row.consumed_at ?? undefined,
+    consumedAt: asOptional(row.consumed_at),
   }
 }
 
@@ -512,9 +510,9 @@ function fromRunRow(row: StudioRunRow): StudioRun {
     inputText: row.input_text,
     activeAgent: row.active_agent,
     createdAt: row.created_at,
-    completedAt: row.completed_at ?? undefined,
-    error: row.error ?? undefined,
-    metadata: row.metadata ?? undefined,
+    completedAt: asOptional(row.completed_at),
+    error: asOptional(row.error),
+    metadata: asOptional(row.metadata),
   }
 }
 
@@ -522,13 +520,13 @@ function fromTaskRow(row: StudioTaskRow): StudioTask {
   return {
     id: row.id,
     sessionId: row.session_id,
-    runId: row.run_id ?? undefined,
-    workId: row.work_id ?? undefined,
+    runId: asOptional(row.run_id),
+    workId: asOptional(row.work_id),
     type: row.type,
     status: row.status,
     title: row.title,
-    detail: row.detail ?? undefined,
-    metadata: row.metadata ?? undefined,
+    detail: asOptional(row.detail),
+    metadata: asOptional(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -538,13 +536,13 @@ function fromWorkRow(row: StudioWorkRow): StudioWork {
   return {
     id: row.id,
     sessionId: row.session_id,
-    runId: row.run_id ?? undefined,
+    runId: asOptional(row.run_id),
     type: row.type,
     title: row.title,
     status: row.status,
-    latestTaskId: row.latest_task_id ?? undefined,
-    currentResultId: row.current_result_id ?? undefined,
-    metadata: row.metadata ?? undefined,
+    latestTaskId: asOptional(row.latest_task_id),
+    currentResultId: asOptional(row.current_result_id),
+    metadata: asOptional(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -557,7 +555,7 @@ function fromWorkResultRow(row: StudioWorkResultRow): StudioWorkResult {
     kind: row.kind,
     summary: row.summary,
     attachments: asAttachments(row.attachments),
-    metadata: row.metadata ?? undefined,
+    metadata: asOptional(row.metadata),
     createdAt: row.created_at,
   }
 }
@@ -566,14 +564,14 @@ function toSessionRow(session: StudioSession): StudioSessionRow {
   return {
     id: session.id,
     project_id: session.projectId,
-    workspace_id: session.workspaceId ?? null,
-    parent_session_id: session.parentSessionId ?? null,
+    workspace_id: asNullable(session.workspaceId),
+    parent_session_id: asNullable(session.parentSessionId),
     agent_type: session.agentType,
     title: session.title,
     directory: session.directory,
     permission_level: session.permissionLevel,
     permission_rules: session.permissionRules,
-    metadata: session.metadata ?? null,
+    metadata: asNullable(session.metadata),
     created_at: session.createdAt,
     updated_at: session.updatedAt,
   }
@@ -586,8 +584,8 @@ function toAssistantMessageRow(message: StudioAssistantMessage): StudioMessageRo
     role: 'assistant',
     agent: message.agent,
     text: null,
-    summary: message.summary ?? null,
-    metadata: message.metadata ?? null,
+    summary: asNullable(message.summary),
+    metadata: asNullable(message.metadata),
     created_at: message.createdAt,
     updated_at: message.updatedAt,
   }
@@ -635,7 +633,7 @@ function toPartRow(part: StudioMessagePart): StudioPartRow {
     tool: part.tool,
     call_id: part.callId,
     state: part.state as unknown as JsonRecord,
-    metadata: part.metadata ?? null,
+    metadata: asNullable(part.metadata),
     time: null,
     created_at: now,
     updated_at: now,
@@ -646,15 +644,15 @@ function toSessionEventRow(event: StudioSessionEvent): StudioSessionEventRow {
   return {
     id: event.id,
     session_id: event.sessionId,
-    run_id: event.runId ?? null,
+    run_id: asNullable(event.runId),
     kind: event.kind,
     status: event.status,
     title: event.title,
     summary: event.summary,
-    metadata: event.metadata ?? null,
+    metadata: asNullable(event.metadata),
     created_at: event.createdAt,
     updated_at: event.updatedAt,
-    consumed_at: event.consumedAt ?? null,
+    consumed_at: asNullable(event.consumedAt),
   }
 }
 
@@ -666,9 +664,9 @@ function toRunRow(run: StudioRun): StudioRunRow {
     input_text: run.inputText,
     active_agent: run.activeAgent,
     created_at: run.createdAt,
-    completed_at: run.completedAt ?? null,
-    error: run.error ?? null,
-    metadata: run.metadata ?? null,
+    completed_at: asNullable(run.completedAt),
+    error: asNullable(run.error),
+    metadata: asNullable(run.metadata),
   }
 }
 
@@ -676,13 +674,13 @@ function toTaskRow(task: StudioTask): StudioTaskRow {
   return {
     id: task.id,
     session_id: task.sessionId,
-    run_id: task.runId ?? null,
-    work_id: task.workId ?? null,
+    run_id: asNullable(task.runId),
+    work_id: asNullable(task.workId),
     type: task.type,
     status: task.status,
     title: task.title,
-    detail: task.detail ?? null,
-    metadata: task.metadata ?? null,
+    detail: asNullable(task.detail),
+    metadata: asNullable(task.metadata),
     created_at: task.createdAt,
     updated_at: task.updatedAt,
   }
@@ -692,13 +690,13 @@ function toWorkRow(work: StudioWork): StudioWorkRow {
   return {
     id: work.id,
     session_id: work.sessionId,
-    run_id: work.runId ?? null,
+    run_id: asNullable(work.runId),
     type: work.type,
     title: work.title,
     status: work.status,
-    latest_task_id: work.latestTaskId ?? null,
-    current_result_id: work.currentResultId ?? null,
-    metadata: work.metadata ?? null,
+    latest_task_id: asNullable(work.latestTaskId),
+    current_result_id: asNullable(work.currentResultId),
+    metadata: asNullable(work.metadata),
     created_at: work.createdAt,
     updated_at: work.updatedAt,
   }
@@ -711,7 +709,7 @@ function toWorkResultRow(result: StudioWorkResult): StudioWorkResultRow {
     kind: result.kind,
     summary: result.summary,
     attachments: result.attachments ? (result.attachments as unknown as JsonRecord[]) : null,
-    metadata: result.metadata ?? null,
+    metadata: asNullable(result.metadata),
     created_at: result.createdAt,
   }
 }
@@ -835,6 +833,14 @@ function compactObject<T extends Record<string, unknown>>(value: T): Record<stri
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined))
 }
 
+function asOptional<T>(value: T | null | undefined): T | undefined {
+  return value ?? undefined
+}
+
+function asNullable<T>(value: T | null | undefined): T | null {
+  return value ?? null
+}
+
 function asTimeRange(value: JsonRecord | null) {
   if (!value) {
     return undefined
@@ -857,4 +863,3 @@ function readStudioKindFromMetadata(metadata: JsonRecord | null): StudioSession[
   const value = metadata?.studioKind
   return value === 'plot' || value === 'manim' ? value : undefined
 }
-

@@ -1,4 +1,3 @@
-import { createLogger } from '../../utils/logger'
 import { createStudioToolPart } from '../domain/factories'
 import type {
   StudioAssistantMessage,
@@ -20,8 +19,7 @@ import {
   mergeToolMetadata,
   mergeToolStateMetadata
 } from './tool-state'
-
-const logger = createLogger('StudioRunProcessor')
+import { logPlotStudioTiming, readRunElapsedMs } from '../observability/plot-studio-timing'
 
 export type StudioProcessorOutcome = 'continue' | 'stop' | 'compact'
 
@@ -129,6 +127,13 @@ export class StudioRunProcessor {
             metadata: undefined,
             time: { start: Date.now() }
           })
+          logPlotStudioTiming(input.session.studioKind, 'tool.started', {
+            sessionId: input.session.id,
+            runId: input.run.id,
+            toolName: event.toolName,
+            callId: event.toolCallId,
+            runElapsedMs: readRunElapsedMs(input.run),
+          })
           break
         }
 
@@ -145,7 +150,10 @@ export class StudioRunProcessor {
             metadata: event.metadata,
             attachments: event.attachments
           })
-          await this.completeToolCall(toolCalls, event)
+          await this.completeToolCall({
+            session: input.session,
+            run: input.run,
+          }, toolCalls, event)
           break
         }
 
@@ -160,7 +168,10 @@ export class StudioRunProcessor {
             error: event.error,
             metadata: event.metadata
           })
-          blocked = await this.failToolCall(toolCalls, event)
+          blocked = await this.failToolCall({
+            session: input.session,
+            run: input.run,
+          }, toolCalls, event)
           break
         }
 
@@ -179,12 +190,12 @@ export class StudioRunProcessor {
         case 'text-end': {
           const text = activeTextValue.trim()
           if (text) {
-            logger.info('Publishing assistant text event', {
+            logPlotStudioTiming(input.session.studioKind, 'assistant.text', {
               sessionId: input.session.id,
               runId: input.run.id,
               assistantMessageId: currentAssistantMessage.id,
               textLength: text.length,
-              textPreview: text.length > 120 ? `${text.slice(0, 117)}...` : text,
+              runElapsedMs: readRunElapsedMs(input.run),
             })
             input.eventBus?.publish({
               type: 'assistant_text',
@@ -279,12 +290,6 @@ export class StudioRunProcessor {
       time: { start: Date.now(), end: Date.now() }
     })
 
-    logger.info('Materialized direct tool result into assistant message', {
-      sessionId: input.session.id,
-      runId: input.run.id,
-      toolName: input.toolName,
-      callId: input.callId
-    })
   }
 
   private async allowToolCall(input: {
@@ -308,6 +313,10 @@ export class StudioRunProcessor {
   }
 
   private async completeToolCall(
+    input: {
+      session: StudioSession
+      run: StudioRun
+    },
     toolCalls: Map<string, StudioToolPart>,
     event: Extract<StudioProcessorStreamEvent, { type: 'tool-result' }>
   ): Promise<void> {
@@ -329,10 +338,22 @@ export class StudioRunProcessor {
         end: Date.now()
       }
     })
+    logPlotStudioTiming(input.session.studioKind, 'tool.completed', {
+      sessionId: input.session.id,
+      runId: input.run.id,
+      toolName: match.tool,
+      callId: event.toolCallId,
+      durationMs: Math.max(0, Date.now() - getToolTimeStart(runningState)),
+      runElapsedMs: readRunElapsedMs(input.run),
+    })
     toolCalls.delete(event.toolCallId)
   }
 
   private async failToolCall(
+    input: {
+      session: StudioSession
+      run: StudioRun
+    },
     toolCalls: Map<string, StudioToolPart>,
     event: Extract<StudioProcessorStreamEvent, { type: 'tool-error' }>
   ): Promise<boolean> {
@@ -352,6 +373,15 @@ export class StudioRunProcessor {
         end: Date.now()
       }
     })
+    logPlotStudioTiming(input.session.studioKind, 'tool.failed', {
+      sessionId: input.session.id,
+      runId: input.run.id,
+      toolName: match.tool,
+      callId: event.toolCallId,
+      durationMs: Math.max(0, Date.now() - getToolTimeStart(runningState)),
+      error: event.error,
+      runElapsedMs: readRunElapsedMs(input.run),
+    }, 'warn')
     toolCalls.delete(event.toolCallId)
     return event.metadata?.recoverable !== true
   }

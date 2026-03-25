@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import { createLogger } from '../../utils/logger'
 import { createStudioSession } from '../domain/factories'
 import type {
   StudioEventBus,
@@ -37,8 +36,6 @@ import { syncStudioRenderTask } from './render-task-sync'
 import { createStudioSessionMetadata } from './session-agent-config'
 import { flushTerminalSessionEventsToAssistant } from './session-event-inbox'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
-
-const logger = createLogger('StudioRuntimeService')
 
 interface SubscribableStudioEventBus extends StudioEventBus {
   subscribe: (listener: StudioEventListener) => () => void
@@ -166,12 +163,8 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     activeSessionRuns.set(runInput.session.id, handle.run.id)
 
     void handle.completion
-      .catch((error) => {
-        logger.warn('Background studio run failed', {
-          sessionId: runInput.session.id,
-          runId: handle.run.id,
-          error: error instanceof Error ? error.message : String(error)
-        })
+      .catch(() => {
+        // Run-specific failure is already logged by the session runner.
       })
       .finally(() => {
         if (activeSessionRuns.get(runInput.session.id) === handle.run.id) {

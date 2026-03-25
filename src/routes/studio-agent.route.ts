@@ -15,6 +15,7 @@ import {
 } from './helpers/studio-agent-run-request'
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
 import { createLogger } from '../utils/logger'
+import { logPlotStudioTiming, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
 
 const router = express.Router()
 const logger = createLogger('StudioAgentRoute')
@@ -119,10 +120,6 @@ router.get('/studio-agent/works/:sessionId', authMiddleware, asyncHandler(async 
 }))
 
 router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res) => {
-  logger.info('Studio SSE client connected', {
-    ip: req.ip,
-    userAgent: req.get('user-agent') ?? '',
-  })
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
@@ -130,14 +127,6 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
 
   const backlog = studioRuntime.listExternalEvents()
   for (const event of backlog) {
-    logger.info('Writing backlog SSE event', {
-      type: event.type,
-      sessionId: (event.properties as { sessionId?: string; sessionID?: string; run?: { sessionId?: string } })?.sessionId
-        ?? (event.properties as { sessionID?: string })?.sessionID
-        ?? (event.properties as { run?: { sessionId?: string } })?.run?.sessionId
-        ?? null,
-      runId: (event.properties as { runId?: string })?.runId ?? null,
-    })
     res.write(`event: ${event.type}\n`)
     res.write(`data: ${JSON.stringify(event)}\n\n`)
   }
@@ -148,14 +137,6 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
   }, 15000)
 
   const unsubscribe = studioRuntime.subscribeExternalEvents((event) => {
-    logger.info('Writing live SSE event', {
-      type: event.type,
-      sessionId: (event.properties as { sessionId?: string; sessionID?: string; run?: { sessionId?: string } })?.sessionId
-        ?? (event.properties as { sessionID?: string })?.sessionID
-        ?? (event.properties as { run?: { sessionId?: string } })?.run?.sessionId
-        ?? null,
-      runId: (event.properties as { runId?: string })?.runId ?? null,
-    })
     res.write(`event: ${event.type}\n`)
     res.write(`data: ${JSON.stringify(event)}\n\n`)
   })
@@ -164,10 +145,6 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
   res.write(`data: ${JSON.stringify({ type: 'studio.connected', properties: { timestamp: Date.now() } })}\n\n`)
 
   req.on('close', () => {
-    logger.info('Studio SSE client disconnected', {
-      ip: req.ip,
-      userAgent: req.get('user-agent') ?? '',
-    })
     clearInterval(heartbeat)
     unsubscribe()
     res.end()
@@ -175,6 +152,7 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
 }))
 
 router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) => {
+  const requestStartedAt = Date.now()
   const parsed = parseStudioCreateRunRequest(req.body)
   const sessionId = parsed.sessionId
   const inputText = parsed.inputText
@@ -189,19 +167,15 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
   }
 
-  logger.info('Studio run requested', {
+  logPlotStudioTiming(session.studioKind, 'http.run.requested', {
     sessionId,
     projectId,
-    agent: session.agentType,
-    studioKind: session.studioKind,
-    inputPreview: summarizeInput(inputText),
     inputLength: inputText.length,
     hasCustomApiConfig: Boolean(
       parsed.customApiConfig?.apiUrl?.trim()
       && parsed.customApiConfig?.apiKey?.trim()
       && parsed.customApiConfig?.model?.trim()
     ),
-    toolChoice: parsed.toolChoice ?? null,
   })
 
   const started = await studioRuntime.startRun({
@@ -221,10 +195,11 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     })
   }
 
-  logger.info('Studio run started', {
+  logPlotStudioTiming(session.studioKind, 'http.run.accepted', {
     sessionId,
     runId: started.run.id,
     assistantMessageId: started.assistantMessage.id,
+    durationMs: readElapsedMs(requestStartedAt),
   })
 
   await studioRuntime.syncSession(session.id)
@@ -352,8 +327,3 @@ router.post('/studio-agent/permissions/reply', authMiddleware, replyPermissionHa
 router.post('/studio-agent/permissions/:requestID/reply', authMiddleware, replyPermissionHandler)
 
 export default router
-
-function summarizeInput(inputText: string): string {
-  const normalized = inputText.replace(/\s+/g, ' ').trim()
-  return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized
-}

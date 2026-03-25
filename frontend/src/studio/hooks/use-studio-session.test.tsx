@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { I18nProvider } from '../../i18n'
 import { useStudioSession } from './use-studio-session'
 import { createStudioSession, getPendingStudioPermissions, getStudioSessionSnapshot } from '../api/studio-agent-api'
 import type { StudioPermissionRequest, StudioSession, StudioSessionSnapshot } from '../protocol/studio-agent-types'
@@ -27,6 +29,10 @@ vi.mock('./use-studio-run', () => ({
 const mockedCreateStudioSession = vi.mocked(createStudioSession)
 const mockedGetPendingStudioPermissions = vi.mocked(getPendingStudioPermissions)
 const mockedGetStudioSessionSnapshot = vi.mocked(getStudioSessionSnapshot)
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <I18nProvider>{children}</I18nProvider>
+}
 
 function createSession(id = 'session-1'): StudioSession {
   const now = '2026-03-22T00:00:00.000Z'
@@ -90,7 +96,7 @@ describe('useStudioSession', () => {
     mockedGetPendingStudioPermissions.mockResolvedValue([createPermission(session.id)])
     mockedGetStudioSessionSnapshot.mockResolvedValue(createSnapshot(session, 'running'))
 
-    const { result } = renderHook(() => useStudioSession())
+    const { result } = renderHook(() => useStudioSession(), { wrapper })
 
     await act(async () => {
       await Promise.resolve()
@@ -114,7 +120,7 @@ describe('useStudioSession', () => {
     mockedCreateStudioSession.mockResolvedValue(session)
     mockedGetStudioSessionSnapshot.mockResolvedValue(createSnapshot(session))
 
-    const { result } = renderHook(() => useStudioSession())
+    const { result } = renderHook(() => useStudioSession(), { wrapper })
 
     await act(async () => {
       await Promise.resolve()
