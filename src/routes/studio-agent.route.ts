@@ -7,6 +7,7 @@ import {
   sendStudioError,
   sendStudioSuccess
 } from './helpers/studio-agent-responses'
+import { resolveStudioEffectiveCustomApiConfig } from './helpers/studio-agent-api-config'
 import { parseStudioPatchSessionRequest } from './helpers/studio-agent-session-control'
 import {
   parseStudioContinueRunRequest,
@@ -15,6 +16,7 @@ import {
 } from './helpers/studio-agent-run-request'
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
 import { createLogger } from '../utils/logger'
+import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { logPlotStudioTiming, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
 
 const router = express.Router()
@@ -167,22 +169,26 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
   }
 
+  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
+  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
+  const customApiConfigResolution = resolveStudioEffectiveCustomApiConfig({
+    requestCustomApiConfig: parsed.customApiConfig,
+    routedCustomApiConfig
+  })
+
   logPlotStudioTiming(session.studioKind, 'http.run.requested', {
     sessionId,
     projectId,
     inputLength: inputText.length,
-    hasCustomApiConfig: Boolean(
-      parsed.customApiConfig?.apiUrl?.trim()
-      && parsed.customApiConfig?.apiKey?.trim()
-      && parsed.customApiConfig?.model?.trim()
-    ),
+    hasCustomApiConfig: customApiConfigResolution.hasUsableCustomApiConfig,
+    routeByManimcatKey: customApiConfigResolution.routeByManimcatKey,
   })
 
   const started = await studioRuntime.startRun({
     projectId,
     session,
     inputText,
-    customApiConfig: parsed.customApiConfig,
+    customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
     toolChoice: parsed.toolChoice
   })
 
@@ -228,12 +234,18 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
 router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioContinueRunRequest(req.body)
   const projectId = parsed.projectId ?? 'default-project'
+  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
+  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
+  const customApiConfigResolution = resolveStudioEffectiveCustomApiConfig({
+    requestCustomApiConfig: parsed.customApiConfig,
+    routedCustomApiConfig
+  })
 
   const continued = await studioRuntime.continueRun({
     projectId,
     sourceRunId: req.params.runId,
     inputText: parsed.inputText,
-    customApiConfig: parsed.customApiConfig,
+    customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
     toolChoice: parsed.toolChoice
   })
 
