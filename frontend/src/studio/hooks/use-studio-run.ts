@@ -61,14 +61,14 @@ export function useStudioRun({ session, onOptimisticMessagesCreated, onRunSubmit
         const pendingPermissions = filterPermissionsForSession(response.pendingPermissions, activeSession.id)
 
         onRunStarted(response.run, pendingPermissions)
-        onSnapshotLoaded({
-          session: activeSession,
-          messages: response.messages,
-          runs: [response.run],
-          tasks: response.tasks,
-          works: response.works,
-          workResults: response.workResults,
-        }, pendingPermissions)
+      onSnapshotLoaded({
+        session: activeSession,
+        messages: response.messages,
+        runs: response.runs,
+        tasks: response.tasks,
+        works: response.works,
+        workResults: response.workResults,
+      }, pendingPermissions)
       } catch (error) {
         if (
           allowRecovery

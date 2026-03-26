@@ -18,7 +18,7 @@ interface PatchSessionResponse {
   session: StudioSession
 }
 
-export interface CreateRunResponse extends Omit<StudioSessionSnapshot, 'session' | 'runs'> {
+export interface CreateRunResponse extends Omit<StudioSessionSnapshot, 'session'> {
   run: StudioRun
   assistantMessage?: unknown
   text?: string

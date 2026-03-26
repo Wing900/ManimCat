@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { studioEventReducer } from './studio-event-reducer'
 import { createInitialStudioState } from './studio-session-store'
-import type { StudioAssistantMessage, StudioSession, StudioTextPart, StudioUserMessage } from '../protocol/studio-agent-types'
+import type { StudioAssistantMessage, StudioRun, StudioSession, StudioTextPart, StudioUserMessage } from '../protocol/studio-agent-types'
 
 describe('studioEventReducer', () => {
   it('keeps the optimistic assistant message and stores the error when run submission fails', () => {
@@ -162,6 +162,34 @@ describe('studioEventReducer', () => {
     expect(toolPart?.tool).toBe('write')
     expect(toolPart?.state.status).toBe('completed')
   })
+
+  it('does not let a stale running run overwrite a completed run', () => {
+    const completedRun = createRun({ status: 'completed', completedAt: '2026-03-22T00:00:05.000Z' })
+    const state = {
+      ...createInitialStudioState(),
+      entities: {
+        ...createInitialStudioState().entities,
+        session: createSession(),
+        runsById: {
+          [completedRun.id]: completedRun,
+        },
+        runOrder: [completedRun.id],
+      },
+      runtime: {
+        ...createInitialStudioState().runtime,
+        activeRunId: completedRun.id,
+      },
+    }
+
+    const next = studioEventReducer(state, {
+      type: 'run_started',
+      run: createRun({ status: 'running' }),
+      pendingPermissions: [],
+    })
+
+    expect(next.entities.runsById[completedRun.id]?.status).toBe('completed')
+    expect(next.entities.runsById[completedRun.id]?.completedAt).toBe('2026-03-22T00:00:05.000Z')
+  })
 })
 
 function createSession(): StudioSession {
@@ -187,6 +215,18 @@ function createAssistantMessage(): StudioAssistantMessage {
     parts: [],
     createdAt: '2026-03-22T00:00:00.000Z',
     updatedAt: '2026-03-22T00:00:00.000Z',
+  }
+}
+
+function createRun(overrides: Partial<StudioRun> = {}): StudioRun {
+  return {
+    id: 'run-1',
+    sessionId: 'session-1',
+    status: 'running',
+    inputText: 'render this',
+    activeAgent: 'builder',
+    createdAt: '2026-03-22T00:00:00.000Z',
+    ...overrides,
   }
 }
 

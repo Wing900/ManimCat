@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialStudioState, mergeStudioSnapshot } from './studio-session-store'
-import type { StudioAssistantMessage, StudioSession, StudioSessionSnapshot, StudioUserMessage } from '../protocol/studio-agent-types'
+import type { StudioAssistantMessage, StudioRun, StudioSession, StudioSessionSnapshot, StudioUserMessage } from '../protocol/studio-agent-types'
 
 describe('mergeStudioSnapshot', () => {
   it('replaces an empty optimistic assistant placeholder with the incoming server assistant message', () => {
@@ -92,6 +92,43 @@ describe('mergeStudioSnapshot', () => {
     expect(next.entities.messagesById['server-assistant-1']?.role).toBe('assistant')
     expect(next.entities.messageOrder).toEqual(['server-assistant-1'])
   })
+
+  it('keeps a terminal run when a stale running snapshot arrives later', () => {
+    const session = createSession()
+    const current = {
+      ...createInitialStudioState(),
+      entities: {
+        ...createInitialStudioState().entities,
+        session,
+        runsById: {
+          'run-1': createRun({
+            status: 'completed',
+            completedAt: '2026-03-24T00:00:05.000Z',
+          }),
+        },
+        runOrder: ['run-1'],
+      },
+    }
+
+    const snapshot: StudioSessionSnapshot = {
+      session,
+      messages: [],
+      runs: [
+        createRun({
+          status: 'running',
+          completedAt: undefined,
+        }),
+      ],
+      tasks: [],
+      works: [],
+      workResults: [],
+    }
+
+    const next = mergeStudioSnapshot(current, snapshot, [])
+
+    expect(next.entities.runsById['run-1']?.status).toBe('completed')
+    expect(next.entities.runsById['run-1']?.completedAt).toBe('2026-03-24T00:00:05.000Z')
+  })
 })
 
 function createSession(): StudioSession {
@@ -133,5 +170,17 @@ function createAssistantMessage(
     parts,
     createdAt,
     updatedAt: createdAt,
+  }
+}
+
+function createRun(overrides: Partial<StudioRun> = {}): StudioRun {
+  return {
+    id: 'run-1',
+    sessionId: 'session-1',
+    status: 'running',
+    inputText: '请开始',
+    activeAgent: 'builder',
+    createdAt: '2026-03-24T00:00:00.000Z',
+    ...overrides,
   }
 }

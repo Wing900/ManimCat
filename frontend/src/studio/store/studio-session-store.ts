@@ -39,7 +39,7 @@ export function mergeStudioSnapshot(
   pendingPermissions: StudioPermissionRequest[],
 ): StudioSessionState {
   const messagesById = mergeMessages(current.entities.messagesById, snapshot.messages)
-  const runsById = mergeRecord(current.entities.runsById, snapshot.runs)
+  const runsById = mergeRuns(current.entities.runsById, snapshot.runs)
   const tasksById = mergeRecord(current.entities.tasksById, snapshot.tasks)
   const worksById = mergeRecord(current.entities.worksById, snapshot.works)
   const workResultsById = mergeRecord(current.entities.workResultsById, snapshot.workResults)
@@ -83,7 +83,7 @@ export function upsertMessages(state: StudioEntityState, messages: StudioMessage
 }
 
 export function upsertRuns(state: StudioEntityState, runs: StudioRun[]): StudioEntityState {
-  const runsById = mergeRecord(state.runsById, runs)
+  const runsById = mergeRuns(state.runsById, runs)
   return {
     ...state,
     runsById,
@@ -269,6 +269,40 @@ function mergeMessages(
   return merged
 }
 
+function mergeRuns(current: Record<string, StudioRun>, incoming: StudioRun[]): Record<string, StudioRun> {
+  return incoming.reduce<Record<string, StudioRun>>((next, candidate) => {
+    const existing = next[candidate.id]
+    next[candidate.id] = existing ? preferNewerRun(existing, candidate) : candidate
+    return next
+  }, { ...current })
+}
+
+function preferNewerRun(current: StudioRun, incoming: StudioRun): StudioRun {
+  const currentTerminal = isTerminalRunStatus(current.status)
+  const incomingTerminal = isTerminalRunStatus(incoming.status)
+
+  if (currentTerminal && !incomingTerminal) {
+    return current
+  }
+
+  if (!currentTerminal && incomingTerminal) {
+    return incoming
+  }
+
+  const currentCompletedAt = parseTimestamp(current.completedAt)
+  const incomingCompletedAt = parseTimestamp(incoming.completedAt)
+  if (currentCompletedAt !== null || incomingCompletedAt !== null) {
+    if ((currentCompletedAt ?? -1) > (incomingCompletedAt ?? -1)) {
+      return current
+    }
+    if ((incomingCompletedAt ?? -1) > (currentCompletedAt ?? -1)) {
+      return incoming
+    }
+  }
+
+  return incoming
+}
+
 function isEmptyAssistantPlaceholder(message: Extract<StudioMessage, { role: 'assistant' }>): boolean {
   return !message.parts.some((part) => {
     if (part.type === 'tool') {
@@ -354,4 +388,17 @@ function isOptimisticLocalMessageId(messageId: string): boolean {
 
 function isNearSameTimestamp(left: string, right: string, thresholdMs = 5000): boolean {
   return Math.abs(new Date(left).getTime() - new Date(right).getTime()) < thresholdMs
+}
+
+function isTerminalRunStatus(status: StudioRun['status']): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled'
+}
+
+function parseTimestamp(value?: string): number | null {
+  if (!value) {
+    return null
+  }
+
+  const timestamp = new Date(value).getTime()
+  return Number.isFinite(timestamp) ? timestamp : null
 }

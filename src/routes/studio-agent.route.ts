@@ -210,8 +210,9 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
 
   await studioRuntime.syncSession(session.id)
 
-  const [messages, sessionEvents, tasks, works, workResults] = await Promise.all([
+  const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
     studioRuntime.messageStore.listBySessionId(session.id),
+    studioRuntime.runStore.listBySessionId(session.id),
     studioRuntime.sessionEventStore.listBySessionId(session.id),
     studioRuntime.taskStore.listBySessionId(session.id),
     studioRuntime.workStore.listBySessionId(session.id),
@@ -223,6 +224,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     assistantMessage: started.assistantMessage,
     text: '',
     messages,
+    runs,
     sessionEvents,
     tasks,
     works,
@@ -279,8 +281,9 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
 
   await studioRuntime.syncSession(continuedSession.id)
 
-  const [messages, sessionEvents, tasks, works, workResults] = await Promise.all([
+  const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
     studioRuntime.messageStore.listBySessionId(continuedSession.id),
+    studioRuntime.runStore.listBySessionId(continuedSession.id),
     studioRuntime.sessionEventStore.listBySessionId(continuedSession.id),
     studioRuntime.taskStore.listBySessionId(continuedSession.id),
     studioRuntime.workStore.listBySessionId(continuedSession.id),
@@ -292,6 +295,7 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
     assistantMessage: continuedAssistantMessage,
     text: '',
     messages,
+    runs,
     sessionEvents,
     tasks,
     works,
