@@ -159,6 +159,28 @@ async function main() {
     assert.match(prompt, /Workspace root:/)
     assert.match(prompt, /Do not call render until the target code has been written or updated in the workspace and checked with static-check/)
     assert.match(prompt, /use the question tool to ask for confirmation first/)
+    assert.match(prompt, /prefer the smallest local edit or apply_patch change/)
+  })
+
+  await run('plot builder prompt does not require static-check by default', async () => {
+    const session = createStudioSession({
+      projectId: 'project-1',
+      agentType: 'builder',
+      title: 'Plot Prompt Session',
+      directory: await createWorkspace(),
+      permissionLevel: 'L4',
+      permissionRules: defaultRulesForLevel('L4'),
+      studioKind: 'plot'
+    })
+
+    const prompt = buildStudioAgentSystemPrompt({
+      session
+    })
+
+    assert.match(prompt, /Do not call render until the target code has been written or updated in the workspace\./)
+    assert.match(prompt, /Use static-check only when the code is unusually complex, the risk is high, or repeated failures suggest it is needed\./)
+    assert.match(prompt, /prefer the smallest local edit or apply_patch change/)
+    assert.doesNotMatch(prompt, /checked with static-check/)
   })
   await run('loop policy finishes when the assistant stops calling tools', async () => {
     const decision = determineStudioAgentLoopAction({

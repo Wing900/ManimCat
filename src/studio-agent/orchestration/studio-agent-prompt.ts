@@ -8,9 +8,16 @@ interface BuildStudioAgentSystemPromptInput {
 }
 
 export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPromptInput): string {
-  const policy = getStudioExecutionPolicy(input.session.studioKind ?? 'manim')
+  const studioKind = input.session.studioKind ?? 'manim'
+  const policy = getStudioExecutionPolicy(studioKind)
+  const renderGuardText = studioKind === 'plot'
+    ? 'For builder work, render is a finalization step. Do not call render until the target code has been written or updated in the workspace. Use static-check only when the code is unusually complex, the risk is high, or repeated failures suggest it is needed.'
+    : 'For builder work, render is a finalization step. Do not call render until the target code has been written or updated in the workspace and checked with static-check.'
+  const renderBlockerText = studioKind === 'plot'
+    ? 'If the target code is missing, requirements are unclear, or there are unresolved issues that still need edits, stop and ask instead of rendering.'
+    : 'If there are unresolved static-check issues, missing files, or unclear requirements, stop and ask instead of rendering.'
   const sections = [
-    getStudioAgentSystemPrompt(input.session.agentType, input.session.studioKind ?? 'manim'),
+    getStudioAgentSystemPrompt(input.session.agentType, studioKind),
     `You are running inside ManimCat ${policy.studioLabel}.`,
     policy.runtimeSummary,
     ...policy.builderRules,
@@ -18,9 +25,10 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
     'Use tools directly when they are needed. Do not invent tool results or claim work was done unless the tool actually completed.',
     'Prefer the smallest safe next action. Read before editing when the target file is not already known.',
     'All workspace tools operate relative to the workspace root unless a tool explicitly says otherwise.',
-    'For builder work, render is a finalization step. Do not call render until the target code has been written or updated in the workspace and checked with static-check.',
+    renderGuardText,
     'If the user asks for rendering but has not yet confirmed the exact code/file to render, summarize the planned render target and use the question tool to ask for confirmation first.',
-    'If there are unresolved static-check issues, missing files, or unclear requirements, stop and ask instead of rendering.',
+    renderBlockerText,
+    'When repairing an existing file after a render failure, prefer the smallest local edit or apply_patch change that fixes the issue. Do not rewrite the whole file unless the file is tiny or the change is genuinely broad.',
     'When you have enough information and no tool is needed, answer normally in plain text.',
     'Keep replies compact and readable. Respond in plain text, not Markdown.',
     'Do not use markdown bold markers such as **text**, do not use backticks or inline code formatting, and do not use fenced code blocks.',
