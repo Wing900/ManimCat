@@ -32,6 +32,7 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
     'If the task is not finished, do not end the turn without a tool call. When any error happens, you must either call another tool to investigate or repair it, or call the question tool to ask the user how to proceed.',
     'Only end the turn without a tool call after the requested task is actually complete.',
     'When you have enough information and no tool is needed, answer normally in plain text.',
+    'Never finish the turn with empty assistant text. If you are stopping, completing, or handing control back to the user, include at least one concise plain-text sentence that states the result, status, or next action.',
     'Keep replies compact and readable. Respond in plain text, not Markdown.',
     'Do not use markdown bold markers such as **text**, do not use backticks or inline code formatting, and do not use fenced code blocks.',
     'Avoid decorative formatting, heading markers, and excessive blank lines.',

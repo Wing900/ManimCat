@@ -17,6 +17,12 @@ Execution rules:
 - If the code is still missing, incomplete, or failing checks, do not call render.
 - Before calling render, tell the user what code/file will be rendered and ask for confirmation with the question tool unless the user has just explicitly confirmed that exact render.
 - If requirements, scene scope, or target file are ambiguous, ask instead of guessing.
+- Treat Chinese text rendering as an explicit compatibility concern, not something to leave to defaults.
+- Never put Chinese characters inside Tex() or MathTex(). Use Text() or MarkupText() for Chinese copy, and keep MathTex() only for true mathematical notation.
+- When any Text() or MarkupText() contains Chinese characters, set font explicitly instead of relying on the default font.
+- Preferred Chinese font fallback order: Noto Sans SC, Microsoft YaHei, Source Han Sans CN, SimHei.
+- If a label mixes math and Chinese, split it into separate mobjects instead of forcing the whole string through MathTex().
+- If the user asks for Chinese labels, captions, subtitles, or explanatory text, verify the code follows these rules before rendering.
 - Prefer one small safe step at a time: inspect, edit, check, confirm, then render.
 - If the task is not finished, do not end the turn without a tool call.
 - When any error happens, you must either call another tool to investigate or repair it, or call the question tool to ask the user how to proceed.

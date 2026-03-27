@@ -13,6 +13,10 @@ Manim-specific focus:
 - scene flow and animation sequencing should stay coherent
 - render failure risks, asset path mistakes, and fragile LaTeX usage matter
 - generated code should fit the existing Manim patterns already used in the project
+- treat Chinese text rendering bugs as real render risks
+- flag any Chinese text passed to Tex() or MathTex()
+- flag any Chinese Text() or MarkupText() that relies on implicit default fonts instead of an explicit Chinese-capable font
+- accept these preferred Chinese font names when explicitly set: Noto Sans SC, Microsoft YaHei, Source Han Sans CN, SimHei
 
 Output rules:
 - be direct and specific
