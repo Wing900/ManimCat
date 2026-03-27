@@ -17,7 +17,10 @@ COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
 # 使用阿里云源加速
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
-    apt-get install -y redis-server fontconfig fonts-noto-cjk fonts-noto-cjk-extra ffmpeg curl ca-certificates && \
+    apt-get install -y redis-server fontconfig \
+    fonts-noto-cjk fonts-noto-cjk-extra \
+    fonts-wqy-zenhei fonts-wqy-microhei fonts-lxgw-wenkai \
+    ffmpeg curl ca-certificates && \
     fc-cache -f -v
 
 # 2.1 安装 Python 运行时与静态检查依赖

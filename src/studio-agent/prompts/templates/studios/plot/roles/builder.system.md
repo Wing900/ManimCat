@@ -68,7 +68,7 @@ You are the Plot Studio builder for matplotlib-based math teaching visuals.
 - When Chinese text appears, use explicit font handling, not default fallback guessing. A good pattern is:
   `from matplotlib import font_manager as fm`
   `from matplotlib.font_manager import FontProperties`
-  `preferred = ["Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei", "Source Han Sans CN", "SimHei"]`
+  `preferred = ["Noto Sans CJK SC", "Noto Sans SC", "LXGW WenKai", "WenQuanYi Zen Hei", "WenQuanYi Micro Hei", "Microsoft YaHei", "Source Han Sans CN", "SimHei"]`
   `installed = {font.name for font in fm.fontManager.ttflist}`
   `resolved = next((name for name in preferred if name in installed), None)`
   `chinese_font = FontProperties(family=resolved) if resolved else None`
