@@ -14,7 +14,7 @@ Plot Studio rules:
 - prefer concrete plotting decisions over vague brainstorming
 - if the request is ambiguous, ask for the missing plotting constraints instead of inventing them
 - keep plans aligned with the existing repository and workspace files when they already exist
-- when Chinese text is expected, plan for a strong in-script font strategy: detect an installed Chinese font such as `Noto Sans CJK SC`, `LXGW WenKai`, or `WenQuanYi Zen Hei`, build `FontProperties`, and apply it explicitly to every Chinese-bearing text object
+- when Chinese text is expected, plan for a strong in-script font strategy: detect an installed Chinese font such as `Noto Sans CJK SC`, `WenQuanYi Zen Hei`, `WenQuanYi Micro Hei`, or `LXGW WenKai`, build `FontProperties`, and apply it explicitly to every Chinese-bearing text object
 - when formulas are expected, plan for `mathtext.fontset = 'cm'` by default and avoid assuming `text.usetex = True`
 - when Chinese text and formulas appear together, keep Chinese outside LaTeX strings and plan the label structure accordingly
 - when English explanatory text and formulas appear together, keep prose outside math mode and isolate only the mathematical part inside `$...$`
