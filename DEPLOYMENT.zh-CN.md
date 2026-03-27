@@ -94,6 +94,8 @@ npm start
 
 这是最推荐的部署方式，仓库已经内置 Redis、Manim 运行时和 Node 运行时。
 
+如果你已经将镜像推到了 Docker Hub，也可以直接使用 `wingflow/manimcat`，不必每次都本地 `build`。
+
 ### 1. 准备环境变量
 
 ```bash
@@ -121,6 +123,12 @@ REDIS_PORT=6379
 ```bash
 docker compose build
 docker compose up -d
+```
+
+如果改为直接使用已发布镜像，请把 `docker-compose.yml` 里的 `build` 段替换为：
+
+```yaml
+image: wingflow/manimcat
 ```
 
 ### 3. 验证
@@ -169,6 +177,8 @@ docker volume inspect manimcat_studio-workspace-data
 - 默认监听 `PORT=7860`
 
 不需要再额外复制一个 `Dockerfile.huggingface`，仓库里也没有这个文件。
+
+如果你已经发布了 Docker 镜像，也可以让其他部署环境直接参考 `wingflow/manimcat` 的内容；但 Hugging Face Space 仍然是基于仓库内 `Dockerfile` 构建，不是直接拉 Docker Hub 镜像运行。
 
 ### 2. 在 Space Settings 配置变量
 

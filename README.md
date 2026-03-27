@@ -77,21 +77,37 @@ It is designed for classroom explanation, worked-example breakdowns, and visual 
 
 The project currently has two distinct modes: `Workflow Mode` for direct generation and rendering, and `Agent Mode` for Studio-based collaborative work with longer-lived sessions, review, and iteration.
 
+- `Workflow Mode` currently supports two direct output paths: `video` and `image`
+- `Agent Mode` currently includes two studios: `Plot Studio` (about 60% complete) and `Manim Studio` (about 20% complete)
+- `Plot Studio` is for matplotlib-based static math visuals, charts, and teaching figures
+- `Manim Studio` is for Manim animation workflows, but it is still at an early stage
+
 ### Interface
 
+#### UI
+
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/5abd29f6-adcb-4047-b85c-aba1fa0808a5" width="49%" alt="ManimCat desktop UI screenshot 1" />
-  <img src="https://github.com/user-attachments/assets/d18d0f27-15b4-4c59-8a4b-a8b8fb553020" width="49%" alt="ManimCat desktop UI screenshot 2" />
+  <img src="https://github.com/user-attachments/assets/5abd29f6-adcb-4047-b85c-aba1fa0808a5" width="40%" alt="ManimCat UI screenshot 1" />
+  <img src="https://github.com/user-attachments/assets/d18d0f27-15b4-4c59-8a4b-a8b8fb553020" width="40%" alt="ManimCat UI screenshot 2" />
 </div>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/2c70886f-c381-4995-8ca4-2d0db1974829" width="49%" alt="ManimCat desktop UI screenshot 3" />
-  <img src="https://github.com/user-attachments/assets/ce3718e8-4bc4-44db-87fb-3fb486eed144" width="49%" alt="ManimCat desktop UI screenshot 4" />
+  <img src="https://github.com/user-attachments/assets/2c70886f-c381-4995-8ca4-2d0db1974829" width="40%" alt="ManimCat UI screenshot 3" />
+  <img src="https://github.com/user-attachments/assets/ce3718e8-4bc4-44db-87fb-3fb486eed144" width="40%" alt="ManimCat UI screenshot 4" />
 </div>
 
+#### Workflow
+
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/b831caaf-10fe-4238-8998-d574f42af524" width="49%" alt="ManimCat desktop UI screenshot 5" />
-  <img src="https://github.com/user-attachments/assets/30583571-f038-4c7b-9362-c988a896d374" width="49%" alt="ManimCat desktop UI screenshot 6" />
+  <img src="https://github.com/user-attachments/assets/b831caaf-10fe-4238-8998-d574f42af524" width="46%" alt="ManimCat Workflow screenshot 1" />
+  <img src="https://github.com/user-attachments/assets/30583571-f038-4c7b-9362-c988a896d374" width="46%" alt="ManimCat Workflow screenshot 2" />
+</div>
+
+#### Plot Studio
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/0812b601-b896-4137-8e20-a2d4b6feadb9" width="46%" alt="ManimCat Plot Studio screenshot 1" />
+  <img src="https://github.com/user-attachments/assets/99ae423f-4b15-431d-8e21-30a6b6171616" width="46%" alt="ManimCat Plot Studio screenshot 2" />
 </div>
 
 ## Examples
@@ -121,6 +137,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000`. For environment variables and deployment-specific setup, see the [deployment guide](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.md).
+
+If you want a direct Docker deployment path, you can also start from the published image `wingflow/manimcat` instead of building locally first.
 
 
 ## Technology

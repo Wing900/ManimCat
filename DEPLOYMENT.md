@@ -94,6 +94,8 @@ Notes:
 
 This is the most practical default. The repo already includes Redis, the Manim runtime, and the Node runtime in the deployment path.
 
+If you have already published the image, you can also deploy from `wingflow/manimcat` instead of rebuilding locally each time.
+
 ### 1. Prepare environment variables
 
 ```bash
@@ -121,6 +123,12 @@ REDIS_PORT=6379
 ```bash
 docker compose build
 docker compose up -d
+```
+
+If you want to use the published image directly, replace the `build` section in `docker-compose.yml` with:
+
+```yaml
+image: wingflow/manimcat
 ```
 
 ### 3. Verify
@@ -169,6 +177,8 @@ The repository `Dockerfile` is already the Hugging Face compatible one:
 - defaults to `PORT=7860`
 
 Do not follow older instructions that mention `Dockerfile.huggingface`. That file is not part of the current repo.
+
+If you have already published a Docker image, other environments can reference `wingflow/manimcat`; however, Hugging Face Spaces still builds from the repository `Dockerfile` rather than running a Docker Hub image directly.
 
 ### 2. Configure Space Settings
 

@@ -77,21 +77,37 @@
 
 项目目前包含两种明确区分的模式：`Workflow Mode` 用于直接生成与渲染，`Agent Mode` 用于基于 Studio 的协作式创作、审阅与迭代。
 
+- `Workflow Mode` 当前支持两类直接产出：`video` 和 `image`
+- `Agent Mode` 当前包含两个 Studio：`Plot Studio`（开发程度约 60%）与 `Manim Studio`（开发程度约 20%）
+- `Plot Studio` 面向 matplotlib 静态数学图像、函数图与教学插图
+- `Manim Studio` 面向 Manim 动画工作流，但目前仍处于明显早期阶段
+
 ### 界面
 
+#### UI 界面
+
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/5abd29f6-adcb-4047-b85c-aba1fa0808a5" width="49%" alt="ManimCat 桌面界面截图 1" />
-  <img src="https://github.com/user-attachments/assets/d18d0f27-15b4-4c59-8a4b-a8b8fb553020" width="49%" alt="ManimCat 桌面界面截图 2" />
+  <img src="https://github.com/user-attachments/assets/5abd29f6-adcb-4047-b85c-aba1fa0808a5" width="40%" alt="ManimCat UI 界面截图 1" />
+  <img src="https://github.com/user-attachments/assets/d18d0f27-15b4-4c59-8a4b-a8b8fb553020" width="40%" alt="ManimCat UI 界面截图 2" />
 </div>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/2c70886f-c381-4995-8ca4-2d0db1974829" width="49%" alt="ManimCat 桌面界面截图 3" />
-  <img src="https://github.com/user-attachments/assets/ce3718e8-4bc4-44db-87fb-3fb486eed144" width="49%" alt="ManimCat 桌面界面截图 4" />
+  <img src="https://github.com/user-attachments/assets/2c70886f-c381-4995-8ca4-2d0db1974829" width="40%" alt="ManimCat UI 界面截图 3" />
+  <img src="https://github.com/user-attachments/assets/ce3718e8-4bc4-44db-87fb-3fb486eed144" width="40%" alt="ManimCat UI 界面截图 4" />
 </div>
 
+#### Workflow 界面
+
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/b831caaf-10fe-4238-8998-d574f42af524" width="49%" alt="ManimCat 桌面界面截图 5" />
-  <img src="https://github.com/user-attachments/assets/30583571-f038-4c7b-9362-c988a896d374" width="49%" alt="ManimCat 桌面界面截图 6" />
+  <img src="https://github.com/user-attachments/assets/b831caaf-10fe-4238-8998-d574f42af524" width="46%" alt="ManimCat Workflow 界面截图 1" />
+  <img src="https://github.com/user-attachments/assets/30583571-f038-4c7b-9362-c988a896d374" width="46%" alt="ManimCat Workflow 界面截图 2" />
+</div>
+
+#### Plot Studio 界面
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/0812b601-b896-4137-8e20-a2d4b6feadb9" width="46%" alt="ManimCat Plot Studio 界面截图 1" />
+  <img src="https://github.com/user-attachments/assets/99ae423f-4b15-431d-8e21-30a6b6171616" width="46%" alt="ManimCat Plot Studio 界面截图 2" />
 </div>
 
 ## 样例
@@ -121,6 +137,8 @@ npm run dev
 ```
 
 访问 `http://localhost:3000`。环境变量、部署方式以及上游路由示例请查看[部署文档](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.zh-CN.md)。
+
+如果你直接用 Docker 镜像部署，也可以从 `wingflow/manimcat` 开始，而不是自行本地构建。
 
 
 ## 技术
