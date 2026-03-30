@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ImageLightbox } from '../../components/image-preview/lightbox'
 import { CLOSED_IMAGE_CONTEXT_MENU, ImageContextMenu } from '../../components/image-preview/context-menu'
+import { copyImageAssetToClipboard, exportImageAsset } from '../../components/image-preview/image-asset'
 import { useI18n } from '../../i18n'
 import type {
   StudioFileAttachment,
@@ -52,6 +53,8 @@ export function PlotPreviewPanel({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [previewMotionKey, setPreviewMotionKey] = useState(0)
   const [previewContextMenu, setPreviewContextMenu] = useState(CLOSED_IMAGE_CONTEXT_MENU)
+  const [exportingFormat, setExportingFormat] = useState<'png' | 'svg' | 'pdf' | null>(null)
+  const [copyingFormat, setCopyingFormat] = useState<'png' | 'svg' | null>(null)
 
   const stripItems = works.slice(0, 12)
   const historyImages = useMemo(() => {
@@ -78,6 +81,46 @@ export function PlotPreviewPanel({
   const activeHistoryEntry = historyImages[activeHistoryIndex] ?? null
   const previewAttachment = currentWorkImages[clampedImageIndex] ?? activeHistoryEntry?.attachment ?? null
   const outputPath = formatOutputPath(previewAttachment, session, t('studio.plot.inlinePreview'), t('studio.plot.waitingOutputFile'))
+
+  const handlePreviewExport = useCallback(async (format: 'png' | 'svg' | 'pdf') => {
+    if (!previewAttachment?.path || exportingFormat) {
+      return
+    }
+
+    setPreviewContextMenu(CLOSED_IMAGE_CONTEXT_MENU)
+    setExportingFormat(format)
+    try {
+      await exportImageAsset({
+        source: previewAttachment.path,
+        format,
+        index: clampedImageIndex,
+        fallbackName: previewAttachment.name,
+      })
+    } catch (error) {
+      console.error(`Failed to export ${format}`, error)
+    } finally {
+      setExportingFormat(null)
+    }
+  }, [clampedImageIndex, exportingFormat, previewAttachment])
+
+  const handlePreviewCopy = useCallback(async (format: 'png' | 'svg') => {
+    if (!previewAttachment?.path || copyingFormat) {
+      return
+    }
+
+    setPreviewContextMenu(CLOSED_IMAGE_CONTEXT_MENU)
+    setCopyingFormat(format)
+    try {
+      await copyImageAssetToClipboard({
+        source: previewAttachment.path,
+        format,
+      })
+    } catch (error) {
+      console.error(`Failed to copy ${format}`, error)
+    } finally {
+      setCopyingFormat(null)
+    }
+  }, [copyingFormat, previewAttachment])
 
   useEffect(() => {
     if (!lightboxOpen) {
@@ -183,7 +226,7 @@ export function PlotPreviewPanel({
   }
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary/40 backdrop-blur-sm">
+    <section className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-bg-primary/40 backdrop-blur-sm">
       <div className="relative shrink-0 px-8 pb-3 pt-8">
         <div className="flex items-center justify-between">
           <div className="group flex items-center gap-3">
@@ -196,7 +239,7 @@ export function PlotPreviewPanel({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-6 pb-6 pt-2 sm:px-8 lg:px-10">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-6 pb-6 pt-2 sm:px-8 lg:px-10">
         <div className="relative min-h-0 flex-1">
           <div className="flex h-full min-h-[360px] items-center justify-center sm:min-h-[460px] lg:min-h-[560px]">
             <PlotPreviewSurface
@@ -235,7 +278,7 @@ export function PlotPreviewPanel({
             </div>
           </div>
 
-          <div className="mt-4 flex gap-4 overflow-x-auto pb-4 pt-1">
+          <div className="mt-4 flex min-w-0 gap-4 overflow-x-auto pb-4 pt-1">
             {historyImages.map((entry, index) => {
               const selected = entry.workId === selectedWorkId && entry.imageIndex === clampedImageIndex
               return (
@@ -298,12 +341,44 @@ export function PlotPreviewPanel({
         variant="studio-light"
         items={previewAttachment?.path ? [
           {
-            key: 'export-png',
-            label: t('image.exportPng'),
+            key: 'copy-png',
+            label: copyingFormat === 'png' ? t('image.copying') : t('image.copyPng'),
+            busy: copyingFormat === 'png',
             onClick: () => {
-              void downloadPreviewAttachment(previewAttachment.path, clampedImageIndex)
-              setPreviewContextMenu(CLOSED_IMAGE_CONTEXT_MENU)
+              void handlePreviewCopy('png')
             },
+          },
+          {
+            key: 'copy-svg',
+            label: copyingFormat === 'svg' ? t('image.copying') : t('image.copySvg'),
+            busy: copyingFormat === 'svg',
+            onClick: () => {
+              void handlePreviewCopy('svg')
+            },
+          },
+          {
+            key: 'export-png',
+            label: exportingFormat === 'png' ? t('image.exporting') : t('image.exportPng'),
+            onClick: () => {
+              void handlePreviewExport('png')
+            },
+            busy: exportingFormat === 'png',
+          },
+          {
+            key: 'export-svg',
+            label: exportingFormat === 'svg' ? t('image.exporting') : t('image.exportSvg'),
+            onClick: () => {
+              void handlePreviewExport('svg')
+            },
+            busy: exportingFormat === 'svg',
+          },
+          {
+            key: 'export-pdf',
+            label: exportingFormat === 'pdf' ? t('image.exporting') : t('image.exportPdf'),
+            onClick: () => {
+              void handlePreviewExport('pdf')
+            },
+            busy: exportingFormat === 'pdf',
           },
           {
             key: 'open-lightbox',
@@ -394,21 +469,6 @@ function PlotPreviewSurface(input: {
   }
 
   return null
-}
-
-async function downloadPreviewAttachment(path: string, index: number): Promise<void> {
-  const response = await fetch(getAbsoluteUrl(path))
-  if (!response.ok) {
-    throw new Error(`Failed to fetch preview image: ${response.status}`)
-  }
-
-  const blob = await response.blob()
-  const blobUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = blobUrl
-  link.download = `plot-preview-${index + 1}.png`
-  link.click()
-  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 }
 
 function getAbsoluteUrl(path: string): string {

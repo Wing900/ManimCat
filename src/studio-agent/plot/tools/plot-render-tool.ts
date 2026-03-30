@@ -139,7 +139,7 @@ async function executePlotRenderTool(
     return {
       title,
       output: `plot_render_id: ${renderId}`,
-      attachments: buildAttachments(execution.imageDataUris),
+      attachments: buildAttachments(execution.imageDataUris, execution.imagePaths),
       metadata: {
         renderId,
         taskId: completed.task?.id ?? task?.id,
@@ -198,7 +198,7 @@ async function persistWorkResult(input: {
     workId: input.workId,
     kind: 'render-output',
     summary: `Plot render completed with ${input.execution.imageDataUris.length} image output(s)`,
-    attachments: buildAttachments(input.execution.imageDataUris),
+    attachments: buildAttachments(input.execution.imageDataUris, input.execution.imagePaths),
     metadata: {
       taskId: input.taskId,
       renderId: input.renderId,
@@ -254,12 +254,21 @@ async function persistFailureResult(input: {
   })
 }
 
-function buildAttachments(imageDataUris: string[]): StudioFileAttachment[] {
+function buildAttachments(imageDataUris: string[], imagePaths: string[]): StudioFileAttachment[] {
   return imageDataUris.map((path, index) => ({
     kind: 'file',
     path,
-    name: `plot_${index + 1}.png`,
+    name: fileNameFromPath(imagePaths[index]) || `plot_${index + 1}.png`,
     mimeType: 'image/png'
   }))
+}
+
+function fileNameFromPath(path?: string): string {
+  if (!path) {
+    return ''
+  }
+
+  const parts = path.split(/[\\/]/)
+  return parts[parts.length - 1] || path
 }
 

@@ -194,7 +194,7 @@ export function StudioCommandPanel({
       <header className="shrink-0 flex items-center justify-between gap-4 px-8 py-5">
         <div className="flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-accent-rgb/20 animate-pulse" />
-          <div className="text-[13px] font-bold uppercase tracking-[0.2em] text-text-primary/70">
+          <div className="studio-brand-title text-[13px] font-bold uppercase tracking-[0.2em] text-text-primary/70">
             {session?.title ?? t('studio.title')}
           </div>
         </div>

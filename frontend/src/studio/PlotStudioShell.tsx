@@ -58,12 +58,12 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
   return (
     <>
       <div
-        className={`h-screen overflow-hidden bg-bg-primary text-text-primary ${
+        className={`h-screen overflow-hidden bg-bg-primary text-text-primary studio-shell-root ${
           isExiting ? 'animate-studio-exit' : 'animate-studio-entrance'
         }`}
       >
         <div className="relative h-screen overflow-hidden">
-          <div className="flex h-full min-h-0 flex-col xl:flex-row">
+          <div className="flex h-full min-h-0 min-w-0 flex-col xl:flex-row">
             <div className="relative min-h-0 border-b border-border/4 xl:w-[36%] xl:min-w-[360px] xl:max-w-[500px] xl:border-b-0 xl:border-r xl:border-border/5">
               <StudioCommandPanel
                 session={studio.session}
@@ -76,7 +76,7 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
               />
             </div>
 
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 min-w-0 flex-1">
               <PlotPreviewPanel
                 session={studio.session}
                 works={orderedWorkSummaries}

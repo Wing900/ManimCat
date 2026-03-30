@@ -285,6 +285,11 @@ select option:checked {
   font-family: inherit;
 }
 
+.studio-brand-title {
+  font-family: "LXGW WenKai Screen", "LXGW WenKai TC", "LXGW WenKai Lite", "LXGW WenKai", sans-serif !important;
+  letter-spacing: 0.18em;
+}
+
 .studio-terminal ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
 }
