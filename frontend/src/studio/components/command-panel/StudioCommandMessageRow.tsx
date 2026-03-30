@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { useI18n } from '../../../i18n'
+import { stripStudioReferenceImages } from '../../reference-images'
 import { debugStudioMessages } from '../../agent-response/debug'
 import type { StudioMessage } from '../../protocol/studio-agent-types'
 import { StudioMarkdown } from '../StudioMarkdown'
@@ -93,7 +94,7 @@ const UserMessageItem = memo(function UserMessageItem({
           <div className="h-px flex-1 bg-border/5" />
         </div>
         <StudioMarkdown
-          content={message.text}
+          content={stripStudioReferenceImages(message.text)}
           className="text-[14px] font-medium leading-7 text-text-primary/80"
         />
       </div>

@@ -1,6 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { CanvasWorkspaceModal } from '../../components/canvas/CanvasWorkspaceModal'
+import { ImageInputModeModal } from '../../components/ImageInputModeModal'
+import { ReferenceImageList } from '../../components/input-form/reference-image-list'
+import { useReferenceImages } from '../../components/input-form/use-reference-images'
 import type { StudioMessage, StudioSession } from '../protocol/studio-agent-types'
 import { useI18n } from '../../i18n'
+import type { ReferenceImage } from '../../types/api'
+import { appendStudioReferenceImages } from '../reference-images'
 import { StudioCommandMessageList } from './command-panel/StudioCommandMessageList'
 import {
   createStudioCommandPanelStore,
@@ -28,6 +34,8 @@ export function StudioCommandPanel({
 }: StudioCommandPanelProps) {
   const { t } = useI18n()
   const [input, setInput] = useState('')
+  const [isImageModeOpen, setIsImageModeOpen] = useState(false)
+  const [isCanvasOpen, setIsCanvasOpen] = useState(false)
   const [animatedAssistantText, setAnimatedAssistantText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -43,15 +51,31 @@ export function StudioCommandPanel({
   }), [animatedAssistantText, isBusy, latestAssistantText, messages])
   const storeRef = useRef(createStudioCommandPanelStore(snapshot))
   const commandStore = storeRef.current
+  const {
+    images,
+    imageError,
+    fileInputRef,
+    addImages,
+    appendImages,
+    removeImage,
+    clearImages,
+  } = useReferenceImages({ enablePasteListener: false })
 
   const handleSubmit = async () => {
     const next = input.trim()
     if (!next || disabled) {
       return
     }
+    if (next === '/p') {
+      setInput('')
+      setIsImageModeOpen(true)
+      return
+    }
     setInput('')
+    const runInput = appendStudioReferenceImages(next, images)
     try {
-      await onRun(next)
+      await onRun(runInput)
+      clearImages()
     } catch {
       setInput(next)
     }
@@ -63,6 +87,17 @@ export function StudioCommandPanel({
       return
     }
     inputRef.current?.focus()
+  }
+
+  const handleImportImages = () => {
+    setIsImageModeOpen(false)
+    fileInputRef.current?.click()
+  }
+
+  const handleCanvasComplete = (nextImages: ReferenceImage[]) => {
+    appendImages(nextImages)
+    setIsCanvasOpen(false)
+    focusInput()
   }
 
   const lastMessage = messages.at(-1) ?? null
@@ -219,6 +254,24 @@ export function StudioCommandPanel({
       </div>
 
       <footer className="shrink-0 px-8 py-6">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            const files = event.target.files
+            if (files && files.length > 0) {
+              void addImages(files)
+            }
+            event.currentTarget.value = ''
+          }}
+        />
+        <ReferenceImageList images={images} loading={isBusy} onRemove={removeImage} />
+        {imageError ? (
+          <p className="mb-3 mt-3 text-xs text-rose-500/80">{imageError}</p>
+        ) : null}
         <div className="flex items-center gap-4">
           <span className="font-mono text-sm text-text-secondary/40 tracking-widest">{'>'}</span>
           <input
@@ -242,6 +295,22 @@ export function StudioCommandPanel({
           </div>
         </div>
       </footer>
+
+      <ImageInputModeModal
+        isOpen={isImageModeOpen}
+        onClose={() => setIsImageModeOpen(false)}
+        onImport={handleImportImages}
+        onDraw={() => {
+          setIsImageModeOpen(false)
+          setIsCanvasOpen(true)
+        }}
+      />
+
+      <CanvasWorkspaceModal
+        isOpen={isCanvasOpen}
+        onClose={() => setIsCanvasOpen(false)}
+        onComplete={handleCanvasComplete}
+      />
     </section>
   )
 }

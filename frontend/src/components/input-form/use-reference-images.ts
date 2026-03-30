@@ -12,13 +12,19 @@ interface UseReferenceImagesResult {
   addImages: (files: FileList | File[]) => Promise<void>;
   appendImages: (nextImages: ReferenceImage[]) => void;
   removeImage: (index: number) => void;
+  clearImages: () => void;
   handleDrop: (e: React.DragEvent) => Promise<void>;
   handleDragOver: (e: React.DragEvent) => void;
   handleDragEnter: (e: React.DragEvent) => void;
   handleDragLeave: (e: React.DragEvent) => void;
 }
 
-export function useReferenceImages(): UseReferenceImagesResult {
+interface UseReferenceImagesOptions {
+  enablePasteListener?: boolean;
+}
+
+export function useReferenceImages(options: UseReferenceImagesOptions = {}): UseReferenceImagesResult {
+  const { enablePasteListener = true } = options;
   const { t } = useI18n();
   const [images, setImages] = useState<ReferenceImage[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -102,9 +108,12 @@ export function useReferenceImages(): UseReferenceImagesResult {
   );
 
   useEffect(() => {
+    if (!enablePasteListener) {
+      return undefined;
+    }
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, [handlePaste]);
+  }, [enablePasteListener, handlePaste]);
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
@@ -144,6 +153,10 @@ export function useReferenceImages(): UseReferenceImagesResult {
     addImages,
     appendImages,
     removeImage,
+    clearImages: () => {
+      setImages([]);
+      setImageError(null);
+    },
     handleDrop,
     handleDragOver,
     handleDragEnter,
