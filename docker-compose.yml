@@ -37,6 +37,12 @@ services:
       - PORT=3000
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - PROD_SUMMARY_LOG_ONLY=${PROD_SUMMARY_LOG_ONLY:-true}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+      - http_proxy=${http_proxy:-}
+      - https_proxy=${https_proxy:-}
+      - no_proxy=${no_proxy:-}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}

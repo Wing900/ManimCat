@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 import type { CustomApiConfig } from '../types'
 
 const OPENAI_TIMEOUT = parseInt(process.env.OPENAI_TIMEOUT || '600000', 10)
@@ -8,6 +9,16 @@ interface OpenAIBaseConfig {
   defaultHeaders: {
     'User-Agent': string
   }
+}
+
+function getProxyUrl(apiUrl: string): string | undefined {
+  const protocol = new URL(apiUrl).protocol
+
+  if (protocol === 'http:') {
+    return process.env.HTTP_PROXY || process.env.http_proxy || process.env.HTTPS_PROXY || process.env.https_proxy
+  }
+
+  return process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy
 }
 
 function createBaseConfig(): OpenAIBaseConfig {
@@ -29,8 +40,11 @@ export function createCustomOpenAIClient(config: CustomApiConfig): OpenAI {
     throw new Error('Upstream apiUrl/apiKey is missing')
   }
 
+  const proxyUrl = getProxyUrl(apiUrl)
+
   return new OpenAI({
     ...createBaseConfig(),
+    ...(proxyUrl ? { httpAgent: new HttpsProxyAgent(proxyUrl) } : {}),
     baseURL: apiUrl,
     apiKey
   })
