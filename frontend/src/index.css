@@ -276,8 +276,17 @@ select option:checked {
 }
 
 /* Studio 终端基础样式 */
-.studio-shell-root,
+.studio-shell-root {
+  font-family: "LXGW WenKai Screen", "LXGW WenKai TC", "LXGW WenKai Lite", "LXGW WenKai", sans-serif !important;
+}
+
 .studio-shell-root * {
+  font-family: inherit;
+}
+
+.studio-shell-root .font-mono,
+.studio-terminal .font-mono,
+.studio-cursor {
   font-family: "LXGW WenKai Screen", "LXGW WenKai TC", "LXGW WenKai Lite", "LXGW WenKai", sans-serif !important;
 }
 
@@ -354,6 +363,68 @@ select option:checked {
 
 .studio-markdown li + li {
   margin-top: 0.3rem;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown p,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown ul,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown ol,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown blockquote,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown table,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown hr {
+  margin: 0.55rem 0;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown blockquote {
+  border-left: 0;
+  padding-left: 0;
+  color: rgba(var(--accent-rgb), 0.6);
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown code {
+  background: transparent !important;
+  padding: 0;
+  border-radius: 0;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .react-syntax-highlighter {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown img,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown th,
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown td {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown hr {
+  border-top-color: rgba(var(--accent-rgb), 0.08);
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown-inline > p:first-child {
+  display: inline;
+  margin: 0;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown-inline > p:first-child + * {
+  margin-top: 0.55rem;
+}
+
+.studio-terminal[data-variant="pure-minimal-bottom"] .studio-markdown-inline > p:only-child {
+  display: inline;
+  margin: 0;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 .studio-markdown .katex-display {

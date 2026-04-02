@@ -21,6 +21,7 @@ interface StudioCommandPanelProps {
   disabled: boolean
   onRun: (inputText: string) => Promise<void> | void
   onExit: () => void
+  variant?: 'default' | 't-layout-bottom' | 'pure-minimal-bottom'
 }
 
 export function StudioCommandPanel({
@@ -31,8 +32,12 @@ export function StudioCommandPanel({
   disabled,
   onRun,
   onExit,
+  variant = 'default',
 }: StudioCommandPanelProps) {
   const { t } = useI18n()
+  const isTLayout = variant === 't-layout-bottom'
+  const isMinimal = variant === 'pure-minimal-bottom'
+  const isFrameless = isTLayout || isMinimal
   const [input, setInput] = useState('')
   const [isImageModeOpen, setIsImageModeOpen] = useState(false)
   const [isCanvasOpen, setIsCanvasOpen] = useState(false)
@@ -225,35 +230,53 @@ export function StudioCommandPanel({
   }, [animatedAssistantText, latestAssistantText])
 
   return (
-    <section className="studio-terminal flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <header className="shrink-0 flex items-center justify-between gap-4 px-8 py-5">
-        <div className="flex items-center gap-3">
-          <div className="h-2 w-2 rounded-full bg-accent-rgb/20 animate-pulse" />
-          <div className="studio-brand-title text-[13px] font-bold uppercase tracking-[0.2em] text-text-primary/70">
-            {session?.title ?? t('studio.title')}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onExit}
-          className="text-[11px] font-medium uppercase tracking-[0.28em] text-text-secondary/45 transition hover:text-rose-500/80"
-        >
-          {t('common.close')}
-        </button>
-      </header>
+    <section
+      data-variant={variant}
+      className={`studio-terminal relative flex h-full min-h-0 min-w-0 flex-1 flex-col ${isTLayout ? 'bg-white' : ''} ${isMinimal ? 'text-[13px] leading-loose text-accent' : ''}`}
+    >
+      {isMinimal && (
+        <div className="mb-4 ml-4 mr-3 h-[1px] bg-accent opacity-[0.08]" />
+      )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-8 py-10">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center opacity-30">
-            <div className="mb-4 text-3xl">🐾</div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.4em]">{t('studio.readyForCommands')}</div>
+      {!isFrameless && (
+        <header className="shrink-0 flex items-center justify-between gap-4 px-8 py-5">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-2 rounded-full bg-accent/20 animate-pulse" />
+            <div className="studio-brand-title text-[13px] font-bold uppercase tracking-[0.2em] text-text-primary/70">
+              {session?.title ?? t('studio.title')}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onExit}
+            className="text-[11px] font-medium uppercase tracking-[0.28em] text-text-secondary/45 transition hover:text-rose-500/80"
+          >
+            {t('common.close')}
+          </button>
+        </header>
+      )}
+
+      <div
+        ref={scrollRef}
+        className={`min-h-0 flex-1 overflow-y-auto ${isTLayout ? 'px-5 py-5' : isMinimal ? 'pl-4 pr-3 pb-4 pt-1' : 'px-8 py-10'}`}
+      >
+        {messages.length === 0 && !isMinimal && (
+          <div className="flex h-full flex-col items-center justify-center text-center opacity-30">
+            {isTLayout ? (
+               <div className="text-[13px] text-[#999]">{t('studio.readyForCommands')}</div>
+            ) : (
+              <>
+                <div className="mb-4 text-3xl">🐾</div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.4em]">{t('studio.readyForCommands')}</div>
+              </>
+            )}
           </div>
         )}
 
-        <StudioCommandMessageList store={commandStore} endRef={endRef} />
+        <StudioCommandMessageList store={commandStore} endRef={endRef} variant={variant} />
       </div>
 
-      <footer className="shrink-0 px-8 py-6">
+      <footer className={`shrink-0 ${isTLayout ? 'border-t border-[#f2f2f2] px-5 py-4' : isMinimal ? 'mt-auto pl-4 pr-3 pt-4' : 'px-8 py-6'}`}>
         <input
           ref={fileInputRef}
           type="file"
@@ -268,31 +291,56 @@ export function StudioCommandPanel({
             event.currentTarget.value = ''
           }}
         />
-        <ReferenceImageList images={images} loading={isBusy} onRemove={removeImage} />
+        <ReferenceImageList
+          images={images}
+          loading={isBusy}
+          onRemove={removeImage}
+          variant={isMinimal ? 'minimal' : 'default'}
+        />
         {imageError ? (
           <p className="mb-3 mt-3 text-xs text-rose-500/80">{imageError}</p>
         ) : null}
-        <div className="flex items-center gap-4">
-          <span className="font-mono text-sm text-text-secondary/40 tracking-widest">{'>'}</span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void handleSubmit()
-              }
-            }}
-            placeholder={disabled ? t('studio.initializing') : t('studio.commandPlaceholder')}
-            disabled={false}
-            aria-disabled={disabled}
-            className="flex-1 bg-transparent text-[14px] font-medium leading-relaxed text-text-primary outline-none placeholder:text-text-secondary/25"
-          />
-          <div className="flex items-center gap-2 opacity-30">
-             <div className="font-mono text-[9px] uppercase tracking-widest text-text-secondary">{t('studio.enterToSend')}</div>
+        <div className={`${isMinimal ? 'flex items-baseline gap-4' : 'group flex items-center gap-3'}`}>
+          <span
+            className={`${isTLayout ? 'font-mono text-sm text-[#999]' : isMinimal ? 'block w-4 shrink-0 text-center text-[11px] font-semibold leading-loose text-accent' : 'font-mono text-sm text-text-secondary/40'} tracking-widest`}
+          >
+            {'>'}
+          </span>
+          <div className={`${isMinimal ? 'relative flex-1' : 'flex-1'}`}>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleSubmit()
+                }
+              }}
+              placeholder={isMinimal ? '' : disabled ? t('studio.initializing') : t('studio.commandPlaceholder')}
+              disabled={false}
+              aria-disabled={disabled}
+              className={`w-full bg-transparent outline-none ${isTLayout ? 'text-[14px] text-[#333] placeholder:text-[#ccc]' : isMinimal ? 'text-[13px] leading-loose text-accent' : 'text-[14px] font-medium leading-relaxed text-text-primary placeholder:text-text-secondary/25'}`}
+            />
+            {isMinimal && (
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center">
+                {input.length === 0 && (
+                  <span className="text-[13px] leading-loose text-accent/20">
+                    {disabled ? t('studio.initializing') : t('studio.commandPlaceholder')}（{t('studio.enterToSend')}）
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+          {!isFrameless && (
+            <div className="flex items-center gap-2 opacity-30">
+               <div className="font-mono text-[9px] uppercase tracking-widest text-text-secondary">{t('studio.enterToSend')}</div>
+            </div>
+          )}
+          {isTLayout && (
+            <span className="text-[11px] text-[#ccc] shrink-0">{t('studio.enterToSend')}</span>
+          )}
         </div>
       </footer>
 

@@ -36,6 +36,7 @@ interface PlotPreviewPanelProps {
   onSelectWork: (workId: string) => void
   onReorderWorks: (workIds: string[]) => void
   onReply: (requestId: string, reply: StudioPermissionDecision) => Promise<void> | void
+  variant?: 'default' | 't-layout-top' | 'pure-minimal-top'
 }
 
 export function PlotPreviewPanel({
@@ -45,8 +46,11 @@ export function PlotPreviewPanel({
   result,
   onSelectWork,
   onReorderWorks,
+  variant = 'default',
 }: PlotPreviewPanelProps) {
   const { t } = useI18n()
+  const isTLayout = variant === 't-layout-top'
+  const isMinimal = variant === 'pure-minimal-top'
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [draggingWorkId, setDraggingWorkId] = useState<string | null>(null)
@@ -226,22 +230,24 @@ export function PlotPreviewPanel({
   }
 
   return (
-    <section className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-bg-primary/40 backdrop-blur-sm">
-      <div className="relative shrink-0 px-8 pb-3 pt-8">
-        <div className="flex items-center justify-between">
-          <div className="group flex items-center gap-3">
-            <div className="h-1.5 w-1.5 rounded-full bg-accent-rgb/40" />
-            <div className="min-w-0 font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/40 transition-colors group-hover:text-text-secondary/70">
-              {outputPath}
+    <section className={`relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden ${isTLayout || isMinimal ? 'bg-transparent' : 'bg-bg-primary/40 backdrop-blur-sm'}`}>
+      {!isTLayout && !isMinimal && (
+        <div className="relative shrink-0 px-8 pb-3 pt-8">
+          <div className="flex items-center justify-between">
+            <div className="group flex items-center gap-3">
+              <div className="h-1.5 w-1.5 rounded-full bg-accent/40" />
+              <div className="min-w-0 font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/40 transition-colors group-hover:text-text-secondary/70">
+                {outputPath}
+              </div>
+              <PlotCornerPaw className="h-3.5 w-3.5 text-text-secondary/20 transition-colors duration-500 group-hover:text-text-secondary/32" />
             </div>
-            <PlotCornerPaw className="h-3.5 w-3.5 text-text-secondary/20 transition-colors duration-500 group-hover:text-text-secondary/32" />
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-6 pb-6 pt-2 sm:px-8 lg:px-10">
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${isTLayout || isMinimal ? 'p-0' : 'px-6 pb-6 pt-2 sm:px-8 lg:px-10'}`}>
         <div className="relative min-h-0 flex-1">
-          <div className="flex h-full min-h-[360px] items-center justify-center sm:min-h-[460px] lg:min-h-[560px]">
+          <div className={`flex h-full items-center justify-center ${isTLayout || isMinimal ? '' : 'min-h-[360px] sm:min-h-[460px] lg:min-h-[560px]'}`}>
             <PlotPreviewSurface
               key={`${previewMotionKey}:${previewAttachment?.path ?? 'empty'}`}
               attachment={previewAttachment}
@@ -249,6 +255,7 @@ export function PlotPreviewPanel({
               canNavigate={historyImages.length > 1}
               currentIndex={activeHistoryIndex >= 0 ? activeHistoryIndex : 0}
               total={historyImages.length}
+              variant={variant}
               onOpen={() => setLightboxOpen(true)}
               onContextMenu={(event) => {
                 event.preventDefault()
@@ -267,58 +274,60 @@ export function PlotPreviewPanel({
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-3">
-              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-text-secondary/35">{t('studio.plot.history')}</div>
-              <div className="h-px w-8 bg-border/10" />
-              <span className="font-mono text-[10px] text-text-secondary/40">
-                {historyImages.length.toString().padStart(2, '0')}
-              </span>
+        {!isTLayout && !isMinimal && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-text-secondary/35">{t('studio.plot.history')}</div>
+                <div className="h-px w-8 bg-border/10" />
+                <span className="font-mono text-[10px] text-text-secondary/40">
+                  {historyImages.length.toString().padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex min-w-0 gap-4 overflow-x-auto pb-4 pt-1">
+              {historyImages.map((entry, index) => {
+                const selected = entry.workId === selectedWorkId && entry.imageIndex === clampedImageIndex
+                return (
+                  <button
+                    key={`${entry.workId}-${entry.imageIndex}-${entry.attachment.path}`}
+                    type="button"
+                    draggable
+                    onClick={() => {
+                      onSelectWork(entry.workId)
+                      setSelectedImageIndex(entry.imageIndex)
+                    }}
+                    onDragStart={() => setDraggingWorkId(entry.workId)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => {
+                      moveWork(entry.workId)
+                      setDraggingWorkId(null)
+                    }}
+                    onDragEnd={() => setDraggingWorkId(null)}
+                    className={`group relative flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl transition-all duration-500 ${
+                      selected
+                        ? 'scale-[0.96] border border-accent/25 bg-bg-secondary/60 shadow-inner'
+                        : 'border border-transparent bg-bg-secondary/30 hover:scale-[0.98] hover:bg-bg-secondary/50'
+                    } ${draggingWorkId === entry.workId ? 'opacity-50' : ''}`}
+                  >
+                    <img
+                      src={entry.attachment.path}
+                      alt={entry.attachment.name ?? entry.title}
+                      className={`h-full w-full object-cover transition-transform duration-700 ${selected ? 'scale-100' : 'scale-110 opacity-60 group-hover:scale-100 group-hover:opacity-100'}`}
+                    />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 to-transparent px-2 py-1 text-left">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/80">
+                        {String(index + 1).padStart(2, '0')}
+                      </div>
+                    </div>
+                    {selected && <div className="pointer-events-none absolute inset-0 bg-accent/5" />}
+                  </button>
+                )
+              })}
             </div>
           </div>
-
-          <div className="mt-4 flex min-w-0 gap-4 overflow-x-auto pb-4 pt-1">
-            {historyImages.map((entry, index) => {
-              const selected = entry.workId === selectedWorkId && entry.imageIndex === clampedImageIndex
-              return (
-                <button
-                  key={`${entry.workId}-${entry.imageIndex}-${entry.attachment.path}`}
-                  type="button"
-                  draggable
-                  onClick={() => {
-                    onSelectWork(entry.workId)
-                    setSelectedImageIndex(entry.imageIndex)
-                  }}
-                  onDragStart={() => setDraggingWorkId(entry.workId)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => {
-                    moveWork(entry.workId)
-                    setDraggingWorkId(null)
-                  }}
-                  onDragEnd={() => setDraggingWorkId(null)}
-                  className={`group relative flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl transition-all duration-500 ${
-                    selected
-                      ? 'scale-[0.96] border border-accent-rgb/25 bg-bg-secondary/60 shadow-inner'
-                      : 'border border-transparent bg-bg-secondary/30 hover:scale-[0.98] hover:bg-bg-secondary/50'
-                  } ${draggingWorkId === entry.workId ? 'opacity-50' : ''}`}
-                >
-                  <img
-                    src={entry.attachment.path}
-                    alt={entry.attachment.name ?? entry.title}
-                    className={`h-full w-full object-cover transition-transform duration-700 ${selected ? 'scale-100' : 'scale-110 opacity-60 group-hover:scale-100 group-hover:opacity-100'}`}
-                  />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 to-transparent px-2 py-1 text-left">
-                    <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/80">
-                      {String(index + 1).padStart(2, '0')}
-                    </div>
-                  </div>
-                  {selected && <div className="pointer-events-none absolute inset-0 bg-accent-rgb/5" />}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        )}
       </div>
 
       <ImageLightbox
@@ -401,12 +410,14 @@ function PlotPreviewSurface(input: {
   canNavigate: boolean
   currentIndex: number
   total: number
+  variant: 'default' | 't-layout-top' | 'pure-minimal-top'
   onOpen: () => void
   onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => void
   onPrev: () => void
   onNext: () => void
 }) {
   const { t } = useI18n()
+  const isMinimal = input.variant === 'pure-minimal-top'
   if (input.attachment?.mimeType?.startsWith('image/') || isImagePath(input.attachment?.path)) {
     return (
       <div className="relative flex h-full w-full items-center justify-center overflow-visible">
@@ -415,18 +426,28 @@ function PlotPreviewSurface(input: {
             <button
               type="button"
               onClick={input.onPrev}
-              className="absolute left-4 top-1/2 z-10 -translate-y-1/2 text-sm text-text-secondary/70 transition hover:text-text-primary"
+              className={`absolute left-2 top-1/2 z-10 -translate-y-1/2 font-mono text-sm transition sm:left-4 ${
+                isMinimal ? 'text-accent/35 hover:text-accent/70' : 'text-text-secondary/70 hover:text-text-primary'
+              }`}
             >
               ←
             </button>
             <button
               type="button"
               onClick={input.onNext}
-              className="absolute right-4 top-1/2 z-10 -translate-y-1/2 text-sm text-text-secondary/70 transition hover:text-text-primary"
+              className={`absolute right-2 top-1/2 z-10 -translate-y-1/2 font-mono text-sm transition sm:right-4 ${
+                isMinimal ? 'text-accent/35 hover:text-accent/70' : 'text-text-secondary/70 hover:text-text-primary'
+              }`}
             >
               →
             </button>
-            <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/30 px-3 py-1 font-mono text-[10px] tracking-[0.18em] text-white/85 backdrop-blur-sm">
+            <div
+              className={`pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 font-mono text-[10px] tracking-[0.24em] ${
+                isMinimal
+                  ? 'bottom-5 text-accent/35'
+                  : 'bottom-4 rounded-full bg-black/30 px-3 py-1 text-white/85 backdrop-blur-sm'
+              }`}
+            >
               {String(input.currentIndex + 1).padStart(2, '0')} / {String(input.total).padStart(2, '0')}
             </div>
           </>
@@ -447,7 +468,7 @@ function PlotPreviewSurface(input: {
             }
           }}
           onContextMenu={input.onContextMenu}
-          className="flex h-full w-full cursor-zoom-in items-center justify-center animate-fade-in-soft"
+          className={`flex h-full w-full cursor-zoom-in items-center justify-center animate-fade-in-soft ${isMinimal ? 'px-4 py-3 sm:px-8 sm:py-6' : ''}`}
           title={t('image.openTitle')}
         >
           <img
@@ -462,25 +483,21 @@ function PlotPreviewSurface(input: {
 
   if (input.result?.kind === 'failure-report') {
     return (
-      <div className="flex flex-col items-center justify-center opacity-30">
-        <div className="text-sm font-medium uppercase tracking-widest text-rose-600/70">{t('studio.renderFailed')}</div>
+      <div className={`flex flex-col items-center justify-center ${isMinimal ? 'opacity-24' : 'opacity-30'}`}>
+        <div className={`font-medium uppercase tracking-widest ${isMinimal ? 'font-mono text-[11px] text-rose-600/60' : 'text-sm text-rose-600/70'}`}>
+          {t('studio.renderFailed')}
+        </div>
       </div>
     )
   }
 
-  return null
-}
-
-function getAbsoluteUrl(path: string): string {
-  if (/^(data:|https?:\/\/)/i.test(path)) {
-    return path
-  }
-
-  return new URL(path, window.location.origin).toString()
-}
-
-function isPreviewAttachment(attachment: { path: string; mimeType?: string } | undefined) {
-  return isImageAttachment(attachment)
+  return (
+    <div className={`flex h-full w-full items-center justify-center ${isMinimal ? 'opacity-30 transition-opacity duration-500 hover:opacity-60' : 'opacity-22'}`}>
+      <span className={`font-mono uppercase ${isMinimal ? 'text-[12px] tracking-[0.34em]' : 'text-[11px] tracking-[0.28em]'}`}>
+        [ Canvas Area ]
+      </span>
+    </div>
+  )
 }
 
 function getImageAttachments(attachments: StudioFileAttachment[] | undefined): StudioFileAttachment[] {

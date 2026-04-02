@@ -11,6 +11,7 @@ import { useCommandStoreSelector } from './use-command-store-selector'
 interface StudioCommandMessageRowProps {
   messageId: string
   store: StudioCommandPanelStore
+  variant?: 'default' | 't-layout-bottom' | 'pure-minimal-bottom'
 }
 
 const animatedMessageIds = new Set<string>()
@@ -18,6 +19,7 @@ const animatedMessageIds = new Set<string>()
 export const StudioCommandMessageRow = memo(function StudioCommandMessageRow({
   messageId,
   store,
+  variant = 'default',
 }: StudioCommandMessageRowProps) {
   const selector = useCallback(
     (snapshot: ReturnType<StudioCommandPanelStore['getSnapshot']>) => selectRowView(snapshot, messageId),
@@ -64,7 +66,13 @@ export const StudioCommandMessageRow = memo(function StudioCommandMessageRow({
   }
 
   if (rowView.message.role === 'user') {
-    return <UserMessageItem message={rowView.message} shouldAnimateEnter={shouldAnimateEnter} />
+    return (
+      <UserMessageItem
+        message={rowView.message}
+        shouldAnimateEnter={shouldAnimateEnter}
+        minimal={variant === 'pure-minimal-bottom'}
+      />
+    )
   }
 
   return (
@@ -74,6 +82,7 @@ export const StudioCommandMessageRow = memo(function StudioCommandMessageRow({
       isStreamingTarget={rowView.isStreamingTarget}
       streamedText={rowView.streamedText}
       showCaret={rowView.showCaret}
+      minimal={variant === 'pure-minimal-bottom'}
     />
   )
 })
@@ -81,16 +90,33 @@ export const StudioCommandMessageRow = memo(function StudioCommandMessageRow({
 const UserMessageItem = memo(function UserMessageItem({
   message,
   shouldAnimateEnter,
+  minimal,
 }: {
   message: Extract<StudioMessage, { role: 'user' }>
   shouldAnimateEnter: boolean
+  minimal: boolean
 }) {
   const { t } = useI18n()
+
+  if (minimal) {
+    return (
+      <div className={`${shouldAnimateEnter ? 'animate-message-enter ' : ''}mb-1`}>
+        <div className="flex items-baseline gap-4">
+          <span className="block w-4 shrink-0 text-center text-[11px] font-semibold leading-loose text-accent/72">{'>'}</span>
+          <StudioMarkdown
+            content={stripStudioReferenceImages(message.text)}
+            className="studio-markdown-inline min-w-0 flex-1 text-[13px] leading-loose text-accent/80"
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className={`${shouldAnimateEnter ? 'animate-message-enter ' : ''}group`}>
-      <div className="rounded-2xl bg-bg-secondary/20 px-6 py-5 transition-colors group-hover:bg-bg-secondary/40">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.3em] text-text-secondary/35">{t('studio.inputUser')}</span>
+    <div className={`${shouldAnimateEnter ? 'animate-message-enter ' : ''}group mb-6`}>
+      <div className="rounded-2xl bg-bg-secondary/30 px-6 py-5 transition-colors group-hover:bg-bg-secondary/50">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.3em] text-accent/40">{t('studio.inputUser')}</span>
           <div className="h-px flex-1 bg-border/5" />
         </div>
         <StudioMarkdown
@@ -108,12 +134,14 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
   isStreamingTarget,
   streamedText,
   showCaret,
+  minimal,
 }: {
   message: Extract<StudioMessage, { role: 'assistant' }>
   shouldAnimateEnter: boolean
   isStreamingTarget: boolean
   streamedText: string
   showCaret: boolean
+  minimal: boolean
 }) {
   const { t } = useI18n()
   const textParts = message.parts.filter((part) => part.type === 'text' || part.type === 'reasoning')
@@ -121,10 +149,70 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
   const hasStreamedText = streamedText.length > 0
   const hasRenderableText = textParts.some((part) => part.text.trim())
 
+  if (minimal) {
+    return (
+      <div className={`${!isStreamingTarget && shouldAnimateEnter ? 'animate-message-enter ' : ''}mb-1`}>
+        <div className="flex items-baseline gap-4">
+          <span className="block w-4 shrink-0 text-center text-[10px] font-semibold leading-loose text-accent/54">{'•'}</span>
+          <div className="min-w-0 flex-1 space-y-2">
+            {isStreamingTarget && hasStreamedText ? (
+              <StudioMarkdown
+                content={streamedText}
+                className="studio-markdown-inline text-[13px] leading-loose text-accent/70"
+                showCaret={showCaret}
+              />
+            ) : isStreamingTarget && !hasRenderableText ? (
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] uppercase tracking-[0.2em] text-accent/40">{t('studio.thinking')}</span>
+                <span className="studio-thinking-dots" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              </div>
+            ) : textParts.map((part, i) => {
+              const text = part.text.trim()
+              if (!text) return null
+              return (
+                <StudioMarkdown
+                  key={`text-${i}`}
+                  content={text}
+                  className="studio-markdown-inline text-[13px] leading-loose text-accent/70"
+                />
+              )
+            })}
+
+            {!isStreamingTarget && !hasRenderableText && (
+              <div className="text-[12px] text-accent/30">
+                {t('studio.noResponseOutput')}
+              </div>
+            )}
+
+            {toolParts.length > 0 && (
+              <div className="space-y-1 pt-1">
+                {toolParts.map((part, i) => {
+                  const status = part.state.status === 'error' ? '!' : part.state.status === 'completed' ? '->' : '...'
+                  const args = 'input' in part.state ? truncateArgs(part.state.input) : ''
+                  return (
+                    <div key={i} className={`flex items-center gap-3 font-mono text-[10px] tracking-tight ${neutralToolTone(part.state.status)}`}>
+                      <span className="w-4 shrink-0 text-center opacity-75">{status}</span>
+                      <span className="uppercase tracking-[0.18em] opacity-72">{part.tool}</span>
+                      <span className="truncate opacity-28">({args})</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className={`${!isStreamingTarget && shouldAnimateEnter ? 'animate-message-enter ' : ''}group`}>
+    <div className={`${!isStreamingTarget && shouldAnimateEnter ? 'animate-message-enter ' : ''}group mb-6`}>
       <div className="rounded-2xl bg-bg-tertiary/40 px-6 py-6 transition-colors group-hover:bg-bg-tertiary/60">
-        <div className="mb-5 flex items-center gap-3">
+        <div className="mb-4 flex items-center gap-3">
           <span className="font-mono text-[9px] font-bold uppercase tracking-[0.3em] text-text-primary/45">{t('studio.outputAgent')}</span>
           <div className="h-px flex-1 bg-border/10" />
         </div>
@@ -137,7 +225,7 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
               showCaret={showCaret}
             />
           ) : isStreamingTarget && !hasRenderableText ? (
-            <div className="flex items-center gap-4 border-l border-accent-rgb/10 pl-1 ml-1">
+            <div className="ml-1 flex items-center gap-4 border-l border-accent/10 pl-1">
               <span className="text-[13px] font-mono tracking-widest text-text-secondary/40">{t('studio.thinking')}</span>
               <span className="studio-thinking-dots" aria-hidden="true">
                 <span />

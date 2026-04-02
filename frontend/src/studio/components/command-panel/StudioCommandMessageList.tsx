@@ -8,11 +8,13 @@ import { StudioCommandMessageRow } from './StudioCommandMessageRow'
 interface StudioCommandMessageListProps {
   store: StudioCommandPanelStore
   endRef: RefObject<HTMLDivElement | null>
+  variant?: 'default' | 't-layout-bottom' | 'pure-minimal-bottom'
 }
 
 export const StudioCommandMessageList = memo(function StudioCommandMessageList({
   store,
   endRef,
+  variant = 'default',
 }: StudioCommandMessageListProps) {
   const selectIds = useCallback(
     (snapshot: ReturnType<StudioCommandPanelStore['getSnapshot']>) => selectVisibleMessageIds(snapshot),
@@ -39,12 +41,17 @@ export const StudioCommandMessageList = memo(function StudioCommandMessageList({
   }, [visibleMessageIds])
 
   return (
-    <div className="flex flex-col space-y-12">
+    <div
+      className={`flex ${variant === 'pure-minimal-bottom'
+        ? 'flex-col gap-0 pb-4'
+        : 'flex-col space-y-12'}`}
+    >
       {visibleMessageIds.map((messageId) => (
         <StudioCommandMessageRow
           key={messageId}
           messageId={messageId}
           store={store}
+          variant={variant}
         />
       ))}
 
