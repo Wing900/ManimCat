@@ -1,0 +1,59 @@
+import { ImageLightbox } from '../../../components/image-preview/lightbox'
+import { useI18n } from '../../../i18n'
+import { uploadReferenceImage } from '../../../lib/api'
+
+interface PlotPreviewLightboxProps {
+  isOpen: boolean
+  activeImage?: string
+  activeIndex: number
+  total: number
+  zoom: number
+  editableFilename?: string
+  canNavigate: boolean
+  onZoomChange: (nextZoom: number) => void
+  onPrev: () => void
+  onNext: () => void
+  onClose: () => void
+  onSendPreviewToComposer?: (attachment: { url: string; name: string; mimeType?: string }) => void
+}
+
+export function PlotPreviewLightbox({
+  isOpen,
+  activeImage,
+  activeIndex,
+  total,
+  zoom,
+  editableFilename,
+  canNavigate,
+  onZoomChange,
+  onPrev,
+  onNext,
+  onClose,
+  onSendPreviewToComposer,
+}: PlotPreviewLightboxProps) {
+  const { t } = useI18n()
+
+  return (
+    <ImageLightbox
+      isOpen={isOpen}
+      activeImage={activeImage}
+      activeIndex={activeIndex}
+      total={total}
+      zoom={zoom}
+      editableFilename={editableFilename ?? t('studio.plot.inlinePreview')}
+      variant="studio-light"
+      onZoomChange={onZoomChange}
+      onPrev={canNavigate ? onPrev : undefined}
+      onNext={canNavigate ? onNext : undefined}
+      onCommitAnnotatedImage={onSendPreviewToComposer ? async ({ file, filename }) => {
+        const uploaded = await uploadReferenceImage(file)
+        onSendPreviewToComposer({
+          url: uploaded.url,
+          name: filename,
+          mimeType: uploaded.mimeType,
+        })
+      } : undefined}
+      onClose={onClose}
+    />
+  )
+}
