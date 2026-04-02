@@ -28,11 +28,11 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
 </p>
 
 <p align="center">
-  <strong>🎬 AI-Powered Mathematical Animation Generator</strong>
+  <strong>Dual-Mode AI Workspace for Mathematical Visuals</strong>
 </p>
 
 <p align="center">
-  Making mathematical animation creation simple and elegant, powered by Manim and large language models
+  Combining direct workflow generation with agent-driven studio collaboration, powered by Manim and matplotlib
 </p>
 
 <!-- Geometric divider -->
@@ -73,14 +73,16 @@ I am happy to introduce my new project, ManimCat. It is, after all, a cat.
 
 Built on top of [manim-video-generator](https://github.com/rohitg00/manim-video-generator), ManimCat is now a much broader AI-assisted creation system for math teaching visuals rather than just a single generation flow.
 
-It is designed for classroom explanation, worked-example breakdowns, and visual reasoning tasks. You can use natural language to generate, modify, rerender, and organize Manim-based teaching content with both `video` and `image` outputs.
+It is designed for classroom explanation, worked-example breakdowns, and visual reasoning tasks. You can use natural language to generate, modify, rerender, and organize both animated and static teaching visuals with `video` and `image` outputs.
 
-The project currently has two distinct modes: `Workflow Mode` for direct generation and rendering, and `Agent Mode` for Studio-based collaborative work with longer-lived sessions, review, and iteration.
+The project is now organized around three clear axes: `dual-mode`, `dual-engine`, and `dual-studio`.
 
-- `Workflow Mode` currently supports two direct output paths: `video` and `image`
-- `Agent Mode` currently includes two studios: `Plot Studio` (about 60% complete) and `Manim Studio` (about 20% complete)
-- `Plot Studio` is for matplotlib-based static math visuals, charts, and teaching figures
-- `Manim Studio` is for Manim animation workflows, but it is still at an early stage
+- `Workflow Mode` is for direct generation and rendering when you want fast outputs
+- `Agent Mode` is for Studio-based collaborative work with longer-lived sessions, task state, review, and iteration
+- `Manim` is used for animation and timeline-based mathematical storytelling
+- `matplotlib` is used in Plot Studio for static math visuals, charts, and teaching figures
+- `Plot Studio` is the more mature Studio path today for static visual work and iterative editing
+- `Manim Studio` is the animation-oriented Studio path and is still at an earlier stage
 
 ### Interface
 
@@ -145,11 +147,13 @@ If you want a direct Docker deployment path, you can also start from the publish
 
 ### Tech Stack
 
-- Product modes: Workflow mode for direct generation, Agent mode for Studio-based collaborative work
+- Product structure: Workflow mode for direct generation, Agent mode for Studio-based collaborative work
+- Visual engines: Manim for animation, `matplotlib` for Plot Studio static figures
 - Backend: Express + TypeScript, Bull + Redis, OpenAI-compatible upstream routing, Studio agent runtime, optional Supabase history storage
-- Frontend: React 19, Vite, Tailwind CSS, classic generator UI, Studio workspace shell
+- Frontend: React 19, Vite, Tailwind CSS, classic generator UI, Studio workspace shell, Plot Studio minimal workspace UI
+- Agent state model: session / run / task / work / result lifecycle for longer-lived studio interactions
 - Realtime layer: polling for Workflow jobs, Server-Sent Events for Agent sessions, permission requests, and task updates
-- Rendering runtime: Python + Manim Community Edition, LaTeX, `ffmpeg`
+- Rendering runtime: Python, Manim Community Edition, `matplotlib`, LaTeX, `ffmpeg`
 - Deployment: Docker / Docker Compose, Hugging Face Spaces
 
 ### Workflow Mode
@@ -255,12 +259,18 @@ This project is a substantial rework built on top of the original foundation. Th
 
 ### Studio Agent
 
-- Added a separate Studio mode driven by an agent runtime rather than the classic generation flow
-- Added session, run, task, work, and work-result state models for long-lived agent interactions
+- Added a separate Agent Mode driven by a Studio runtime rather than the classic one-shot generation flow
+- Defined the long-lived Studio state model around session / run / task / work / result
 - Added builder, designer, and reviewer roles inside the Studio agent system
 - Added workspace tools, render tools, local skills, and subagent orchestration
 - Added Server-Sent Events for live Studio updates plus permission request / reply handling
 - Added Studio review, pipeline, work, and permission panels in the frontend
+
+### Plot Studio and Manim Studio
+
+- Added two distinct Studio workspaces: Plot Studio for `matplotlib`-based static visuals and Manim Studio for animation-oriented workflows
+- Added Plot Studio output history browsing, work reordering, and a minimal split workspace layout
+- Established the dual-engine product direction: Manim for animated mathematical storytelling, `matplotlib` for static teaching figures and charts
 
 ## License and Copyright
 

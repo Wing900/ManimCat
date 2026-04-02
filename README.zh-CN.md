@@ -28,11 +28,11 @@
 </p>
 
 <p align="center">
-  <strong>🎬 AI-Powered Mathematical Animation Generator</strong>
+  <strong>面向数学可视化创作的双模式 AI 工作台</strong>
 </p>
 
 <p align="center">
-  让数学动画创作变得简单优雅 · 基于 Manim 与大语言模型
+  同时支持直接生成工作流与基于 Agent 的 Studio 协作，并由 Manim 与 matplotlib 双引擎支撑
 </p>
 
 <!-- 装饰：几何点阵分隔 -->
@@ -73,14 +73,16 @@
 
 本项目基于 [manim-video-generator](https://github.com/rohitg00/manim-video-generator) 进行了大幅重构与再开发，现在已经不只是单一生成流程，而是一个更完整的 AI 数学教学可视化创作系统。
 
-它面向课堂讲解、例题拆解与数形结合表达等场景，用户可以通过自然语言生成、修改、重渲染并组织基于 Manim 的教学内容，支持 `video` 与 `image` 两种输出。
+它面向课堂讲解、例题拆解与数形结合表达等场景，用户可以通过自然语言生成、修改、重渲染并组织动画与静态两类教学可视化内容，支持 `video` 与 `image` 两种输出。
 
-项目目前包含两种明确区分的模式：`Workflow Mode` 用于直接生成与渲染，`Agent Mode` 用于基于 Studio 的协作式创作、审阅与迭代。
+项目现在可以从三个维度理解：`双模式`、`双引擎`、`双 Studio`。
 
-- `Workflow Mode` 当前支持两类直接产出：`video` 和 `image`
-- `Agent Mode` 当前包含两个 Studio：`Plot Studio`（开发程度约 60%）与 `Manim Studio`（开发程度约 20%）
-- `Plot Studio` 面向 matplotlib 静态数学图像、函数图与教学插图
-- `Manim Studio` 面向 Manim 动画工作流，但目前仍处于明显早期阶段
+- `Workflow Mode` 用于直接生成与渲染，适合快速产出
+- `Agent Mode` 用于基于 Studio 的协作式创作、审阅、任务跟踪与迭代
+- `Manim` 负责动画、镜头与时间线驱动的数学叙事
+- `matplotlib` 负责 Plot Studio 中的静态数学图像、函数图、图表与教学插图
+- `Plot Studio` 是目前更成熟的 Studio 路径，主要面向静态可视化与迭代编辑
+- `Manim Studio` 面向动画创作，但目前仍处于相对更早期的阶段
 
 ### 界面
 
@@ -145,11 +147,13 @@ npm run dev
 
 ### 技术栈
 
-- 产品模式：Workflow 模式用于直接生成，Agent 模式用于 Studio 协作式工作流
+- 产品结构：Workflow 模式用于直接生成，Agent 模式用于 Studio 协作式工作流
+- 图形引擎：Manim 用于动画，`matplotlib` 用于 Plot Studio 静态图像
 - 后端：Express + TypeScript、Bull + Redis、兼容 OpenAI 的上游路由、Studio Agent 运行时、可选 Supabase 历史记录
-- 前端：React 19、Vite、Tailwind CSS、经典生成界面、Studio 工作台界面
+- 前端：React 19、Vite、Tailwind CSS、经典生成界面、Studio 工作台界面、Plot Studio 极简工作区 UI
+- Agent 状态模型：围绕 session / run / task / work / result 组织长生命周期 Studio 交互
 - 实时层：Workflow 任务使用轮询，Agent 会话使用 Server-Sent Events 推送事件、权限请求与任务更新
-- 渲染运行时：Python + Manim Community Edition、LaTeX、`ffmpeg`
+- 渲染运行时：Python、Manim Community Edition、`matplotlib`、LaTeX、`ffmpeg`
 - 部署：Docker / Docker Compose、Hugging Face Spaces
 
 ### Workflow Mode
@@ -253,12 +257,18 @@ flowchart LR
 
 ### Studio Agent
 
-- 新增独立的 Studio 模式，它不再只是经典生成流程的附属页面，而是单独的 agent 运行模式
-- 新增 session、run、task、work、work result 等长生命周期状态模型
+- 新增独立的 Agent Mode，它不再只是经典生成流程的附属页面，而是单独的 Studio runtime 工作模式
+- 定义了围绕 session、run、task、work、result 的长生命周期 Studio 状态模型
 - 新增 builder、designer、reviewer 三种 Studio agent 角色
 - 新增工作区工具、渲染工具、本地 skills 与子代理编排能力
 - 新增基于 Server-Sent Events 的 Studio 实时更新，以及权限请求 / 回复链路
 - 新增 Studio 前端中的 review、pipeline、work、permission 等面板
+
+### Plot Studio 与 Manim Studio
+
+- 新增两个明确分化的 Studio 工作区：Plot Studio 面向 `matplotlib` 静态可视化，Manim Studio 面向动画工作流
+- 新增 Plot Studio 的历史产物浏览、工作项重排与极简分栏工作区布局
+- 明确形成双引擎产品方向：Manim 负责动态数学叙事，`matplotlib` 负责静态教学图像与图表
 
 ##  开源与版权声明 
 
