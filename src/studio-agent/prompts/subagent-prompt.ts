@@ -40,10 +40,10 @@ export function buildStudioSubagentPrompt(input: BuildStudioSubagentPromptInput)
     sections.push(
       '',
       `<skill_augment name="${input.skill.name}">`,
-      input.skill.content.trim(),
+      input.skill.body.trim(),
       '',
       `Base directory: ${input.skill.directory}`,
-      `Preferred agent: ${input.skill.preferredAgent ?? input.agentType}`,
+      `Scope: ${input.skill.scope ?? 'common'}`,
       '</skill_augment>'
     )
   } else if (input.requestedSkillName) {

@@ -17,6 +17,8 @@ import { createPermissionAskBridge, StudioPermissionRejectedError } from './perm
 import type {
   StudioResolvedSkill,
   StudioRuntimeBackedToolContext,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary,
   StudioSubagentRunRequest,
   StudioSubagentRunResult
 } from './tool-runtime-context'
@@ -41,6 +43,9 @@ export interface StudioToolCallExecutionOptions {
   askForConfirmation?: (request: StudioPermissionRequest) => Promise<'once' | 'always' | 'reject'>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig?: CustomApiConfig
   commentary?: string | null
@@ -169,7 +174,10 @@ async function executeTool(input: {
     sessionStore: input.options.sessionStore,
     ask,
     runSubagent: input.options.runSubagent,
-    resolveSkill: input.options.resolveSkill
+    resolveSkill: input.options.resolveSkill,
+    listSkills: input.options.listSkills,
+    listSkillSummaries: input.options.listSkillSummaries,
+    recordSkillUsage: input.options.recordSkillUsage
   } as StudioRuntimeBackedToolContext
 
   const normalizedToolInput = injectToolDefaults(

@@ -1,10 +1,16 @@
 import { getStudioAgentSystemPrompt } from '../prompts/agent-prompt-loader'
 import type { StudioSession, StudioWorkContext } from '../domain/types'
 import { getStudioExecutionPolicy } from './studio-execution-policy'
+import type {
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary
+} from '../skills/schema/skill-types'
 
 interface BuildStudioAgentSystemPromptInput {
   session: StudioSession
   workContext?: StudioWorkContext
+  availableSkills?: StudioSkillDiscoveryEntry[]
+  skillSummaries?: StudioSkillUsageSummary[]
 }
 
 export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPromptInput): string {
@@ -37,12 +43,24 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
     'Avoid decorative formatting, heading markers, and excessive blank lines.',
     'If user clarification is truly required, call the question tool instead of guessing.',
     'For subagent work, use the task tool. For local skills, use the skill tool. For code review, prefer ai-review or reviewer subagent when appropriate.',
+    'Skills are temporary guidance modules. Load them step by step when they are relevant. Do not keep full skill guidance around longer than needed.',
+    'If a manual skill was injected earlier, treat it as temporary guidance for the current task step. After that, decide for yourself whether another skill should be loaded.',
     'The render tool already inherits the current provider chain from Studio. Do not ask the user to pass provider config inside tool arguments.'
   ]
 
   const workContextText = formatWorkContext(input.workContext)
   if (workContextText) {
     sections.push('', '<studio_work_context>', workContextText, '</studio_work_context>')
+  }
+
+  const skillCatalogText = formatSkillCatalog(input.availableSkills)
+  if (skillCatalogText) {
+    sections.push('', '<studio_skill_catalog>', skillCatalogText, '</studio_skill_catalog>')
+  }
+
+  const skillSummaryText = formatSkillSummaries(input.skillSummaries)
+  if (skillSummaryText) {
+    sections.push('', '<studio_skill_state>', skillSummaryText, '</studio_skill_state>')
   }
 
   return sections.join('\n').trim()
@@ -88,4 +106,50 @@ function formatWorkContext(workContext?: StudioWorkContext): string {
   }
 
   return lines.join('\n')
+}
+
+function formatSkillCatalog(skills?: StudioSkillDiscoveryEntry[]): string {
+  if (!skills?.length) {
+    return ''
+  }
+
+  const lines = [
+    'Available skills are lightweight guidance modules. Load a skill only when it is useful for the current task step.'
+  ]
+
+  for (const skill of skills) {
+    const suffix: string[] = []
+    if (skill.scope) {
+      suffix.push(`scope=${skill.scope}`)
+    }
+    if (skill.tags?.length) {
+      suffix.push(`tags=${skill.tags.join(',')}`)
+    }
+    lines.push(`- ${skill.name}: ${skill.description}${suffix.length ? ` (${suffix.join('; ')})` : ''}`)
+  }
+
+  return lines.join('\n')
+}
+
+function formatSkillSummaries(summaries?: StudioSkillUsageSummary[]): string {
+  if (!summaries?.length) {
+    return ''
+  }
+
+  return summaries
+    .slice(-10)
+    .map((summary) => {
+      const parts = [`- ${summary.skillName}`]
+      if (summary.reason) {
+        parts.push(`reason=${summary.reason}`)
+      }
+      if (summary.takeaway) {
+        parts.push(`takeaway=${summary.takeaway}`)
+      }
+      if (typeof summary.stillRelevant === 'boolean') {
+        parts.push(`still_relevant=${summary.stillRelevant ? 'yes' : 'no'}`)
+      }
+      return parts.join(' | ')
+    })
+    .join('\n')
 }

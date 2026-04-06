@@ -36,14 +36,22 @@ async function executeSkillTool(
   const skill = await context.resolveSkill(input.name, context.session)
   const title = `Loaded skill: ${skill.name}`
 
+  await context.recordSkillUsage?.({
+    session: context.session,
+    skillName: skill.name,
+    reason: 'Skill was loaded into the current run.',
+    takeaway: skill.description,
+    stillRelevant: true
+  })
+
   context.setToolMetadata?.({
     title,
     metadata: {
       skillName: skill.name,
       directory: skill.directory,
-      manifestPath: skill.manifestPath,
-      preferredAgent: skill.preferredAgent,
-      allowedTools: skill.allowedTools
+      entryFile: skill.entryFile,
+      scope: skill.scope,
+      tags: skill.tags
     }
   })
 
@@ -53,7 +61,7 @@ async function executeSkillTool(
       `<skill_content name="${skill.name}">`,
       `# Skill: ${skill.name}`,
       '',
-      skill.content.trim(),
+      skill.body.trim(),
       '',
       `Base directory for this skill: ${skill.directory}`,
       'Relative paths in this skill (for example scripts/ or reference/) are resolved from this directory.',
@@ -66,9 +74,9 @@ async function executeSkillTool(
     metadata: {
       skillName: skill.name,
       directory: skill.directory,
-      manifestPath: skill.manifestPath,
-      preferredAgent: skill.preferredAgent,
-      allowedTools: skill.allowedTools
+      entryFile: skill.entryFile,
+      scope: skill.scope,
+      tags: skill.tags
     }
   }
 }

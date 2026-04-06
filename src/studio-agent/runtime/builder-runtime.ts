@@ -23,6 +23,8 @@ import { StudioSessionRunner, type StudioBackgroundRunHandle } from './execution
 import type { StudioTurnPlanResolver } from './planning/turn-plan-resolver'
 import type {
   StudioResolvedSkill,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary,
   StudioSubagentRunRequest,
   StudioSubagentRunResult
 } from './tools/tool-runtime-context'
@@ -42,6 +44,15 @@ interface StudioBuilderRuntimeOptions {
   eventBus?: StudioEventBus
   resolveTurnPlan: StudioTurnPlanResolver
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  recordSkillUsage?: (input: {
+    session: StudioSession
+    skillName: string
+    reason?: string
+    takeaway?: string
+    stillRelevant?: boolean
+  }) => Promise<void>
 }
 
 export class StudioBuilderRuntime {
@@ -62,7 +73,10 @@ export class StudioBuilderRuntime {
       workResultStore: options.workResultStore,
       eventBus: options.eventBus,
       resolveTurnPlan: options.resolveTurnPlan,
-      resolveSkill: options.resolveSkill
+      resolveSkill: options.resolveSkill,
+      listSkills: options.listSkills,
+      listSkillSummaries: options.listSkillSummaries,
+      recordSkillUsage: options.recordSkillUsage
     })
   }
 

@@ -16,6 +16,8 @@ import { createStudioToolCallExecutionEvents } from '../tools/tool-call-adapter'
 import type {
   StudioResolvedSkill,
   StudioRuntimeBackedToolContext,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary,
   StudioSubagentRunRequest,
   StudioSubagentRunResult
 } from '../tools/tool-runtime-context'
@@ -38,6 +40,9 @@ interface StudioTurnExecutionOptions {
   askForConfirmation?: (request: StudioPermissionRequest) => Promise<'once' | 'always' | 'reject'>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig?: CustomApiConfig
   abortSignal?: AbortSignal
@@ -75,6 +80,9 @@ export async function* createStudioTurnExecutionStream(
       askForConfirmation: input.askForConfirmation,
       runSubagent: input.runSubagent,
       resolveSkill: input.resolveSkill,
+      listSkills: input.listSkills,
+      listSkillSummaries: input.listSkillSummaries,
+      recordSkillUsage: input.recordSkillUsage,
       setToolMetadata: input.setToolMetadata,
       customApiConfig: input.customApiConfig,
       abortSignal: input.abortSignal,

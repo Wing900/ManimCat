@@ -20,6 +20,8 @@ import { createStudioToolCallExecutionEvents } from '../runtime/tool-call-adapte
 import type {
   StudioResolvedSkill,
   StudioRuntimeBackedToolContext,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary,
   StudioSubagentRunRequest,
   StudioSubagentRunResult
 } from '../runtime/tool-runtime-context'
@@ -66,6 +68,9 @@ interface StudioOpenAIToolLoopInput {
   askForConfirmation?: (request: StudioPermissionRequest) => Promise<'once' | 'always' | 'reject'>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig: CustomApiConfig
@@ -244,6 +249,10 @@ async function createLoopRuntime(input: StudioOpenAIToolLoopInput): Promise<Stud
 
   const tools = buildStudioChatTools(input.registry, input.session.agentType, input.session.studioKind)
   const storedMessages = await input.messageStore.listBySessionId(input.session.id)
+  const [availableSkills, skillSummaries] = await Promise.all([
+    input.listSkills?.(input.session) ?? Promise.resolve([]),
+    input.listSkillSummaries?.(input.session) ?? Promise.resolve([])
+  ])
 
   return {
     client,
@@ -252,7 +261,9 @@ async function createLoopRuntime(input: StudioOpenAIToolLoopInput): Promise<Stud
     conversation: buildStudioConversationMessages({ messages: storedMessages }),
     systemPrompt: buildStudioAgentSystemPrompt({
       session: input.session,
-      workContext: input.workContext
+      workContext: input.workContext,
+      availableSkills,
+      skillSummaries
     }),
     maxSteps: input.maxSteps ?? readStudioRunAutonomyMetadata(input.run.metadata).maxSteps ?? DEFAULT_MAX_STEPS,
     toolChoice: input.toolChoice ?? 'auto',
@@ -450,6 +461,9 @@ async function* executeSingleToolCall(
     askForConfirmation: input.askForConfirmation,
     runSubagent: input.runSubagent,
     resolveSkill: input.resolveSkill,
+    listSkills: input.listSkills,
+    listSkillSummaries: input.listSkillSummaries,
+    recordSkillUsage: input.recordSkillUsage,
     setToolMetadata: (callId, metadata) => input.setToolMetadata(runtime.currentAssistantMessage, callId, metadata),
     customApiConfig: input.customApiConfig,
     abortSignal: input.abortSignal,

@@ -7,6 +7,17 @@ import type {
   StudioToolContext
 } from '../../domain/types'
 import type { CustomApiConfig } from '../../../types'
+import type {
+  StudioResolvedSkill,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary
+} from '../../skills/schema/skill-types'
+
+export type {
+  StudioResolvedSkill,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary
+} from '../../skills/schema/skill-types'
 
 export interface StudioSubagentRunRequest {
   projectId: string
@@ -25,19 +36,6 @@ export interface StudioSubagentRunResult {
   text: string
 }
 
-export interface StudioResolvedSkill {
-  name: string
-  description: string
-  directory: string
-  entryFile: string
-  content: string
-  manifestPath?: string
-  manifest?: Record<string, unknown>
-  preferredAgent?: 'builder' | 'reviewer' | 'designer'
-  allowedTools?: string[]
-  files: string[]
-}
-
 export interface StudioToolPermissionRequest {
   permission: string
   patterns: string[]
@@ -50,6 +48,15 @@ export interface StudioRuntimeBackedToolContext extends StudioToolContext {
   ask?: (request: StudioToolPermissionRequest) => Promise<StudioPermissionDecision>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  recordSkillUsage?: (input: {
+    session: StudioSession
+    skillName: string
+    reason?: string
+    takeaway?: string
+    stillRelevant?: boolean
+  }) => Promise<void>
 }
 
 export function toPermissionRequest(

@@ -27,7 +27,7 @@ import {
   isStudioRunResumable,
   readStudioRunAutonomyMetadata,
 } from '../runs/autonomy-policy'
-import { createLocalStudioSkillResolver } from '../skills/local-skill-resolver'
+import { createStudioSkillRuntime } from '../skills/runtime/skill-runtime'
 import type { StudioBlobStore } from '../storage/studio-blob-store'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
@@ -130,7 +130,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   registerManimStudioTools(registry)
   registerPlotStudioTools(registry)
 
-  const resolveSkill = createLocalStudioSkillResolver()
+  const skillRuntime = createStudioSkillRuntime()
   const resolveTurnPlan = createStudioDefaultTurnPlanResolver({ registry })
 
   const runtime = new StudioBuilderRuntime({
@@ -145,7 +145,10 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     sessionEventStore: input.persistence.sessionEventStore,
     permissionService: input.permissionService,
     resolveTurnPlan,
-    resolveSkill,
+    resolveSkill: skillRuntime.resolve,
+    listSkills: skillRuntime.listDiscovery,
+    listSkillSummaries: skillRuntime.listSummaries,
+    recordSkillUsage: skillRuntime.recordUsage,
     eventBus,
   })
 

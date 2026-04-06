@@ -8,6 +8,8 @@ import { StudioRunProcessor } from './run-processor'
 import type { StudioTurnPlanResolver } from '../planning/turn-plan-resolver'
 import type {
   StudioResolvedSkill,
+  StudioSkillDiscoveryEntry,
+  StudioSkillUsageSummary,
   StudioSubagentRunRequest,
   StudioSubagentRunResult
 } from '../tools/tool-runtime-context'
@@ -60,6 +62,15 @@ interface StudioSessionRunnerOptions {
   workResultStore?: StudioWorkResultStore
   eventBus?: StudioEventBus
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  recordSkillUsage?: (input: {
+    session: StudioSession
+    skillName: string
+    reason?: string
+    takeaway?: string
+    stillRelevant?: boolean
+  }) => Promise<void>
   resolveTurnPlan: StudioTurnPlanResolver
 }
 
@@ -109,6 +120,9 @@ export class StudioSessionRunner {
   private readonly workResultStore?: StudioWorkResultStore
   private readonly sharedEventBus?: StudioEventBus
   private readonly resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
+  private readonly listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
+  private readonly listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
+  private readonly recordSkillUsage?: StudioSessionRunnerOptions['recordSkillUsage']
   private readonly resolveTurnPlan: StudioTurnPlanResolver
 
   constructor(options: StudioSessionRunnerOptions) {
@@ -127,6 +141,9 @@ export class StudioSessionRunner {
     this.workResultStore = options.workResultStore
     this.sharedEventBus = options.eventBus
     this.resolveSkill = options.resolveSkill
+    this.listSkills = options.listSkills
+    this.listSkillSummaries = options.listSkillSummaries
+    this.recordSkillUsage = options.recordSkillUsage
     this.resolveTurnPlan = options.resolveTurnPlan
     this.askForConfirmation = options.askForConfirmation ?? (async () => 'reject')
   }
@@ -316,6 +333,9 @@ export class StudioSessionRunner {
           toolChoice: input.toolChoice
         }),
         resolveSkill: this.resolveSkill,
+        listSkills: this.listSkills,
+        listSkillSummaries: this.listSkillSummaries,
+        recordSkillUsage: this.recordSkillUsage,
         setToolMetadata: (callId, metadata) => {
           void this.processor.applyToolMetadata({
             assistantMessage: input.prepared.assistantMessage,
@@ -369,6 +389,9 @@ export class StudioSessionRunner {
           toolChoice: input.toolChoice
         }),
         resolveSkill: this.resolveSkill,
+        listSkills: this.listSkills,
+        listSkillSummaries: this.listSkillSummaries,
+        recordSkillUsage: this.recordSkillUsage,
         createAssistantMessage: () => this.createAssistantMessage(input.prepared.input.session),
         setToolMetadata: (assistantMessage, callId, metadata) => {
           void this.processor.applyToolMetadata({
