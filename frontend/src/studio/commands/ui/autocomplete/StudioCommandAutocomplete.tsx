@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useI18n } from '../../../../i18n'
 import type { StudioCommandSuggestion } from '../../autocomplete/command-suggestions'
 
@@ -13,6 +14,16 @@ export function StudioCommandAutocomplete({
   onSelect,
 }: StudioCommandAutocompleteProps) {
   const { t } = useI18n()
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+
+  useEffect(() => {
+    const activeItem = itemRefs.current[activeIndex]
+    if (typeof activeItem?.scrollIntoView === 'function') {
+      activeItem.scrollIntoView({
+        block: 'nearest',
+      })
+    }
+  }, [activeIndex, suggestions])
 
   if (suggestions.length === 0) {
     return null
@@ -34,6 +45,9 @@ export function StudioCommandAutocomplete({
           return (
             <button
               key={suggestion.id}
+              ref={(node) => {
+                itemRefs.current[index] = node
+              }}
               type="button"
               onMouseDown={(event) => {
                 event.preventDefault()

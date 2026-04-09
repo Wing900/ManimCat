@@ -125,6 +125,37 @@ describe('StudioCommandPanel', () => {
     await waitFor(() => expect(onRun).toHaveBeenCalledWith('/new'))
   })
 
+  it('scrolls the autocomplete list to keep the active command in view while navigating', () => {
+    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView
+    const scrollIntoView = vi.fn()
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView
+
+    try {
+      render(
+        <StudioCommandPanel
+          session={createSession()}
+          messages={[]}
+          latestAssistantText=""
+          isBusy={false}
+          disabled={false}
+          onRun={vi.fn()}
+          onExit={vi.fn()}
+        />,
+      )
+
+      const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
+      fireEvent.change(input, { target: { value: '/' } })
+      scrollIntoView.mockClear()
+
+      fireEvent.keyDown(input, { key: 'ArrowDown' })
+
+      expect(scrollIntoView).toHaveBeenCalled()
+      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest' })
+    } finally {
+      window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView
+    }
+  })
+
   it('executes the registered local image command without sending text to onRun', async () => {
     const onRun = vi.fn()
 
