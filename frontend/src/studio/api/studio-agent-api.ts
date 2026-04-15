@@ -8,6 +8,7 @@ import type {
   StudioRun,
   StudioSession,
   StudioSessionSnapshot,
+  StudioSkillDiscoveryEntry,
 } from '../protocol/studio-agent-types'
 
 interface CreateSessionResponse {
@@ -27,6 +28,10 @@ export interface CreateRunResponse extends Omit<StudioSessionSnapshot, 'session'
 
 interface PendingPermissionsResponse {
   requests: StudioPermissionRequest[]
+}
+
+interface SessionSkillsResponse {
+  skills: StudioSkillDiscoveryEntry[]
 }
 
 interface CancelRunResponse {
@@ -62,6 +67,14 @@ export async function getStudioSessionSnapshot(sessionId: string): Promise<Studi
   return studioRequest<StudioSessionSnapshot>(`/sessions/${encodeURIComponent(sessionId)}`, {
     headers: getStudioAuthHeaders(),
   })
+}
+
+export async function getStudioSessionSkills(sessionId: string): Promise<StudioSkillDiscoveryEntry[]> {
+  const data = await studioRequest<SessionSkillsResponse>(`/sessions/${encodeURIComponent(sessionId)}/skills`, {
+    headers: getStudioAuthHeaders(),
+  })
+
+  return data.skills
 }
 
 export async function createStudioRun(input: StudioCreateRunInput): Promise<CreateRunResponse> {

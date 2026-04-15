@@ -43,6 +43,9 @@ export async function submitStudioCommandComposer<TAttachment>({
       createSession: async () => {},
       setPendingMode: () => {},
       openImageInputMode,
+      runCommandInput: async (inputText: string) => {
+        await onRun(inputText)
+      },
     })
     focusInput()
     return

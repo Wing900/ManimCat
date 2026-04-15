@@ -37,7 +37,8 @@ export function defaultRulesForLevel(level: StudioPermissionLevel): StudioPermis
         { permission: 'read', pattern: '*', action: 'allow' },
         { permission: 'glob', pattern: '*', action: 'allow' },
         { permission: 'grep', pattern: '*', action: 'allow' },
-        { permission: 'ls', pattern: '*', action: 'allow' }
+        { permission: 'ls', pattern: '*', action: 'allow' },
+        { permission: 'skill', pattern: '*', action: 'allow' }
       ]
     case 'L3':
       return [

@@ -172,6 +172,10 @@ export const studioMessages = {
     'studio.command.fullDescription': '切换到高权限模式，允许更强的工作流操作。',
     'studio.command.imageTitle': '图片输入',
     'studio.command.imageDescription': '打开图片导入或画板入口，把参考图送入当前输入框。',
+    'studio.command.skillTitle': '加载 Skill',
+    'studio.command.skillDescription': '把 /skill <name> 发送给后端，加载一个内置或工作区本地 skill。',
+    'studio.command.skillItemTitle': '可用 Skill',
+    'studio.command.skillItemDescription': '选择后会补全为 /skill <name>。',
   },
   'en-US': {
     'studio.title': 'Studio',
@@ -346,6 +350,10 @@ export const studioMessages = {
     'studio.command.fullDescription': 'Switch to elevated mode and allow stronger workflow operations.',
     'studio.command.imageTitle': 'Image Input',
     'studio.command.imageDescription': 'Open image import or drawing tools and insert references into the composer.',
+    'studio.command.skillTitle': 'Load Skill',
+    'studio.command.skillDescription': 'Send /skill <name> to the backend and load a built-in or workspace-local skill.',
+    'studio.command.skillItemTitle': 'Available Skill',
+    'studio.command.skillItemDescription': 'Selecting it completes /skill <name>.',
   },
 } as const;
 

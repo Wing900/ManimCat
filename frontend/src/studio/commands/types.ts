@@ -17,6 +17,7 @@ export interface StudioCommandContext {
   createSession: () => Promise<void>
   setPendingMode: (mode: StudioPermissionMode) => void
   openImageInputMode?: () => void
+  runCommandInput: (inputText: string) => Promise<void>
 }
 
 export interface StudioParsedCommandBase {
@@ -46,11 +47,17 @@ export interface StudioImageInputCommand extends StudioParsedCommandBase {
   group: 'feature'
 }
 
+export interface StudioSkillCommand extends StudioParsedCommandBase {
+  id: 'skill'
+  group: 'feature'
+}
+
 export type StudioParsedCommand =
   | StudioPermissionModeCommand
   | StudioHistoryCommand
   | StudioNewSessionCommand
   | StudioImageInputCommand
+  | StudioSkillCommand
 
 export interface StudioCommandDefinition<TCommand extends StudioParsedCommand = StudioParsedCommand> {
   id: TCommand['id']

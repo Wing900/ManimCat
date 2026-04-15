@@ -23,7 +23,7 @@ export function useStudioCommandComposerController({
 }: UseStudioCommandComposerControllerInput) {
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const commandAutocomplete = useStudioCommandAutocomplete(input)
+  const commandAutocomplete = useStudioCommandAutocomplete(input, session)
 
   const focusInput = () => {
     if (disabled) {

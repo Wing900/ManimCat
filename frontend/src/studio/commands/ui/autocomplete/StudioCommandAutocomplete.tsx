@@ -69,11 +69,11 @@ export function StudioCommandAutocomplete({
                   </span>
                 </div>
                 <p className="mt-1 text-[12px] leading-6 text-text-secondary/68">
-                  {t(suggestion.descriptionKey as never)}
+                  {suggestion.detail ?? t(suggestion.descriptionKey as never)}
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-black/[0.04] px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.24em] text-text-secondary/55 dark:bg-white/[0.06]">
-                {suggestion.group}
+                {suggestion.badge ?? suggestion.group}
               </span>
             </button>
           )

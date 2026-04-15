@@ -14,7 +14,10 @@ export function useStudioCommandRunner(input: UseStudioCommandRunnerInput) {
       return { kind: 'run' as const }
     }
 
-    await resolved.definition.execute(resolved.command as never, input)
+    await resolved.definition.execute(resolved.command as never, {
+      ...input,
+      runCommandInput: input.onRun,
+    })
     return { kind: 'control' as const, command: resolved.command }
   }, [input])
 }

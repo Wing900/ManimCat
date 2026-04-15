@@ -35,6 +35,7 @@ import {
   StudioRunProcessor,
   StudioToolRegistry,
   defaultRulesForLevel,
+  evaluatePermission,
   determineStudioAgentLoopAction,
   parseSkillDocument,
   syncRenderWorkFromTask,
@@ -140,11 +141,16 @@ async function main() {
     assert.equal(isStudioPermissionDecision('reject'), true)
     assert.equal(isStudioPermissionDecision('maybe'), false)
   })
-  await run('default studio workspace uses dedicated hidden directory', async () => {
-    assert.equal(getDefaultStudioWorkspacePath(), path.join(process.cwd(), '.studio-workspace'))
-  })
+    await run('default studio workspace uses dedicated hidden directory', async () => {
+      assert.equal(getDefaultStudioWorkspacePath(), path.join(process.cwd(), '.studio-workspace'))
+    })
 
-  await run('builder prompt requires code, checks, and confirmation before render', async () => {
+    await run('default L2 permission rules allow skill loading', async () => {
+      assert.equal(evaluatePermission(defaultRulesForLevel('L2'), 'skill', 'math-education-visualization'), 'allow')
+      assert.equal(evaluatePermission(defaultRulesForLevel('L3'), 'skill', 'math-education-visualization'), 'allow')
+    })
+
+    await run('builder prompt requires code, checks, and confirmation before render', async () => {
     const session = createStudioSession({
       projectId: 'project-1',
       agentType: 'builder',

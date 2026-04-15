@@ -1,10 +1,47 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import { getStudioCommandSuggestions, type StudioCommandSuggestion } from '../../autocomplete/command-suggestions'
+import { getStudioSessionSkills } from '../../../api/studio-agent-api'
+import type { StudioSession } from '../../../protocol/studio-agent-types'
+import {
+  getStudioCommandSuggestions,
+  getStudioSkillSuggestions,
+  type StudioCommandSuggestion,
+} from '../../autocomplete/command-suggestions'
 
-export function useStudioCommandAutocomplete(input: string) {
+export function useStudioCommandAutocomplete(input: string, session: StudioSession | null) {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0)
-  const suggestions = useMemo(() => getStudioCommandSuggestions(input), [input])
+  const [skillSuggestions, setSkillSuggestions] = useState<StudioCommandSuggestion[]>([])
+  const commandSuggestions = useMemo(() => getStudioCommandSuggestions(input), [input])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSkillSuggestions = async () => {
+      if (!session || !/^\/skill(?:\s+.*)?$/i.test(input.trim())) {
+        setSkillSuggestions([])
+        return
+      }
+
+      try {
+        const skills = await getStudioSessionSkills(session.id)
+        if (!cancelled) {
+          setSkillSuggestions(getStudioSkillSuggestions(input, skills))
+        }
+      } catch {
+        if (!cancelled) {
+          setSkillSuggestions([])
+        }
+      }
+    }
+
+    void loadSkillSuggestions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [input, session])
+
+  const suggestions = skillSuggestions.length > 0 ? skillSuggestions : commandSuggestions
   const activeSuggestion = suggestions[activeSuggestionIndex] ?? suggestions[0] ?? null
   const isOpen = suggestions.length > 0
 
@@ -13,7 +50,7 @@ export function useStudioCommandAutocomplete(input: string) {
   }, [input])
 
   const applySuggestion = (suggestion: StudioCommandSuggestion, onApply: (nextInput: string) => void) => {
-    onApply(suggestion.trigger)
+    onApply(suggestion.inputValue ?? suggestion.trigger)
     setActiveSuggestionIndex(0)
   }
 

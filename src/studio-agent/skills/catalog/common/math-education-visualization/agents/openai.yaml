@@ -1,0 +1,5 @@
+interface:
+  display_name: "数学教育可视化"
+  short_description: "为数学教学图示与动画提供具体设计判断"
+  default_prompt: "Use $math-education-visualization to plan a math teaching visual and choose its presentation mode, visual variables, and color strategy."
+

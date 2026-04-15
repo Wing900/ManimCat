@@ -28,6 +28,7 @@ import {
   readStudioRunAutonomyMetadata,
 } from '../runs/autonomy-policy'
 import { createStudioSkillRuntime } from '../skills/runtime/skill-runtime'
+import type { StudioSkillDiscoveryEntry } from '../skills/schema/skill-types'
 import type { StudioBlobStore } from '../storage/studio-blob-store'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
@@ -81,6 +82,7 @@ export interface StudioRuntimeService {
   updateSession: (sessionId: string, patch: {
     permissionMode?: StudioPermissionMode
   }) => Promise<StudioSession | null>
+  listSessionSkills: (sessionId: string) => Promise<StudioSkillDiscoveryEntry[] | null>
   startRun: (input: {
     projectId: string
     session: StudioSession
@@ -261,6 +263,14 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
       }
 
       return session
+    },
+    async listSessionSkills(sessionId) {
+      const session = await input.persistence.sessionStore.getById(sessionId)
+      if (!session) {
+        return null
+      }
+
+      return skillRuntime.listDiscovery(session)
     },
     async startRun(runInput) {
       return startBackgroundRunLocked(runInput)

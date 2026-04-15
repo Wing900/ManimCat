@@ -70,6 +70,15 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
   sendStudioSuccess(res, { session, messages, runs, sessionEvents, tasks, works, workResults })
 }))
 
+router.get('/studio-agent/sessions/:sessionId/skills', authMiddleware, asyncHandler(async (req, res) => {
+  const skills = await studioRuntime.listSessionSkills(req.params.sessionId)
+  if (!skills) {
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
+  }
+
+  sendStudioSuccess(res, { skills })
+}))
+
 router.patch('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioPatchSessionRequest(req.body)
   const session = await studioRuntime.updateSession(req.params.sessionId, {

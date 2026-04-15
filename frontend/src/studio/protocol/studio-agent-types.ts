@@ -236,6 +236,17 @@ export interface StudioApiEnvelopeFailure {
 
 export type StudioApiEnvelope<T> = StudioApiEnvelopeSuccess<T> | StudioApiEnvelopeFailure
 
+export interface StudioSkillDiscoveryEntry {
+  name: string
+  description: string
+  scope?: 'common' | 'plot' | 'manim'
+  tags?: string[]
+  version?: string | number
+  directory: string
+  entryFile: string
+  source: 'catalog' | 'workspace'
+}
+
 export interface StudioSessionSnapshot {
   session: StudioSession
   messages: StudioMessage[]
