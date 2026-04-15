@@ -43,7 +43,7 @@ import {
   type StudioTurnPlanResolver
 } from '../index'
 import { createStudioError, createStudioSuccess } from '../../routes/helpers/studio-agent-responses'
-import { parseStudioTurnIntent } from '../runtime/turn-plan-intent'
+import { parseStudioTurnIntent } from '../runtime/planning/turn-plan-intent'
 
 function createTestRuntime(options?: {
   resolveTurnPlan?: StudioTurnPlanResolver

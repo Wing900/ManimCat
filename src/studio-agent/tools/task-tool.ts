@@ -5,8 +5,8 @@ import type {
   StudioWorkType
 } from '../domain/types'
 import { buildChildSessionRules } from '../permissions/policy'
-import { inheritStudioSessionMetadata } from '../runtime/session-agent-config'
-import type { StudioRuntimeBackedToolContext } from '../runtime/tool-runtime-context'
+import { inheritStudioSessionMetadata } from '../runtime/session/session-agent-config'
+import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { createWorkAndTask, updateTaskAndWork } from '../works/work-lifecycle'
 
 interface TaskToolInput {

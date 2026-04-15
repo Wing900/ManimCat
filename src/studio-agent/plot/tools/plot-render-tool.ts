@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createStudioWorkResult } from '../../domain/factories'
 import type { StudioFileAttachment, StudioToolDefinition, StudioToolResult, StudioWorkResult } from '../../domain/types'
-import type { StudioRuntimeBackedToolContext } from '../../runtime/tool-runtime-context'
+import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
 import { createWorkAndTask, publishWorkUpdated, updateTaskAndWork } from '../../works/work-lifecycle'
 import { executeMatplotlibRender } from '../../../services/plot-runtime/matplotlib-executor'
 import { isStudioRunCancelledError } from '../../runtime/execution/run-cancellation'

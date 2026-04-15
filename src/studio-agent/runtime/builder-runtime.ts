@@ -16,7 +16,8 @@ import type {
   StudioWorkStore
 } from '../domain/types'
 import { StudioToolRegistry } from '../tools/registry'
-import { StudioSessionRunner, type StudioBackgroundRunHandle } from './execution/session-runner'
+import { StudioSessionRunner } from './execution/session-runner/session-runner'
+import type { StudioBackgroundRunHandle } from './execution/session-runner/dependency-center'
 import type { StudioTurnPlanResolver } from './planning/turn-plan-resolver'
 import type {
   StudioResolvedSkill,

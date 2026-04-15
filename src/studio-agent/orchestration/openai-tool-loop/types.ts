@@ -19,7 +19,7 @@ import type {
   StudioSkillUsageSummary,
   StudioSubagentRunRequest,
   StudioSubagentRunResult
-} from '../../runtime/tool-runtime-context'
+} from '../../runtime/tools/tool-runtime-context'
 import type { CustomApiConfig } from '../../../types'
 import type { buildStudioChatTools } from '../studio-tool-schema'
 import type { buildStudioConversationMessages } from '../studio-message-history'

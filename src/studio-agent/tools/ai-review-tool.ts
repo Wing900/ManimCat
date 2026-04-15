@@ -5,8 +5,8 @@ import {
 import { createStudioSession, createStudioWorkResult } from '../domain/factories'
 import type { StudioToolDefinition, StudioToolResult, StudioWorkResult } from '../domain/types'
 import { buildChildSessionRules } from '../permissions/policy'
-import type { StudioRuntimeBackedToolContext } from '../runtime/tool-runtime-context'
-import { inheritStudioSessionMetadata } from '../runtime/session-agent-config'
+import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
+import { inheritStudioSessionMetadata } from '../runtime/session/session-agent-config'
 import { createWorkAndTask, publishWorkUpdated, updateTaskAndWork } from '../works/work-lifecycle'
 import { readWorkspaceFile, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
 

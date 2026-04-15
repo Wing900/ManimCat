@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
-import type { StudioRuntimeBackedToolContext } from '../runtime/tool-runtime-context'
+import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import type { CustomApiConfig, OutputMode, VideoQuality } from '../../types'
 import { videoQueue } from '../../config/bull'
 import { storeJobStage } from '../../services/job-store'

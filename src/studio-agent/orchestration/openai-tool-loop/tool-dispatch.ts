@@ -1,7 +1,7 @@
 import type { StudioProcessorStreamEvent } from '../../domain/types'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
-import { buildStudioPreToolCommentary } from '../../runtime/pre-tool-commentary'
-import { createStudioToolCallExecutionEvents } from '../../runtime/tool-call-adapter'
+import { buildStudioPreToolCommentary } from '../../runtime/tools/pre-tool-commentary'
+import { createStudioToolCallExecutionEvents } from '../../runtime/tools/tool-call-adapter'
 import type {
   StudioChatToolCall,
   StudioLoopAutonomy,

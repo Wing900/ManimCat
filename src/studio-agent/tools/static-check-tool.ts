@@ -1,6 +1,6 @@
 import { readWorkspaceFile, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
-import type { StudioRuntimeBackedToolContext } from '../runtime/tool-runtime-context'
+import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { runStaticChecks } from '../../services/static-guard/checker'
 import type { OutputMode } from '../../types'
 

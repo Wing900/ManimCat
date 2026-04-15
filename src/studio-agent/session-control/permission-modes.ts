@@ -3,7 +3,7 @@ import type {
   StudioPermissionRule,
   StudioSession,
 } from '../domain/types'
-import { createStudioSessionMetadata } from '../runtime/session-agent-config'
+import { createStudioSessionMetadata } from '../runtime/session/session-agent-config'
 
 export type StudioPermissionMode = 'safe' | 'auto' | 'full'
 

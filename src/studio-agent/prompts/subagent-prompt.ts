@@ -1,5 +1,5 @@
 import type { StudioAgentType, StudioKind } from '../domain/types'
-import type { StudioResolvedSkill } from '../runtime/tool-runtime-context'
+import type { StudioResolvedSkill } from '../runtime/tools/tool-runtime-context'
 import { getStudioAgentSystemPrompt } from './agent-prompt-loader'
 
 interface BuildStudioSubagentPromptInput {

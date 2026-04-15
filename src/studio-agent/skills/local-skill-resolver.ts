@@ -1,5 +1,5 @@
 import type { StudioSession } from '../domain/types'
-import type { StudioResolvedSkill } from '../runtime/tool-runtime-context'
+import type { StudioResolvedSkill } from '../runtime/tools/tool-runtime-context'
 import { createStudioSkillRuntime } from './runtime/skill-runtime'
 
 export function createLocalStudioSkillResolver(options?: { maxFiles?: number }) {

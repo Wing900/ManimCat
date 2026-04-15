@@ -1,5 +1,5 @@
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
-import type { StudioRuntimeBackedToolContext } from '../runtime/tool-runtime-context'
+import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { readWorkspaceFile, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
 
 interface ReadToolInput {

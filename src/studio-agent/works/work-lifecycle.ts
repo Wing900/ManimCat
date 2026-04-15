@@ -1,6 +1,6 @@
 import { createStudioTask, createStudioWork } from '../domain/factories'
 import type { StudioTask, StudioTaskStatus, StudioWork } from '../domain/types'
-import type { StudioRuntimeBackedToolContext } from '../runtime/tool-runtime-context'
+import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 
 type StudioTaskCreateInput = Parameters<typeof createStudioTask>[0]
 type StudioWorkCreateInput = Parameters<typeof createStudioWork>[0]
