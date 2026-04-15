@@ -91,30 +91,6 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         }
       }
 
-    case 'permission.asked':
-      return {
-        type: 'permission.asked',
-        properties: {
-          id: event.properties.id,
-          sessionID: event.properties.sessionID,
-          permission: event.properties.permission,
-          patterns: event.properties.patterns,
-          metadata: event.properties.metadata,
-          always: event.properties.always,
-          tool: event.properties.tool
-        }
-      }
-
-    case 'permission.replied':
-      return {
-        type: 'permission.replied',
-        properties: {
-          sessionID: event.properties.sessionID,
-          requestID: event.properties.requestID,
-          reply: event.properties.reply
-        }
-      }
-
     case 'question_requested':
       return {
         type: 'question.requested',

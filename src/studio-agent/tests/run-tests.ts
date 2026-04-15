@@ -31,7 +31,6 @@ import {
   InMemoryStudioWorkStore,
   publishRenderFailureFeedback,
   StudioBuilderRuntime,
-  StudioPermissionService,
   StudioRunProcessor,
   StudioToolRegistry,
   defaultRulesForLevel,
@@ -40,17 +39,13 @@ import {
   parseSkillDocument,
   syncRenderWorkFromTask,
   type StudioAssistantMessage,
-  type StudioPermissionDecision,
-  type StudioPermissionRequest,
   type StudioRuntimeBackedToolContext,
   type StudioTurnPlanResolver
 } from '../index'
-import { createStudioError, createStudioSuccess, isStudioPermissionDecision } from '../../routes/helpers/studio-agent-responses'
+import { createStudioError, createStudioSuccess } from '../../routes/helpers/studio-agent-responses'
 import { parseStudioTurnIntent } from '../runtime/turn-plan-intent'
 
 function createTestRuntime(options?: {
-  permissionService?: StudioPermissionService
-  askForConfirmation?: (request: StudioPermissionRequest) => Promise<StudioPermissionDecision>
   resolveTurnPlan?: StudioTurnPlanResolver
   eventBus?: InMemoryStudioEventBus
 }) {
@@ -82,8 +77,6 @@ function createTestRuntime(options?: {
     workResultStore,
     resolveSkill,
     resolveTurnPlan,
-    permissionService: options?.permissionService,
-    askForConfirmation: options?.askForConfirmation,
     eventBus: options?.eventBus
   })
 
@@ -136,10 +129,6 @@ async function main() {
         message: 'bad request'
       }
     })
-    assert.equal(isStudioPermissionDecision('once'), true)
-    assert.equal(isStudioPermissionDecision('always'), true)
-    assert.equal(isStudioPermissionDecision('reject'), true)
-    assert.equal(isStudioPermissionDecision('maybe'), false)
   })
     await run('default studio workspace uses dedicated hidden directory', async () => {
       assert.equal(getDefaultStudioWorkspacePath(), path.join(process.cwd(), '.studio-workspace'))
@@ -743,9 +732,7 @@ async function main() {
   await run('ai-review tool accepts change-set input and persists diff context', async () => {
     const workspace = await createWorkspace()
 
-    const { runtime, registry, sessionStore, taskStore, workStore, workResultStore } = createTestRuntime({
-      askForConfirmation: async () => 'once'
-    })
+    const { runtime, registry, sessionStore, taskStore, workStore, workResultStore } = createTestRuntime()
 
     const session = await sessionStore.create(createStudioSession({
       projectId: 'project-1',
@@ -771,8 +758,6 @@ async function main() {
       workStore,
       workResultStore,
       sessionStore,
-      askForConfirmation: async () => 'once',
-      ask: async () => 'once',
       runSubagent: (input: Parameters<typeof runtime.runSubagent>[0]) => runtime.runSubagent(input)
     }
 
@@ -798,9 +783,7 @@ async function main() {
     const workspace = await createWorkspace()
     await writeFile(path.join(workspace, 'sample.py'), 'from manim import *\nprint("debug")\n', 'utf8')
 
-    const { runtime, registry, sessionStore, taskStore, workStore, workResultStore } = createTestRuntime({
-      askForConfirmation: async () => 'once'
-    })
+    const { runtime, registry, sessionStore, taskStore, workStore, workResultStore } = createTestRuntime()
 
     const session = await sessionStore.create(createStudioSession({
       projectId: 'project-1',
@@ -826,8 +809,6 @@ async function main() {
       workStore,
       workResultStore,
       sessionStore,
-      askForConfirmation: async () => 'once',
-      ask: async () => 'once',
       runSubagent: (input: Parameters<typeof runtime.runSubagent>[0]) => runtime.runSubagent(input)
     }
 
@@ -862,9 +843,7 @@ async function main() {
 
   await run('task tool spawns child session and creates linked work', async () => {
     const workspace = await createWorkspace()
-    const { runtime, sessionStore, taskStore, messageStore, workStore } = createTestRuntime({
-      askForConfirmation: async () => 'once'
-    })
+    const { runtime, sessionStore, taskStore, messageStore, workStore } = createTestRuntime()
 
     const session = await sessionStore.create(createStudioSession({
       projectId: 'project-1',
@@ -1045,9 +1024,7 @@ async function main() {
     await mkdir(skillDir, { recursive: true })
     await writeFile(path.join(skillDir, 'SKILL.md'), '# Demo Skill\n\nYou are a local test skill.', 'utf8')
 
-    const { runtime, sessionStore, messageStore } = createTestRuntime({
-      askForConfirmation: async () => 'once'
-    })
+    const { runtime, sessionStore, messageStore } = createTestRuntime()
 
     const session = await sessionStore.create(createStudioSession({
       projectId: 'project-1',
@@ -1072,16 +1049,13 @@ async function main() {
     assert.match(output, /<skill_files>/)
   })
 
-  await run('permission gating blocks until reply and reject stops run', async () => {
+  await run('permission rules deny blocked skill runs without approval flow', async () => {
     const workspace = await createWorkspace()
     const skillDir = path.join(workspace, '.manimcat', 'skills', 'blocked-skill')
     await mkdir(skillDir, { recursive: true })
     await writeFile(path.join(skillDir, 'SKILL.md'), '# Blocked Skill\n\nShould require permission.', 'utf8')
 
-    const permissionService = new StudioPermissionService()
-    const { runtime, sessionStore } = createTestRuntime({
-      permissionService
-    })
+    const { runtime, sessionStore, messageStore } = createTestRuntime()
 
     const session = await sessionStore.create(createStudioSession({
       projectId: 'project-1',
@@ -1092,28 +1066,21 @@ async function main() {
       permissionRules: defaultRulesForLevel('L1')
     }))
 
-    const runPromise = runtime.run({
+    const result = await runtime.run({
       projectId: 'project-1',
       session,
       inputText: '/skill blocked-skill'
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    const assistantMessage = await findLastAssistantMessageWithTool(messageStore, session.id)
+    const toolPart = assistantMessage?.parts.find((part) => part.type === 'tool')
 
-    const pending = permissionService.listPending()
-    assert.equal(pending.length, 1)
-    assert.equal(pending[0].permission, 'skill')
-
-    const replied = permissionService.reply({
-      requestID: pending[0].id,
-      reply: 'reject'
-    })
-
-    assert.equal(replied, true)
-
-    const result = await runPromise
     assert.equal(result.run.status, 'failed')
-    assert.equal(permissionService.listPending().length, 0)
+    assert.ok(toolPart && toolPart.type === 'tool' && toolPart.state.status === 'error')
+    assert.match(
+      toolPart && toolPart.type === 'tool' && toolPart.state.status === 'error' ? toolPart.state.error : '',
+      /interactive approval is no longer supported|Permission denied/
+    )
   })
 
   console.log('All studio-agent tests passed')

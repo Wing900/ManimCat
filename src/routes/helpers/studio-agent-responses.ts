@@ -1,5 +1,4 @@
 import type { Response } from 'express'
-import type { StudioPermissionDecision } from '../../studio-agent/domain/types'
 
 export type StudioApiErrorCode =
   | 'INVALID_INPUT'
@@ -58,8 +57,4 @@ export function sendStudioError(
   details?: unknown
 ): void {
   res.status(status).json(createStudioError(code, message, details))
-}
-
-export function isStudioPermissionDecision(value: unknown): value is StudioPermissionDecision {
-  return value === 'once' || value === 'always' || value === 'reject'
 }

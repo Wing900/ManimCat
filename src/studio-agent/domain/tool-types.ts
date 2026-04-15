@@ -30,28 +30,6 @@ export interface StudioToolFailure {
   metadata?: Record<string, unknown>
 }
 
-export interface StudioPermissionRequest {
-  id: string
-  sessionID: string
-  permission: string
-  patterns: string[]
-  metadata?: Record<string, unknown>
-  always: string[]
-  tool?: {
-    messageID: string
-    callID: string
-  }
-}
-
-export type StudioPermissionDecision = 'once' | 'always' | 'reject'
-
-export interface StudioPermissionReply {
-  requestID: string
-  reply: StudioPermissionDecision
-  message?: string
-  directory?: string
-}
-
 export interface StudioToolContext {
   projectId: string
   session: StudioSession
@@ -62,7 +40,6 @@ export interface StudioToolContext {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
-  askForConfirmation: (request: StudioPermissionRequest) => Promise<StudioPermissionDecision>
   setToolMetadata?: (metadata: { title?: string; metadata?: Record<string, unknown> }) => void
 }
 

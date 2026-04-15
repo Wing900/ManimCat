@@ -1,6 +1,5 @@
 import type {
   StudioAssistantMessage,
-  StudioPermissionRequest,
   StudioProcessorStreamEvent,
   StudioRun,
   StudioRuntimeTurnPlan,
@@ -10,7 +9,6 @@ import type {
   StudioWorkResultStore,
   StudioWorkStore
 } from '../../domain/types'
-import type { StudioPermissionService } from '../../permissions/permission-service'
 import type { StudioToolRegistry } from '../../tools/registry'
 import { createStudioToolCallExecutionEvents } from '../tools/tool-call-adapter'
 import type {
@@ -32,12 +30,10 @@ interface StudioTurnExecutionOptions {
   plan: StudioRuntimeTurnPlan
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
-  permissionService?: StudioPermissionService
   sessionStore?: StudioSessionStore
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
-  askForConfirmation?: (request: StudioPermissionRequest) => Promise<'once' | 'always' | 'reject'>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
@@ -72,12 +68,10 @@ export async function* createStudioTurnExecutionStream(
       toolInput,
       registry: input.registry,
       eventBus: input.eventBus,
-      permissionService: input.permissionService,
       sessionStore: input.sessionStore,
       taskStore: input.taskStore,
       workStore: input.workStore,
       workResultStore: input.workResultStore,
-      askForConfirmation: input.askForConfirmation,
       runSubagent: input.runSubagent,
       resolveSkill: input.resolveSkill,
       listSkills: input.listSkills,

@@ -41,15 +41,6 @@ async function executeTaskTool(
     throw new Error('Task tool requires a subagent runner')
   }
 
-  await context.ask?.({
-    permission: 'task',
-    patterns: [input.subagent_type],
-    metadata: {
-      description: input.description,
-      skill: input.skill
-    }
-  })
-
   const childSession = await context.sessionStore.create(
     createStudioSession({
       projectId: context.projectId,

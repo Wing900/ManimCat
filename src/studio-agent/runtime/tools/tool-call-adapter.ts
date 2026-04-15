@@ -1,6 +1,5 @@
 import type {
   StudioAssistantMessage,
-  StudioPermissionRequest,
   StudioProcessorStreamEvent,
   StudioRun,
   StudioSession,
@@ -11,9 +10,7 @@ import type {
   StudioWorkStore
 } from '../../domain/types'
 import { evaluatePermission } from '../../permissions/policy'
-import type { StudioPermissionService } from '../../permissions/permission-service'
 import type { StudioToolRegistry } from '../../tools/registry'
-import { createPermissionAskBridge, StudioPermissionRejectedError } from './permission-bridge'
 import type {
   StudioResolvedSkill,
   StudioRuntimeBackedToolContext,
@@ -35,12 +32,10 @@ export interface StudioToolCallExecutionOptions {
   toolInput: Record<string, unknown>
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
-  permissionService?: StudioPermissionService
   sessionStore?: StudioSessionStore
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
-  askForConfirmation?: (request: StudioPermissionRequest) => Promise<'once' | 'always' | 'reject'>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
@@ -118,8 +113,7 @@ export async function* createStudioToolCallExecutionEvents(
   } catch (error) {
     yield createToolErrorEvent(
       input.toolCallId,
-      error instanceof Error ? error.message : String(error),
-      error instanceof StudioPermissionRejectedError ? { rejected: true } : undefined
+      error instanceof Error ? error.message : String(error)
     )
   }
 }
@@ -128,30 +122,6 @@ async function executeTool(input: {
   tool: StudioToolDefinition
   options: StudioToolCallExecutionOptions
 }) {
-  const ask = createPermissionAskBridge({
-    permissionService: input.options.permissionService,
-    fallback: input.options.askForConfirmation
-      ? async (request) =>
-          input.options.askForConfirmation?.({
-            id: `fallback_${input.options.toolCallId}`,
-            sessionID: input.options.session.id,
-            permission: request.permission,
-            patterns: request.patterns,
-            metadata: request.metadata,
-            always: request.always ?? request.patterns,
-            tool: {
-              messageID: input.options.assistantMessage.id,
-              callID: input.options.toolCallId
-            }
-          }) ?? 'reject'
-      : undefined,
-    session: input.options.session,
-    run: input.options.run,
-    messageId: input.options.assistantMessage.id,
-    toolName: input.options.toolName,
-    callId: input.options.toolCallId
-  })
-
   const toolContext = {
     projectId: input.options.projectId,
     session: input.options.session,
@@ -162,17 +132,10 @@ async function executeTool(input: {
     taskStore: input.options.taskStore,
     workStore: input.options.workStore,
     workResultStore: input.options.workResultStore,
-    askForConfirmation: async (request: StudioPermissionRequest) => {
-      if (!input.options.permissionService) {
-        return input.options.askForConfirmation?.(request) ?? 'reject'
-      }
-      return input.options.permissionService.ask(request)
-    },
     setToolMetadata: (metadata: { title?: string; metadata?: Record<string, unknown> }) => {
       input.options.setToolMetadata(input.options.toolCallId, metadata)
     },
     sessionStore: input.options.sessionStore,
-    ask,
     runSubagent: input.options.runSubagent,
     resolveSkill: input.options.resolveSkill,
     listSkills: input.options.listSkills,
@@ -218,7 +181,14 @@ function createToolErrorEvent(
 }
 
 function resolvePermissionPattern(input: Record<string, unknown>): string {
-  const candidate = input as { file?: unknown; path?: unknown; pattern?: unknown; directory?: unknown }
+  const candidate = input as {
+    file?: unknown
+    path?: unknown
+    pattern?: unknown
+    directory?: unknown
+    name?: unknown
+    subagent_type?: unknown
+  }
   if (typeof candidate.file === 'string' && candidate.file) {
     return candidate.file
   }
@@ -230,6 +200,12 @@ function resolvePermissionPattern(input: Record<string, unknown>): string {
   }
   if (typeof candidate.pattern === 'string' && candidate.pattern) {
     return candidate.pattern
+  }
+  if (typeof candidate.name === 'string' && candidate.name) {
+    return candidate.name
+  }
+  if (typeof candidate.subagent_type === 'string' && candidate.subagent_type) {
+    return candidate.subagent_type
   }
   return '*'
 }

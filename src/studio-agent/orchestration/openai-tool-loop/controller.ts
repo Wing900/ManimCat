@@ -1,6 +1,6 @@
 import type { StudioProcessorStreamEvent } from '../../domain/types'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
-import { determineStudioAgentLoopAction } from '../studio-agent-loop-policy'
+import { determineStudioAgentLoopAction } from './loop-policy'
 import { appendStudioAssistantConversationTurn, emitStudioAssistantText } from './message-assembly'
 import { createStudioLoopFinishStepEvent, logStudioLoopStepFinished } from './observability'
 import {

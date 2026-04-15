@@ -4,8 +4,6 @@ import type {
   StudioEventBus,
   StudioKind,
   StudioPermissionLevel,
-  StudioPermissionReply,
-  StudioPermissionRequest,
   StudioSession,
   StudioTask,
   StudioToolChoice,
@@ -17,7 +15,6 @@ import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-eve
 import { registerManimStudioTools } from '../manim/register-manim-tools'
 import type { StudioPersistence } from '../persistence/studio-persistence'
 import { registerPlotStudioTools } from '../plot/register-plot-tools'
-import type { StudioPermissionService } from '../permissions/permission-service'
 import { defaultRulesForLevel } from '../permissions/policy'
 import { resolveStudioPermissionMode, type StudioPermissionMode } from '../session-control/permission-modes'
 import { registerSharedStudioTools } from '../shared/register-shared-tools'
@@ -45,7 +42,6 @@ interface SubscribableStudioEventBus extends StudioEventBus {
 
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
-  permissionService: StudioPermissionService
   workspaceProvider: StudioWorkspaceProvider
   blobStore: StudioBlobStore
   registry?: StudioToolRegistry
@@ -55,7 +51,6 @@ interface CreateStudioRuntimeServiceInput {
 export interface StudioRuntimeService {
   registry: StudioToolRegistry
   runtime: StudioBuilderRuntime
-  permissionService: StudioPermissionService
   workspaceProvider: StudioWorkspaceProvider
   blobStore: StudioBlobStore
   sessionStore: StudioPersistence['sessionStore']
@@ -110,8 +105,6 @@ export interface StudioRuntimeService {
   listWorkResultsBySessionId: (sessionId: string) => Promise<StudioWorkResult[]>
   listExternalEvents: () => StudioExternalEvent[]
   subscribeExternalEvents: (listener: (event: StudioExternalEvent) => void) => () => void
-  listPendingPermissions: () => StudioPermissionRequest[]
-  replyPermission: (replyInput: StudioPermissionReply) => boolean
   cancelRun: (input: { runId: string; reason?: string }) => Promise<{
     status: 'cancelled' | 'already_finished' | 'not_found'
     run?: import('../domain/types').StudioRun
@@ -145,7 +138,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     workStore: input.persistence.workStore,
     workResultStore: input.persistence.workResultStore,
     sessionEventStore: input.persistence.sessionEventStore,
-    permissionService: input.permissionService,
     resolveTurnPlan,
     resolveSkill: skillRuntime.resolve,
     listSkills: skillRuntime.listDiscovery,
@@ -200,7 +192,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   return {
     registry,
     runtime,
-    permissionService: input.permissionService,
     workspaceProvider: input.workspaceProvider,
     blobStore: input.blobStore,
     sessionStore: input.persistence.sessionStore,
@@ -350,12 +341,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
           listener(adapted)
         }
       })
-    },
-    listPendingPermissions(): StudioPermissionRequest[] {
-      return input.permissionService.listPending()
-    },
-    replyPermission(replyInput: StudioPermissionReply): boolean {
-      return input.permissionService.reply(replyInput)
     },
     async cancelRun(cancelInput) {
       const run = await input.persistence.runStore.getById(cancelInput.runId)

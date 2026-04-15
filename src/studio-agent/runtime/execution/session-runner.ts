@@ -1,7 +1,6 @@
 import type { CustomApiConfig } from '../../../types'
 import { InMemoryStudioEventBus } from '../../events/event-bus'
 import { createStudioUserMessage } from '../../domain/factories'
-import type { StudioPermissionService } from '../../permissions/permission-service'
 import { createStudioOpenAIToolLoop } from '../../orchestration/studio-openai-tool-loop'
 import { createStudioTurnExecutionStream } from './tool-execution-stream'
 import { StudioRunProcessor } from './run-processor'
@@ -29,8 +28,6 @@ import type {
   StudioEventBus,
   StudioMessageStore,
   StudioPartStore,
-  StudioPermissionDecision,
-  StudioPermissionRequest,
   StudioProcessorStreamEvent,
   StudioRun,
   StudioRunStore,
@@ -55,8 +52,6 @@ interface StudioSessionRunnerOptions {
   runStore?: StudioRunStore
   sessionStore?: StudioSessionStore
   sessionEventStore?: StudioSessionEventStore
-  permissionService?: StudioPermissionService
-  askForConfirmation?: (request: StudioPermissionRequest) => Promise<StudioPermissionDecision>
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
@@ -113,8 +108,6 @@ export class StudioSessionRunner {
   private readonly runStore?: StudioRunStore
   private readonly sessionStore?: StudioSessionStore
   private readonly sessionEventStore?: StudioSessionEventStore
-  private readonly permissionService?: StudioPermissionService
-  private readonly askForConfirmation: (request: StudioPermissionRequest) => Promise<StudioPermissionDecision>
   private readonly taskStore?: StudioTaskStore
   private readonly workStore?: StudioWorkStore
   private readonly workResultStore?: StudioWorkResultStore
@@ -135,7 +128,6 @@ export class StudioSessionRunner {
     this.runStore = options.runStore
     this.sessionStore = options.sessionStore
     this.sessionEventStore = options.sessionEventStore
-    this.permissionService = options.permissionService
     this.taskStore = options.taskStore
     this.workStore = options.workStore
     this.workResultStore = options.workResultStore
@@ -145,7 +137,6 @@ export class StudioSessionRunner {
     this.listSkillSummaries = options.listSkillSummaries
     this.recordSkillUsage = options.recordSkillUsage
     this.resolveTurnPlan = options.resolveTurnPlan
-    this.askForConfirmation = options.askForConfirmation ?? (async () => 'reject')
   }
 
   async createAssistantMessage(session: StudioSession): Promise<StudioAssistantMessage> {
@@ -321,12 +312,10 @@ export class StudioSessionRunner {
         plan: input.plan,
         registry: this.registry,
         eventBus: input.prepared.eventBus,
-        permissionService: this.permissionService,
         sessionStore: this.sessionStore,
         taskStore: this.taskStore,
         workStore: this.workStore,
         workResultStore: this.workResultStore,
-        askForConfirmation: this.askForConfirmation,
         runSubagent: (request) => this.runSubagent({
           ...request,
           customApiConfig: input.customApiConfig,

@@ -47,7 +47,7 @@ export type StudioSessionEventKind = 'render-status'
 export interface StudioPermissionRule {
   permission: string
   pattern: string
-  action: 'allow' | 'ask' | 'deny'
+  action: 'allow' | 'deny'
 }
 
 export interface StudioSession {

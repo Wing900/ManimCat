@@ -25,14 +25,6 @@ async function executeSkillTool(
     throw new Error('Skill tool requires a skill resolver')
   }
 
-  await context.ask?.({
-    permission: 'skill',
-    patterns: [input.name],
-    metadata: {
-      skill: input.name
-    }
-  })
-
   const skill = await context.resolveSkill(input.name, context.session)
   const title = `Loaded skill: ${skill.name}`
 

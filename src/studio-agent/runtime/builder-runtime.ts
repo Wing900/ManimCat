@@ -4,8 +4,6 @@ import type {
   StudioEventBus,
   StudioMessageStore,
   StudioPartStore,
-  StudioPermissionDecision,
-  StudioPermissionRequest,
   StudioRun,
   StudioRunStore,
   StudioRuntimeTurnPlan,
@@ -17,7 +15,6 @@ import type {
   StudioWorkResultStore,
   StudioWorkStore
 } from '../domain/types'
-import type { StudioPermissionService } from '../permissions/permission-service'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioSessionRunner, type StudioBackgroundRunHandle } from './execution/session-runner'
 import type { StudioTurnPlanResolver } from './planning/turn-plan-resolver'
@@ -36,8 +33,6 @@ interface StudioBuilderRuntimeOptions {
   runStore?: StudioRunStore
   sessionStore?: StudioSessionStore
   sessionEventStore?: StudioSessionEventStore
-  permissionService?: StudioPermissionService
-  askForConfirmation?: (request: StudioPermissionRequest) => Promise<StudioPermissionDecision>
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
@@ -66,8 +61,6 @@ export class StudioBuilderRuntime {
       runStore: options.runStore,
       sessionStore: options.sessionStore,
       sessionEventStore: options.sessionEventStore,
-      permissionService: options.permissionService,
-      askForConfirmation: options.askForConfirmation,
       taskStore: options.taskStore,
       workStore: options.workStore,
       workResultStore: options.workResultStore,

@@ -58,16 +58,6 @@ async function executeAiReviewTool(
   const source = await resolveReviewSource(input, context)
   const workflowInput = buildReviewWorkflowInput(source)
 
-  await context.ask?.({
-    permission: 'ai-review',
-    patterns: [source.path ?? 'inline-review'],
-    metadata: {
-      sourcePath: source.path,
-      sourceLabel: source.label,
-      reviewSourceKind: source.kind
-    }
-  })
-
   const childSession = await context.sessionStore.create(
     createStudioSession({
       projectId: context.projectId,

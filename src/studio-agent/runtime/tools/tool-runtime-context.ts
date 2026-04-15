@@ -1,6 +1,4 @@
 import type {
-  StudioPermissionDecision,
-  StudioPermissionRequest,
   StudioSession,
   StudioSessionStore,
   StudioToolChoice,
@@ -45,7 +43,6 @@ export interface StudioToolPermissionRequest {
 
 export interface StudioRuntimeBackedToolContext extends StudioToolContext {
   sessionStore?: StudioSessionStore
-  ask?: (request: StudioToolPermissionRequest) => Promise<StudioPermissionDecision>
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
@@ -57,20 +54,4 @@ export interface StudioRuntimeBackedToolContext extends StudioToolContext {
     takeaway?: string
     stillRelevant?: boolean
   }) => Promise<void>
-}
-
-export function toPermissionRequest(
-  request: StudioToolPermissionRequest,
-  base: Pick<StudioPermissionRequest, 'id' | 'sessionID'>,
-  tool: NonNullable<StudioPermissionRequest['tool']>
-): StudioPermissionRequest {
-  return {
-    id: base.id,
-    sessionID: base.sessionID,
-    permission: request.permission,
-    patterns: request.patterns,
-    metadata: request.metadata,
-    always: request.always ?? request.patterns,
-    tool
-  }
 }

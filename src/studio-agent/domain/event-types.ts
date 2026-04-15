@@ -1,6 +1,5 @@
 import type { StudioRun, StudioSession, StudioSessionEvent, StudioTask, StudioWork, StudioWorkResult } from './core-types'
 import type { StudioFileAttachment } from './message-types'
-import type { StudioPermissionDecision, StudioPermissionRequest } from './tool-types'
 
 export interface StudioAssistantTextEvent {
   type: 'assistant_text'
@@ -43,20 +42,6 @@ export interface StudioToolResultEvent {
   metadata?: Record<string, unknown>
   attachments?: StudioFileAttachment[]
   error?: string
-}
-
-export interface StudioPermissionAskedEvent {
-  type: 'permission.asked'
-  properties: StudioPermissionRequest
-}
-
-export interface StudioPermissionRepliedEvent {
-  type: 'permission.replied'
-  properties: {
-    sessionID: string
-    requestID: string
-    reply: StudioPermissionDecision
-  }
 }
 
 export interface StudioQuestionRequestedEvent {
@@ -105,8 +90,6 @@ export type StudioAgentEvent =
   | StudioToolInputStartEvent
   | StudioToolCallEvent
   | StudioToolResultEvent
-  | StudioPermissionAskedEvent
-  | StudioPermissionRepliedEvent
   | StudioQuestionRequestedEvent
   | StudioTaskEvent
   | StudioWorkEvent
