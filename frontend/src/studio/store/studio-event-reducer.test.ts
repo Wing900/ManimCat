@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { studioEventReducer } from './studio-event-reducer'
 import { createInitialStudioState } from './studio-session-store'
-import type { StudioAssistantMessage, StudioRun, StudioSession, StudioTextPart, StudioUserMessage } from '../protocol/studio-agent-types'
+import type { StudioUserMessage } from '../protocol/studio-agent-types'
+import { createSessionMessage, createAssistantMessageMessage, createRunMessage, readFirstAssistantText } from './studio-event-reducer.factories'
 
 describe('studioEventReducer', () => {
   it('keeps the optimistic assistant message and stores the error when run submission fails', () => {
@@ -9,9 +10,9 @@ describe('studioEventReducer', () => {
       ...createInitialStudioState(),
       entities: {
         ...createInitialStudioState().entities,
-        session: createSession(),
+        session: createSessionMessage(),
         messagesById: {
-          'local-assistant-1': createAssistantMessage(),
+          'local-assistant-1': createAssistantMessageMessage(),
         },
         messageOrder: ['local-assistant-1'],
       },
@@ -52,7 +53,7 @@ describe('studioEventReducer', () => {
       createdAt: '2026-03-22T00:00:00.000Z',
       updatedAt: '2026-03-22T00:00:00.000Z',
     }
-    const assistantMessage = createAssistantMessage()
+    const assistantMessage = createAssistantMessageMessage()
 
     const next = studioEventReducer(state, {
       type: 'optimistic_messages_created',
@@ -70,9 +71,9 @@ describe('studioEventReducer', () => {
       ...createInitialStudioState(),
       entities: {
         ...createInitialStudioState().entities,
-        session: createSession(),
+        session: createSessionMessage(),
         messagesById: {
-          'local-assistant-1': createAssistantMessage(),
+          'local-assistant-1': createAssistantMessageMessage(),
         },
         messageOrder: ['local-assistant-1'],
       },
@@ -108,9 +109,9 @@ describe('studioEventReducer', () => {
       ...createInitialStudioState(),
       entities: {
         ...createInitialStudioState().entities,
-        session: createSession(),
+        session: createSessionMessage(),
         messagesById: {
-          'local-assistant-1': createAssistantMessage(),
+          'local-assistant-1': createAssistantMessageMessage(),
         },
         messageOrder: ['local-assistant-1'],
       },
@@ -182,16 +183,16 @@ describe('studioEventReducer', () => {
       ...createInitialStudioState(),
       entities: {
         ...createInitialStudioState().entities,
-        session: createSession(),
+        session: createSessionMessage(),
         messagesById: {
           'local-assistant-1': {
-            ...createAssistantMessage(),
+            ...createAssistantMessageMessage(),
             parts: [
               {
                 id: 'tool-1',
                 messageId: 'local-assistant-1',
                 sessionId: 'session-1',
-                type: 'tool',
+                type: 'tool' as const,
                 tool: 'write',
                 callId: 'call-1',
                 state: {
@@ -233,12 +234,12 @@ describe('studioEventReducer', () => {
   })
 
   it('does not let a stale running run overwrite a completed run', () => {
-    const completedRun = createRun({ status: 'completed', completedAt: '2026-03-22T00:00:05.000Z' })
+    const completedRun = createRunMessage({ status: 'completed', completedAt: '2026-03-22T00:00:05.000Z' })
     const state = {
       ...createInitialStudioState(),
       entities: {
         ...createInitialStudioState().entities,
-        session: createSession(),
+        session: createSessionMessage(),
         runsById: {
           [completedRun.id]: completedRun,
         },
@@ -252,7 +253,7 @@ describe('studioEventReducer', () => {
 
     const next = studioEventReducer(state, {
       type: 'run_started',
-      run: createRun({ status: 'running' }),
+      run: createRunMessage({ status: 'running' }),
       pendingPermissions: [],
     })
 
@@ -265,9 +266,9 @@ describe('studioEventReducer', () => {
       ...createInitialStudioState(),
       entities: {
         ...createInitialStudioState().entities,
-        session: createSession(),
+        session: createSessionMessage(),
         messagesById: {
-          'local-assistant-1': createAssistantMessage(),
+          'local-assistant-1': createAssistantMessageMessage(),
         },
         messageOrder: ['local-assistant-1'],
       },
@@ -297,49 +298,3 @@ describe('studioEventReducer', () => {
     expect(next.runtime.assistantTextByRunId['run-1']).toBe('新的回复')
   })
 })
-
-function createSession(): StudioSession {
-  return {
-    id: 'session-1',
-    projectId: 'project-1',
-    agentType: 'builder',
-    title: 'Studio',
-    directory: 'D:/projects/ManimCat',
-    permissionLevel: 'L2',
-    permissionRules: [],
-    createdAt: '2026-03-22T00:00:00.000Z',
-    updatedAt: '2026-03-22T00:00:00.000Z',
-  }
-}
-
-function createAssistantMessage(): StudioAssistantMessage {
-  return {
-    id: 'local-assistant-1',
-    sessionId: 'session-1',
-    role: 'assistant',
-    agent: 'builder',
-    parts: [],
-    createdAt: '2026-03-22T00:00:00.000Z',
-    updatedAt: '2026-03-22T00:00:00.000Z',
-  }
-}
-
-function createRun(overrides: Partial<StudioRun> = {}): StudioRun {
-  return {
-    id: 'run-1',
-    sessionId: 'session-1',
-    status: 'running',
-    inputText: 'render this',
-    activeAgent: 'builder',
-    createdAt: '2026-03-22T00:00:00.000Z',
-    ...overrides,
-  }
-}
-
-function readFirstAssistantText(message: StudioAssistantMessage | StudioUserMessage | undefined): string {
-  if (!message || message.role !== 'assistant') {
-    return ''
-  }
-  const firstPart = message.parts[0] as StudioTextPart | undefined
-  return firstPart?.type === 'text' ? firstPart.text : ''
-}

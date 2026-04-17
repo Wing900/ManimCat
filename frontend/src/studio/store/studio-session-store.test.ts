@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialStudioState, mergeStudioSnapshot } from './studio-session-store'
-import type { StudioAssistantMessage, StudioRun, StudioSession, StudioSessionSnapshot, StudioUserMessage } from '../protocol/studio-agent-types'
+import type { StudioSessionSnapshot } from '../protocol/studio-agent-types'
+import { createSession, createUserMessage, createAssistantMessage, createRun } from './studio-session-store.factories'
 
 describe('mergeStudioSnapshot', () => {
   it('replaces an empty optimistic assistant placeholder with the incoming server assistant message', () => {
@@ -351,57 +352,3 @@ describe('mergeStudioSnapshot', () => {
     expect(next.entities.runsById['run-1']?.completedAt).toBe('2026-03-24T00:00:05.000Z')
   })
 })
-
-function createSession(): StudioSession {
-  const now = '2026-03-24T00:00:00.000Z'
-  return {
-    id: 'session-1',
-    projectId: 'project-1',
-    agentType: 'builder',
-    title: 'Studio',
-    directory: 'D:/projects/ManimCat',
-    permissionLevel: 'L2',
-    permissionRules: [],
-    createdAt: now,
-    updatedAt: now,
-  }
-}
-
-function createUserMessage(id: string, text: string, createdAt: string): StudioUserMessage {
-  return {
-    id,
-    sessionId: 'session-1',
-    role: 'user',
-    text,
-    createdAt,
-    updatedAt: createdAt,
-  }
-}
-
-function createAssistantMessage(
-  id: string,
-  parts: StudioAssistantMessage['parts'],
-  createdAt: string,
-): StudioAssistantMessage {
-  return {
-    id,
-    sessionId: 'session-1',
-    role: 'assistant',
-    agent: 'builder',
-    parts,
-    createdAt,
-    updatedAt: createdAt,
-  }
-}
-
-function createRun(overrides: Partial<StudioRun> = {}): StudioRun {
-  return {
-    id: 'run-1',
-    sessionId: 'session-1',
-    status: 'running',
-    inputText: '请开始',
-    activeAgent: 'builder',
-    createdAt: '2026-03-24T00:00:00.000Z',
-    ...overrides,
-  }
-}

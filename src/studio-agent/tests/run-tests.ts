@@ -9,9 +9,12 @@ import {
   buildReviewerStructuredReport,
   createRenderStatusSessionEvent,
   createStudioAssistantMessage,
+  createStudioLsTool,
+  createStudioRun,
   createStudioSession,
   createStudioSkillRuntime,
   createStudioTask,
+  createStudioToolPart,
   createStudioWork,
   createLocalStudioSkillResolver,
   createPlaceholderStudioTools,
@@ -1047,6 +1050,72 @@ async function main() {
     const output = toolPart && toolPart.type === 'tool' && toolPart.state.status === 'completed' ? toolPart.state.output : ''
     assert.match(output, /<skill_content name="demo-skill">/)
     assert.match(output, /<skill_files>/)
+  })
+
+  await run('ls tool can access a previously loaded skill directory', async () => {
+    const workspace = await createWorkspace()
+    const skillDir = path.join(workspace, '.manimcat', 'skills', 'demo-skill')
+    const referenceDir = path.join(skillDir, 'references')
+    await mkdir(referenceDir, { recursive: true })
+    await writeFile(path.join(skillDir, 'SKILL.md'), '# Demo Skill\n\nUse the references folder when needed.', 'utf8')
+    await writeFile(path.join(referenceDir, 'guide.md'), 'reference text', 'utf8')
+
+    const session = createStudioSession({
+      projectId: 'project-1',
+      agentType: 'builder',
+      title: 'Skill Ls Session',
+      directory: workspace,
+      permissionLevel: 'L4',
+      permissionRules: defaultRulesForLevel('L4')
+    })
+    const assistantMessage = createStudioAssistantMessage({
+      sessionId: session.id,
+      agent: 'builder'
+    })
+    const partStore = new InMemoryStudioPartStore()
+    const skillPart = createStudioToolPart({
+      messageId: assistantMessage.id,
+      sessionId: session.id,
+      tool: 'skill',
+      callId: 'call_skill_loaded'
+    })
+    await partStore.create({
+      ...skillPart,
+      metadata: {
+        directory: skillDir
+      },
+      state: {
+        status: 'completed',
+        input: { name: 'demo-skill' },
+        output: '<skill_content name="demo-skill" />',
+        title: 'Loaded skill: demo-skill',
+        time: {
+          start: Date.now(),
+          end: Date.now()
+        }
+      }
+    })
+
+    const tool = createStudioLsTool()
+    const result = await tool.execute(
+      { path: skillDir },
+      {
+        projectId: 'project-1',
+        session,
+        run: createStudioRun({
+          sessionId: session.id,
+          inputText: '/ls',
+          activeAgent: 'builder'
+        }),
+        assistantMessage,
+        eventBus: new InMemoryStudioEventBus(),
+        partStore
+      } as unknown as StudioRuntimeBackedToolContext
+    )
+
+    assert.match(result.output, /dir references/)
+    assert.match(result.output, /file SKILL\.md/)
+    assert.equal(result.metadata?.path, '.manimcat/skills/demo-skill')
   })
 
   await run('permission rules deny blocked skill runs without approval flow', async () => {
