@@ -107,7 +107,7 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
       title: studioTitle,
       studioKind,
       agentType: 'builder',
-      permissionLevel: 'L2',
+      permissionMode: 'auto',
     })
 
     await loadSnapshot(session.id, mode === 'replace' ? 'replace' : 'merge')

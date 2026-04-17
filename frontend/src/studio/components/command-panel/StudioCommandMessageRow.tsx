@@ -194,10 +194,17 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
                   const status = part.state.status === 'error' ? '!' : part.state.status === 'completed' ? '->' : '...'
                   const args = 'input' in part.state ? truncateArgs(part.state.input) : ''
                   return (
-                    <div key={i} className={`flex items-center gap-3 font-mono text-[10px] tracking-tight ${neutralToolTone(part.state.status)}`}>
-                      <span className="w-4 shrink-0 text-center opacity-75">{status}</span>
-                      <span className="uppercase tracking-[0.18em] opacity-72">{part.tool}</span>
-                      <span className="truncate opacity-28">({args})</span>
+                    <div key={i} className="space-y-1">
+                      <div className={`flex items-center gap-3 font-mono text-[10px] tracking-tight ${neutralToolTone(part.state.status)}`}>
+                        <span className="w-4 shrink-0 text-center opacity-75">{status}</span>
+                        <span className="uppercase tracking-[0.18em] opacity-72">{part.tool}</span>
+                        <span className="truncate opacity-28">({args})</span>
+                      </div>
+                      {part.state.status === 'error' && (
+                        <div className="pl-7 text-[11px] leading-5 text-rose-600/85 dark:text-rose-300/85 break-words">
+                          {part.state.error}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -257,10 +264,17 @@ const AssistantMessageItem = memo(function AssistantMessageItem({
                 const status = part.state.status === 'error' ? '!' : part.state.status === 'completed' ? '->' : '...'
                 const args = 'input' in part.state ? truncateArgs(part.state.input) : ''
                 return (
-                  <div key={i} className={`font-mono text-[10px] tracking-tight ${neutralToolTone(part.state.status)} flex items-center gap-3`}>
-                    <span className="flex h-4 w-4 items-center justify-center bg-text-primary/5 font-bold">{status}</span>
-                    <span className="font-bold uppercase tracking-wider">{part.tool}</span>
-                    <span className="truncate opacity-30">({args})</span>
+                  <div key={i} className="space-y-1.5">
+                    <div className={`font-mono text-[10px] tracking-tight ${neutralToolTone(part.state.status)} flex items-center gap-3`}>
+                      <span className="flex h-4 w-4 items-center justify-center bg-text-primary/5 font-bold">{status}</span>
+                      <span className="font-bold uppercase tracking-wider">{part.tool}</span>
+                      <span className="truncate opacity-30">({args})</span>
+                    </div>
+                    {part.state.status === 'error' && (
+                      <div className="pl-7 text-[12px] leading-6 text-rose-600/85 dark:text-rose-300/85 break-words">
+                        {part.state.error}
+                      </div>
+                    )}
                   </div>
                 )
               })}

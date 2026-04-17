@@ -263,6 +263,7 @@ export interface StudioCreateSessionInput {
   studioKind?: StudioKind
   agentType?: StudioAgentType
   permissionLevel?: StudioPermissionLevel
+  permissionMode?: StudioPermissionMode
   workspaceId?: string
 }
 
