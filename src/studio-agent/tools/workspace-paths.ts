@@ -4,6 +4,27 @@ import path from 'node:path'
 const DEFAULT_MAX_OUTPUT_CHARS = 16000
 const DEFAULT_MAX_WALK_FILES = 2000
 
+export class WorkspacePathError extends Error {
+  readonly targetPath: string
+  readonly resolvedPath: string
+  readonly workspaceRoot: string
+  readonly allowedRoots: string[]
+
+  constructor(input: {
+    targetPath: string
+    resolvedPath: string
+    workspaceRoot: string
+    allowedRoots: string[]
+  }) {
+    super(`Path escapes workspace: ${input.targetPath}`)
+    this.name = 'WorkspacePathError'
+    this.targetPath = input.targetPath
+    this.resolvedPath = input.resolvedPath
+    this.workspaceRoot = input.workspaceRoot
+    this.allowedRoots = input.allowedRoots
+  }
+}
+
 export async function readWorkspaceFile(
   baseDirectory: string,
   targetPath: string,
@@ -56,7 +77,12 @@ export function resolveWorkspacePath(
     }
   }
 
-  throw new Error(`Path escapes workspace: ${targetPath}`)
+  throw new WorkspacePathError({
+    targetPath,
+    resolvedPath: resolved,
+    workspaceRoot,
+    allowedRoots,
+  })
 }
 
 export function toWorkspaceRelativePath(baseDirectory: string, absolutePath: string): string {

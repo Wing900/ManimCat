@@ -30,6 +30,7 @@ interface StudioTurnExecutionOptions {
   plan: StudioRuntimeTurnPlan
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
+  messageStore?: StudioRuntimeBackedToolContext['messageStore']
   partStore?: StudioRuntimeBackedToolContext['partStore']
   sessionStore?: StudioSessionStore
   taskStore?: StudioTaskStore
@@ -69,6 +70,7 @@ export async function* createStudioTurnExecutionStream(
       toolInput,
       registry: input.registry,
       eventBus: input.eventBus,
+      messageStore: input.messageStore,
       partStore: input.partStore,
       sessionStore: input.sessionStore,
       taskStore: input.taskStore,

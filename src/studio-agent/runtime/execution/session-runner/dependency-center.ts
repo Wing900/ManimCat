@@ -101,7 +101,7 @@ export interface StudioSessionRunnerDependencies {
   recordSkillUsage?: StudioSessionRunnerOptions['recordSkillUsage']
   resolveTurnPlan: StudioTurnPlanResolver
   createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
-  createAssistantMessage: (session: StudioSession) => Promise<StudioAssistantMessage>
+  createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
   buildWorkContext: (input: { session: StudioSession; inputText: string }) => Promise<StudioWorkContext>
   runSubagent: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
 }

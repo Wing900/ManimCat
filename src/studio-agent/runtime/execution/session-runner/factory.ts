@@ -6,8 +6,9 @@ import type { StudioSessionRunnerDependencies } from './dependency-center'
 export async function createAssistantMessage(
   deps: Pick<StudioSessionRunnerDependencies, 'messageStore'>,
   session: StudioSession,
+  runId?: string,
 ): Promise<StudioAssistantMessage> {
-  const message = buildDraftAssistantMessage(session)
+  const message = buildDraftAssistantMessage(session, runId)
   return deps.messageStore.createAssistantMessage(message)
 }
 

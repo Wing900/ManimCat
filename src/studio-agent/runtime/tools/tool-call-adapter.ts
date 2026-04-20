@@ -22,6 +22,7 @@ import type {
 import type { CustomApiConfig } from '../../../types'
 import { buildStudioPreToolCommentary } from './pre-tool-commentary'
 import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { WorkspacePathError } from '../../tools/workspace-paths'
 
 export interface StudioToolCallExecutionOptions {
   projectId: string
@@ -33,6 +34,7 @@ export interface StudioToolCallExecutionOptions {
   toolInput: Record<string, unknown>
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
+  messageStore?: StudioRuntimeBackedToolContext['messageStore']
   partStore?: StudioRuntimeBackedToolContext['partStore']
   sessionStore?: StudioSessionStore
   taskStore?: StudioTaskStore
@@ -130,12 +132,14 @@ export async function* createStudioToolCallExecutionEvents(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    const pathEscape = toWorkspacePathFailureDetails(error)
     logDetectedToolFailure(input, {
       error: message,
       failureStage: 'execution',
       failureKind: 'exception',
       errorName: error instanceof Error ? error.name : undefined,
       stackPreview: error instanceof Error ? summarizeStack(error.stack) : undefined,
+      ...pathEscape,
     })
     yield createToolErrorEvent(
       input.toolCallId,
@@ -144,6 +148,7 @@ export async function* createStudioToolCallExecutionEvents(
         failureStage: 'execution',
         failureKind: 'exception',
         errorName: error instanceof Error ? error.name : undefined,
+        ...pathEscape,
       }
     )
   }
@@ -160,6 +165,7 @@ async function executeTool(input: {
     abortSignal: input.options.abortSignal,
     assistantMessage: input.options.assistantMessage,
     eventBus: input.options.eventBus,
+    messageStore: input.options.messageStore,
     partStore: input.options.partStore,
     taskStore: input.options.taskStore,
     workStore: input.options.workStore,
@@ -221,6 +227,13 @@ function logDetectedToolFailure(
     permission?: string
     errorName?: string
     stackPreview?: string
+    targetPath?: string
+    resolvedPath?: string
+    workspaceRoot?: string
+    allowedRoots?: string[]
+    allowedRootCount?: number
+    allowedSkillRoots?: string[]
+    loadedSkillPartCount?: number
   }
 ): void {
   logPlotStudioTiming(input.session.studioKind, 'tool.failure.detected', {
@@ -235,9 +248,49 @@ function logDetectedToolFailure(
     errorName: details.errorName,
     error: details.error,
     stackPreview: details.stackPreview,
+    targetPath: details.targetPath,
+    resolvedPath: details.resolvedPath,
+    workspaceRoot: details.workspaceRoot,
+    allowedRoots: details.allowedRoots,
+    allowedRootCount: details.allowedRootCount,
+    allowedSkillRoots: details.allowedSkillRoots,
+    loadedSkillPartCount: details.loadedSkillPartCount,
     inputSummary: summarizeToolInput(input.toolInput),
     runElapsedMs: readRunElapsedMs(input.run),
   }, 'warn')
+}
+
+function toWorkspacePathFailureDetails(error: unknown): {
+  targetPath?: string
+  resolvedPath?: string
+  workspaceRoot?: string
+  allowedRoots?: string[]
+  allowedRootCount?: number
+  allowedSkillRoots?: string[]
+  loadedSkillPartCount?: number
+} {
+  if (!(error instanceof WorkspacePathError)) {
+    return {}
+  }
+
+  const metadata = error as WorkspacePathError & {
+    allowedSkillRoots?: unknown
+    loadedSkillPartCount?: unknown
+  }
+
+  return {
+    targetPath: error.targetPath,
+    resolvedPath: error.resolvedPath,
+    workspaceRoot: error.workspaceRoot,
+    allowedRoots: error.allowedRoots,
+    allowedRootCount: error.allowedRoots.length,
+    allowedSkillRoots: Array.isArray(metadata.allowedSkillRoots)
+      ? metadata.allowedSkillRoots.filter((value): value is string => typeof value === 'string')
+      : undefined,
+    loadedSkillPartCount: typeof metadata.loadedSkillPartCount === 'number'
+      ? metadata.loadedSkillPartCount
+      : undefined,
+  }
 }
 
 function summarizeToolInput(input: Record<string, unknown>): string {

@@ -22,10 +22,11 @@ export function buildDraftRun(
   })
 }
 
-export function buildDraftAssistantMessage(session: StudioSession) {
+export function buildDraftAssistantMessage(session: StudioSession, runId?: string) {
   return createStudioAssistantMessage({
     sessionId: session.id,
-    agent: session.agentType
+    agent: session.agentType,
+    metadata: runId ? { runId } : undefined
   })
 }
 

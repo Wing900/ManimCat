@@ -113,6 +113,7 @@ async function* executeStudioSingleToolCall(
     toolInput: parsedInput.value,
     registry: input.registry,
     eventBus: input.eventBus,
+    messageStore: input.messageStore,
     partStore: input.partStore,
     sessionStore: input.sessionStore,
     taskStore: input.taskStore,

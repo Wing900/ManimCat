@@ -1,6 +1,6 @@
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
-import { listWorkspaceDirectory, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
+import { listWorkspaceDirectory, toWorkspaceRelativePath, truncateToolText, WorkspacePathError } from './workspace-paths'
 
 interface LsToolInput {
   path?: string
@@ -23,13 +23,18 @@ async function executeLsTool(
   input: LsToolInput,
   context: StudioRuntimeBackedToolContext
 ): Promise<StudioToolResult> {
-  const allowedRoots = await listLoadedSkillDirectories(context)
-  const listing = await listWorkspaceDirectory(
-    context.session.directory,
-    input.path ?? input.directory ?? '.',
-    { allowedRoots }
-  )
-  const relativePath = formatReadablePath(context.session.directory, listing.absolutePath, allowedRoots)
+  const skillAccess = await getLoadedSkillAccess(context)
+  let listing
+  try {
+    listing = await listWorkspaceDirectory(
+      context.session.directory,
+      input.path ?? input.directory ?? '.',
+      { allowedRoots: skillAccess.directories }
+    )
+  } catch (error) {
+    throw withSkillAccessDetails(error, skillAccess)
+  }
+  const relativePath = formatReadablePath(context.session.directory, listing.absolutePath, skillAccess.directories)
   const output = truncateToolText(listing.entries.join('\n') || '(empty directory)')
 
   return {
@@ -44,25 +49,59 @@ async function executeLsTool(
   }
 }
 
-async function listLoadedSkillDirectories(context: StudioRuntimeBackedToolContext): Promise<string[]> {
+async function getLoadedSkillAccess(context: StudioRuntimeBackedToolContext): Promise<{
+  directories: string[]
+  loadedSkillPartCount: number
+}> {
   if (!context.partStore) {
-    return []
+    return {
+      directories: [],
+      loadedSkillPartCount: 0
+    }
   }
 
-  const parts = await context.partStore.listByMessageId(context.assistantMessage.id)
   const directories = new Set<string>()
-  for (const part of parts) {
-    if (part.type !== 'tool' || part.tool !== 'skill') {
-      continue
-    }
+  let loadedSkillPartCount = 0
+  const messageIds = await listRelevantAssistantMessageIds(context)
 
-    const directory = part.metadata?.directory
-    if (typeof directory === 'string' && directory.trim()) {
-      directories.add(directory)
+  for (const messageId of messageIds) {
+    const parts = await context.partStore.listByMessageId(messageId)
+    for (const part of parts) {
+      if (part.type !== 'tool' || part.tool !== 'skill') {
+        continue
+      }
+
+      loadedSkillPartCount += 1
+      const directory = part.metadata?.directory
+      if (typeof directory === 'string' && directory.trim()) {
+        directories.add(directory)
+      }
     }
   }
 
-  return [...directories]
+  return {
+    directories: [...directories],
+    loadedSkillPartCount
+  }
+}
+
+async function listRelevantAssistantMessageIds(context: StudioRuntimeBackedToolContext): Promise<string[]> {
+  if (!context.messageStore) {
+    return [context.assistantMessage.id]
+  }
+
+  const messages = await context.messageStore.listBySessionId(context.session.id)
+  const relevantIds = messages
+    .filter((message) => message.role === 'assistant')
+    .filter((message) => message.id === context.assistantMessage.id || readMessageRunId(message.metadata) === context.run.id)
+    .map((message) => message.id)
+
+  return relevantIds.length > 0 ? relevantIds : [context.assistantMessage.id]
+}
+
+function readMessageRunId(metadata: Record<string, unknown> | undefined): string | undefined {
+  const runId = metadata?.runId
+  return typeof runId === 'string' && runId.trim() ? runId : undefined
 }
 
 function formatReadablePath(baseDirectory: string, absolutePath: string, allowedRoots: string[]): string {
@@ -82,4 +121,18 @@ function formatReadablePath(baseDirectory: string, absolutePath: string, allowed
   }
 
   return absolutePath.replace(/\\/g, '/')
+}
+
+function withSkillAccessDetails(
+  error: unknown,
+  skillAccess: { directories: string[]; loadedSkillPartCount: number }
+): unknown {
+  if (!(error instanceof WorkspacePathError)) {
+    return error
+  }
+
+  return Object.assign(error, {
+    loadedSkillPartCount: skillAccess.loadedSkillPartCount,
+    allowedSkillRoots: skillAccess.directories
+  })
 }

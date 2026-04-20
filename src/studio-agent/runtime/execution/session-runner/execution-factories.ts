@@ -24,6 +24,7 @@ export function createResolvedPlanExecution(
       plan: input.plan,
       registry: deps.registry,
       eventBus: input.prepared.eventBus,
+      messageStore: deps.messageStore,
       partStore: deps.partStore,
       sessionStore: deps.sessionStore,
       taskStore: deps.taskStore,
@@ -96,7 +97,7 @@ export function createAgentLoopExecution(
       listSkills: deps.listSkills,
       listSkillSummaries: deps.listSkillSummaries,
       recordSkillUsage: deps.recordSkillUsage,
-      createAssistantMessage: () => deps.createAssistantMessage(input.prepared.input.session),
+      createAssistantMessage: () => deps.createAssistantMessage(input.prepared.input.session, input.prepared.run.id),
       setToolMetadata: (assistantMessage, callId, metadata) => {
         void deps.processor.applyToolMetadata({
           assistantMessage,

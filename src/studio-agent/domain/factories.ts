@@ -148,6 +148,7 @@ export function createStudioWorkResult(input: {
 export function createStudioAssistantMessage(input: {
   sessionId: string
   agent: StudioAgentType
+  metadata?: Record<string, unknown>
 }): StudioAssistantMessage {
   const timestamp = nowIso()
   return {
@@ -156,6 +157,7 @@ export function createStudioAssistantMessage(input: {
     role: 'assistant',
     agent: input.agent,
     parts: [],
+    metadata: input.metadata,
     createdAt: timestamp,
     updatedAt: timestamp
   }

@@ -33,10 +33,12 @@ import {
   evaluatePermission,
   determineStudioAgentLoopAction,
   parseSkillDocument,
+  resolveWorkspacePath,
   syncRenderWorkFromTask,
   type StudioAssistantMessage,
   type StudioRuntimeBackedToolContext,
-  type StudioTurnPlanResolver
+  type StudioTurnPlanResolver,
+  WorkspacePathError
 } from '../index'
 import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { createStudioDefaultTurnPlanResolver } from '../runtime/planning/default-turn-plan-resolver'
@@ -68,6 +70,26 @@ async function main() {
   await run('default L2 permission rules allow skill loading', async () => {
     assert.equal(evaluatePermission(defaultRulesForLevel('L2'), 'skill', 'math-education-visualization'), 'allow')
     assert.equal(evaluatePermission(defaultRulesForLevel('L3'), 'skill', 'math-education-visualization'), 'allow')
+  })
+
+  await run('workspace path errors expose allowed roots for debugging', async () => {
+    let error: unknown
+    try {
+      resolveWorkspacePath('D:\\workspace', 'D:\\outside\\file.md', {
+        allowedRoots: ['D:\\skills\\demo']
+      })
+    } catch (caught) {
+      error = caught
+    }
+
+    assert.ok(error instanceof WorkspacePathError)
+    assert.equal(error.targetPath, 'D:\\outside\\file.md')
+    assert.equal(error.resolvedPath, path.resolve('D:\\outside\\file.md'))
+    assert.equal(error.workspaceRoot, path.resolve('D:\\workspace'))
+    assert.deepEqual(error.allowedRoots, [
+      path.resolve('D:\\workspace'),
+      path.resolve('D:\\skills\\demo')
+    ])
   })
 
   await run('builder prompt requires code, checks, and confirmation before render', async () => {
@@ -1037,6 +1059,85 @@ async function main() {
         }),
         assistantMessage,
         eventBus: new InMemoryStudioEventBus(),
+        partStore
+      } as unknown as StudioRuntimeBackedToolContext
+    )
+
+    assert.match(result.output, /dir references/)
+    assert.match(result.output, /file SKILL\.md/)
+    assert.equal(result.metadata?.path, '.manimcat/skills/demo-skill')
+  })
+
+  await run('ls tool can access a skill loaded by an earlier assistant message in the same run', async () => {
+    const workspace = await createWorkspace()
+    const skillDir = path.join(workspace, '.manimcat', 'skills', 'demo-skill')
+    const referenceDir = path.join(skillDir, 'references')
+    await mkdir(referenceDir, { recursive: true })
+    await writeFile(path.join(skillDir, 'SKILL.md'), '# Demo Skill\n\nUse the references folder when needed.', 'utf8')
+    await writeFile(path.join(referenceDir, 'guide.md'), 'reference text', 'utf8')
+
+    const session = createStudioSession({
+      projectId: 'project-1',
+      agentType: 'builder',
+      title: 'Skill Ls Cross Message Session',
+      directory: workspace,
+      permissionLevel: 'L4',
+      permissionRules: defaultRulesForLevel('L4')
+    })
+    const runState = createStudioRun({
+      sessionId: session.id,
+      inputText: '/ls',
+      activeAgent: 'builder'
+    })
+    const messageStore = new InMemoryStudioMessageStore()
+    const priorAssistantMessage = await messageStore.createAssistantMessage(createStudioAssistantMessage({
+      sessionId: session.id,
+      agent: 'builder',
+      metadata: {
+        runId: runState.id
+      }
+    }))
+    const currentAssistantMessage = await messageStore.createAssistantMessage(createStudioAssistantMessage({
+      sessionId: session.id,
+      agent: 'builder',
+      metadata: {
+        runId: runState.id
+      }
+    }))
+    const partStore = new InMemoryStudioPartStore()
+    const skillPart = createStudioToolPart({
+      messageId: priorAssistantMessage.id,
+      sessionId: session.id,
+      tool: 'skill',
+      callId: 'call_skill_loaded_prior_message'
+    })
+    await partStore.create({
+      ...skillPart,
+      metadata: {
+        directory: skillDir
+      },
+      state: {
+        status: 'completed',
+        input: { name: 'demo-skill' },
+        output: '<skill_content name="demo-skill" />',
+        title: 'Loaded skill: demo-skill',
+        time: {
+          start: Date.now(),
+          end: Date.now()
+        }
+      }
+    })
+
+    const tool = createStudioLsTool()
+    const result = await tool.execute(
+      { path: skillDir },
+      {
+        projectId: 'project-1',
+        session,
+        run: runState,
+        assistantMessage: currentAssistantMessage,
+        eventBus: new InMemoryStudioEventBus(),
+        messageStore,
         partStore
       } as unknown as StudioRuntimeBackedToolContext
     )

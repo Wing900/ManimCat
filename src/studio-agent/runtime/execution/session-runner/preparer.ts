@@ -47,7 +47,7 @@ export async function prepareRun(
     sessionId: input.session.id,
     text: input.inputText
   }))
-  const assistantMessage = await deps.createAssistantMessage(input.session)
+  const assistantMessage = await deps.createAssistantMessage(input.session, persistedRun.id)
   const eventBus = deps.sharedEventBus ?? new InMemoryStudioEventBus()
 
   logPlotStudioTiming(input.session.studioKind, 'run.started', {
