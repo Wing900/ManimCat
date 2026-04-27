@@ -1,4 +1,4 @@
-import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
+import { getDefaultStudioWorkspacePath } from '../../workspace/default-studio-workspace'
 import path from 'node:path'
 import os from 'node:os'
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
@@ -21,8 +21,8 @@ import {
   type StudioAssistantMessage,
   type StudioRuntimeBackedToolContext,
   type StudioTurnPlanResolver
-} from '../index'
-import type { StudioSession, StudioRun, StudioTask, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../index'
+} from '../../index'
+import type { StudioSession, StudioRun, StudioTask, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
 
 export function createTestRuntime(options?: {
   resolveTurnPlan?: StudioTurnPlanResolver

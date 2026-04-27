@@ -1,6 +1,6 @@
-import { runPromptTests } from './run-tests/prompt.test'
-import { runLoopTests } from './run-tests/loop.test'
-import { runReasoningContentTests } from './run-tests/reasoning-content.test'
+import { runPromptTests } from './prompt.test'
+import { runLoopTests } from './loop.test'
+import { runReasoningContentTests } from './reasoning-content.test'
 
 async function main() {
   await runPromptTests()

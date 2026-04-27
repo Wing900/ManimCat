@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import type OpenAI from 'openai'
-import { createStudioAssistantMessage } from '../domain/factories'
-import { buildStudioConversationMessages } from '../orchestration/studio-message-history'
+import { createStudioAssistantMessage } from '../../domain/factories'
+import { buildStudioConversationMessages } from '../../orchestration/studio-message-history'
 import {
   buildStoredProviderMessagePayload,
   toAssistantConversationMessage
-} from '../orchestration/studio-provider-message'
+} from '../../orchestration/studio-provider-message'
+import { run } from './factories'
 
 type ChatCompletionMessageWithReasoning = OpenAI.Chat.Completions.ChatCompletionMessage & {
   reasoning_content?: unknown
@@ -17,17 +18,7 @@ type ToolCallWithExtraSignature = OpenAI.Chat.Completions.ChatCompletionMessageT
   }
 }
 
-async function run(name: string, fn: () => Promise<void>) {
-  try {
-    await fn()
-    console.log(`PASS ${name}`)
-  } catch (error) {
-    console.error(`FAIL ${name}`)
-    throw error
-  }
-}
-
-async function main() {
+export async function runReasoningContentTests() {
   await run('provider message payload preserves reasoning content for thinking mode retries', async () => {
     const providerMessage: ChatCompletionMessageWithReasoning = {
       role: 'assistant',
@@ -153,12 +144,5 @@ async function main() {
     assert.equal(assistantMessage.reasoning_content, providerMessage.reasoning_content)
   })
 
-  console.log('Reasoning content tests passed')
+  console.log('  Reasoning content tests passed')
 }
-
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error)
-    process.exit(1)
-  })

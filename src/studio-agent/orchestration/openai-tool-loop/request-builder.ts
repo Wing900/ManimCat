@@ -1,10 +1,17 @@
 import type { StudioAssistantMessage } from '../../domain/types'
+import type OpenAI from 'openai'
 import { createCustomOpenAIClient } from '../../../services/openai-client-factory'
 import { logPlotStudioSkillTrace } from '../../observability/plot-studio-skill-trace'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
 import { buildStudioAgentSystemPrompt } from '../studio-agent-prompt'
 import { buildStudioConversationMessages } from '../studio-message-history'
-import { persistProviderMessageSnapshot } from '../studio-provider-message'
+import { createLogger } from '../../../utils/logger'
+import {
+  persistProviderMessageSnapshot,
+  summarizeAssistantMessageForDebug,
+  summarizeConversationMessageForDebug,
+  summarizeConversationTailForDebug,
+} from '../studio-provider-message'
 import { requestStudioChatCompletion } from '../studio-provider-request'
 import { buildStudioChatTools } from '../studio-tool-schema'
 import { normalizeStudioAssistantText } from './message-assembly'
@@ -16,6 +23,8 @@ import type {
   StudioLoopStepResult,
   StudioOpenAIToolLoopInput
 } from './types'
+
+const logger = createLogger('StudioLoopRequest')
 
 const DEFAULT_MAX_STEPS = 8
 
@@ -84,6 +93,23 @@ export function buildStudioLoopStepRequest(runtime: StudioLoopRuntime): StudioLo
     ...runtime.conversation
   ]
 
+  const lastUserOrAssistant = messages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-1)[0]
+  if (lastUserOrAssistant && lastUserOrAssistant.role === 'assistant') {
+    const assistantMsg = lastUserOrAssistant as OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & { reasoning_content?: unknown }
+    logger.debug('buildStudioLoopStepRequest last assistant', {
+      hasReasoningContent: Boolean(assistantMsg.reasoning_content),
+      reasoningContentType: typeof assistantMsg.reasoning_content,
+      reasoningContentIsArray: Array.isArray(assistantMsg.reasoning_content),
+      reasoningContentLength: Array.isArray(assistantMsg.reasoning_content) ? assistantMsg.reasoning_content.length : undefined,
+    })
+    logger.info('buildStudioLoopStepRequest assistant replay payload', {
+      messageCount: messages.length,
+      requestMessageCharsApprox: JSON.stringify(messages).length,
+      lastAssistant: summarizeConversationMessageForDebug(lastUserOrAssistant),
+      conversationTail: summarizeConversationTailForDebug(runtime.conversation),
+    })
+  }
+
   return {
     messages,
     requestMessageCharsApprox: JSON.stringify(messages).length,
@@ -133,6 +159,12 @@ export async function requestStudioLoopStep(input: {
     toolCalls: message?.tool_calls ?? []
   }
 
+  logger.info('requestStudioLoopStep provider response payload', {
+    step: input.step + 1,
+    finishReason: choice?.finish_reason ?? null,
+    assistantMessage: summarizeAssistantMessageForDebug(message),
+  })
+
   logStudioLoopStepResponse({
     loopInput: input.loopInput,
     result,
@@ -148,6 +180,10 @@ export async function persistStudioProviderSnapshot(
   assistantMessage: StudioAssistantMessage,
   message: StudioChatCompletionMessage | undefined
 ) {
+  logger.info('persistStudioProviderSnapshot before persist', {
+    assistantMessageId: assistantMessage.id,
+    providerMessage: summarizeAssistantMessageForDebug(message),
+  })
   await persistProviderMessageSnapshot({
     messageStore: input.messageStore,
     assistantMessage,

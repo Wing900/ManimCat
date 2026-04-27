@@ -53,6 +53,14 @@ async function getLoadedSkillAccess(context: StudioRuntimeBackedToolContext): Pr
   directories: string[]
   loadedSkillPartCount: number
 }> {
+  if (context.listSkills) {
+    const entries = await context.listSkills(context.session)
+    return {
+      directories: [...new Set(entries.map((entry) => entry.directory))],
+      loadedSkillPartCount: entries.length
+    }
+  }
+
   if (!context.partStore) {
     return {
       directories: [],
