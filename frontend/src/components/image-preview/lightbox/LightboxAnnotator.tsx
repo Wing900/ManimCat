@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import { eraseStrokeWithCircle } from '../canvas/canvas-geometry'
-import { ERASER_RADIUS } from '../canvas/constants'
-import { drawStroke } from '../canvas/canvas-render'
-import type { Point, StrokeObject } from '../canvas/types'
+import { eraseStrokeWithCircle } from '../../canvas/canvas-geometry'
+import { ERASER_RADIUS } from '../../canvas/constants'
+import { drawStroke } from '../../canvas/canvas-render'
+import type { Point, StrokeObject } from '../../canvas/types'
 
 type AnnotationTool = 'pen' | 'eraser' | 'pan'
 
