@@ -27,6 +27,7 @@ interface ImageLightboxProps {
   baseScaleBias?: number;
   minZoom?: number;
   maxZoom?: number;
+  zoomDisplayScale?: number;
   onPrev?: () => void;
   onNext?: () => void;
   onClose: () => void;
@@ -45,6 +46,7 @@ export function ImageLightbox({
   baseScaleBias = 1,
   minZoom = 0.5,
   maxZoom = 4,
+  zoomDisplayScale = 1,
   onPrev,
   onNext,
   onClose,
@@ -183,6 +185,7 @@ export function ImageLightbox({
           total={total}
           editableFilename={editableFilename}
           zoom={zoom}
+          zoomDisplayScale={zoomDisplayScale}
           isStudioAppearance={isStudioAppearance}
           onPrev={onPrev}
           onNext={onNext}

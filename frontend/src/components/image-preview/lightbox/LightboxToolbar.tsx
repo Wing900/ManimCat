@@ -5,6 +5,7 @@ interface LightboxToolbarProps {
   total: number
   editableFilename?: string
   zoom: number
+  zoomDisplayScale?: number
   isStudioAppearance: boolean
   onPrev?: () => void
   onNext?: () => void
@@ -17,6 +18,7 @@ export function LightboxToolbar({
   total,
   editableFilename,
   zoom,
+  zoomDisplayScale = 1,
   isStudioAppearance,
   onPrev,
   onNext,
@@ -46,7 +48,7 @@ export function LightboxToolbar({
         <button type="button" onClick={() => onStepZoom(-0.05)} className="rounded border border-black/10 bg-white/70 px-2 py-1 text-xs hover:bg-white/90 dark:border-white/10 dark:bg-bg-secondary/78 dark:hover:bg-bg-secondary">
           -
         </button>
-        <span className="text-xs tabular-nums text-text-secondary dark:text-text-secondary">{Math.round(zoom * 100)}%</span>
+        <span className="text-xs tabular-nums text-text-secondary dark:text-text-secondary">{Math.round(zoom * zoomDisplayScale * 100)}%</span>
         <button type="button" onClick={() => onStepZoom(0.05)} className="rounded border border-black/10 bg-white/70 px-2 py-1 text-xs hover:bg-white/90 dark:border-white/10 dark:bg-bg-secondary/78 dark:hover:bg-bg-secondary">
           +
         </button>

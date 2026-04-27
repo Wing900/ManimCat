@@ -35,11 +35,12 @@ export function PlotPreviewLightbox({
       activeImage={activeImage}
       activeIndex={activeIndex}
       total={total}
-      initialZoom={1}
+      initialZoom={0.5}
       baseScaleMode="cover"
       baseScaleBias={1}
-      minZoom={0.5}
-      maxZoom={8}
+      minZoom={0.25}
+      maxZoom={4}
+      zoomDisplayScale={2}
       editableFilename={editableFilename ?? t('studio.plot.inlinePreview')}
       appearance="studio"
       onPrev={canNavigate ? onPrev : undefined}
