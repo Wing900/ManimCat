@@ -16,7 +16,7 @@ import {
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
 import { createLogger } from '../utils/logger'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
-import { logPlotStudioTiming, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
+import { logPlotStudioTiming, logTimeline, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
 
 const router = express.Router()
 const logger = createLogger('StudioAgentRoute')
@@ -150,6 +150,7 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
     sessionId: sessionId ?? null,
     backlogSize: studioRuntime.listExternalEvents().length,
   })
+  logTimeline('plot', 'sse.connected')
 
   const backlog = studioRuntime.listExternalEvents()
   for (const event of backlog) {
@@ -176,6 +177,7 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
     logPlotStudioTiming('plot', 'events.client.disconnected', {
       sessionId: sessionId ?? null,
     })
+    logTimeline('plot', 'sse.disconnected')
     res.end()
   })
 }))
@@ -210,6 +212,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     hasCustomApiConfig: customApiConfigResolution.hasUsableCustomApiConfig,
     routeByManimcatKey: customApiConfigResolution.routeByManimcatKey,
   })
+  logTimeline(session.studioKind, 'run.requested', JSON.stringify(inputText.slice(0, 20)))
 
   const started = await studioRuntime.startRun({
     projectId,
@@ -234,6 +237,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     assistantMessageId: started.assistantMessage.id,
     durationMs: readElapsedMs(requestStartedAt),
   })
+  logTimeline(session.studioKind, 'run.accepted', started.run.id)
 
   await studioRuntime.syncSession(session.id)
 

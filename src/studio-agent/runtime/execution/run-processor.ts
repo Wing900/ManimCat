@@ -19,7 +19,7 @@ import {
   mergeToolMetadata,
   mergeToolStateMetadata
 } from '../tools/tool-state'
-import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { logPlotStudioTiming, logTimeline, readRunElapsedMs } from '../../observability/plot-studio-timing'
 
 export type StudioProcessorOutcome = 'continue' | 'stop' | 'compact'
 
@@ -138,6 +138,7 @@ export class StudioRunProcessor {
               runElapsedMs: readRunElapsedMs(input.run),
               processedAt: startedAt,
             }, 'warn')
+            logTimeline(input.session.studioKind, 'tool.failed', `${event.toolName} doom_loop_rejected`)
             toolCalls.delete(event.toolCallId)
             break
           }
@@ -158,6 +159,7 @@ export class StudioRunProcessor {
             inputSummary: summarizeToolInput(event.input),
             runElapsedMs: readRunElapsedMs(input.run),
           })
+          logTimeline(input.session.studioKind, 'tool.started', event.toolName)
           break
         }
 
@@ -223,6 +225,7 @@ export class StudioRunProcessor {
               textLength: text.length,
               runElapsedMs: readRunElapsedMs(input.run),
             })
+            logTimeline(input.session.studioKind, 'assistant.text', `${text.length} chars`)
             input.eventBus?.publish({
               type: 'assistant_text',
               sessionId: input.session.id,
@@ -365,19 +368,21 @@ export class StudioRunProcessor {
         end: Date.now()
       }
     })
+    const durationMs = Math.max(0, Date.now() - getToolTimeStart(runningState))
     logPlotStudioTiming(input.session.studioKind, 'tool.completed', {
       sessionId: input.session.id,
       runId: input.run.id,
       assistantMessageId: match.messageId,
       toolName: match.tool,
       callId: event.toolCallId,
-      durationMs: Math.max(0, Date.now() - getToolTimeStart(runningState)),
+      durationMs,
       title: event.title ?? `Completed ${match.tool}`,
       outputLength: event.output.length,
       attachmentCount: event.attachments?.length ?? 0,
       inputSummary: summarizeToolInput(getToolInput(runningState)),
       runElapsedMs: readRunElapsedMs(input.run),
     })
+    logTimeline(input.session.studioKind, 'tool.completed', `${match.tool} ${durationMs}ms`)
     toolCalls.delete(event.toolCallId)
   }
 
@@ -405,13 +410,14 @@ export class StudioRunProcessor {
         end: Date.now()
       }
     })
+    const durationMs = Math.max(0, Date.now() - getToolTimeStart(runningState))
     logPlotStudioTiming(input.session.studioKind, 'tool.failed', {
       sessionId: input.session.id,
       runId: input.run.id,
       assistantMessageId: match.messageId,
       toolName: match.tool,
       callId: event.toolCallId,
-      durationMs: Math.max(0, Date.now() - getToolTimeStart(runningState)),
+      durationMs,
       error: event.error,
       failureStage: event.metadata?.failureStage,
       failureKind: event.metadata?.failureKind,
@@ -431,6 +437,7 @@ export class StudioRunProcessor {
       runWillStop: event.metadata?.recoverable !== true,
       runElapsedMs: readRunElapsedMs(input.run),
     }, 'warn')
+    logTimeline(input.session.studioKind, 'tool.failed', `${match.tool} ${durationMs}ms`)
     toolCalls.delete(event.toolCallId)
     return event.metadata?.recoverable !== true
   }

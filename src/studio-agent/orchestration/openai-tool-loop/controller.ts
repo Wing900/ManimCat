@@ -3,6 +3,7 @@ import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellat
 import { determineStudioAgentLoopAction } from './loop-policy'
 import { appendStudioAssistantConversationTurn, emitStudioAssistantText } from './message-assembly'
 import { createStudioLoopFinishStepEvent, logStudioLoopStepFinished } from './observability'
+import { logTimeline } from '../../observability/plot-studio-timing'
 import {
   buildStudioLoopStepRequest,
   createStudioLoopRuntime,
@@ -18,6 +19,7 @@ export async function* createStudioOpenAIToolLoop(
 ): AsyncGenerator<StudioProcessorStreamEvent> {
   const runtime = await createStudioLoopRuntime(input)
   const checkpoints = new StudioLoopCheckpointManager(input)
+  logTimeline(input.session.studioKind, 'loop.started', `maxSteps=${runtime.maxSteps}`)
 
   for (let step = 0; step < runtime.maxSteps; step += 1) {
     throwIfStudioRunCancelled(input.abortSignal)
@@ -54,6 +56,7 @@ export async function* createStudioOpenAIToolLoop(
 
     if (nextAction.type === 'finish') {
       await checkpoints.markSuccess()
+      logTimeline(input.session.studioKind, 'run.completed')
       yield createStudioLoopFinishStepEvent(result.completion)
       return
     }
@@ -61,6 +64,7 @@ export async function* createStudioOpenAIToolLoop(
     if (nextAction.type === 'abort') {
       yield* emitStudioAssistantText(nextAction.message)
       await checkpoints.markFailure(nextAction.message)
+      logTimeline(input.session.studioKind, 'run.completed', 'aborted')
       yield createStudioLoopFinishStepEvent(result.completion)
       return
     }
@@ -83,6 +87,7 @@ export async function* createStudioOpenAIToolLoop(
         const stopMessage = `Stopped after ${failedAutonomy.consecutiveFailures} consecutive failures: ${toolExecution.value.failureMessage}`
         yield* emitStudioAssistantText(stopMessage)
         await checkpoints.markStopped(stopMessage)
+        logTimeline(input.session.studioKind, 'run.failed', toolExecution.value.failureMessage)
         yield createStudioLoopFinishStepEvent(result.completion)
         return
       }

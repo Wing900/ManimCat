@@ -2,7 +2,7 @@ import type { StudioProcessorStreamEvent } from '../../domain/types'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 import { buildStudioPreToolCommentary } from '../../runtime/tools/pre-tool-commentary'
 import { createStudioToolCallExecutionEvents } from '../../runtime/tools/tool-call-adapter'
-import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { logPlotStudioTiming, logTimeline, readRunElapsedMs } from '../../observability/plot-studio-timing'
 import type {
   StudioChatToolCall,
   StudioLoopAutonomy,
@@ -71,6 +71,7 @@ async function* executeStudioSingleToolCall(
       rawArgumentsPreview: summarizeRawArguments(toolCall.function.arguments),
       runElapsedMs: readRunElapsedMs(input.run),
     }, 'warn')
+    logTimeline(input.session.studioKind, 'tool.failure', `${toolName} argument_parse`)
     yield {
       type: 'tool-input-start',
       id: toolCallId,
