@@ -27,33 +27,33 @@ export interface StudioExecutionPolicy {
  */
 const MANIM_POLICY: StudioExecutionPolicy = {
   studioLabel: 'Manim Studio',
-  runtimeSummary: 'The render tool executes Manim and produces animation or image renders.',
+  runtimeSummary: 'render 工具执行 Manim，生成动画或图片。',
   builderRules: [
-    'Manim Studio is for scene-based animation and render workflows.',
-    'Think in terms of scenes, timing, transitions, assets, and render cost.',
-    'Before rendering, make sure the target Manim code exists in the workspace or is fully prepared in the render request.',
-    'If the requested scene flow, assets, render mode, or target file is ambiguous, ask before rendering.'
+    'Manim Studio 用于场景动画和渲染工作流。',
+    '按场景、时间轴、转场、素材、渲染成本来思考。',
+    '渲染前确保目标 Manim 代码已存在于工作目录，或已在 render 请求中准备好。',
+    '如果场景流程、素材、渲染模式或目标文件不明确，先问再渲染。',
   ],
   builderContinueText: '延续当前正在进行的子代理工作。',
   builderTaskIntentText: (subagentType, skillName) => {
-    const skillSegment = skillName ? ` using skill "${skillName}"` : ''
-    return `I will hand this off to the ${subagentType} subagent${skillSegment}.`
+    const skillSegment = skillName ? `，使用 skill「${skillName}」` : ''
+    return `将交给 ${subagentType} 子代理处理${skillSegment}。`
   },
-  builderDirectToolText: (toolName) => `I will use the ${toolName} tool first.`,
+  builderDirectToolText: (toolName) => `先使用 ${toolName} 工具。`,
   builderNoPlanText: (explicitCommand) => (
     explicitCommand
-      ? 'That command did not match an available automatic planning path in Manim Studio.'
-      : 'This input did not trigger an automatic planning path in Manim Studio.'
+      ? '该指令在 Manim Studio 中没有匹配的自动规划路径。'
+      : '该输入在 Manim Studio 中没有触发自动规划路径。'
   ),
   builderReminderTexts: {
     runningWork: (title) => `当前会话存在进行中的 Work：${title}`,
     failedRender: '最近一次 render 结果失败，请先确认失败原因再尝试。',
-    unsupportedTools: (toolNames) => `Automatic planning does not cover these requested tools yet: ${toolNames.join(', ')}.`,
-    pendingEvents: (summaries) => `Pending backend updates: ${summaries.join(' | ')}`
+    unsupportedTools: (toolNames) => `自动规划暂不支持这些工具：${toolNames.join(', ')}`,
+    pendingEvents: (summaries) => `待处理的后端更新：${summaries.join(' | ')}`
   },
   subagentLeadText: {
-    reviewer: 'I will review this with a Manim-first focus on behavior, render risk, and code correctness.',
-    designer: 'I will break this into a Manim-oriented design plan with scene structure and implementation steps.'
+    reviewer: '将从 Manim 角度审查行为、渲染风险和代码正确性。',
+    designer: '将拆解为 Manim 导向的设计方案，包含场景结构和实现步骤。'
   }
 }
 
@@ -63,33 +63,33 @@ const MANIM_POLICY: StudioExecutionPolicy = {
  */
 const PLOT_POLICY: StudioExecutionPolicy = {
   studioLabel: 'Plot Studio',
-  runtimeSummary: 'The render tool executes matplotlib Python and produces static plots.',
+  runtimeSummary: 'render 工具执行 matplotlib Python 代码，生成静态图表。write/edit/apply_patch 完成后自动触发 render。',
   builderRules: [
-    'Plot Studio is for static plotting and figure-generation workflows.',
-    'Do not plan animation timelines, scene choreography, or motion design here.',
-    'Before rendering, make sure the target matplotlib code exists in the workspace or is fully prepared in the render request.',
-    'If the chart type, data source, subplot layout, axes, labels, or output target is ambiguous, ask before rendering.'
+    'Plot Studio 用于静态绘图和图表生成工作流。',
+    '不要在这里规划动画时间轴、场景编排或动效设计。',
+    '渲染前确保目标 matplotlib 代码已存在于工作目录，或已在 render 请求中准备好。',
+    '如果图表类型、数据源、子图布局、坐标轴、标签或输出目标不明确，先问再渲染。',
   ],
   builderContinueText: '延续当前正在进行的子代理工作。',
   builderTaskIntentText: (subagentType, skillName) => {
-    const skillSegment = skillName ? ` using skill "${skillName}"` : ''
-    return `I will hand this off to the ${subagentType} subagent${skillSegment}.`
+    const skillSegment = skillName ? `，使用 skill「${skillName}」` : ''
+    return `将交给 ${subagentType} 子代理处理${skillSegment}。`
   },
-  builderDirectToolText: (toolName) => `I will use the ${toolName} tool first.`,
+  builderDirectToolText: (toolName) => `先使用 ${toolName} 工具。`,
   builderNoPlanText: (explicitCommand) => (
     explicitCommand
-      ? 'That command did not match an available automatic planning path in Plot Studio.'
-      : 'This input did not trigger an automatic planning path in Plot Studio.'
+      ? '该指令在 Plot Studio 中没有匹配的自动规划路径。'
+      : '该输入在 Plot Studio 中没有触发自动规划路径。'
   ),
   builderReminderTexts: {
     runningWork: (title) => `当前会话存在进行中的 Work：${title}`,
     failedRender: '最近一次 render 结果失败，请先确认失败原因再尝试。',
-    unsupportedTools: (toolNames) => `Automatic planning does not cover these requested tools yet: ${toolNames.join(', ')}.`,
-    pendingEvents: (summaries) => `Pending backend updates: ${summaries.join(' | ')}`
+    unsupportedTools: (toolNames) => `自动规划暂不支持这些工具：${toolNames.join(', ')}`,
+    pendingEvents: (summaries) => `待处理的后端更新：${summaries.join(' | ')}`
   },
   subagentLeadText: {
-    reviewer: 'I will review this with a Plot Studio focus on plotting correctness, reproducibility, and output safety.',
-    designer: 'I will break this into a plotting plan with figure structure, data needs, and implementation steps.'
+    reviewer: '将从 Plot Studio 角度审查绘图正确性、可复现性和输出安全性。',
+    designer: '将拆解为绘图方案，包含图表结构、数据需求和实现步骤。'
   }
 }
 
