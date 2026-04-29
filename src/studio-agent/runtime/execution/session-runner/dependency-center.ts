@@ -1,6 +1,7 @@
 import type { CustomApiConfig } from '../../../../types'
 import type { StudioRunProcessor } from '../run-processor'
 import type { StudioTurnPlanResolver } from '../../planning/turn-plan-resolver'
+import type { ActiveSkillStore } from '../../../skills/state/skill-state-store'
 import type {
   StudioResolvedSkill,
   StudioSkillDiscoveryEntry,
@@ -49,6 +50,7 @@ export interface StudioSessionRunnerOptions {
     stillRelevant?: boolean
   }) => Promise<void>
   resolveTurnPlan: StudioTurnPlanResolver
+  activeSkillStore?: ActiveSkillStore
 }
 
 export interface StudioRunRequestInput {
@@ -99,6 +101,7 @@ export interface StudioSessionRunnerDependencies {
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
   listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
   recordSkillUsage?: StudioSessionRunnerOptions['recordSkillUsage']
+  activeSkillStore?: ActiveSkillStore
   resolveTurnPlan: StudioTurnPlanResolver
   createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
   createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
@@ -132,6 +135,7 @@ export function createDependencyCenter(
     listSkills: options.listSkills,
     listSkillSummaries: options.listSkillSummaries,
     recordSkillUsage: options.recordSkillUsage,
+    activeSkillStore: options.activeSkillStore,
     resolveTurnPlan: options.resolveTurnPlan,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,

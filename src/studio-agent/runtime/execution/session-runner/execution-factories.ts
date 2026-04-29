@@ -97,6 +97,7 @@ export function createAgentLoopExecution(
       listSkills: deps.listSkills,
       listSkillSummaries: deps.listSkillSummaries,
       recordSkillUsage: deps.recordSkillUsage,
+      activeSkillStore: deps.activeSkillStore,
       createAssistantMessage: () => deps.createAssistantMessage(input.prepared.input.session, input.prepared.run.id),
       setToolMetadata: (assistantMessage, callId, metadata) => {
         void deps.processor.applyToolMetadata({

@@ -24,6 +24,7 @@ import {
   readStudioRunAutonomyMetadata,
 } from '../runs/autonomy-policy'
 import { createStudioSkillRuntime } from '../skills/runtime/skill-runtime'
+import { createInMemoryActiveSkillStore } from '../skills/state/skill-state-store'
 import type { StudioSkillDiscoveryEntry } from '../skills/schema/skill-types'
 import type { StudioBlobStore } from '../storage/studio-blob-store'
 import { StudioToolRegistry } from '../tools/registry'
@@ -126,6 +127,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   registerPlotStudioTools(registry)
 
   const skillRuntime = createStudioSkillRuntime()
+  const activeSkillStore = createInMemoryActiveSkillStore()
   const resolveTurnPlan = createStudioDefaultTurnPlanResolver({ registry })
 
   const runtime = new StudioBuilderRuntime({
@@ -143,6 +145,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     listSkills: skillRuntime.listDiscovery,
     listSkillSummaries: skillRuntime.listSummaries,
     recordSkillUsage: skillRuntime.recordUsage,
+    activeSkillStore,
     eventBus,
   })
 

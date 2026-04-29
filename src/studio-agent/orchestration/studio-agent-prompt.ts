@@ -2,6 +2,7 @@ import { getStudioAgentSystemPrompt } from '../prompts/agent-prompt-loader'
 import type { StudioSession, StudioWorkContext } from '../domain/types'
 import { getStudioExecutionPolicy } from './studio-execution-policy'
 import type {
+  StudioResolvedSkill,
   StudioSkillDiscoveryEntry,
   StudioSkillUsageSummary
 } from '../skills/schema/skill-types'
@@ -11,6 +12,7 @@ interface BuildStudioAgentSystemPromptInput {
   workContext?: StudioWorkContext
   availableSkills?: StudioSkillDiscoveryEntry[]
   skillSummaries?: StudioSkillUsageSummary[]
+  activeSkills?: StudioResolvedSkill[]
 }
 
 /**
@@ -22,36 +24,18 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
   const studioKind = input.session.studioKind ?? 'manim'
   const policy = getStudioExecutionPolicy(studioKind)
   const renderGuardText = studioKind === 'plot'
-    ? 'For builder work, render is a finalization step. Do not call render until the target code has been written or updated in the workspace. Use static-check only when the code is unusually complex, the risk is high, or repeated failures suggest it is needed.'
-    : 'For builder work, render is a finalization step. Do not call render until the target code has been written or updated in the workspace and checked with static-check.'
-  const renderBlockerText = studioKind === 'plot'
-    ? 'If the target code is missing, requirements are unclear, or there are unresolved issues that still need edits, stop and ask instead of rendering.'
-    : 'If there are unresolved static-check issues, missing files, or unclear requirements, stop and ask instead of rendering.'
+    ? 'Plot Studio 中 write/edit/apply_patch 完成后自动触发 render，不要手动调用。'
+    : '渲染是最后一步。代码必须先写入工作目录并完成 static-check，才能渲染。'
   const sections = [
     getStudioAgentSystemPrompt(input.session.agentType, studioKind),
-    `You are running inside ManimCat ${policy.studioLabel}.`,
+    `当前运行环境：ManimCat ${policy.studioLabel}。`,
     policy.runtimeSummary,
     ...policy.builderRules,
-    `Workspace root: ${input.session.directory}`,
-    'Use tools directly when they are needed. Do not invent tool results or claim work was done unless the tool actually completed.',
-    'Prefer the smallest safe next action. Read before editing when the target file is not already known.',
-    'All workspace tools operate relative to the workspace root unless a tool explicitly says otherwise.',
+    `工作目录：${input.session.directory}`,
     renderGuardText,
-    'If the user asks for rendering but has not yet confirmed the exact code/file to render, summarize the planned render target and use the question tool to ask for confirmation first.',
-    renderBlockerText,
-    'When repairing an existing file after a render failure, prefer the smallest local edit or apply_patch change that fixes the issue. Do not rewrite the whole file unless the file is tiny or the change is genuinely broad.',
-    'If the task is not finished, do not end the turn without a tool call. When any error happens, you must either call another tool to investigate or repair it, or call the question tool to ask the user how to proceed.',
-    'Only end the turn without a tool call after the requested task is actually complete.',
-    'When you have enough information and no tool is needed, answer normally in plain text.',
-    'Keep replies compact and readable. Respond in plain text, not Markdown.',
-    'Do not use markdown bold markers such as **text**, do not use backticks or inline code formatting, and do not use fenced code blocks.',
-    'Avoid decorative formatting, heading markers, and excessive blank lines.',
-    'If user clarification is truly required, call the question tool instead of guessing.',
-    'For subagent work, use the task tool. For code review, prefer ai-review or reviewer subagent when appropriate.',
-    'Do not load skills automatically. Only call the skill tool when the user explicitly asks to load or use a skill by name. Treat the skill catalog as a reference, not as a trigger.',
-    'If a skill was loaded earlier in this session, treat it as temporary guidance. Do not reload or chain-load additional skills unless the user explicitly requests it.',
-    'If a loaded skill points to secondary files such as references, scripts, or examples, and you judge that they are needed for the current step, read them before proceeding.',
-    'The render tool already inherits the current provider chain from Studio. Do not ask the user to pass provider config inside tool arguments.'
+    '子代理工作使用 task 工具。代码审查优先使用 ai-review 或 reviewer 子代理。',
+    '只在用户明确按名称请求时才调用 skill 工具。skill 激活后按其指引执行，不要重复加载。',
+    '如果激活的 skill 引用了外部文件，在需要时读取它们。',
   ]
 
   const workContextText = formatWorkContext(input.workContext)
@@ -67,6 +51,11 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
   const skillSummaryText = formatSkillSummaries(input.skillSummaries)
   if (skillSummaryText) {
     sections.push('', '<studio_skill_state>', skillSummaryText, '</studio_skill_state>')
+  }
+
+  const loadedSkillText = formatLoadedSkills(input.activeSkills)
+  if (loadedSkillText) {
+    sections.push('', '<studio_loaded_skill>', loadedSkillText, '</studio_loaded_skill>')
   }
 
   return sections.join('\n').trim()
@@ -130,7 +119,7 @@ function formatSkillCatalog(skills?: StudioSkillDiscoveryEntry[]): string {
   }
 
   const lines = [
-    'Available skills are optional guidance modules listed for reference only. Do not load any skill unless the user explicitly requests it by name.'
+    '可用 skill 列表仅供参考。只有用户明确按名称请求时才加载。'
   ]
 
   for (const skill of skills) {
@@ -173,4 +162,55 @@ function formatSkillSummaries(summaries?: StudioSkillUsageSummary[]): string {
       return parts.join(' | ')
     })
     .join('\n')
+}
+
+/**
+ * Format active (loaded) skills for system prompt injection.
+ * Injects the full 5-layer content of each active skill.
+ */
+function formatLoadedSkills(skills?: StudioResolvedSkill[]): string {
+  if (!skills?.length) {
+    return ''
+  }
+
+  const sections: string[] = []
+
+  for (const skill of skills) {
+    const parts: string[] = [`# Skill: ${skill.name}`]
+
+    if (skill.layers) {
+      if (skill.layers.role) {
+        parts.push('', '## Role', skill.layers.role)
+      }
+      if (skill.layers.workflow) {
+        parts.push('', '## Workflow', skill.layers.workflow)
+      }
+      if (skill.layers.construction) {
+        parts.push('', '## Construction', skill.layers.construction)
+      }
+      if (skill.layers.style) {
+        parts.push('', '## Style', skill.layers.style)
+      }
+      if (skill.layers.shotHint) {
+        parts.push('', '## Shot', skill.layers.shotHint)
+      }
+    } else {
+      // Fallback: use raw body if layers not parsed
+      parts.push('', skill.body.trim())
+    }
+
+    parts.push('', `基础目录：${skill.directory}`)
+
+    // Inject shot examples if available
+    if (skill.shots?.length) {
+      parts.push('', '## Shot 示例（临时 — 首次渲染成功后自动丢弃）')
+      for (const shot of skill.shots) {
+        parts.push('', `### ${shot.name}`, shot.content.trim())
+      }
+    }
+
+    sections.push(parts.join('\n'))
+  }
+
+  return sections.join('\n\n')
 }

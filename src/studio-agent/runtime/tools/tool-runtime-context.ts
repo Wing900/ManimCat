@@ -7,6 +7,7 @@ import type {
   StudioToolContext
 } from '../../domain/types'
 import type { CustomApiConfig } from '../../../types'
+import type { ActiveSkillStore } from '../../skills/state/skill-state-store'
 import type {
   StudioResolvedSkill,
   StudioSkillDiscoveryEntry,
@@ -47,6 +48,7 @@ export interface StudioRuntimeBackedToolContext extends StudioToolContext {
   partStore?: StudioPartStore
   messageStore?: StudioMessageStore
   sessionStore?: StudioSessionStore
+  activeSkillStore?: ActiveSkillStore
   runSubagent?: (input: StudioSubagentRunRequest) => Promise<StudioSubagentRunResult>
   resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>

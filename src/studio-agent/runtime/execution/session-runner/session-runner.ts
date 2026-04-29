@@ -29,7 +29,8 @@ export class StudioSessionRunner {
   constructor(options: StudioSessionRunnerOptions) {
     const processor = new StudioRunProcessor({
       messageStore: options.messageStore,
-      partStore: options.partStore
+      partStore: options.partStore,
+      activeSkillStore: options.activeSkillStore
     })
     this.deps = createDependencyCenter(options, {
       processor,

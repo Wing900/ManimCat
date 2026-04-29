@@ -12,6 +12,7 @@ import type {
   StudioWorkStore
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
+import type { ActiveSkillStore } from '../../skills/state/skill-state-store'
 import type {
   StudioResolvedSkill,
   StudioRuntimeBackedToolContext,
@@ -51,6 +52,7 @@ export interface StudioOpenAIToolLoopInput {
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
   listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
   recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
+  activeSkillStore?: ActiveSkillStore
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig: CustomApiConfig

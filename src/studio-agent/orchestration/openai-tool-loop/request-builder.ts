@@ -40,6 +40,7 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
     input.listSkills?.(input.session) ?? Promise.resolve([]),
     input.listSkillSummaries?.(input.session) ?? Promise.resolve([])
   ])
+  const activeSkills = input.activeSkillStore?.get(input.session.id) ?? []
   logPlotStudioSkillTrace(input.session.studioKind, 'skill.discovery.completed', {
     sessionId: input.session.id,
     runId: input.run.id,
@@ -72,7 +73,8 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
       session: input.session,
       workContext: input.workContext,
       availableSkills,
-      skillSummaries
+      skillSummaries,
+      activeSkills
     }),
     maxSteps: input.maxSteps ?? readStudioRunAutonomyMetadata(input.run.metadata).maxSteps ?? DEFAULT_MAX_STEPS,
     toolChoice: input.toolChoice ?? 'auto',

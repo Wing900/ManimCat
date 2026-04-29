@@ -19,6 +19,7 @@ import { StudioToolRegistry } from '../tools/registry'
 import { StudioSessionRunner } from './execution/session-runner/session-runner'
 import type { StudioBackgroundRunHandle } from './execution/session-runner/dependency-center'
 import type { StudioTurnPlanResolver } from './planning/turn-plan-resolver'
+import type { ActiveSkillStore } from '../skills/state/skill-state-store'
 import type {
   StudioResolvedSkill,
   StudioSkillDiscoveryEntry,
@@ -49,6 +50,7 @@ interface StudioBuilderRuntimeOptions {
     takeaway?: string
     stillRelevant?: boolean
   }) => Promise<void>
+  activeSkillStore?: ActiveSkillStore
 }
 
 export class StudioBuilderRuntime {
@@ -70,7 +72,8 @@ export class StudioBuilderRuntime {
       resolveSkill: options.resolveSkill,
       listSkills: options.listSkills,
       listSkillSummaries: options.listSkillSummaries,
-      recordSkillUsage: options.recordSkillUsage
+      recordSkillUsage: options.recordSkillUsage,
+      activeSkillStore: options.activeSkillStore
     })
   }
 

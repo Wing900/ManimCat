@@ -9,7 +9,7 @@ interface SkillToolInput {
 export function createStudioSkillTool(): StudioToolDefinition<SkillToolInput> {
   return {
     name: 'skill',
-    description: 'Load a local Studio skill into the current run context.',
+    description: 'Activate a Studio skill. The skill content will be injected into the system prompt for subsequent steps.',
     category: 'agent',
     permission: 'skill',
     allowedAgents: ['builder', 'reviewer', 'designer'],
@@ -34,12 +34,15 @@ async function executeSkillTool(
   })
 
   const skill = await context.resolveSkill(input.name, context.session)
-  const title = `Loaded skill: ${skill.name}`
+  const title = `Activated skill: ${skill.name}`
+
+  // Persist to ActiveSkillStore so system prompt includes it on next step
+  context.activeSkillStore?.set(context.session.id, skill)
 
   await context.recordSkillUsage?.({
     session: context.session,
     skillName: skill.name,
-    reason: 'Skill was loaded into the current run.',
+    reason: 'Skill was activated in the current session.',
     takeaway: skill.description,
     stillRelevant: true
   })
@@ -64,22 +67,19 @@ async function executeSkillTool(
     scope: skill.scope,
   })
 
+  const layerSummary = skill.layers
+    ? `Layers: Role, Workflow, Construction, Style${skill.shots?.length ? `, ${skill.shots.length} shot(s)` : ''}.`
+    : ''
+
   return {
     title,
     output: [
-      `<skill_content name="${skill.name}">`,
-      `# Skill: ${skill.name}`,
-      '',
-      skill.body.trim(),
-      '',
-      `Base directory for this skill: ${skill.directory}`,
-      'Relative paths in this skill (for example scripts/ or reference/) are resolved from this directory.',
-      '',
-      '<skill_files>',
-      skill.files.map((file) => `<file>${file}</file>`).join('\n'),
-      '</skill_files>',
-      '</skill_content>'
-    ].join('\n'),
+      `Skill "${skill.name}" is now active.`,
+      `Description: ${skill.description}`,
+      layerSummary,
+      `Base directory: ${skill.directory}`,
+      'The full skill content is injected into the system prompt for subsequent steps.',
+    ].filter(Boolean).join('\n'),
     metadata: {
       skillName: skill.name,
       directory: skill.directory,

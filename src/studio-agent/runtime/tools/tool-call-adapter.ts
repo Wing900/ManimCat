@@ -11,6 +11,7 @@ import type {
 } from '../../domain/types'
 import { evaluatePermission } from '../../permissions/policy'
 import type { StudioToolRegistry } from '../../tools/registry'
+import type { ActiveSkillStore } from '../../skills/state/skill-state-store'
 import type {
   StudioResolvedSkill,
   StudioRuntimeBackedToolContext,
@@ -45,6 +46,7 @@ export interface StudioToolCallExecutionOptions {
   listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
   listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
   recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
+  activeSkillStore?: ActiveSkillStore
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig?: CustomApiConfig
   commentary?: string | null
@@ -178,7 +180,8 @@ async function executeTool(input: {
     resolveSkill: input.options.resolveSkill,
     listSkills: input.options.listSkills,
     listSkillSummaries: input.options.listSkillSummaries,
-    recordSkillUsage: input.options.recordSkillUsage
+    recordSkillUsage: input.options.recordSkillUsage,
+    activeSkillStore: input.options.activeSkillStore
   } as StudioRuntimeBackedToolContext
 
   const normalizedToolInput = injectToolDefaults(
