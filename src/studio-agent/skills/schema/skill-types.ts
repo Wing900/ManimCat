@@ -16,10 +16,32 @@ export interface StudioSkillDiscoveryEntry extends StudioSkillManifest {
   source: 'catalog' | 'workspace'
 }
 
+/**
+ * 5-layer skill structure defined by BUILDER_ARCHITECTURE.md
+ */
+export interface StudioSkillLayers {
+  role: string
+  workflow: string
+  construction: string
+  style: string
+  shotHint: string
+}
+
+/**
+ * A single shot example file loaded from skill shots/ directory
+ */
+export interface StudioShot {
+  name: string
+  content: string
+  path: string
+}
+
 export interface StudioResolvedSkill extends StudioSkillDiscoveryEntry {
   content: string
   body: string
   files: string[]
+  layers?: StudioSkillLayers
+  shots?: StudioShot[]
 }
 
 export interface StudioSkillUsageSummary {

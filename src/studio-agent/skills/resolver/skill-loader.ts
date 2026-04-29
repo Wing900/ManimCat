@@ -2,8 +2,8 @@ import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import type { StudioSession } from '../../domain/types'
 import { logPlotStudioSkillTrace } from '../../observability/plot-studio-skill-trace'
-import { parseSkillDocument } from '../schema/parse-skill-manifest'
-import type { StudioResolvedSkill } from '../schema/skill-types'
+import { parseSkillDocument, parseSkillLayers } from '../schema/parse-skill-manifest'
+import type { StudioResolvedSkill, StudioShot } from '../schema/skill-types'
 import type { StudioSkillRegistry } from '../registry/skill-registry'
 
 const DEFAULT_MAX_FILES = 10
@@ -24,12 +24,16 @@ export function createStudioSkillLoader(input: {
       const content = await readFile(entry.entryFile, 'utf8')
       const parsed = parseSkillDocument(content, path.basename(entry.directory))
       const files = await sampleFiles(entry.directory, maxFiles)
+      const layers = parseSkillLayers(parsed.body)
+      const shots = await loadShots(entry.directory)
 
       const resolved = {
         ...entry,
         content,
         body: parsed.body,
-        files
+        files,
+        layers: layers ?? undefined,
+        shots,
       }
 
       logPlotStudioSkillTrace(session.studioKind, 'skill.resolve.completed', {
@@ -38,6 +42,8 @@ export function createStudioSkillLoader(input: {
         resolvedSkillName: resolved.name,
         entryFile: resolved.entryFile,
         fileCount: resolved.files.length,
+        hasLayers: Boolean(layers),
+        shotCount: shots.length,
       })
 
       return resolved
@@ -70,4 +76,30 @@ async function walkFiles(directory: string, results: string[], maxFiles: number)
 
     results.push(fullPath)
   }
+}
+
+async function loadShots(skillDirectory: string): Promise<StudioShot[]> {
+  const shotsDir = path.join(skillDirectory, 'shots')
+  let entries: import('node:fs').Dirent[]
+  try {
+    entries = await readdir(shotsDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const shots: StudioShot[] = []
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) {
+      continue
+    }
+    const fullPath = path.join(shotsDir, entry.name)
+    const content = await readFile(fullPath, 'utf8')
+    shots.push({
+      name: entry.name.replace(/\.md$/, ''),
+      content,
+      path: fullPath,
+    })
+  }
+
+  return shots
 }

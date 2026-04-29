@@ -1,6 +1,7 @@
 import path from 'node:path'
 import type {
   StudioSkillDiscoveryEntry,
+  StudioSkillLayers,
   StudioSkillManifest,
   StudioSkillScope
 } from './skill-types'
@@ -37,6 +38,55 @@ export function buildDiscoveryEntry(input: {
     entryFile: input.entryFile,
     source: input.source
   }
+}
+
+const LAYER_HEADINGS: Array<{ key: keyof StudioSkillLayers; pattern: RegExp }> = [
+  { key: 'role', pattern: /^##\s+Role\b/i },
+  { key: 'workflow', pattern: /^##\s+Workflow\b/i },
+  { key: 'construction', pattern: /^##\s+Construction\b/i },
+  { key: 'style', pattern: /^##\s+Style\b/i },
+  { key: 'shotHint', pattern: /^##\s+Shot\b/i },
+]
+
+/**
+ * Parse a skill body into 5-layer structure (Role/Workflow/Construction/Style/Shot).
+ * Returns null if none of the expected headings are found.
+ */
+export function parseSkillLayers(body: string): StudioSkillLayers | null {
+  const lines = body.split(/\r?\n/)
+  const sectionRanges: Array<{ key: keyof StudioSkillLayers; start: number; end: number }> = []
+
+  for (let i = 0; i < lines.length; i++) {
+    for (const heading of LAYER_HEADINGS) {
+      if (heading.pattern.test(lines[i].trim())) {
+        sectionRanges.push({ key: heading.key, start: i + 1, end: lines.length })
+      }
+    }
+  }
+
+  if (sectionRanges.length === 0) {
+    return null
+  }
+
+  // Each section ends where the next section begins
+  for (let i = 0; i < sectionRanges.length - 1; i++) {
+    sectionRanges[i].end = sectionRanges[i + 1].start - 1
+  }
+
+  const layers: StudioSkillLayers = {
+    role: '',
+    workflow: '',
+    construction: '',
+    style: '',
+    shotHint: '',
+  }
+
+  for (const range of sectionRanges) {
+    const content = lines.slice(range.start, range.end).join('\n').trim()
+    layers[range.key] = content
+  }
+
+  return layers
 }
 
 function parseFrontmatter(raw: string): Record<string, unknown> {
