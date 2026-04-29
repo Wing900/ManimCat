@@ -1,5 +1,4 @@
 import { InMemoryStudioEventBus } from '../../../events/event-bus'
-import { logPlotStudioTiming, readRunElapsedMs } from '../../../observability/plot-studio-timing'
 import { extractLatestAssistantText, cancelRunState, failRunState, finalizeRunState } from '../session-runner-helpers'
 import type {
   StudioAssistantMessage,
@@ -24,14 +23,6 @@ export async function handleCancelledRun(
     type: 'run_updated',
     run: cancelledRun
   })
-
-  logPlotStudioTiming(input.session.studioKind, 'run.failed', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    error: input.reason,
-    cancelled: true,
-    runElapsedMs: readRunElapsedMs(cancelledRun),
-  }, 'warn')
 
   throw new Error(input.reason)
 }
@@ -59,14 +50,6 @@ export async function finalizeSuccessfulRun(
     input.assistantMessage,
   )
 
-  logPlotStudioTiming(input.session.studioKind, 'run.completed', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    outcome: input.outcome,
-    eventCount: input.eventBus.list().length,
-    runElapsedMs: readRunElapsedMs(finishedRun),
-  })
-
   return {
     run: finishedRun,
     assistantMessage: finalAssistantMessage,
@@ -89,13 +72,6 @@ export async function handleFailedRun(
     type: 'run_updated',
     run: failedRun
   })
-
-  logPlotStudioTiming(input.session.studioKind, 'run.failed', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    error: message,
-    runElapsedMs: readRunElapsedMs(failedRun),
-  }, 'warn')
 
   throw input.error
 }

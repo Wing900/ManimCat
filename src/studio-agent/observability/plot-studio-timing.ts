@@ -2,10 +2,6 @@ import { createLogger } from '../../utils/logger'
 
 const logger = createLogger('PlotStudioTiming')
 const IMPORTANT_PLOT_STUDIO_EVENTS = new Set([
-  'run.started',
-  'run.completed',
-  'run.failed',
-  'loop.started',
   'provider.completed',
   'provider.failed',
   'tool.failure.detected',
