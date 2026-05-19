@@ -44,7 +44,7 @@
   <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-Mixed-607D8B?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/License-MIT%20%2B%20AGPL-607D8B?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center" style="font-size: 18px;">
@@ -272,20 +272,21 @@ flowchart LR
 
 ##  开源与版权声明 
 
-本项目授权细则见 `LICENSE_POLICY.md`。
+本项目授权细则见 `LICENSE_POLICY.md` 与 `LICENSE_POLICY.en.md`。
 
 *   第三方来源与归属说明见 `THIRD_PARTY_NOTICES.md`。
 *   中文版第三方来源与归属说明见 `THIRD_PARTY_NOTICES.zh-CN.md`。
-*   贡献者许可协议见 `CLA.md`。
 *   贡献说明见 `CONTRIBUTING.md`。
 
-### CLA 目的说明
+### 当前授权结构
 
-本项目引入 CLA，是为了让维护者能够集中管理项目的商业使用授权，避免每次商业授权都需要逐一联系所有贡献者。
+*   属于原作者链路、并保留 MIT 授权的文件/路径，继续保持 MIT。
+*   除 MIT 保留范围外，本仓库当前版本的其余文件按 `AGPL-3.0-or-later` 发布。
+*   项目不再要求贡献者签署或同意 CLA。
 
-这不代表项目会走向公司化商业运营。维护者始终以开发者身份维护项目，不以成为 ManimCat 公司的老板或经理为目标。项目将长期保持开源立场，反对垄断。
+### 历史版本
 
-若存在商业授权收入，资金将优先回馈项目本身，包括对项目基础建设、文档与测试完善、社区活动组织，以及对作出重大贡献开发者的支持。对于乐于开源、愿意回馈社区的小型商业公司，授权条款与费用将以象征性为主。
+历史版本仍然按其发布时所附带的许可条款适用。
 
 ## 维护说明
 

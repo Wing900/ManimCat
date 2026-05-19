@@ -1,7 +1,6 @@
-ManimCat uses a mixed-license model.
+ManimCat uses a source-level mixed license model.
 
 Please read `LICENSE_POLICY.md` for the binding license scope.
 
 - MIT full text: `LICENSES/MIT.txt`
-- ManimCat Non-Commercial License full text: `LICENSES/ManimCat-NC.txt`
-
+- GNU AGPL-3.0 full text: `LICENSES/AGPL-3.0.txt`

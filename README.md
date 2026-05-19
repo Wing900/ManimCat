@@ -44,7 +44,7 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
   <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-Mixed-607D8B?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/License-MIT%20%2B%20AGPL-607D8B?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center" style="font-size: 18px;">
@@ -278,16 +278,17 @@ Licensing details are defined in `LICENSE_POLICY.md` (Chinese) and `LICENSE_POLI
 
 - Third-party attribution and notices: `THIRD_PARTY_NOTICES.md`
 - Chinese third-party notices: `THIRD_PARTY_NOTICES.zh-CN.md`
-- Contribution agreement: `CLA.md`
 - Contribution guide: `CONTRIBUTING.md`
 
-### CLA Intent Statement
+### Current License Structure
 
-This project uses a CLA so the maintainer can keep commercial-use authorization under a single workflow, instead of requiring separate consent from every contributor each time.
+- Files retained from the original upstream / MIT-covered chain remain under MIT
+- Other current-version files are distributed under `AGPL-3.0-or-later`
+- The previous CLA workflow has been removed
 
-This is not a statement of "project commercialization" as a company path. The maintainer remains a developer, the project stays open source, and the project stance is anti-monopoly.
+### Historical Versions
 
-Any commercial authorization income is intended to be reinvested into project development itself, including support for major contributors and community activities. For small companies that are open-source-friendly, authorization terms and fees are expected to be symbolic.
+Historical releases remain governed by the license terms that were published with those versions.
 
 ## Maintenance Notes
 
