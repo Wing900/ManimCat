@@ -1,5 +1,4 @@
 import { StudioComposerAttachmentList } from '../StudioComposerAttachmentList'
-import { StudioCommandAutocomplete } from '../../commands/ui/autocomplete/StudioCommandAutocomplete'
 import { StudioImageInputCommandUI } from '../../commands/ui/image-input/StudioImageInputCommandUI'
 import type { useStudioCommandComposerController } from './use-studio-command-composer-controller'
 
@@ -45,11 +44,6 @@ export function StudioCommandComposer({
             {'>'}
           </span>
           <div className={`${isMinimal ? 'relative flex-1' : 'flex-1'}`}>
-            <StudioCommandAutocomplete
-              suggestions={composer.commandAutocomplete.suggestions}
-              activeIndex={Math.min(composer.commandAutocomplete.activeSuggestionIndex, Math.max(composer.commandAutocomplete.suggestions.length - 1, 0))}
-              onSelect={(suggestion) => composer.commandAutocomplete.applySuggestion(suggestion, composer.effectiveApplySuggestion)}
-            />
             <input
               ref={composer.inputRef}
               type="text"
@@ -57,10 +51,6 @@ export function StudioCommandComposer({
               onChange={(e) => composer.handleInputChange(e.target.value)}
               onPaste={(e) => { void composer.handlePaste(e) }}
               onKeyDown={(e) => {
-                const autocompleteResult = composer.commandAutocomplete.handleKeyDown(e, composer.effectiveApplySuggestion)
-                if (autocompleteResult.handled) {
-                  return
-                }
                 if (e.key === 'Escape' && onEscapePress) {
                   e.preventDefault()
                   e.stopPropagation()

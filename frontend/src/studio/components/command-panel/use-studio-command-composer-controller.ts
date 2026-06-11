@@ -1,29 +1,24 @@
 import { useImperativeHandle, useRef, useState } from 'react'
 import type { ClipboardEvent as ReactClipboardEvent, Ref } from 'react'
-import { useStudioCommandAutocomplete } from '../../commands/ui/autocomplete/use-studio-command-autocomplete'
 import { debugStudioMessages } from '../../agent-response/debug'
-import type { StudioSession } from '../../protocol/studio-agent-types'
 import type { StudioCommandPanelHandle } from '../StudioCommandPanel'
 import { extractImageFilesFromDataTransfer } from './image-transfer'
 import { submitStudioCommandComposer } from './submit-studio-command-composer'
 import { useStudioCommandComposerAttachmentsController } from './use-studio-command-composer-attachments-controller'
 
 interface UseStudioCommandComposerControllerInput {
-  session: StudioSession | null
   disabled: boolean
   onRun: (inputText: string) => Promise<void> | void
   composerRef: Ref<StudioCommandPanelHandle>
 }
 
 export function useStudioCommandComposerController({
-  session,
   disabled,
   onRun,
   composerRef,
 }: UseStudioCommandComposerControllerInput) {
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const commandAutocomplete = useStudioCommandAutocomplete(input, session)
 
   const focusInput = () => {
     if (disabled) {
@@ -37,11 +32,6 @@ export function useStudioCommandComposerController({
     focusInput,
     setInput,
   })
-
-  const applySuggestion = (nextInput: string) => {
-    setInput(nextInput)
-    inputRef.current?.focus()
-  }
 
   const handlePaste = async (event: ReactClipboardEvent<HTMLInputElement>) => {
     const imageFiles = extractImageFilesFromDataTransfer(event.clipboardData)
@@ -84,7 +74,6 @@ export function useStudioCommandComposerController({
     await submitStudioCommandComposer({
       input,
       disabled,
-      session,
       attachments: composerAttachments.attachmentsState.attachments,
       onRun,
       clearInput: () => setInput(''),
@@ -92,7 +81,6 @@ export function useStudioCommandComposerController({
       clearAttachments: composerAttachments.attachmentsState.clearAttachments,
       retainAttachments: composerAttachments.attachmentsState.retainAttachments,
       focusInput: () => inputRef.current?.focus(),
-      openImageInputMode: composerAttachments.imageInputCommand.openImageInputMode,
     })
   }
 
@@ -101,9 +89,7 @@ export function useStudioCommandComposerController({
     inputRef,
     attachments: composerAttachments.attachmentsState.attachments,
     attachmentError: composerAttachments.attachmentsState.attachmentError,
-    commandAutocomplete,
     imageInputCommand: composerAttachments.imageInputCommand,
-    effectiveApplySuggestion: applySuggestion,
     focusInput,
     handlePaste,
     handleDocumentPaste,

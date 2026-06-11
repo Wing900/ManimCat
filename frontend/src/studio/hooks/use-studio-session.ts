@@ -4,7 +4,6 @@ import {
   createStudioSession,
   getStudioSessionSnapshot,
 } from '../api/studio-agent-api'
-import { useStudioCommandControls } from '../commands/use-studio-command-controls'
 import type { StudioKind, StudioMessage, StudioTask } from '../protocol/studio-agent-types'
 import type { StudioSessionState } from '../store/studio-types'
 import { useStudioEvents } from './use-studio-events'
@@ -279,16 +278,6 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
     recoverSession: () => createFreshSession('replace'),
   })
 
-  const controls = useStudioCommandControls({
-    session: state.entities.session,
-    onRun: runCommand,
-    onOpenHistory: openHistory,
-    onCreateSession: async () => {
-      await createFreshSession('replace')
-      void refreshHistory()
-    },
-  })
-
   const messages = viewSelectors.selectStudioMessages(state)
   const runs = viewSelectors.selectStudioRuns(state)
   const works = viewSelectors.selectStudioWorks(state)
@@ -322,7 +311,7 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
     openHistory,
     refresh,
     runCommand: async (inputText: string) => {
-      await controls.submitInput(inputText)
+      await runCommand(inputText)
     },
     createNewSession: async () => {
       await createFreshSession('replace')

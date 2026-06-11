@@ -1,12 +1,9 @@
 import { appendStudioReferenceImages } from '../../composer/attachments'
-import { resolveStudioCommand } from '../../commands/resolve-studio-command'
-import type { StudioSession } from '../../protocol/studio-agent-types'
 import type { StudioComposerAttachment } from '../../composer/types'
 
 interface SubmitStudioCommandComposerOptions<TAttachment extends StudioComposerAttachment> {
   input: string
   disabled: boolean
-  session: StudioSession | null
   attachments: TAttachment[]
   onRun: (inputText: string) => Promise<void> | void
   clearInput: () => void
@@ -14,13 +11,11 @@ interface SubmitStudioCommandComposerOptions<TAttachment extends StudioComposerA
   clearAttachments: () => void
   retainAttachments: (attachments: TAttachment[]) => void
   focusInput: () => void
-  openImageInputMode: () => void
 }
 
 export async function submitStudioCommandComposer<TAttachment extends StudioComposerAttachment>({
   input,
   disabled,
-  session,
   attachments,
   onRun,
   clearInput,
@@ -28,27 +23,9 @@ export async function submitStudioCommandComposer<TAttachment extends StudioComp
   clearAttachments,
   retainAttachments,
   focusInput,
-  openImageInputMode,
 }: SubmitStudioCommandComposerOptions<TAttachment>) {
   const next = input.trim()
   if (!next || disabled) {
-    return
-  }
-
-  const localCommand = resolveStudioCommand(next)
-  if (localCommand?.definition.scope === 'local') {
-    clearInput()
-    await localCommand.definition.execute(localCommand.command as never, {
-      session,
-      openHistory: () => {},
-      createSession: async () => {},
-      setPendingMode: () => {},
-      openImageInputMode,
-      runCommandInput: async (inputText: string) => {
-        await onRun(inputText)
-      },
-    })
-    focusInput()
     return
   }
 

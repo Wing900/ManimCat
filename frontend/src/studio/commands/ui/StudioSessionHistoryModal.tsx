@@ -48,7 +48,7 @@ export function StudioSessionHistoryModal({
               {t('studio.sessionLabel')}
             </h2>
             <p className="mt-2 text-sm leading-7 text-text-secondary/68">
-              `/history` opens this list. `/new` starts a fresh studio session.
+              Recent studio sessions saved on this device.
             </p>
           </div>
           <button

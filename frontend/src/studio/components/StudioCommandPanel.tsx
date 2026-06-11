@@ -61,7 +61,6 @@ export const StudioCommandPanel = forwardRef<StudioCommandPanelHandle, StudioCom
   const storeRef = useRef(createStudioCommandPanelStore(snapshot))
   const commandStore = storeRef.current
   const composer = useStudioCommandComposerController({
-    session,
     disabled,
     onRun,
     composerRef: ref,
