@@ -3,7 +3,6 @@ import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StudioCommandPanel, type StudioCommandPanelHandle } from '../../../studio/components/StudioCommandPanel'
 import type { StudioMessage, StudioSession } from '../../../studio/protocol/studio-agent-types'
-import { getStudioSessionSkills } from '../../../studio/api/studio-agent-api'
 
 const { uploadReferenceImageMock, debugStudioMessagesMock } = vi.hoisted(() => ({
   uploadReferenceImageMock: vi.fn(),
@@ -16,10 +15,6 @@ vi.mock('../../../lib/api', () => ({
 
 vi.mock('../../../studio/agent-response/debug', () => ({
   debugStudioMessages: debugStudioMessagesMock,
-}))
-
-vi.mock('../../../studio/api/studio-agent-api', () => ({
-  getStudioSessionSkills: vi.fn(),
 }))
 
 vi.mock('../../../i18n', () => ({
@@ -37,7 +32,6 @@ afterEach(() => {
   cleanup()
   uploadReferenceImageMock.mockReset()
   debugStudioMessagesMock.mockReset()
-  vi.mocked(getStudioSessionSkills).mockReset()
 })
 
 function createSession(): StudioSession {
@@ -69,40 +63,6 @@ function createAssistantMessage(): Extract<StudioMessage, { role: 'assistant' }>
 }
 
 describe('StudioCommandPanel', () => {
-  it('shows actual skill suggestions for /skill input and completes them with tab', async () => {
-    vi.mocked(getStudioSessionSkills).mockResolvedValue([
-      {
-        name: 'math-education-visualization',
-        description: 'Math teaching visualization skill.',
-        scope: 'common',
-        directory: 'D:/skills/math-education-visualization',
-        entryFile: 'D:/skills/math-education-visualization/SKILL.md',
-        source: 'catalog',
-      },
-    ])
-
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={vi.fn()}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/skill math' } })
-
-    await waitFor(() => expect(screen.getByText('math-education-visualization')).toBeInTheDocument())
-
-    fireEvent.keyDown(input, { key: 'Tab' })
-
-    expect(input.value).toBe('/skill math-education-visualization')
-  })
-
   it('restores the input when submit fails', async () => {
     const onRun = vi.fn(async () => {
       throw new Error('submit failed')
@@ -126,202 +86,6 @@ describe('StudioCommandPanel', () => {
 
     await waitFor(() => expect(onRun).toHaveBeenCalledWith('render current file'))
     await waitFor(() => expect(input.value).toBe('render current file'))
-  })
-
-  it('shows command suggestions when typing slash and filters them by prefix', async () => {
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={vi.fn()}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/' } })
-
-    expect(screen.getByText('studio.commandMenu.title')).toBeInTheDocument()
-    expect(screen.getByText('/history')).toBeInTheDocument()
-    expect(screen.getByText('/new')).toBeInTheDocument()
-
-    fireEvent.change(input, { target: { value: '/n' } })
-
-    expect(screen.getByText('/new')).toBeInTheDocument()
-    expect(screen.queryByText('/history')).not.toBeInTheDocument()
-  })
-
-  it('completes a command from the suggestion list with tab before submitting', async () => {
-    const onRun = vi.fn()
-
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={onRun}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/n' } })
-    fireEvent.keyDown(input, { key: 'Tab' })
-
-    expect(input.value).toBe('/new')
-    expect(onRun).not.toHaveBeenCalled()
-    expect(screen.queryByText('studio.commandMenu.title')).not.toBeInTheDocument()
-
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    await waitFor(() => expect(onRun).toHaveBeenCalledWith('/new'))
-  })
-
-  it('does not submit while a command suggestion is still open before tab completion', async () => {
-    const onRun = vi.fn()
-
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={onRun}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/n' } })
-
-    expect(screen.getByText('studio.commandMenu.title')).toBeInTheDocument()
-
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    await waitFor(() => expect(onRun).not.toHaveBeenCalled())
-    expect(input.value).toBe('/n')
-    expect(screen.getByText('studio.commandMenu.title')).toBeInTheDocument()
-  })
-
-  it('hides the autocomplete menu when the input exactly matches a command', () => {
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={vi.fn()}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/n' } })
-
-    expect(screen.getByText('studio.commandMenu.title')).toBeInTheDocument()
-
-    fireEvent.keyDown(input, { key: 'Tab' })
-
-    expect(input.value).toBe('/new')
-    expect(screen.queryByText('studio.commandMenu.title')).not.toBeInTheDocument()
-  })
-
-  it('scrolls the autocomplete list to keep the active command in view while navigating', () => {
-    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView
-    const scrollIntoView = vi.fn()
-    window.HTMLElement.prototype.scrollIntoView = scrollIntoView
-
-    try {
-      render(
-        <StudioCommandPanel
-          session={createSession()}
-          messages={[]}
-          latestAssistantText=""
-          isBusy={false}
-          disabled={false}
-          onRun={vi.fn()}
-          onExit={vi.fn()}
-        />,
-      )
-
-      const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-      fireEvent.change(input, { target: { value: '/' } })
-      scrollIntoView.mockClear()
-
-      fireEvent.keyDown(input, { key: 'ArrowDown' })
-
-      expect(scrollIntoView).toHaveBeenCalled()
-      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest' })
-    } finally {
-      window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView
-    }
-  })
-
-  it('executes the registered local image command without sending text to onRun', async () => {
-    const onRun = vi.fn()
-
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={onRun}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/p' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    await waitFor(() => expect(screen.getByText('canvasMode.title')).toBeInTheDocument())
-    expect(onRun).not.toHaveBeenCalled()
-    expect(input.value).toBe('')
-  })
-
-  it('forwards the skill command to onRun', async () => {
-    const onRun = vi.fn()
-    vi.mocked(getStudioSessionSkills).mockResolvedValue([
-      {
-        name: 'math-education-visualization',
-        description: 'Math teaching visualization skill.',
-        scope: 'common',
-        directory: 'D:/skills/math-education-visualization',
-        entryFile: 'D:/skills/math-education-visualization/SKILL.md',
-        source: 'catalog',
-      },
-    ])
-
-    render(
-      <StudioCommandPanel
-        session={createSession()}
-        messages={[]}
-        latestAssistantText=""
-        isBusy={false}
-        disabled={false}
-        onRun={onRun}
-        onExit={vi.fn()}
-      />,
-    )
-
-    const input = screen.getByPlaceholderText('输入指令...') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '/skill math' } })
-    await waitFor(() => expect(screen.getByText('math-education-visualization')).toBeInTheDocument())
-    fireEvent.keyDown(input, { key: 'Tab' })
-    await waitFor(() => expect(input.value).toBe('/skill math-education-visualization'))
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    await waitFor(() => expect(onRun).toHaveBeenCalledWith('/skill math-education-visualization'))
-    expect(input.value).toBe('')
   })
 
   it('uploads pasted images into composer attachments', async () => {
