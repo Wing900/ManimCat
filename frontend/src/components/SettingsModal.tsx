@@ -58,10 +58,10 @@ function SettingsModalContent({ isOpen, onClose, onSave }: SettingsModalProps) {
           </button>
         </div>
 
-        <div className="flex justify-center gap-10 mb-8">
+        <div className="flex gap-2 mb-8">
           <button
             onClick={() => setActiveTab('api')}
-            className={`px-1 py-2.5 text-sm transition-colors ${
+            className={`flex-1 px-4 py-2.5 text-sm transition-colors ${
               activeTab === 'api'
                 ? 'font-semibold text-text-primary'
                 : 'font-normal text-text-secondary/60 hover:text-text-primary'
@@ -71,7 +71,7 @@ function SettingsModalContent({ isOpen, onClose, onSave }: SettingsModalProps) {
           </button>
           <button
             onClick={() => setActiveTab('video')}
-            className={`px-1 py-2.5 text-sm transition-colors ${
+            className={`flex-1 px-4 py-2.5 text-sm transition-colors ${
               activeTab === 'video'
                 ? 'font-semibold text-text-primary'
                 : 'font-normal text-text-secondary/60 hover:text-text-primary'
