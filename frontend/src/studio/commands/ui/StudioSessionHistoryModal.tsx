@@ -30,15 +30,15 @@ export function StudioSessionHistoryModal({
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <div
-        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md transition-opacity duration-300 ${
-          isExiting ? 'opacity-0' : 'animate-overlay-wash-in'
+        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md ${
+          isExiting ? 'animate-overlay-wash-out' : 'animate-overlay-wash-in'
         }`}
         onClick={onClose}
       />
 
       <section
         className={`relative flex max-h-[min(80vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[2.2rem] border border-border/10 bg-bg-secondary shadow-2xl ${
-          isExiting ? 'animate-fade-out-soft' : 'animate-fade-in-soft'
+          isExiting ? 'animate-modal-pop-out' : 'animate-modal-pop-in'
         }`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-border/8 px-8 py-7">

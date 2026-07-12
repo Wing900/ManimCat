@@ -13,10 +13,6 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal(props: SettingsModalProps) {
-  if (!props.isOpen) {
-    return null;
-  }
-
   return <SettingsModalContent {...props} />;
 }
 
@@ -38,14 +34,14 @@ function SettingsModalContent({ isOpen, onClose, onSave }: SettingsModalProps) {
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div
-        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md transition-opacity duration-300 ${
-          isExiting ? 'opacity-0' : 'animate-overlay-wash-in'
+        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md ${
+          isExiting ? 'animate-overlay-wash-out' : 'animate-overlay-wash-in'
         }`}
         onClick={onClose}
       />
 
       <div className={`relative bg-bg-secondary rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-border/5 ${
-        isExiting ? 'animate-fade-out-soft' : 'animate-fade-in-soft'
+        isExiting ? 'animate-modal-pop-out' : 'animate-modal-pop-in'
       }`}>
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -62,26 +58,32 @@ function SettingsModalContent({ isOpen, onClose, onSave }: SettingsModalProps) {
           </button>
         </div>
 
-        <div className="flex gap-2 mb-8 p-1.5 bg-bg-secondary/50 border border-border/5 rounded-2xl">
+        <div className="flex gap-8 mb-8 border-b border-border/8">
           <button
             onClick={() => setActiveTab('api')}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
+            className={`relative px-1 py-2.5 text-sm font-medium transition-colors ${
               activeTab === 'api'
-                ? 'text-text-primary bg-bg-secondary shadow-sm'
-                : 'text-text-secondary/60 hover:text-text-primary hover:bg-bg-secondary/30'
+                ? 'text-text-primary'
+                : 'text-text-secondary/60 hover:text-text-primary'
             }`}
           >
             {t('settings.tab.api')}
+            {activeTab === 'api' && (
+              <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-accent rounded-full" />
+            )}
           </button>
           <button
             onClick={() => setActiveTab('video')}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
+            className={`relative px-1 py-2.5 text-sm font-medium transition-colors ${
               activeTab === 'video'
-                ? 'text-text-primary bg-bg-secondary shadow-sm'
-                : 'text-text-secondary/60 hover:text-text-primary hover:bg-bg-secondary/30'
+                ? 'text-text-primary'
+                : 'text-text-secondary/60 hover:text-text-primary'
             }`}
           >
             {t('settings.tab.video')}
+            {activeTab === 'video' && (
+              <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-accent rounded-full" />
+            )}
           </button>
         </div>
 

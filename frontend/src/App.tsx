@@ -303,10 +303,10 @@ function App() {
         }
       `}</style>
 
-      <SettingsModal key={`settings-${settingsOpen ? 'open' : 'closed'}`} isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={() => undefined} />
-      <DonationModal key={`donation-${donationOpen ? 'open' : 'closed'}`} isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
-      <ProviderConfigModal key={`providers-${providersOpen ? 'open' : 'closed'}`} isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={() => undefined} />
-      <Workspace key={`workspace-${workspaceOpen ? 'open' : 'closed'}`} isOpen={workspaceOpen} onClose={() => setWorkspaceOpen(false)} />
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={() => undefined} />
+      <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
+      <ProviderConfigModal isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={() => undefined} />
+      <Workspace isOpen={workspaceOpen} onClose={() => setWorkspaceOpen(false)} />
       <AiModifyModal
         isOpen={aiModifyOpen}
         loading={isBusy}

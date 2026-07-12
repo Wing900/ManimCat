@@ -22,7 +22,7 @@ interface WorkspaceProps {
 
 export function Workspace({ isOpen, onClose, initialModule = 'history', onReusePrompt }: WorkspaceProps) {
   const { t } = useI18n();
-  const { shouldRender, isExiting } = useModalTransition(isOpen, 400);
+  const { shouldRender, isExiting } = useModalTransition(isOpen, 650);
   const [activeModule, setActiveModule] = useState<WorkspaceModule>(initialModule);
 
   const {
@@ -111,8 +111,8 @@ export function Workspace({ isOpen, onClose, initialModule = 'history', onReuseP
 
   return (
     <div
-      className={`fixed inset-0 z-[120] flex flex-col bg-bg-primary transition-all duration-500 ${
-        isExiting ? 'opacity-0 scale-[1.02] blur-xl' : 'opacity-100 scale-100 blur-0 animate-studio-entrance'
+      className={`fixed inset-0 z-[120] flex flex-col bg-bg-primary ${
+        isExiting ? 'animate-workspace-exit' : 'animate-studio-entrance'
       }`}
     >
       {/* 顶栏 */}

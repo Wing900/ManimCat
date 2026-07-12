@@ -371,7 +371,7 @@ export function CanvasWorkspaceModal({ isOpen, onClose, onComplete }: CanvasWork
       {isDiscardConfirmOpen && (
         <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-bg-primary/60 backdrop-blur-md animate-overlay-wash-in" onClick={() => setIsDiscardConfirmOpen(false)} />
-          <div className="relative w-full max-w-lg rounded-[2.5rem] border border-border/5 bg-bg-secondary p-10 shadow-2xl animate-fade-in-soft">
+          <div className="relative w-full max-w-lg rounded-[2.5rem] border border-border/5 bg-bg-secondary p-10 shadow-2xl animate-modal-pop-in">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-accent-rgb/40 animate-pulse" />
@@ -416,7 +416,7 @@ export function CanvasWorkspaceModal({ isOpen, onClose, onComplete }: CanvasWork
       {isPreviewConfirmOpen && (
         <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-bg-primary/60 backdrop-blur-md animate-overlay-wash-in" onClick={() => !isExporting && setIsPreviewConfirmOpen(false)} />
-          <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.5rem] border border-border/5 bg-bg-secondary p-10 shadow-2xl animate-fade-in-soft">
+          <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2.5rem] border border-border/5 bg-bg-secondary p-10 shadow-2xl animate-modal-pop-in">
             <div className="flex items-center justify-between mb-8 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-accent-rgb/40 animate-pulse" />

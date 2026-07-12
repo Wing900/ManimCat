@@ -19,15 +19,15 @@ export function ImageInputModeModal({ isOpen, onClose, onImport, onDraw }: Image
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div
-        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md transition-opacity duration-300 ${
-          isExiting ? 'opacity-0' : 'animate-overlay-wash-in'
+        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md ${
+          isExiting ? 'animate-overlay-wash-out' : 'animate-overlay-wash-in'
         }`}
         onClick={onClose}
       />
 
       <div
         className={`relative w-full max-w-sm bg-bg-secondary rounded-[2.25rem] p-7 shadow-2xl border border-border/5 ${
-          isExiting ? 'animate-fade-out-soft' : 'animate-fade-in-soft'
+          isExiting ? 'animate-modal-pop-out' : 'animate-modal-pop-in'
         }`}
       >
         <div className="flex items-center mb-6">

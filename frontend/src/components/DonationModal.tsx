@@ -24,15 +24,15 @@ export function DonationModal({ isOpen, onClose }: DonationModalProps) {
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       {/* 遮罩层 */}
       <div 
-        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md transition-opacity duration-300 ${
-          isExiting ? 'opacity-0' : 'animate-overlay-wash-in'
+        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md ${
+          isExiting ? 'animate-overlay-wash-out' : 'animate-overlay-wash-in'
         }`} 
         onClick={onClose} 
       />
 
       {/* 模态框内容 */}
       <div className={`relative bg-bg-secondary rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl border border-border/5 overflow-hidden ${
-        isExiting ? 'animate-fade-out-soft' : 'animate-fade-in-soft'
+        isExiting ? 'animate-modal-pop-out' : 'animate-modal-pop-in'
       }`}>
         {!showQR ? (
           <div className="flex flex-col">

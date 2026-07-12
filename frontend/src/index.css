@@ -144,7 +144,37 @@ select option:checked {
 }
 
 .animate-overlay-wash-in {
-  animation: overlay-wash-in 0.5s ease-out forwards;
+  animation: overlay-wash-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes overlay-wash-out {
+  from { opacity: 1; backdrop-filter: blur(6px); }
+  to { opacity: 0; backdrop-filter: blur(0px); }
+}
+
+.animate-overlay-wash-out {
+  animation: overlay-wash-out 0.32s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+}
+
+/* Modal 弹体：Apple spring overshoot 曲线，scale 差值放大到 0.96 才能弹出来 */
+@keyframes modal-pop-in {
+  0% { opacity: 0; transform: translateY(8px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-modal-pop-in {
+  animation: modal-pop-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes modal-pop-out {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(6px) scale(0.97); }
+}
+
+.animate-modal-pop-out {
+  animation: modal-pop-out 0.32s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+  will-change: transform, opacity;
 }
 
 @keyframes paw-stamp {
@@ -198,6 +228,17 @@ select option:checked {
 
 .animate-studio-exit {
   animation: studio-entrance 1.2s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+}
+
+/* Workspace 退场：纯 CSS animation（不走 transition，避免入场 animation 移除时跳变） */
+@keyframes workspace-exit {
+  0% { opacity: 1; transform: scale(1); filter: blur(0px); }
+  100% { opacity: 0; transform: scale(1.02); filter: blur(16px); }
+}
+
+.animate-workspace-exit {
+  animation: workspace-exit 0.6s cubic-bezier(0.42, 0, 0.58, 1) forwards;
+  will-change: transform, opacity, filter;
 }
 
 .animate-classic-entrance {

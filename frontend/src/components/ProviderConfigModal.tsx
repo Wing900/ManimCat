@@ -375,15 +375,15 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* 沉浸式背景：保留毛玻璃 */}
       <div
-        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md transition-opacity duration-300 ${
-          isExiting ? 'opacity-0' : 'animate-overlay-wash-in'
+        className={`absolute inset-0 bg-bg-primary/60 backdrop-blur-md ${
+          isExiting ? 'animate-overlay-wash-out' : 'animate-overlay-wash-in'
         }`}
         onClick={onClose}
       />
       
       {/* 模态框主体：应用进出动画 */}
       <div className={`relative w-full max-w-3xl lg:max-w-4xl max-h-[86vh] flex flex-col overflow-hidden bg-bg-secondary rounded-2xl shadow-xl border border-bg-tertiary/30 ${
-        isExiting ? 'animate-fade-out-soft' : 'animate-fade-in-soft'
+        isExiting ? 'animate-modal-pop-out' : 'animate-modal-pop-in'
       }`}>
         <div className="h-16 bg-bg-secondary/50 border-b border-bg-tertiary/30 flex items-center justify-between px-6">
           <div className="flex items-center gap-3">
