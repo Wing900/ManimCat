@@ -11,8 +11,9 @@
     "build:backend": "tsc",
     "build:frontend": "cd frontend && npm run build",
     "start": "tsx src/server.ts",
-    "test": "npm run test:frontend && npm run test:studio-agent",
+    "test": "npm run test:frontend && npm run test:workflow && npm run test:studio-agent",
     "test:frontend": "cd frontend && npm run test",
+    "test:workflow": "tsc -p tsconfig.workflow-tests.json && node -e \"require('fs').writeFileSync('dist-workflow-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node --test dist-workflow-tests/src/workflow/tests/*.test.js",
     "test:studio-agent": "tsc -p tsconfig.studio-agent-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/studio-agent/tests/run-tests.js && node dist-tests/src/studio-agent/tests/reasoning-content.run.js"
   },
   "dependencies": {

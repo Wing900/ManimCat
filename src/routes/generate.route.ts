@@ -25,7 +25,10 @@ import { hasPromptOverrides } from '../utils/prompt-overrides'
 import { sanitizeReferenceImages } from './helpers/reference-images'
 import { generateBodySchema } from './schemas/generate'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
-import type { ProblemFramingPlan } from '../types'
+import {
+  mergeProblemFramingPlanIntoConcept,
+  normalizeGenerationConcept,
+} from '../workflow/generation/request-preparation'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
 import { storeJobAccess } from '../services/job-access-store'
@@ -71,8 +74,8 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     requirePromptOverrideAuth(req)
   }
 
-  const sanitizedConcept = concept.trim().replace(/\s+/g, ' ')
-  const queuedConcept = mergeProblemPlanIntoConcept(sanitizedConcept, problemPlan)
+  const sanitizedConcept = normalizeGenerationConcept(concept)
+  const queuedConcept = mergeProblemFramingPlanIntoConcept(sanitizedConcept, problemPlan)
   const sanitizedReferenceImages = sanitizeReferenceImages(referenceImages)
   const clientId = getRequestClientId(req)
   const stableRenderCacheKey = buildClassicRenderCacheKey(clientId, outputMode, renderCacheKey)
@@ -168,26 +171,3 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
 router.post('/generate', authMiddleware, asyncHandler(handleGenerateRequest))
 
 export default router
-
-function mergeProblemPlanIntoConcept(concept: string, problemPlan?: ProblemFramingPlan): string {
-  if (!problemPlan) {
-    return concept
-  }
-
-  const steps = problemPlan.steps
-    .map((step, index) => `${index + 1}. ${step.title}: ${step.content}`)
-    .join('\n')
-
-  return [
-    concept,
-    '',
-    '[Problem Framing Context]',
-    `Mode: ${problemPlan.mode}`,
-    `Headline: ${problemPlan.headline}`,
-    `Summary: ${problemPlan.summary}`,
-    'Steps:',
-    steps,
-    `Visual Motif: ${problemPlan.visualMotif}`,
-    `Designer Hint: ${problemPlan.designerHint}`
-  ].join('\n')
-}
