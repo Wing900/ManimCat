@@ -3,10 +3,7 @@ import type {
   StudioAssistantMessage,
   StudioRun,
   StudioSession,
-  StudioRuntimeTurnPlan,
-  StudioToolChoice,
 } from '../../../domain/types'
-import type { CustomApiConfig } from '../../../../types'
 import type { StudioRunExecutionResult } from '../../tools/tool-runtime-context'
 import type {
   StudioBackgroundRunHandle,
@@ -18,7 +15,6 @@ import type {
 import { createAssistantMessage, createRun } from './factory'
 import { buildWorkContext, prepareRun } from './preparer'
 import { routePreparedRun } from './router'
-import { createResolvedPlanExecution } from './execution-factories'
 import { executePreparedStream } from './execution-manager'
 import { createDependencyCenter } from './dependency-center'
 
@@ -28,8 +24,7 @@ export class StudioSessionRunner {
   constructor(options: StudioSessionRunnerOptions) {
     const processor = new StudioRunProcessor({
       messageStore: options.messageStore,
-      partStore: options.partStore,
-      activeSkillStore: options.activeSkillStore
+      partStore: options.partStore
     })
     this.deps = createDependencyCenter(options, {
       processor,
@@ -66,25 +61,6 @@ export class StudioSessionRunner {
       abort: (reason?: string) => abortController.abort(reason ?? 'Run cancelled'),
       completion: this.executePreparedRun(prepared, abortController.signal)
     }
-  }
-
-  async runWithPlan(input: {
-    projectId: string
-    session: StudioSession
-    inputText: string
-    plan: StudioRuntimeTurnPlan
-    customApiConfig?: CustomApiConfig
-    toolChoice?: StudioToolChoice
-  }): Promise<StudioRunExecutionResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
-    const prepared = await prepareRun(this.deps, input)
-    const abortController = new AbortController()
-    return executePreparedStream(this.deps, prepared, createResolvedPlanExecution(this.deps, {
-      prepared,
-      plan: input.plan,
-      customApiConfig: input.customApiConfig,
-      toolChoice: input.toolChoice,
-      abortSignal: abortController.signal,
-    }), abortController.signal)
   }
 
   private async executePreparedRun(prepared: StudioPreparedRunContext, abortSignal: AbortSignal) {

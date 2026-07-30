@@ -2,7 +2,6 @@ import { createStudioAssistantMessage, createStudioRun } from '../../domain/fact
 import type {
   StudioMessagePart,
   StudioRun,
-  StudioRuntimeTurnPlan,
   StudioSession
 } from '../../domain/types'
 
@@ -60,10 +59,6 @@ export function cancelRunState(run: StudioRun, reason: string): StudioRun {
 export function extractLatestAssistantText(parts: StudioMessagePart[]): string {
   const textPart = [...parts].reverse().find((part) => part.type === 'text')
   return textPart?.type === 'text' ? textPart.text : ''
-}
-
-export function withResolvedPlan<T extends { plan: StudioRuntimeTurnPlan }>(input: T): T {
-  return input
 }
 
 

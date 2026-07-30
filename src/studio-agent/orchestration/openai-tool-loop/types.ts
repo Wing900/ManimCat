@@ -12,12 +12,8 @@ import type {
   StudioWorkStore
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
-import type { ActiveSkillStore } from '../../skills/state/skill-state-store'
 import type {
-  StudioResolvedSkill,
-  StudioRuntimeBackedToolContext,
-  StudioSkillDiscoveryEntry,
-  StudioSkillUsageSummary
+  StudioRuntimeBackedToolContext
 } from '../../runtime/tools/tool-runtime-context'
 import type { CustomApiConfig } from '../../../types'
 import type { buildStudioChatTools } from '../studio-tool-schema'
@@ -45,11 +41,6 @@ export interface StudioOpenAIToolLoopInput {
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
   workContext?: StudioWorkContext
-  resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
-  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
-  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
-  recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
-  activeSkillStore?: ActiveSkillStore
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig: CustomApiConfig

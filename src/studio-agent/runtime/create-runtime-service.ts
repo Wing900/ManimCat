@@ -21,13 +21,9 @@ import {
   isStudioRunResumable,
   readStudioRunAutonomyMetadata,
 } from '../runs/autonomy-policy'
-import { createStudioSkillRuntime } from '../skills/runtime/skill-runtime'
-import { createInMemoryActiveSkillStore } from '../skills/state/skill-state-store'
-import type { StudioSkillDiscoveryEntry } from '../skills/schema/skill-types'
 import type { StudioBlobStore } from '../storage/studio-blob-store'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
-import { createStudioDefaultTurnPlanResolver } from './planning/default-turn-plan-resolver'
 import { syncStudioRenderTask } from './session/render-task-sync'
 import { createStudioSessionMetadata } from './session/session-agent-config'
 import { flushTerminalSessionEventsToAssistant } from './session/session-event-inbox'
@@ -71,7 +67,6 @@ export interface StudioRuntimeService {
     toolChoice?: StudioToolChoice
   }) => Promise<StudioSession>
   getSession: (sessionId: string) => Promise<StudioSession | null>
-  listSessionSkills: (sessionId: string) => Promise<StudioSkillDiscoveryEntry[] | null>
   startRun: (input: {
     projectId: string
     session: StudioSession
@@ -119,9 +114,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   registerManimStudioTools(registry)
   registerPlotStudioTools(registry)
 
-  const skillRuntime = createStudioSkillRuntime()
-  const activeSkillStore = createInMemoryActiveSkillStore()
-  const resolveTurnPlan = createStudioDefaultTurnPlanResolver({ registry })
 
   const runtime = new StudioBuilderRuntime({
     registry,
@@ -133,12 +125,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     workStore: input.persistence.workStore,
     workResultStore: input.persistence.workResultStore,
     sessionEventStore: input.persistence.sessionEventStore,
-    resolveTurnPlan,
-    resolveSkill: skillRuntime.resolve,
-    listSkills: skillRuntime.listDiscovery,
-    listSkillSummaries: skillRuntime.listSummaries,
-    recordSkillUsage: skillRuntime.recordUsage,
-    activeSkillStore,
     eventBus,
   })
 
@@ -232,14 +218,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     },
     getSession(sessionId: string) {
       return input.persistence.sessionStore.getById(sessionId)
-    },
-    async listSessionSkills(sessionId) {
-      const session = await input.persistence.sessionStore.getById(sessionId)
-      if (!session) {
-        return null
-      }
-
-      return skillRuntime.listDiscovery(session)
     },
     async startRun(runInput) {
       return startBackgroundRunLocked(runInput)

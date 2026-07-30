@@ -3,10 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import {
-  createStudioSkillRuntime,
-  createStudioDefaultTurnPlanResolver,
   createPlaceholderStudioTools,
-  createLocalStudioSkillResolver,
   InMemoryStudioEventBus,
   InMemoryStudioMessageStore,
   InMemoryStudioPartStore,
@@ -19,13 +16,11 @@ import {
   StudioBuilderRuntime,
   StudioToolRegistry,
   type StudioAssistantMessage,
-  type StudioRuntimeBackedToolContext,
-  type StudioTurnPlanResolver
+  type StudioRuntimeBackedToolContext
 } from '../../index'
 import type { StudioSession, StudioRun, StudioTask, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
 
 export function createTestRuntime(options?: {
-  resolveTurnPlan?: StudioTurnPlanResolver
   eventBus?: InMemoryStudioEventBus
 }) {
   const registry = new StudioToolRegistry()
@@ -41,8 +36,6 @@ export function createTestRuntime(options?: {
   const sessionEventStore = new InMemoryStudioSessionEventStore()
   const workStore = new InMemoryStudioWorkStore()
   const workResultStore = new InMemoryStudioWorkResultStore()
-  const resolveSkill = createLocalStudioSkillResolver()
-  const resolveTurnPlan = options?.resolveTurnPlan ?? createStudioDefaultTurnPlanResolver({ registry })
 
   const runtime = new StudioBuilderRuntime({
     registry,
@@ -54,8 +47,6 @@ export function createTestRuntime(options?: {
     taskStore,
     workStore,
     workResultStore,
-    resolveSkill,
-    resolveTurnPlan,
     eventBus: options?.eventBus
   })
 
@@ -69,8 +60,7 @@ export function createTestRuntime(options?: {
     sessionEventStore,
     taskStore,
     workStore,
-    workResultStore,
-    resolveTurnPlan
+    workResultStore
   }
 }
 

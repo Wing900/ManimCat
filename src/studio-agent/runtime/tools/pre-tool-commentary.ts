@@ -22,8 +22,6 @@ export function buildStudioPreToolCommentary(input: {
       return '我先做一次静态检查确认当前状态。'
     case 'task':
       return '我准备启动一个子任务处理这部分工作。'
-    case 'skill':
-      return '我先加载相关 skill 看看约束和用法。'
     case 'render':
       return '我准备提交渲染任务。'
     case 'question':

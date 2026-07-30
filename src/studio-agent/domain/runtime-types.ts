@@ -1,16 +1,5 @@
 import type { StudioAssistantMessage, StudioFileAttachment } from './message-types'
 
-export interface StudioPlannedToolCall {
-  toolName: string
-  callId: string
-  input: unknown
-}
-
-export interface StudioRuntimeTurnPlan {
-  assistantText?: string
-  toolCalls?: StudioPlannedToolCall[]
-}
-
 export interface StudioWorkContextCurrentWork {
   id: string
   type: 'review' | 'design' | 'render' | 'edit' | 'video' | 'plot' | 'render-fix'

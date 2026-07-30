@@ -1,13 +1,6 @@
 import type { CustomApiConfig } from '../../../../types'
 import type { StudioRunProcessor } from '../run-processor'
-import type { StudioTurnPlanResolver } from '../../planning/turn-plan-resolver'
-import type { ActiveSkillStore } from '../../../skills/state/skill-state-store'
-import type {
-  StudioResolvedSkill,
-  StudioSkillDiscoveryEntry,
-  StudioSkillUsageSummary,
-  StudioRunExecutionResult
-} from '../../tools/tool-runtime-context'
+import type { StudioRunExecutionResult } from '../../tools/tool-runtime-context'
 import type {
   StudioAssistantMessage,
   StudioEventBus,
@@ -38,18 +31,6 @@ export interface StudioSessionRunnerOptions {
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
   eventBus?: StudioEventBus
-  resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
-  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
-  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
-  recordSkillUsage?: (input: {
-    session: StudioSession
-    skillName: string
-    reason?: string
-    takeaway?: string
-    stillRelevant?: boolean
-  }) => Promise<void>
-  resolveTurnPlan: StudioTurnPlanResolver
-  activeSkillStore?: ActiveSkillStore
 }
 
 export interface StudioRunRequestInput {
@@ -96,12 +77,6 @@ export interface StudioSessionRunnerDependencies {
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
   sharedEventBus?: StudioEventBus
-  resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
-  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
-  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
-  recordSkillUsage?: StudioSessionRunnerOptions['recordSkillUsage']
-  activeSkillStore?: ActiveSkillStore
-  resolveTurnPlan: StudioTurnPlanResolver
   createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
   createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
   buildWorkContext: (input: { session: StudioSession; inputText: string }) => Promise<StudioWorkContext>
@@ -128,12 +103,6 @@ export function createDependencyCenter(
     workStore: options.workStore,
     workResultStore: options.workResultStore,
     sharedEventBus: options.eventBus,
-    resolveSkill: options.resolveSkill,
-    listSkills: options.listSkills,
-    listSkillSummaries: options.listSkillSummaries,
-    recordSkillUsage: options.recordSkillUsage,
-    activeSkillStore: options.activeSkillStore,
-    resolveTurnPlan: options.resolveTurnPlan,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,
     buildWorkContext: input.buildWorkContext

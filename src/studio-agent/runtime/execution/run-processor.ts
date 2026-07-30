@@ -10,7 +10,6 @@ import type {
   StudioToolPart,
   StudioToolResult
 } from '../../domain/types'
-import type { ActiveSkillStore } from '../../skills/state/skill-state-store'
 import { isDoomLoop } from './doom-loop'
 import { StudioPartSynchronizer } from './part-synchronizer'
 import { StudioTextStreamAccumulator } from './text-stream-accumulator'
@@ -27,20 +26,17 @@ export type StudioProcessorOutcome = 'continue' | 'stop' | 'compact'
 interface StudioRunProcessorOptions {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
-  activeSkillStore?: ActiveSkillStore
 }
 
 export class StudioRunProcessor {
   private readonly partStore: StudioPartStore
   private readonly sync: StudioPartSynchronizer
   private readonly textStream: StudioTextStreamAccumulator
-  private readonly activeSkillStore?: ActiveSkillStore
 
   constructor(options: StudioRunProcessorOptions) {
     this.partStore = options.partStore
     this.sync = new StudioPartSynchronizer(options.messageStore, options.partStore)
     this.textStream = new StudioTextStreamAccumulator(options.partStore, this.sync)
-    this.activeSkillStore = options.activeSkillStore
   }
 
   async processStream(input: {
@@ -389,11 +385,6 @@ export class StudioRunProcessor {
     logTimeline(input.session.studioKind, 'tool.completed', `${match.tool} ${durationMs}ms`)
 
     // Discard all shots after first successful render
-    if (match.tool === 'render' && this.activeSkillStore) {
-      this.activeSkillStore.clearShots(input.session.id)
-      logTimeline(input.session.studioKind, 'shots.discarded', 'after render success')
-    }
-
     toolCalls.delete(event.toolCallId)
   }
 
@@ -441,8 +432,6 @@ export class StudioRunProcessor {
       workspaceRoot: event.metadata?.workspaceRoot,
       allowedRoots: event.metadata?.allowedRoots,
       allowedRootCount: event.metadata?.allowedRootCount,
-      allowedSkillRoots: event.metadata?.allowedSkillRoots,
-      loadedSkillPartCount: event.metadata?.loadedSkillPartCount,
       rawArgumentsPreview: event.metadata?.rawArgumentsPreview,
       inputSummary: summarizeToolInput(getToolInput(runningState)),
       runWillStop: event.metadata?.recoverable !== true,

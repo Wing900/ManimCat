@@ -6,7 +6,6 @@ import { createStudioGrepTool } from '../tools/grep-tool'
 import { createStudioLsTool } from '../tools/ls-tool'
 import { createStudioQuestionTool } from '../tools/question-tool'
 import { createStudioReadTool } from '../tools/read-tool'
-import { createStudioSkillTool } from '../tools/skill-tool'
 import { createStudioStaticCheckTool } from '../tools/static-check-tool'
 import { createStudioWriteTool } from '../tools/write-tool'
 import type { StudioToolRegistry } from '../tools/registry'
@@ -27,7 +26,6 @@ export function createSharedStudioTools(): StudioToolDefinition[] {
     createStudioEditTool() as StudioToolDefinition,
     createStudioApplyPatchTool() as StudioToolDefinition,
     createStudioQuestionTool() as StudioToolDefinition,
-    createStudioSkillTool() as StudioToolDefinition,
     createStudioStaticCheckTool() as StudioToolDefinition,
   ]
 }

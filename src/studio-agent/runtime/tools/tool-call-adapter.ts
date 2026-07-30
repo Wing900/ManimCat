@@ -10,13 +10,7 @@ import type {
   StudioWorkStore
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
-import type { ActiveSkillStore } from '../../skills/state/skill-state-store'
-import type {
-  StudioResolvedSkill,
-  StudioRuntimeBackedToolContext,
-  StudioSkillDiscoveryEntry,
-  StudioSkillUsageSummary
-} from './tool-runtime-context'
+import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
 import type { CustomApiConfig } from '../../../types'
 import { buildStudioPreToolCommentary } from './pre-tool-commentary'
 import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
@@ -38,11 +32,6 @@ export interface StudioToolCallExecutionOptions {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
-  resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
-  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
-  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
-  recordSkillUsage?: StudioRuntimeBackedToolContext['recordSkillUsage']
-  activeSkillStore?: ActiveSkillStore
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig?: CustomApiConfig
   commentary?: string | null
@@ -150,12 +139,7 @@ async function executeTool(input: {
     setToolMetadata: (metadata: { title?: string; metadata?: Record<string, unknown> }) => {
       input.options.setToolMetadata(input.options.toolCallId, metadata)
     },
-    sessionStore: input.options.sessionStore,
-    resolveSkill: input.options.resolveSkill,
-    listSkills: input.options.listSkills,
-    listSkillSummaries: input.options.listSkillSummaries,
-    recordSkillUsage: input.options.recordSkillUsage,
-    activeSkillStore: input.options.activeSkillStore
+    sessionStore: input.options.sessionStore
   } as StudioRuntimeBackedToolContext
 
   const normalizedToolInput = injectToolDefaults(
@@ -209,8 +193,6 @@ function logDetectedToolFailure(
     workspaceRoot?: string
     allowedRoots?: string[]
     allowedRootCount?: number
-    allowedSkillRoots?: string[]
-    loadedSkillPartCount?: number
   }
 ): void {
   logPlotStudioTiming(input.session.studioKind, 'tool.failure.detected', {
@@ -230,8 +212,6 @@ function logDetectedToolFailure(
     workspaceRoot: details.workspaceRoot,
     allowedRoots: details.allowedRoots,
     allowedRootCount: details.allowedRootCount,
-    allowedSkillRoots: details.allowedSkillRoots,
-    loadedSkillPartCount: details.loadedSkillPartCount,
     inputSummary: summarizeToolInput(input.toolInput),
     runElapsedMs: readRunElapsedMs(input.run),
   }, 'warn')
@@ -243,16 +223,9 @@ function toWorkspacePathFailureDetails(error: unknown): {
   workspaceRoot?: string
   allowedRoots?: string[]
   allowedRootCount?: number
-  allowedSkillRoots?: string[]
-  loadedSkillPartCount?: number
 } {
   if (!(error instanceof WorkspacePathError)) {
     return {}
-  }
-
-  const metadata = error as WorkspacePathError & {
-    allowedSkillRoots?: unknown
-    loadedSkillPartCount?: unknown
   }
 
   return {
@@ -261,12 +234,6 @@ function toWorkspacePathFailureDetails(error: unknown): {
     workspaceRoot: error.workspaceRoot,
     allowedRoots: error.allowedRoots,
     allowedRootCount: error.allowedRoots.length,
-    allowedSkillRoots: Array.isArray(metadata.allowedSkillRoots)
-      ? metadata.allowedSkillRoots.filter((value): value is string => typeof value === 'string')
-      : undefined,
-    loadedSkillPartCount: typeof metadata.loadedSkillPartCount === 'number'
-      ? metadata.loadedSkillPartCount
-      : undefined,
   }
 }
 

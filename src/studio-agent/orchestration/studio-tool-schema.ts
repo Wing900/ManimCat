@@ -91,14 +91,6 @@ const TOOL_PARAMETER_SCHEMAS: Record<string, Record<string, unknown>> = {
     required: ['question'],
     additionalProperties: false
   },
-  skill: {
-    type: 'object',
-    properties: {
-      name: { type: 'string', description: 'Local Studio skill name.' }
-    },
-    required: ['name'],
-    additionalProperties: false
-  },
   'static-check': {
     type: 'object',
     properties: {

@@ -53,13 +53,3 @@ export interface StudioToolDefinition<TInput = unknown> {
   requiresTask: boolean
   execute: (input: TInput, context: StudioToolContext) => Promise<StudioToolResult>
 }
-
-export interface StudioSkillDefinition {
-  name: string
-  description: string
-  directory: string
-  entryFile: string
-  manifestPath?: string
-  preferredAgent?: StudioAgentType
-  allowedTools?: string[]
-}

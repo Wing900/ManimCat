@@ -6,7 +6,6 @@ import type {
   StudioPartStore,
   StudioRun,
   StudioRunStore,
-  StudioRuntimeTurnPlan,
   StudioSession,
   StudioSessionEventStore,
   StudioSessionStore,
@@ -18,14 +17,7 @@ import type {
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioSessionRunner } from './execution/session-runner/session-runner'
 import type { StudioBackgroundRunHandle } from './execution/session-runner/dependency-center'
-import type { StudioTurnPlanResolver } from './planning/turn-plan-resolver'
-import type { ActiveSkillStore } from '../skills/state/skill-state-store'
-import type {
-  StudioResolvedSkill,
-  StudioSkillDiscoveryEntry,
-  StudioSkillUsageSummary,
-  StudioRunExecutionResult
-} from './tools/tool-runtime-context'
+import type { StudioRunExecutionResult } from './tools/tool-runtime-context'
 
 interface StudioBuilderRuntimeOptions {
   registry: StudioToolRegistry
@@ -38,18 +30,6 @@ interface StudioBuilderRuntimeOptions {
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
   eventBus?: StudioEventBus
-  resolveTurnPlan: StudioTurnPlanResolver
-  resolveSkill?: (name: string, session: StudioSession) => Promise<StudioResolvedSkill>
-  listSkills?: (session: StudioSession) => Promise<StudioSkillDiscoveryEntry[]>
-  listSkillSummaries?: (session: StudioSession) => Promise<StudioSkillUsageSummary[]>
-  recordSkillUsage?: (input: {
-    session: StudioSession
-    skillName: string
-    reason?: string
-    takeaway?: string
-    stillRelevant?: boolean
-  }) => Promise<void>
-  activeSkillStore?: ActiveSkillStore
 }
 
 export class StudioBuilderRuntime {
@@ -67,12 +47,6 @@ export class StudioBuilderRuntime {
       workStore: options.workStore,
       workResultStore: options.workResultStore,
       eventBus: options.eventBus,
-      resolveTurnPlan: options.resolveTurnPlan,
-      resolveSkill: options.resolveSkill,
-      listSkills: options.listSkills,
-      listSkillSummaries: options.listSkillSummaries,
-      recordSkillUsage: options.recordSkillUsage,
-      activeSkillStore: options.activeSkillStore
     })
   }
 
@@ -82,25 +56,6 @@ export class StudioBuilderRuntime {
 
   createRun(session: StudioSession, inputText: string, metadata?: Record<string, unknown>): StudioRun {
     return this.runner.createRun(session, inputText, metadata)
-  }
-
-  async executePlan(input: {
-    projectId: string
-    session: StudioSession
-    run: StudioRun
-    assistantMessage: StudioAssistantMessage
-    plan: StudioRuntimeTurnPlan
-    customApiConfig?: CustomApiConfig
-    toolChoice?: StudioToolChoice
-  }): Promise<void> {
-    await this.runner.runWithPlan({
-      projectId: input.projectId,
-      session: input.session,
-      inputText: input.run.inputText,
-      plan: input.plan,
-      customApiConfig: input.customApiConfig,
-      toolChoice: input.toolChoice
-    })
   }
 
   async run(input: {

@@ -1,7 +1,6 @@
 import type { StudioAssistantMessage } from '../../domain/types'
 import type OpenAI from 'openai'
 import { createCustomOpenAIClient } from '../../../services/openai-client-factory'
-import { logPlotStudioSkillTrace } from '../../observability/plot-studio-skill-trace'
 import { logTimeline } from '../../observability/plot-studio-timing'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
 import { buildStudioAgentSystemPrompt } from '../studio-agent-prompt'
@@ -30,39 +29,6 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
 
   const tools = buildStudioChatTools(input.registry, input.session.agentType, input.session.studioKind)
   const storedMessages = await input.messageStore.listBySessionId(input.session.id)
-  logPlotStudioSkillTrace(input.session.studioKind, 'skill.discovery.requested', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    agentType: input.session.agentType,
-    studioKind: input.session.studioKind,
-  })
-  const [availableSkills, skillSummaries] = await Promise.all([
-    input.listSkills?.(input.session) ?? Promise.resolve([]),
-    input.listSkillSummaries?.(input.session) ?? Promise.resolve([])
-  ])
-  const activeSkills = input.activeSkillStore?.get(input.session.id) ?? []
-  logPlotStudioSkillTrace(input.session.studioKind, 'skill.discovery.completed', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    discoveredSkillCount: availableSkills.length,
-    discoveredSkillNames: availableSkills.map((skill) => skill.name),
-  })
-  logPlotStudioSkillTrace(input.session.studioKind, 'skill.summary.completed', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    summaryCount: skillSummaries.length,
-    summarySkillNames: skillSummaries.map((summary) => summary.skillName),
-  })
-  logPlotStudioSkillTrace(input.session.studioKind, 'skill.prompt.catalog', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    discoveredSkillCount: availableSkills.length,
-  })
-  logPlotStudioSkillTrace(input.session.studioKind, 'skill.prompt.state', {
-    sessionId: input.session.id,
-    runId: input.run.id,
-    summaryCount: skillSummaries.length,
-  })
 
   return {
     client,
@@ -71,10 +37,7 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
     conversation: buildStudioConversationMessages({ messages: storedMessages }),
     systemPrompt: buildStudioAgentSystemPrompt({
       session: input.session,
-      workContext: input.workContext,
-      availableSkills,
-      skillSummaries,
-      activeSkills
+      workContext: input.workContext
     }),
     maxSteps: input.maxSteps ?? readStudioRunAutonomyMetadata(input.run.metadata).maxSteps ?? DEFAULT_MAX_STEPS,
     toolChoice: input.toolChoice ?? 'auto',

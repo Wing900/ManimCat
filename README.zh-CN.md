@@ -201,7 +201,7 @@ flowchart LR
     A1 --> R1[Studio Runtime Service]
     R1 --> K1[Manim Studio / Plot Studio]
     K1 --> G1[Builder、Designer、Reviewer]
-    G1 --> T1[工具、skills、渲染 / 审查动作]
+    G1 --> T1[工具、渲染 / 审查动作]
     R1 --> S2[Session / Run / Task / Work 状态]
     R1 --> E1[SSE 实时事件 + 权限]
     S2 --> S1
