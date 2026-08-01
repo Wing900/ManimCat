@@ -313,13 +313,7 @@ If this project gave you useful ideas or helped you in some way, that is already
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=Wing900%2FManimCat&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Wing900/ManimCat&type=date&theme=dark&legend=top-left&sealed_token=GGEf04-qr6F-WuM0ip7xGK6DuxuUR9KFivk3azhLWF6IpVkpc6qlLMrWnu5sttl5YtiDodBk7IgWuvQpSbnatLN-gYvnETTYT18w5929zEYbC10zd6ODMw" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Wing900/ManimCat&type=date&legend=top-left&sealed_token=GGEf04-qr6F-WuM0ip7xGK6DuxuUR9KFivk3azhLWF6IpVkpc6qlLMrWnu5sttl5YtiDodBk7IgWuvQpSbnatLN-gYvnETTYT18w5929zEYbC10zd6ODMw" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Wing900/ManimCat&type=date&legend=top-left&sealed_token=GGEf04-qr6F-WuM0ip7xGK6DuxuUR9KFivk3azhLWF6IpVkpc6qlLMrWnu5sttl5YtiDodBk7IgWuvQpSbnatLN-gYvnETTYT18w5929zEYbC10zd6ODMw" />
- </picture>
-</a>
+[![Star History Chart](https://api.star-history.com/chart?repos=Wing900/ManimCat&type=date&legend=top-left&sealed_token=5HM5-kD8RiDHmHWp9CCFGIg5-i0nBlMtWYcivt97_UtbuZkWKQ5jUmGniB7XQtOVoQonrrp-S8r_BiwgX_xEOp52vyn3iqaVeTOVVYbrv_58rFrbAN8fwQ)](https://www.star-history.com/?repos=Wing900%2FManimCat&type=date&legend=top-left)
 
 ## Acknowledgements
 
