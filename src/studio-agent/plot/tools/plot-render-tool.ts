@@ -3,15 +3,21 @@ import { createStudioWorkResult } from '../../domain/factories'
 import type { StudioFileAttachment, StudioToolDefinition, StudioToolResult, StudioWorkResult } from '../../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
 import { createWorkAndTask, publishWorkUpdated, updateTaskAndWork } from '../../works/work-lifecycle'
-import { executeMatplotlibRender } from '../../../services/plot-runtime/matplotlib-executor'
 import { isStudioRunCancelledError } from '../../runtime/execution/run-cancellation'
+import {
+  createUnconfiguredPlotRenderPort,
+  type PlotRenderExecution,
+  type PlotRenderPort
+} from '../plot-render-port'
 
 interface PlotRenderToolInput {
   concept: string
   code: string
 }
 
-export function createPlotStudioRenderTool(): StudioToolDefinition<PlotRenderToolInput> {
+export function createPlotStudioRenderTool(
+  renderPort: PlotRenderPort = createUnconfiguredPlotRenderPort()
+): StudioToolDefinition<PlotRenderToolInput> {
   return {
     name: 'render',
     description: 'Execute matplotlib code and persist static plot outputs for preview.',
@@ -20,13 +26,14 @@ export function createPlotStudioRenderTool(): StudioToolDefinition<PlotRenderToo
     allowedAgents: ['builder'],
     allowedStudioKinds: ['plot'],
     requiresTask: true,
-    execute: async (input, context) => executePlotRenderTool(input, context as StudioRuntimeBackedToolContext)
+    execute: async (input, context) => executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
   }
 }
 
 async function executePlotRenderTool(
   input: PlotRenderToolInput,
-  context: StudioRuntimeBackedToolContext
+  context: StudioRuntimeBackedToolContext,
+  renderPort: PlotRenderPort
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
@@ -74,7 +81,7 @@ async function executePlotRenderTool(
   })
 
   try {
-    const execution = await executeMatplotlibRender({
+    const execution = await renderPort.execute({
       workspaceDirectory: context.session.directory,
       renderId,
       code: input.code,
@@ -212,7 +219,7 @@ async function persistWorkResult(input: {
   renderId: string
   code: string
   codeLanguage: 'python'
-  execution: Awaited<ReturnType<typeof executeMatplotlibRender>>
+  execution: PlotRenderExecution
 }): Promise<StudioWorkResult | null> {
   if (!input.workId || !input.context.workResultStore) {
     return null

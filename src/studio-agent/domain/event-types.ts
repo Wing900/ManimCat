@@ -44,14 +44,6 @@ export interface StudioToolResultEvent {
   error?: string
 }
 
-export interface StudioQuestionRequestedEvent {
-  type: 'question_requested'
-  sessionId: string
-  runId: string
-  question: string
-  details?: string
-}
-
 export interface StudioTaskEvent {
   type: 'task_updated'
   sessionId: string
@@ -90,7 +82,6 @@ export type StudioAgentEvent =
   | StudioToolInputStartEvent
   | StudioToolCallEvent
   | StudioToolResultEvent
-  | StudioQuestionRequestedEvent
   | StudioTaskEvent
   | StudioWorkEvent
   | StudioWorkResultEvent

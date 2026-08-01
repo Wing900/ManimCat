@@ -4,7 +4,6 @@ import { createStudioEditTool } from '../tools/edit-tool'
 import { createStudioGlobTool } from '../tools/glob-tool'
 import { createStudioGrepTool } from '../tools/grep-tool'
 import { createStudioLsTool } from '../tools/ls-tool'
-import { createStudioQuestionTool } from '../tools/question-tool'
 import { createStudioReadTool } from '../tools/read-tool'
 import { createStudioStaticCheckTool } from '../tools/static-check-tool'
 import { createStudioWriteTool } from '../tools/write-tool'
@@ -25,7 +24,6 @@ export function createSharedStudioTools(): StudioToolDefinition[] {
     createStudioWriteTool() as StudioToolDefinition,
     createStudioEditTool() as StudioToolDefinition,
     createStudioApplyPatchTool() as StudioToolDefinition,
-    createStudioQuestionTool() as StudioToolDefinition,
     createStudioStaticCheckTool() as StudioToolDefinition,
   ]
 }

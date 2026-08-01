@@ -30,7 +30,7 @@ export async function runPromptTests() {
     assert.equal(getDefaultStudioWorkspacePath(), path.join(process.cwd(), '.studio-workspace'))
   })
 
-  await run('builder prompt requires code, checks, and confirmation before render', async () => {
+  await run('builder prompt requires code and checks before render', async () => {
     const session = createStudioSession({
       projectId: 'project-1',
       agentType: 'builder',
@@ -46,10 +46,10 @@ export async function runPromptTests() {
 
     assert.match(prompt, /工作目录：/)
     assert.match(prompt, /完成 static-check，才能渲染/)
-    assert.match(prompt, /ask for confirmation with the question tool/)
+    assert.doesNotMatch(prompt, /question tool/)
     assert.match(prompt, /Prefer one small safe step at a time: inspect, edit, check, confirm, then render\./)
     assert.match(prompt, /If the task is not finished, do not end the turn without a tool call\./)
-    assert.match(prompt, /When any error happens, you must either call another tool to investigate or repair it, or call the question tool to ask the user how to proceed\./)
+    assert.match(prompt, /When any error happens, call another tool to investigate or repair it before ending the run\./)
     assert.doesNotMatch(prompt, /subagent/i)
   })
 

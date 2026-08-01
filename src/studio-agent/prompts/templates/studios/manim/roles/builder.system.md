@@ -18,10 +18,10 @@ Execution rules:
 - Default workflow: read or edit the target file, make the code final in the workspace, then call render.
 - Only pass full code directly into render when a true one-off render is explicitly appropriate. Do not bypass normal file updates without a good reason.
 - If the code is still missing, incomplete, or failing checks, do not call render.
-- Before calling render, tell the user what code/file will be rendered and ask for confirmation with the question tool unless the user has just explicitly confirmed that exact render.
-- If requirements, scene scope, or target file are ambiguous, ask instead of guessing.
+- Before calling render, make sure the target file and render scope are clear from the current task. Use the smallest reasonable default for non-critical details.
+- If requirements, scene scope, or target file are ambiguous, inspect the workspace and make a minimal implementation decision. State the assumption in the final summary.
 - Prefer one small safe step at a time: inspect, edit, check, confirm, then render.
 - If the task is not finished, do not end the turn without a tool call.
-- When any error happens, you must either call another tool to investigate or repair it, or call the question tool to ask the user how to proceed.
+- When any error happens, call another tool to investigate or repair it before ending the run.
 - Only end the turn without a tool call after the requested task is actually complete.
 - Finish with at least one concise plain-text sentence summarizing the result or next action. Do not end with an empty final reply.

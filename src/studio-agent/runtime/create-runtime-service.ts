@@ -12,8 +12,20 @@ import type {
 import { InMemoryStudioEventBus, type StudioEventListener } from '../events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
 import { registerManimStudioTools } from '../manim/register-manim-tools'
+import {
+  createUnconfiguredManimRenderPort,
+  type ManimRenderPort,
+} from '../manim/manim-render-port'
 import type { StudioPersistence } from '../persistence/studio-persistence'
 import { registerPlotStudioTools } from '../plot/register-plot-tools'
+import {
+  createUnconfiguredPlotRenderPort,
+  type PlotRenderPort,
+} from '../plot/plot-render-port'
+import {
+  createEmptyStudioRenderJobPort,
+  type StudioRenderJobPort,
+} from '../render/render-job-port'
 import { registerSharedStudioTools } from '../shared/register-shared-tools'
 import {
   buildStudioContinueInputText,
@@ -40,6 +52,9 @@ interface CreateStudioRuntimeServiceInput {
   blobStore: StudioBlobStore
   registry?: StudioToolRegistry
   eventBus?: SubscribableStudioEventBus
+  manimRenderPort?: ManimRenderPort
+  plotRenderPort?: PlotRenderPort
+  renderJobPort?: StudioRenderJobPort
 }
 
 export interface StudioRuntimeService {
@@ -103,6 +118,7 @@ export interface StudioRuntimeService {
 export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInput): StudioRuntimeService {
   const registry = input.registry ?? new StudioToolRegistry()
   const eventBus: SubscribableStudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
+  const renderJobPort = input.renderJobPort ?? createEmptyStudioRenderJobPort()
   const externalEventLog: StudioExternalEvent[] = []
   const activeSessionRuns = new Map<string, string>()
   const activeRunHandles = new Map<string, {
@@ -111,8 +127,8 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   }>()
 
   registerSharedStudioTools(registry)
-  registerManimStudioTools(registry)
-  registerPlotStudioTools(registry)
+  registerManimStudioTools(registry, input.manimRenderPort ?? createUnconfiguredManimRenderPort())
+  registerPlotStudioTools(registry, input.plotRenderPort ?? createUnconfiguredPlotRenderPort())
 
 
   const runtime = new StudioBuilderRuntime({
@@ -272,6 +288,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
           task,
           persistence: input.persistence,
           eventBus,
+          renderJobPort,
           blobStore: input.blobStore,
         })
       }
@@ -387,6 +404,7 @@ async function syncTaskState(input: {
   task: StudioTask
   persistence: StudioPersistence
   eventBus: StudioEventBus
+  renderJobPort: StudioRenderJobPort
   blobStore: StudioBlobStore
 }): Promise<void> {
   if (input.task.type !== 'render') {
@@ -403,6 +421,7 @@ async function syncTaskState(input: {
     messageStore: input.persistence.messageStore,
     partStore: input.persistence.partStore,
     eventBus: input.eventBus,
+    renderJobPort: input.renderJobPort,
     blobStore: input.blobStore,
   })
 }

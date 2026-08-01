@@ -82,15 +82,6 @@ const TOOL_PARAMETER_SCHEMAS: Record<string, Record<string, unknown>> = {
     required: ['path', 'patches'],
     additionalProperties: false
   },
-  question: {
-    type: 'object',
-    properties: {
-      question: { type: 'string', description: 'Direct clarification question for the user.' },
-      details: { type: 'string', description: 'Optional context explaining why the question is needed.' }
-    },
-    required: ['question'],
-    additionalProperties: false
-  },
   'static-check': {
     type: 'object',
     properties: {

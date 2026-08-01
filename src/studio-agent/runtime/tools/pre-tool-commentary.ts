@@ -24,8 +24,6 @@ export function buildStudioPreToolCommentary(input: {
       return '我准备启动一个子任务处理这部分工作。'
     case 'render':
       return '我准备提交渲染任务。'
-    case 'question':
-      return '我先确认一个关键信息。'
     default:
       return `我先执行 ${input.toolName}。`
   }

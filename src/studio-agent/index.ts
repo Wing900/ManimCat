@@ -10,9 +10,11 @@ export * from './tools/ls-tool'
 export * from './tools/write-tool'
 export * from './tools/edit-tool'
 export * from './tools/apply-patch-tool'
-export * from './tools/question-tool'
 export * from './tools/static-check-tool'
 export * from './tools/render-tool'
+export * from './manim/manim-render-port'
+export * from './plot/plot-render-port'
+export * from './render/render-job-port'
 export * from './tools/workspace-paths'
 export * from './tools/workspace-edits'
 export * from './review/reviewer-report'
@@ -63,8 +65,5 @@ export * from './orchestration/studio-tool-schema'
 export * from './orchestration/openai-tool-loop/controller'
 export * from './orchestration/openai-tool-loop/types'
 
-export * from './runtime/runtime-service'
-
-
-
-
+export * from './modes/studio-mode'
+export * from './documentation/studio-documentation-context'

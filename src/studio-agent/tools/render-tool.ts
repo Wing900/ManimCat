@@ -1,11 +1,12 @@
-import { v4 as uuidv4 } from 'uuid'
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import type { CustomApiConfig, OutputMode, VideoQuality } from '../../types'
-import { videoQueue } from '../../config/bull'
-import { storeJobStage } from '../../services/job-store'
+import {
+  createManimRenderJobId,
+  createUnconfiguredManimRenderPort,
+  type ManimRenderPort
+} from '../manim/manim-render-port'
 import { createWorkAndTask } from '../works/work-lifecycle'
-import { resolveJobTimeoutMs } from '../../utils/job-timeout'
 
 interface RenderToolInput {
   concept: string
@@ -15,7 +16,9 @@ interface RenderToolInput {
   customApiConfig?: CustomApiConfig
 }
 
-export function createStudioRenderTool(): StudioToolDefinition<RenderToolInput> {
+export function createStudioRenderTool(
+  renderPort: ManimRenderPort = createUnconfiguredManimRenderPort()
+): StudioToolDefinition<RenderToolInput> {
   return {
     name: 'render',
     description: 'Create a Manim render task backed by the existing queue.',
@@ -24,39 +27,32 @@ export function createStudioRenderTool(): StudioToolDefinition<RenderToolInput> 
     allowedAgents: ['builder'],
     allowedStudioKinds: ['manim'],
     requiresTask: true,
-    execute: async (input, context) => executeRenderTool(input, context as StudioRuntimeBackedToolContext)
+    execute: async (input, context) => executeRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
   }
 }
 
 async function executeRenderTool(
   input: RenderToolInput,
-  context: StudioRuntimeBackedToolContext
+  context: StudioRuntimeBackedToolContext,
+  renderPort: ManimRenderPort
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
   }
 
-  const jobId = uuidv4()
+  const jobId = createManimRenderJobId()
   const outputMode = input.outputMode ?? 'video'
   const quality = input.quality ?? 'medium'
 
-  await storeJobStage(jobId, 'rendering')
-  await videoQueue.add(
-    {
-      jobId,
-      concept: input.concept,
-      outputMode,
-      quality,
-      preGeneratedCode: input.code,
-      customApiConfig: input.customApiConfig,
-      timestamp: new Date().toISOString(),
-      workspaceDirectory: context.session.directory
-    },
-    {
-      jobId,
-      timeout: resolveJobTimeoutMs()
-    }
-  )
+  await renderPort.submit({
+    jobId,
+    concept: input.concept,
+    code: input.code,
+    outputMode,
+    quality,
+    customApiConfig: input.customApiConfig,
+    workspaceDirectory: context.session.directory
+  })
 
   const lifecycleMetadata = {
     concept: input.concept,

@@ -37,7 +37,8 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
     conversation: buildStudioConversationMessages({ messages: storedMessages }),
     systemPrompt: buildStudioAgentSystemPrompt({
       session: input.session,
-      workContext: input.workContext
+      workContext: input.workContext,
+      documentationContext: input.documentationContext
     }),
     maxSteps: input.maxSteps ?? readStudioRunAutonomyMetadata(input.run.metadata).maxSteps ?? DEFAULT_MAX_STEPS,
     toolChoice: input.toolChoice ?? 'auto',

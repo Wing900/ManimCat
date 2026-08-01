@@ -16,7 +16,6 @@ export type StudioToolCategory =
   | 'review'
   | 'render'
   | 'external'
-  | 'question'
 
 export interface StudioToolResult {
   title: string

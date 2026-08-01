@@ -28,7 +28,7 @@ const MANIM_POLICY: StudioExecutionPolicy = {
     'Manim Studio 用于场景动画和渲染工作流。',
     '按场景、时间轴、转场、素材、渲染成本来思考。',
     '渲染前确保目标 Manim 代码已存在于工作目录，或已在 render 请求中准备好。',
-    '如果场景流程、素材、渲染模式或目标文件不明确，先问再渲染。',
+    '缺少非关键参数时采用最小合理默认值，保持工作流连续。',
   ],
   builderDirectToolText: (toolName) => `先使用 ${toolName} 工具。`,
   builderNoPlanText: (explicitCommand) => (
@@ -54,7 +54,7 @@ const PLOT_POLICY: StudioExecutionPolicy = {
     'Plot Studio 用于静态绘图和图表生成工作流。',
     '不要在这里规划动画时间轴、场景编排或动效设计。',
     '渲染前确保目标 matplotlib 代码已存在于工作目录，或已在 render 请求中准备好。',
-    '如果图表类型、数据源、子图布局、坐标轴、标签或输出目标不明确，先问再渲染。',
+    '缺少非关键参数时采用最小合理默认值，保持工作流连续。',
   ],
   builderDirectToolText: (toolName) => `先使用 ${toolName} 工具。`,
   builderNoPlanText: (explicitCommand) => (

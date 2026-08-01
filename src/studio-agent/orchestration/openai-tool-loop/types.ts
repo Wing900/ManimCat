@@ -41,6 +41,7 @@ export interface StudioOpenAIToolLoopInput {
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
   workContext?: StudioWorkContext
+  documentationContext?: string
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig: CustomApiConfig

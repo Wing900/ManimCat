@@ -1,11 +1,13 @@
 import { runPromptTests } from './prompt.test'
 import { runLoopTests } from './loop.test'
 import { runReasoningContentTests } from './reasoning-content.test'
+import { runModeAndToolTests } from './mode-and-tools.test'
 
 async function main() {
   await runPromptTests()
   await runLoopTests()
   await runReasoningContentTests()
+  await runModeAndToolTests()
   console.log('All studio-agent tests passed')
 }
 

@@ -91,17 +91,6 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         }
       }
 
-    case 'question_requested':
-      return {
-        type: 'question.requested',
-        properties: {
-          sessionId: event.sessionId,
-          runId: event.runId,
-          question: event.question,
-          details: event.details
-        }
-      }
-
     case 'run_updated':
       return {
         type: 'run.updated',

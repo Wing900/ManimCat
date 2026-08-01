@@ -10,9 +10,9 @@ import type {
   StudioWorkStore
 } from '../../domain/types'
 import type { StudioBlobStore } from '../../storage/studio-blob-store'
+import type { StudioRenderJobPort } from '../../render/render-job-port'
 import { publishRenderFailureFeedback } from '../../works/render-failure-feedback'
 import { syncRenderWorkFromTask } from '../../works/render-work-sync'
-import { getBullJobStatus, getJobResult, getJobStage } from '../../../services/job-store'
 import { syncRenderTaskSessionEvents } from './session-event-inbox'
 
 interface SyncStudioRenderTaskInput {
@@ -25,6 +25,7 @@ interface SyncStudioRenderTaskInput {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
   eventBus: StudioEventBus
+  renderJobPort: StudioRenderJobPort
   blobStore?: StudioBlobStore
 }
 
@@ -40,9 +41,9 @@ export async function syncStudioRenderTask(input: SyncStudioRenderTaskInput): Pr
   }
 
   const [bullStatus, result, stage] = await Promise.all([
-    getBullJobStatus(jobId),
-    getJobResult(jobId),
-    getJobStage(jobId)
+    input.renderJobPort.getStatus(jobId),
+    input.renderJobPort.getResult(jobId),
+    input.renderJobPort.getStage(jobId)
   ])
 
   if (bullStatus === 'active') {
