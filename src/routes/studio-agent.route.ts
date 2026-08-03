@@ -16,6 +16,7 @@ import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/de
 import { createLogger } from '../utils/logger'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { logPlotStudioTiming, logTimeline, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
+import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
 
 const router = express.Router()
 const logger = createLogger('StudioAgentRoute')
@@ -48,27 +49,16 @@ router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, r
 }))
 
 router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const session = await studioRuntime.getSession(req.params.sessionId)
-  if (!session) {
+  const snapshot = await studioRuntime.getSessionSnapshot(req.params.sessionId)
+  if (!snapshot) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
 
-  await studioRuntime.syncSession(session.id)
-
-  const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
-    studioRuntime.messageStore.listBySessionId(session.id),
-    studioRuntime.runStore.listBySessionId(session.id),
-    studioRuntime.sessionEventStore.listBySessionId(session.id),
-    studioRuntime.taskStore.listBySessionId(session.id),
-    studioRuntime.workStore.listBySessionId(session.id),
-    studioRuntime.listWorkResultsBySessionId(session.id)
-  ])
-
-  sendStudioSuccess(res, { session, messages, runs, sessionEvents, tasks, works, workResults })
+  sendStudioSuccess(res, snapshot)
 }))
 
 router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
-  const run = await studioRuntime.runStore.getById(req.params.runId)
+  const run = await studioRuntime.getRun(req.params.runId)
   if (!run) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Run not found', { runId: req.params.runId })
   }
@@ -77,32 +67,21 @@ router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req,
 }))
 
 router.get('/studio-agent/tasks/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const session = await studioRuntime.getSession(req.params.sessionId)
-  if (!session) {
+  const tasks = await studioRuntime.getSessionTasks(req.params.sessionId)
+  if (!tasks) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
 
-  await studioRuntime.syncSession(session.id)
-  const tasks = await studioRuntime.taskStore.listBySessionId(session.id)
-
-  sendStudioSuccess(res, { sessionId: session.id, tasks })
+  sendStudioSuccess(res, { sessionId: req.params.sessionId, tasks })
 }))
 
 router.get('/studio-agent/works/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const session = await studioRuntime.getSession(req.params.sessionId)
-  if (!session) {
+  const snapshot = await studioRuntime.getSessionWorkSnapshot(req.params.sessionId)
+  if (!snapshot) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
 
-  await studioRuntime.syncSession(session.id)
-
-  const [sessionEvents, works, workResults] = await Promise.all([
-    studioRuntime.sessionEventStore.listBySessionId(session.id),
-    studioRuntime.workStore.listBySessionId(session.id),
-    studioRuntime.listWorkResultsBySessionId(session.id)
-  ])
-
-  sendStudioSuccess(res, { sessionId: session.id, sessionEvents, works, workResults })
+  sendStudioSuccess(res, snapshot)
 }))
 
 router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res) => {
@@ -205,27 +184,16 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
   })
   logTimeline(session.studioKind, 'run.accepted', started.run.id)
 
-  await studioRuntime.syncSession(session.id)
-
-  const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
-    studioRuntime.messageStore.listBySessionId(session.id),
-    studioRuntime.runStore.listBySessionId(session.id),
-    studioRuntime.sessionEventStore.listBySessionId(session.id),
-    studioRuntime.taskStore.listBySessionId(session.id),
-    studioRuntime.workStore.listBySessionId(session.id),
-    studioRuntime.listWorkResultsBySessionId(session.id)
-  ])
+  const snapshot = await studioRuntime.getSessionSnapshot(session.id)
+  if (!snapshot) {
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: session.id })
+  }
 
   sendStudioSuccess(res, {
     run: started.run,
     assistantMessage: started.assistantMessage,
     text: '',
-    messages,
-    runs,
-    sessionEvents,
-    tasks,
-    works,
-    workResults
+    ...withoutSession(snapshot)
   }, 202)
 }))
 
@@ -275,27 +243,16 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
   const continuedSession = continued.session
   const continuedAssistantMessage = continued.assistantMessage
 
-  await studioRuntime.syncSession(continuedSession.id)
-
-  const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
-    studioRuntime.messageStore.listBySessionId(continuedSession.id),
-    studioRuntime.runStore.listBySessionId(continuedSession.id),
-    studioRuntime.sessionEventStore.listBySessionId(continuedSession.id),
-    studioRuntime.taskStore.listBySessionId(continuedSession.id),
-    studioRuntime.workStore.listBySessionId(continuedSession.id),
-    studioRuntime.listWorkResultsBySessionId(continuedSession.id)
-  ])
+  const snapshot = await studioRuntime.getSessionSnapshot(continuedSession.id)
+  if (!snapshot) {
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: continuedSession.id })
+  }
 
   sendStudioSuccess(res, {
     run: continued.run,
     assistantMessage: continuedAssistantMessage,
     text: '',
-    messages,
-    runs,
-    sessionEvents,
-    tasks,
-    works,
-    workResults
+    ...withoutSession(snapshot)
   }, 202)
 }))
 
@@ -325,3 +282,8 @@ router.post('/studio-agent/runs/:runId/cancel', authMiddleware, asyncHandler(asy
 }))
 
 export default router
+
+function withoutSession(snapshot: StudioSessionSnapshot): Omit<StudioSessionSnapshot, 'session'> {
+  const { session: _session, ...rest } = snapshot
+  return rest
+}

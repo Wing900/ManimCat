@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict'
 import {
   createStudioAssistantMessage,
+  createInMemoryStudioPersistence,
+  createLocalStudioBlobStore,
+  createLocalStudioWorkspaceProvider,
   createStudioRenderTool,
   createStudioRun,
   createStudioSession,
+  createStudioRuntimeService,
   defaultRulesForLevel,
   InMemoryStudioEventBus,
   InMemoryStudioTaskStore,
@@ -13,7 +17,8 @@ import {
   type PlotRenderExecution,
   type StudioRuntimeBackedToolContext
 } from '../../index'
-import { run } from './factories'
+import { createWorkspace, run } from './factories'
+import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 
@@ -49,6 +54,39 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
 }
 
 export async function runModeAndToolTests(): Promise<void> {
+  await run('runtime owns session snapshot assembly', async () => {
+    const service = createStudioRuntimeService({
+      persistence: createInMemoryStudioPersistence(),
+      workspaceProvider: createLocalStudioWorkspaceProvider(),
+      blobStore: createLocalStudioBlobStore()
+    })
+    const session = await service.createSession({
+      projectId: 'project-1',
+      directory: await createWorkspace(),
+      useDedicatedWorkspace: false,
+      studioKind: 'plot',
+      agentType: 'builder'
+    })
+
+    const snapshot = await service.getSessionSnapshot(session.id)
+    assert.ok(snapshot)
+    assert.equal(snapshot.session.id, session.id)
+    assert.deepEqual(snapshot.tasks, [])
+    assert.deepEqual(await service.getSessionTasks(session.id), [])
+    assert.deepEqual((await service.getSessionWorkSnapshot(session.id))?.works, [])
+    assert.equal(await service.getSessionSnapshot('missing-session'), null)
+    assert.equal(await service.getRun('missing-run'), null)
+  })
+
+  await run('studio modes own their automatic render policy', async () => {
+    assert.deepEqual(getStudioModeDefinition('manim').autoRenderAfterTools, [])
+    assert.deepEqual(getStudioModeDefinition('plot').autoRenderAfterTools, [
+      'write',
+      'edit',
+      'apply_patch'
+    ])
+  })
+
   await run('shared tool set excludes question interaction', async () => {
     const toolNames = createSharedStudioTools().map((tool) => tool.name)
     assert.deepEqual(toolNames, [

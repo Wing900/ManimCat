@@ -11,6 +11,7 @@ export interface StudioModeDefinition {
   codeLanguage: StudioCodeLanguage
   outputModes: readonly OutputMode[]
   runtimeSummary: string
+  autoRenderAfterTools: readonly string[]
 }
 
 const STUDIO_MODES: Record<StudioKind, StudioModeDefinition> = {
@@ -20,7 +21,8 @@ const STUDIO_MODES: Record<StudioKind, StudioModeDefinition> = {
     documentationKey: 'manim',
     codeLanguage: 'manim-python',
     outputModes: ['video', 'image'],
-    runtimeSummary: '生成、检查、渲染和修复 Manim Python。'
+    runtimeSummary: '生成、检查、渲染和修复 Manim Python。',
+    autoRenderAfterTools: []
   },
   plot: {
     kind: 'plot',
@@ -28,7 +30,8 @@ const STUDIO_MODES: Record<StudioKind, StudioModeDefinition> = {
     documentationKey: 'matplotlib',
     codeLanguage: 'python',
     outputModes: ['image'],
-    runtimeSummary: '生成、检查、渲染和修复 matplotlib Python。'
+    runtimeSummary: '生成、检查、渲染和修复 matplotlib Python。',
+    autoRenderAfterTools: ['write', 'edit', 'apply_patch']
   }
 }
 

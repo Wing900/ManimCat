@@ -5,6 +5,7 @@ import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellat
 import { buildStudioPreToolCommentary } from '../../runtime/tools/pre-tool-commentary'
 import { createStudioToolCallExecutionEvents } from '../../runtime/tools/tool-call-adapter'
 import { logPlotStudioTiming, logTimeline, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { getStudioModeDefinition } from '../../modes/studio-mode'
 import type {
   StudioChatToolCall,
   StudioLoopAutonomy,
@@ -12,8 +13,6 @@ import type {
   StudioLoopStepResult,
   StudioOpenAIToolLoopInput
 } from './types'
-
-const AUTO_RENDER_TOOLS = new Set(['write', 'edit', 'apply_patch'])
 
 export async function* executeStudioToolCallsForStep(
   input: StudioOpenAIToolLoopInput,
@@ -45,12 +44,9 @@ export async function* executeStudioToolCallsForStep(
       return { failureMessage: toolResult.value.failureMessage }
     }
 
-    // Auto-render for plot studio after write/edit/apply_patch
-    if (
-      input.session.studioKind === 'plot' &&
-      AUTO_RENDER_TOOLS.has(toolCall.function.name) &&
-      !toolResult.value.failureMessage
-    ) {
+    // Apply the mode-declared automatic render policy after successful edits.
+    const mode = getStudioModeDefinition(input.session.studioKind)
+    if (mode.autoRenderAfterTools.includes(toolCall.function.name) && !toolResult.value.failureMessage) {
       const autoRender = executeAutoRender(input, runtime, toolCall, autonomy)
       let autoResult: IteratorResult<StudioProcessorStreamEvent, { transcript: string; failureMessage: string | null }>
       while (true) {

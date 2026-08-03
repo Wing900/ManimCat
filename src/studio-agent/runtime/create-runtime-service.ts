@@ -4,6 +4,8 @@ import type {
   StudioEventBus,
   StudioKind,
   StudioSession,
+  StudioSessionSnapshot,
+  StudioSessionWorkSnapshot,
   StudioTask,
   StudioToolChoice,
   StudioWork,
@@ -58,19 +60,6 @@ interface CreateStudioRuntimeServiceInput {
 }
 
 export interface StudioRuntimeService {
-  registry: StudioToolRegistry
-  runtime: StudioBuilderRuntime
-  workspaceProvider: StudioWorkspaceProvider
-  blobStore: StudioBlobStore
-  sessionStore: StudioPersistence['sessionStore']
-  messageStore: StudioPersistence['messageStore']
-  partStore: StudioPersistence['partStore']
-  runStore: StudioPersistence['runStore']
-  taskStore: StudioPersistence['taskStore']
-  workStore: StudioPersistence['workStore']
-  workResultStore: StudioPersistence['workResultStore']
-  sessionEventStore: StudioPersistence['sessionEventStore']
-  eventBus: StudioEventBus
   createSession: (sessionInput: {
     projectId: string
     directory: string
@@ -105,8 +94,10 @@ export interface StudioRuntimeService {
     session?: StudioSession
     run?: import('../domain/types').StudioRun
   }>
-  syncSession: (sessionId: string) => Promise<void>
-  listWorkResultsBySessionId: (sessionId: string) => Promise<StudioWorkResult[]>
+  getRun: (runId: string) => Promise<import('../domain/types').StudioRun | null>
+  getSessionSnapshot: (sessionId: string) => Promise<StudioSessionSnapshot | null>
+  getSessionTasks: (sessionId: string) => Promise<StudioTask[] | null>
+  getSessionWorkSnapshot: (sessionId: string) => Promise<StudioSessionWorkSnapshot | null>
   listExternalEvents: () => StudioExternalEvent[]
   subscribeExternalEvents: (listener: (event: StudioExternalEvent) => void) => () => void
   cancelRun: (input: { runId: string; reason?: string }) => Promise<{
@@ -187,20 +178,78 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     }
   }
 
+  async function syncSessionState(sessionId: string): Promise<void> {
+    const tasks = await input.persistence.taskStore.listBySessionId(sessionId)
+    for (const task of tasks) {
+      await syncTaskState({
+        task,
+        persistence: input.persistence,
+        eventBus,
+        renderJobPort,
+        blobStore: input.blobStore,
+      })
+    }
+
+    await flushTerminalSessionEventsToAssistant({
+      sessionId,
+      sessionEventStore: input.persistence.sessionEventStore,
+      messageStore: input.persistence.messageStore,
+      partStore: input.persistence.partStore,
+    })
+  }
+
+  async function listWorkResults(sessionId: string): Promise<StudioWorkResult[]> {
+    const works = await input.persistence.workStore.listBySessionId(sessionId)
+    return collectWorkResults(works, input.persistence)
+  }
+
+  async function getSessionSnapshot(sessionId: string): Promise<StudioSessionSnapshot | null> {
+    const session = await input.persistence.sessionStore.getById(sessionId)
+    if (!session) {
+      return null
+    }
+
+    await syncSessionState(session.id)
+
+    const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
+      input.persistence.messageStore.listBySessionId(session.id),
+      input.persistence.runStore.listBySessionId(session.id),
+      input.persistence.sessionEventStore.listBySessionId(session.id),
+      input.persistence.taskStore.listBySessionId(session.id),
+      input.persistence.workStore.listBySessionId(session.id),
+      listWorkResults(session.id),
+    ])
+
+    return { session, messages, runs, sessionEvents, tasks, works, workResults }
+  }
+
+  async function getSessionTasks(sessionId: string): Promise<StudioTask[] | null> {
+    const session = await input.persistence.sessionStore.getById(sessionId)
+    if (!session) {
+      return null
+    }
+
+    await syncSessionState(session.id)
+    return input.persistence.taskStore.listBySessionId(session.id)
+  }
+
+  async function getSessionWorkSnapshot(sessionId: string): Promise<StudioSessionWorkSnapshot | null> {
+    const session = await input.persistence.sessionStore.getById(sessionId)
+    if (!session) {
+      return null
+    }
+
+    await syncSessionState(session.id)
+    const [sessionEvents, works, workResults] = await Promise.all([
+      input.persistence.sessionEventStore.listBySessionId(session.id),
+      input.persistence.workStore.listBySessionId(session.id),
+      listWorkResults(session.id),
+    ])
+
+    return { sessionId: session.id, sessionEvents, works, workResults }
+  }
+
   return {
-    registry,
-    runtime,
-    workspaceProvider: input.workspaceProvider,
-    blobStore: input.blobStore,
-    sessionStore: input.persistence.sessionStore,
-    messageStore: input.persistence.messageStore,
-    partStore: input.persistence.partStore,
-    runStore: input.persistence.runStore,
-    taskStore: input.persistence.taskStore,
-    workStore: input.persistence.workStore,
-    workResultStore: input.persistence.workResultStore,
-    sessionEventStore: input.persistence.sessionEventStore,
-    eventBus,
     async createSession(sessionInput) {
       const studioKind = sessionInput.studioKind ?? 'manim'
       const normalizedDirectory = input.workspaceProvider.normalizeDirectory(sessionInput.directory)
@@ -235,6 +284,12 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     getSession(sessionId: string) {
       return input.persistence.sessionStore.getById(sessionId)
     },
+    getRun(runId: string) {
+      return input.persistence.runStore.getById(runId)
+    },
+    getSessionSnapshot,
+    getSessionTasks,
+    getSessionWorkSnapshot,
     async startRun(runInput) {
       return startBackgroundRunLocked(runInput)
     },
@@ -280,29 +335,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         run: started.run,
         assistantMessage: started.assistantMessage,
       }
-    },
-    async syncSession(sessionId: string): Promise<void> {
-      const tasks = await input.persistence.taskStore.listBySessionId(sessionId)
-      for (const task of tasks) {
-        await syncTaskState({
-          task,
-          persistence: input.persistence,
-          eventBus,
-          renderJobPort,
-          blobStore: input.blobStore,
-        })
-      }
-
-      await flushTerminalSessionEventsToAssistant({
-        sessionId,
-        sessionEventStore: input.persistence.sessionEventStore,
-        messageStore: input.persistence.messageStore,
-        partStore: input.persistence.partStore,
-      })
-    },
-    async listWorkResultsBySessionId(sessionId: string): Promise<StudioWorkResult[]> {
-      const works = await input.persistence.workStore.listBySessionId(sessionId)
-      return collectWorkResults(works, input.persistence)
     },
     listExternalEvents(): StudioExternalEvent[] {
       return [...externalEventLog]
