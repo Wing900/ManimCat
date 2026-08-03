@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SettingsConfig } from '../../types/api';
-import { loadSettings, saveSettings } from '../../lib/settings';
+import { loadSettings } from '../../lib/settings';
 import { getActiveProvider, providerToCustomApiConfig } from '../../lib/ai-providers';
 import type { TabType, TestResult } from './types';
 import { useI18n } from '../../i18n';
+import { useSettingsAutosave } from '../../lib/use-settings-autosave';
 
 interface UseSettingsModalParams {
+  isOpen: boolean;
   onSave: (config: SettingsConfig) => void;
 }
 
@@ -19,30 +21,26 @@ interface UseSettingsModalResult {
   handleTestBackend: () => Promise<void>;
 }
 
-export function useSettingsModal({ onSave }: UseSettingsModalParams): UseSettingsModalResult {
+export function useSettingsModal({ isOpen, onSave }: UseSettingsModalParams): UseSettingsModalResult {
   const { t } = useI18n();
   const [config, setConfig] = useState<SettingsConfig>(() => loadSettings());
   const [testResult, setTestResult] = useState<TestResult>({ status: 'idle', message: '' });
   const [activeTab, setActiveTab] = useState<TabType>('api');
-  const autoSaveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
+    if (!isOpen) {
+      return;
     }
 
-    autoSaveTimerRef.current = window.setTimeout(() => {
-      saveSettings(config);
-      onSave(config);
-    }, 500);
+    const reloadTimer = window.setTimeout(() => {
+      setConfig(loadSettings());
+      setTestResult({ status: 'idle', message: '' });
+    });
 
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-    };
-  }, [config, onSave]);
+    return () => window.clearTimeout(reloadTimer);
+  }, [isOpen]);
+
+  useSettingsAutosave({ config, isOpen, onSave });
 
   const updateManimcatApiKey = (value: string) => {
     setConfig((prev) => ({ ...prev, api: { ...prev.api, manimcatApiKey: value } }));

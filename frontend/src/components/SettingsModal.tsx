@@ -27,7 +27,7 @@ function SettingsModalContent({ isOpen, onClose, onSave }: SettingsModalProps) {
     updateManimcatApiKey,
     updateVideoConfig,
     handleTestBackend,
-  } = useSettingsModal({ onSave });
+  } = useSettingsModal({ isOpen, onSave });
 
   if (!shouldRender) return null;
 

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AIProvider, AIProviderType, CustomApiConfig, SettingsConfig } from '../types/api';
-import { loadSettings, saveSettings } from '../lib/settings';
+import { loadSettings } from '../lib/settings';
 import { GOOGLE_OPENAI_COMPAT_URL, OPENAI_DEFAULT_URL } from '../lib/ai-providers';
 import { FloatingInput } from './settings-modal/FloatingInput';
 import type { TestResult } from './settings-modal/types';
 import { TestResultBanner } from './settings-modal/test-result-banner';
 import { useI18n } from '../i18n';
 import { useModalTransition } from '../hooks/useModalTransition';
+import { useSettingsAutosave } from '../lib/use-settings-autosave';
 
 interface ProviderConfigModalProps {
   isOpen: boolean;
@@ -84,7 +85,6 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
   const [modelsByProviderId, setModelsByProviderId] = useState<Record<string, string[]>>({});
   const [fetchingModels, setFetchingModels] = useState(false);
 
-  const autoSaveTimerRef = useRef<number | null>(null);
   const metadataTimerRef = useRef<number | null>(null);
   const modelFetchTimerRef = useRef<number | null>(null);
   const metadataTouchedRef = useRef(false);
@@ -112,27 +112,7 @@ export function ProviderConfigModal({ isOpen, onClose, onSave }: ProviderConfigM
     setTestDialogOpen(false);
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    autoSaveTimerRef.current = window.setTimeout(() => {
-      saveSettings(config);
-      onSave(config);
-    }, 500);
-
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-    };
-  }, [config, isOpen, onSave]);
+  useSettingsAutosave({ config, isOpen, onSave });
 
   const providers = config.api.providers;
 
