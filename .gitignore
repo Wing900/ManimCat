@@ -61,6 +61,7 @@ triangle.png
 !DEPLOYMENT.zh-CN.md
 !CLA.md
 !CONTRIBUTING.md
+!DEVELOPMENT.md
 !.github/pull_request_template.md
 !BUILDER_ARCHITECTURE.md
 !src/prompts/templates/**/*.md
