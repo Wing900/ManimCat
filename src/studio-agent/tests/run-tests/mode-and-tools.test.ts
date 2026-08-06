@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import {
   createStudioAssistantMessage,
   createInMemoryStudioPersistence,
-  createLocalStudioBlobStore,
   createLocalStudioWorkspaceProvider,
   createStudioRenderTool,
   createStudioRun,
@@ -57,8 +56,7 @@ export async function runModeAndToolTests(): Promise<void> {
   await run('runtime owns session snapshot assembly', async () => {
     const service = createStudioRuntimeService({
       persistence: createInMemoryStudioPersistence(),
-      workspaceProvider: createLocalStudioWorkspaceProvider(),
-      blobStore: createLocalStudioBlobStore()
+      workspaceProvider: createLocalStudioWorkspaceProvider()
     })
     const session = await service.createSession({
       ownerId: 'owner-test',
@@ -72,9 +70,7 @@ export async function runModeAndToolTests(): Promise<void> {
     const snapshot = await service.getSessionSnapshot(session.ownerId, session.id)
     assert.ok(snapshot)
     assert.equal(snapshot.session.id, session.id)
-    assert.deepEqual(snapshot.tasks, [])
-    assert.deepEqual(await service.getSessionTasks(session.ownerId, session.id), [])
-    assert.deepEqual((await service.getSessionWorkSnapshot(session.ownerId, session.id))?.works, [])
+    assert.deepEqual(snapshot.renders, [])
     assert.equal(await service.getSessionSnapshot(session.ownerId, 'missing-session'), null)
     assert.equal(await service.getRun(session.ownerId, 'missing-run'), null)
   })

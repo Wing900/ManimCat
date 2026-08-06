@@ -90,10 +90,6 @@ export async function runSecurityTests(): Promise<void> {
       messages: [],
       runs: [],
       renders: [render],
-      sessionEvents: [],
-      tasks: [],
-      works: [],
-      workResults: [],
     })
 
     assert.equal('directory' in publicSession, false)

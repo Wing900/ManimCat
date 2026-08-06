@@ -5,11 +5,7 @@ import type {
   StudioKind,
   StudioSession,
   StudioSessionSnapshot,
-  StudioSessionWorkSnapshot,
-  StudioTask,
   StudioToolChoice,
-  StudioWork,
-  StudioWorkResult,
 } from '../domain/types'
 import { InMemoryStudioEventBus } from '../events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
@@ -24,10 +20,6 @@ import {
   createUnconfiguredPlotRenderPort,
   type PlotRenderPort,
 } from '../plot/plot-render-port'
-import {
-  createEmptyStudioRenderJobPort,
-  type StudioRenderJobPort,
-} from '../render/render-job-port'
 import { registerSharedStudioTools } from '../shared/register-shared-tools'
 import {
   buildStudioContinueInputText,
@@ -35,12 +27,9 @@ import {
   isStudioRunResumable,
   readStudioRunAutonomyMetadata,
 } from '../runs/autonomy-policy'
-import type { StudioBlobStore } from '../storage/studio-blob-store'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
-import { syncStudioRenderTask } from './session/render-task-sync'
 import { createStudioSessionMetadata } from './session/session-agent-config'
-import { flushTerminalSessionEventsToAssistant } from './session/session-event-inbox'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioModelPort } from '../model/studio-model-port'
 import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
@@ -50,12 +39,10 @@ import { cancelRunState } from './execution/session-runner-helpers'
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
   workspaceProvider: StudioWorkspaceProvider
-  blobStore: StudioBlobStore
   registry?: StudioToolRegistry
   eventBus?: StudioEventBus
   manimRenderPort?: ManimRenderPort
   plotRenderPort?: PlotRenderPort
-  renderJobPort?: StudioRenderJobPort
   documentationProvider?: StudioDocumentationContextProvider
 }
 
@@ -101,8 +88,6 @@ export interface StudioRuntimeService {
   }>
   getRun: (ownerId: string, runId: string) => Promise<import('../domain/types').StudioRun | null>
   getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
-  getSessionTasks: (ownerId: string, sessionId: string) => Promise<StudioTask[] | null>
-  getSessionWorkSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionWorkSnapshot | null>
   subscribeExternalEvents: (sessionId: string, listener: (event: StudioExternalEvent) => void) => () => void
   cancelRun: (input: { ownerId: string; runId: string; reason?: string }) => Promise<{
     status: 'cancelled' | 'already_finished' | 'not_found'
@@ -113,7 +98,6 @@ export interface StudioRuntimeService {
 export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInput): StudioRuntimeService {
   const registry = input.registry ?? new StudioToolRegistry()
   const eventBus: StudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
-  const renderJobPort = input.renderJobPort ?? createEmptyStudioRenderJobPort()
   const activeSessionRuns = new Map<string, string>()
   const activeRunHandles = new Map<string, {
     sessionId: string
@@ -177,77 +161,19 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     }
   }
 
-  async function syncSessionState(ownerId: string, sessionId: string): Promise<void> {
-    const tasks = await input.persistence.taskStore.listBySessionId(sessionId)
-    for (const task of tasks) {
-      await syncTaskState({
-        ownerId,
-        task,
-        persistence: input.persistence,
-        eventBus,
-        renderJobPort,
-        blobStore: input.blobStore,
-      })
-    }
-
-    await flushTerminalSessionEventsToAssistant({
-      sessionId,
-      sessionEventStore: input.persistence.sessionEventStore,
-      messageStore: input.persistence.messageStore,
-      partStore: input.persistence.partStore,
-    })
-  }
-
-  async function listWorkResults(sessionId: string): Promise<StudioWorkResult[]> {
-    const works = await input.persistence.workStore.listBySessionId(sessionId)
-    return collectWorkResults(works, input.persistence)
-  }
-
   async function getSessionSnapshot(ownerId: string, sessionId: string): Promise<StudioSessionSnapshot | null> {
     const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
     if (!session) {
       return null
     }
 
-    await syncSessionState(ownerId, session.id)
-
-    const [messages, runs, renders, sessionEvents, tasks, works, workResults] = await Promise.all([
+    const [messages, runs, renders] = await Promise.all([
       input.persistence.messageStore.listBySessionId(session.id),
       input.persistence.runStore.listBySessionId(ownerId, session.id),
       input.persistence.renderStore.listBySessionId(ownerId, session.id),
-      input.persistence.sessionEventStore.listBySessionId(session.id),
-      input.persistence.taskStore.listBySessionId(session.id),
-      input.persistence.workStore.listBySessionId(session.id),
-      listWorkResults(session.id),
     ])
 
-    return { session, messages, runs, renders, sessionEvents, tasks, works, workResults }
-  }
-
-  async function getSessionTasks(ownerId: string, sessionId: string): Promise<StudioTask[] | null> {
-    const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
-    if (!session) {
-      return null
-    }
-
-    await syncSessionState(ownerId, session.id)
-    return input.persistence.taskStore.listBySessionId(session.id)
-  }
-
-  async function getSessionWorkSnapshot(ownerId: string, sessionId: string): Promise<StudioSessionWorkSnapshot | null> {
-    const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
-    if (!session) {
-      return null
-    }
-
-    await syncSessionState(ownerId, session.id)
-    const [sessionEvents, works, workResults] = await Promise.all([
-      input.persistence.sessionEventStore.listBySessionId(session.id),
-      input.persistence.workStore.listBySessionId(session.id),
-      listWorkResults(session.id),
-    ])
-
-    return { sessionId: session.id, sessionEvents, works, workResults }
+    return { session, messages, runs, renders }
   }
 
   return {
@@ -292,8 +218,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
       return input.persistence.runStore.getById(ownerId, runId)
     },
     getSessionSnapshot,
-    getSessionTasks,
-    getSessionWorkSnapshot,
     async startRun(runInput) {
       return startBackgroundRunLocked(runInput)
     },
@@ -376,101 +300,9 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         run: cancelledRun
       })
 
-      const [tasks, works] = await Promise.all([
-        input.persistence.taskStore.listBySessionId(run.sessionId),
-        input.persistence.workStore.listBySessionId(run.sessionId),
-      ])
-
-      await Promise.all(tasks
-        .filter((task) => task.runId === cancelInput.runId)
-        .filter((task) => task.status === 'queued' || task.status === 'running' || task.status === 'pending_confirmation' || task.status === 'proposed')
-        .map(async (task) => {
-          const updated = await input.persistence.taskStore.update(task.id, {
-            status: 'cancelled',
-            metadata: {
-              ...(task.metadata ?? {}),
-              cancelReason: reason,
-            }
-          }) ?? {
-            ...task,
-            status: 'cancelled' as const,
-            metadata: {
-              ...(task.metadata ?? {}),
-              cancelReason: reason,
-            }
-          }
-
-          eventBus.publish({
-            type: 'task_updated',
-            sessionId: updated.sessionId,
-            runId: updated.runId,
-            task: updated,
-          })
-        }))
-
-      await Promise.all(works
-        .filter((work) => work.runId === cancelInput.runId)
-        .filter((work) => work.status === 'queued' || work.status === 'running' || work.status === 'proposed')
-        .map(async (work) => {
-          const updated = await input.persistence.workStore.update(work.id, {
-            status: 'cancelled',
-            metadata: {
-              ...(work.metadata ?? {}),
-              cancelReason: reason,
-            }
-          }) ?? {
-            ...work,
-            status: 'cancelled' as const,
-            metadata: {
-              ...(work.metadata ?? {}),
-              cancelReason: reason,
-            }
-          }
-
-          eventBus.publish({
-            type: 'work_updated',
-            sessionId: updated.sessionId,
-            runId: updated.runId,
-            work: updated,
-          })
-        }))
-
       return { status: 'cancelled' as const, run: cancelledRun }
     },
   }
-}
-
-async function syncTaskState(input: {
-  ownerId: string
-  task: StudioTask
-  persistence: StudioPersistence
-  eventBus: StudioEventBus
-  renderJobPort: StudioRenderJobPort
-  blobStore: StudioBlobStore
-}): Promise<void> {
-  if (input.task.type !== 'render') {
-    return
-  }
-
-  await syncStudioRenderTask({
-    ownerId: input.ownerId,
-    task: input.task,
-    taskStore: input.persistence.taskStore,
-    workStore: input.persistence.workStore,
-    workResultStore: input.persistence.workResultStore,
-    sessionStore: input.persistence.sessionStore,
-    sessionEventStore: input.persistence.sessionEventStore,
-    messageStore: input.persistence.messageStore,
-    partStore: input.persistence.partStore,
-    eventBus: input.eventBus,
-    renderJobPort: input.renderJobPort,
-    blobStore: input.blobStore,
-  })
-}
-
-async function collectWorkResults(works: StudioWork[], persistence: StudioPersistence): Promise<StudioWorkResult[]> {
-  const resultSets = await Promise.all(works.map((work) => persistence.workResultStore.listByWorkId(work.id)))
-  return resultSets.flat()
 }
 
 function getDefaultSessionTitle(studioKind: StudioKind): string {
