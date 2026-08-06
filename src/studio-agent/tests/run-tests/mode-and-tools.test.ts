@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import {
   createStudioAssistantMessage,
+  buildStudioRenderContext,
   createInMemoryStudioPersistence,
   createLocalStudioWorkspaceProvider,
   createStudioRenderTool,
+  createStudioRender,
   createStudioRun,
   createStudioSession,
   createStudioRuntimeService,
@@ -70,6 +72,63 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.deepEqual(snapshot.renders, [])
     assert.equal(await service.getSessionSnapshot(session.ownerId, 'missing-session'), null)
     assert.equal(await service.getRun(session.ownerId, 'missing-run'), null)
+  })
+
+  await run('render context selects the latest render for the owner', async () => {
+    const session = createStudioSession({
+      ownerId: 'owner-context',
+      projectId: 'project-1',
+      studioKind: 'plot',
+      agentType: 'builder',
+      title: 'Render context',
+      directory: '/workspace/plot'
+    })
+    const renderStore = new InMemoryStudioRenderStore()
+    const older = createStudioRender({
+      ownerId: session.ownerId,
+      sessionId: session.id,
+      kind: 'plot',
+      title: 'Older',
+      concept: 'older',
+      outputMode: 'image',
+      status: 'completed'
+    })
+    older.updatedAt = '2026-01-01T00:00:00.000Z'
+    const latest = createStudioRender({
+      ownerId: session.ownerId,
+      sessionId: session.id,
+      kind: 'plot',
+      title: 'Latest',
+      concept: 'latest',
+      outputMode: 'image',
+      status: 'failed',
+      error: 'plot failed'
+    })
+    latest.updatedAt = '2026-01-02T00:00:00.000Z'
+    const otherOwnerRender = createStudioRender({
+      ownerId: 'owner-other',
+      sessionId: session.id,
+      kind: 'plot',
+      title: 'Hidden',
+      concept: 'hidden',
+      outputMode: 'image',
+      status: 'completed'
+    })
+    otherOwnerRender.updatedAt = '2026-01-03T00:00:00.000Z'
+    await renderStore.create(older)
+    await renderStore.create(latest)
+    await renderStore.create(otherOwnerRender)
+
+    const context = await buildStudioRenderContext({
+      ownerId: session.ownerId,
+      sessionId: session.id,
+      agent: session.agentType,
+      renderStore
+    })
+
+    assert.equal(context.latestRender?.id, latest.id)
+    assert.equal(context.latestRender?.status, 'failed')
+    assert.equal(context.latestRender?.error, 'plot failed')
   })
 
   await run('studio modes own their automatic render policy', async () => {
