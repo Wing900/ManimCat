@@ -2,6 +2,7 @@ import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { truncateToolText, toWorkspaceRelativePath } from './workspace-paths'
 import { applyWorkspacePatch } from './workspace-edits'
+import { applyPatchToolParameters } from './tool-parameters'
 
 interface ApplyPatchToolInput {
   path?: string
@@ -12,6 +13,7 @@ interface ApplyPatchToolInput {
 export function createStudioApplyPatchTool(): StudioToolDefinition<ApplyPatchToolInput> {
   return {
     name: 'apply_patch',
+    parameters: applyPatchToolParameters,
     description: 'Apply structured search/replace patches to a workspace file.',
     category: 'edit',
     permission: 'apply_patch',

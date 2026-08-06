@@ -6,6 +6,7 @@ import {
   walkWorkspaceFiles,
   wildcardToRegExp
 } from './workspace-paths'
+import { globToolParameters } from './tool-parameters'
 
 interface GlobToolInput {
   pattern?: string
@@ -15,6 +16,7 @@ interface GlobToolInput {
 export function createStudioGlobTool(): StudioToolDefinition<GlobToolInput> {
   return {
     name: 'glob',
+    parameters: globToolParameters,
     description: 'Find files by glob pattern.',
     category: 'safe-read',
     permission: 'glob',

@@ -12,7 +12,11 @@ import {
   resolveSafeWorkspacePath,
   readWorkspaceFile,
   writeWorkspaceFile,
+  StudioToolRegistry,
+  createStudioReadTool,
+  createStudioRenderTool,
 } from '../../index'
+import { buildStudioChatTools } from '../../orchestration/studio-tool-schema'
 import { parseStudioCreateSessionRequest } from '../../../routes/helpers/studio-agent-run-request'
 import { run } from './factories'
 
@@ -100,5 +104,19 @@ export async function runSecurityTests(): Promise<void> {
       /Path escapes workspace/
     )
     assert.equal(await readFile(path.join(outside, 'secret.py'), 'utf8'), 'secret')
+  })
+
+  await run('tool registry never falls back across Studio modes', async () => {
+    const registry = new StudioToolRegistry()
+    const manimRender = createStudioRenderTool({ submit: async ({ jobId }) => ({ jobId }) })
+    registry.register(manimRender)
+    assert.equal(registry.get('render', 'plot'), null)
+    assert.equal(registry.require('render', 'manim'), manimRender)
+    assert.deepEqual(
+      buildStudioChatTools(registry, 'builder', 'manim')[0]?.function.parameters,
+      manimRender.parameters
+    )
+    assert.throws(() => registry.register(createStudioRenderTool()), /Duplicate Studio tool registration/)
+    assert.ok(createStudioReadTool().parameters)
   })
 }

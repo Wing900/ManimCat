@@ -5,6 +5,9 @@ export class StudioToolRegistry {
 
   register(tool: StudioToolDefinition<any>): void {
     const existing = this.tools.get(tool.name) ?? []
+    if (existing.some((candidate) => haveOverlappingStudioKinds(candidate.allowedStudioKinds, tool.allowedStudioKinds))) {
+      throw new Error(`Duplicate Studio tool registration: ${tool.name}`)
+    }
     this.tools.set(tool.name, [...existing, tool])
   }
 
@@ -18,7 +21,15 @@ export class StudioToolRegistry {
       return candidates[0] ?? null
     }
 
-    return candidates.find((tool) => this.matchesStudioKind(tool, studioKind)) ?? candidates[0] ?? null
+    return candidates.find((tool) => this.matchesStudioKind(tool, studioKind)) ?? null
+  }
+
+  require(toolName: string, studioKind: StudioKind): StudioToolDefinition<any> {
+    const tool = this.get(toolName, studioKind)
+    if (!tool) {
+      throw new Error(`Unsupported Studio tool: ${toolName}`)
+    }
+    return tool
   }
 
   list(): StudioToolDefinition<any>[] {
@@ -39,4 +50,11 @@ export class StudioToolRegistry {
 
     return tool.allowedStudioKinds.includes(studioKind)
   }
+}
+
+function haveOverlappingStudioKinds(left?: StudioKind[], right?: StudioKind[]): boolean {
+  if (!left?.length || !right?.length) {
+    return true
+  }
+  return left.some((kind) => right.includes(kind))
 }

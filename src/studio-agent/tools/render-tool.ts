@@ -7,6 +7,7 @@ import {
   type ManimRenderPort
 } from '../manim/manim-render-port'
 import { createWorkAndTask } from '../works/work-lifecycle'
+import { manimRenderToolParameters } from './tool-parameters'
 
 interface RenderToolInput {
   concept: string
@@ -21,6 +22,7 @@ export function createStudioRenderTool(
 ): StudioToolDefinition<RenderToolInput> {
   return {
     name: 'render',
+    parameters: manimRenderToolParameters,
     description: 'Create a Manim render task backed by the existing queue.',
     category: 'render',
     permission: 'render',

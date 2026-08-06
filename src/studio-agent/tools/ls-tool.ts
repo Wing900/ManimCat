@@ -1,6 +1,7 @@
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { listWorkspaceDirectory, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
+import { lsToolParameters } from './tool-parameters'
 
 interface LsToolInput {
   path?: string
@@ -10,6 +11,7 @@ interface LsToolInput {
 export function createStudioLsTool(): StudioToolDefinition<LsToolInput> {
   return {
     name: 'ls',
+    parameters: lsToolParameters,
     description: 'List directory contents.',
     category: 'safe-read',
     permission: 'ls',

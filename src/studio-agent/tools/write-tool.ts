@@ -2,6 +2,7 @@ import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { toWorkspaceRelativePath } from './workspace-paths'
 import { writeWorkspaceFile } from './workspace-edits'
+import { writeToolParameters } from './tool-parameters'
 
 interface WriteToolInput {
   path?: string
@@ -12,6 +13,7 @@ interface WriteToolInput {
 export function createStudioWriteTool(): StudioToolDefinition<WriteToolInput> {
   return {
     name: 'write',
+    parameters: writeToolParameters,
     description: 'Write a file in the current workspace.',
     category: 'edit',
     permission: 'write',

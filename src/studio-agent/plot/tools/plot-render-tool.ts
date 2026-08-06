@@ -9,6 +9,7 @@ import {
   type PlotRenderExecution,
   type PlotRenderPort
 } from '../plot-render-port'
+import { plotRenderToolParameters } from '../../tools/tool-parameters'
 
 interface PlotRenderToolInput {
   concept: string
@@ -20,6 +21,7 @@ export function createPlotStudioRenderTool(
 ): StudioToolDefinition<PlotRenderToolInput> {
   return {
     name: 'render',
+    parameters: plotRenderToolParameters,
     description: 'Execute matplotlib code and persist static plot outputs for preview.',
     category: 'render',
     permission: 'render',

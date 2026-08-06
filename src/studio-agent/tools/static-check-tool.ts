@@ -3,6 +3,7 @@ import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { runStaticChecks } from '../../services/static-guard/checker'
 import type { OutputMode } from '../../types'
+import { staticCheckToolParameters } from './tool-parameters'
 
 interface StaticCheckToolInput {
   path?: string
@@ -13,6 +14,7 @@ interface StaticCheckToolInput {
 export function createStudioStaticCheckTool(): StudioToolDefinition<StaticCheckToolInput> {
   return {
     name: 'static-check',
+    parameters: staticCheckToolParameters,
     description: 'Run static checks for Python or Manim code.',
     category: 'review',
     permission: 'static-check',

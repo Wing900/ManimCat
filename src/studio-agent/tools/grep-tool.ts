@@ -5,6 +5,7 @@ import {
   truncateToolText,
   walkWorkspaceFiles
 } from './workspace-paths'
+import { grepToolParameters } from './tool-parameters'
 
 interface GrepToolInput {
   query?: string
@@ -15,6 +16,7 @@ interface GrepToolInput {
 export function createStudioGrepTool(): StudioToolDefinition<GrepToolInput> {
   return {
     name: 'grep',
+    parameters: grepToolParameters,
     description: 'Search for text in the workspace.',
     category: 'safe-read',
     permission: 'grep',

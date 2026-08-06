@@ -1,6 +1,7 @@
 import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { readWorkspaceFile, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
+import { readToolParameters } from './tool-parameters'
 
 interface ReadToolInput {
   path?: string
@@ -10,6 +11,7 @@ interface ReadToolInput {
 export function createStudioReadTool(): StudioToolDefinition<ReadToolInput> {
   return {
     name: 'read',
+    parameters: readToolParameters,
     description: 'Read a file from the current workspace.',
     category: 'safe-read',
     permission: 'read',

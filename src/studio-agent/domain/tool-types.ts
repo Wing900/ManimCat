@@ -7,6 +7,7 @@ import type {
   StudioWorkResultStore,
   StudioWorkStore
 } from './store-types'
+import type { StudioToolParameters } from '../tools/tool-parameters'
 
 export type StudioToolCategory =
   | 'safe-read'
@@ -44,6 +45,7 @@ export interface StudioToolContext {
 
 export interface StudioToolDefinition<TInput = unknown> {
   name: string
+  parameters: StudioToolParameters
   description: string
   category: StudioToolCategory
   permission: string

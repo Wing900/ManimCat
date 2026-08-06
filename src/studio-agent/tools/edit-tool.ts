@@ -2,6 +2,7 @@ import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { truncateToolText, toWorkspaceRelativePath } from './workspace-paths'
 import { replaceInWorkspaceFile } from './workspace-edits'
+import { editToolParameters } from './tool-parameters'
 
 interface EditToolInput {
   path?: string
@@ -14,6 +15,7 @@ interface EditToolInput {
 export function createStudioEditTool(): StudioToolDefinition<EditToolInput> {
   return {
     name: 'edit',
+    parameters: editToolParameters,
     description: 'Replace text in a workspace file.',
     category: 'edit',
     permission: 'edit',
