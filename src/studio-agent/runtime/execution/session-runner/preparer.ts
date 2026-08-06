@@ -1,7 +1,7 @@
 import { InMemoryStudioEventBus } from '../../../events/event-bus'
 import { createStudioUserMessage } from '../../../domain/factories'
 import { logPlotStudioTiming, readElapsedMs } from '../../../observability/plot-studio-timing'
-import { buildStudioRenderContext } from '../work-context'
+import { buildStudioRenderContext } from '../render-context'
 import type { StudioRenderContext, StudioSession } from '../../../domain/types'
 import type {
   StudioPreparedRunContext,
