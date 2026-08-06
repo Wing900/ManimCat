@@ -1,25 +1,17 @@
-import type {
-  StudioEventBus,
-  StudioSession,
-  StudioToolChoice,
-} from '../domain/types'
+import type { StudioEventBus } from '../domain/types'
 import { InMemoryStudioEventBus } from '../events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
 import type { StudioPersistence } from '../persistence/studio-persistence'
-import {
-  buildStudioContinueInputText,
-  buildStudioContinuationRunMetadata,
-  isStudioRunResumable,
-  readStudioRunAutonomyMetadata,
-} from '../runs/autonomy-policy'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
-import type { StudioModelPort } from '../model/studio-model-port'
 import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
-import { cancelRunState } from './execution/session-runner-helpers'
 import { configureStudioToolRegistry } from './studio-tool-registry'
 import { createStudioSessionService, type StudioSessionService } from './session-service'
+import {
+  createStudioRunService,
+  type StudioRunService,
+} from './run-service'
 
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
@@ -31,51 +23,13 @@ interface CreateStudioRuntimeServiceInput {
   documentationProvider?: StudioDocumentationContextProvider
 }
 
-export interface StudioRuntimeService extends StudioSessionService {
-  startRun: (input: {
-    ownerId: string
-    projectId: string
-    session: StudioSession
-    inputText: string
-    customApiConfig?: import('../../types').CustomApiConfig
-    modelPort?: StudioModelPort
-    toolChoice?: StudioToolChoice
-  }) => Promise<{ run: import('../domain/types').StudioRun; assistantMessage: import('../domain/types').StudioAssistantMessage } | null>
-  continueRun: (input: {
-    ownerId: string
-    projectId: string
-    sourceRunId: string
-    inputText?: string
-    customApiConfig?: import('../../types').CustomApiConfig
-    modelPort?: StudioModelPort
-    toolChoice?: StudioToolChoice
-  }) => Promise<{
-    status: 'started'
-    session: StudioSession
-    run: import('../domain/types').StudioRun
-    assistantMessage: import('../domain/types').StudioAssistantMessage
-  } | {
-    status: 'conflict' | 'not_found' | 'not_resumable'
-    session?: StudioSession
-    run?: import('../domain/types').StudioRun
-  }>
-  getRun: (ownerId: string, runId: string) => Promise<import('../domain/types').StudioRun | null>
+export interface StudioRuntimeService extends StudioSessionService, StudioRunService {
   subscribeExternalEvents: (sessionId: string, listener: (event: StudioExternalEvent) => void) => () => void
-  cancelRun: (input: { ownerId: string; runId: string; reason?: string }) => Promise<{
-    status: 'cancelled' | 'already_finished' | 'not_found'
-    run?: import('../domain/types').StudioRun
-  }>
 }
 
 export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInput): StudioRuntimeService {
   const registry = input.registry ?? new StudioToolRegistry()
   const eventBus: StudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
-  const activeSessionRuns = new Map<string, string>()
-  const activeRunHandles = new Map<string, {
-    sessionId: string
-    handle: Awaited<ReturnType<StudioBuilderRuntime['startBackgroundRun']>>
-  }>()
-
   configureStudioToolRegistry({
     registry,
     manimRenderPort: input.manimRenderPort,
@@ -94,101 +48,15 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     persistence: input.persistence,
     workspaceProvider: input.workspaceProvider,
   })
-
-  async function startBackgroundRunLocked(runInput: {
-    ownerId: string
-    projectId: string
-    session: StudioSession
-    inputText: string
-    customApiConfig?: import('../../types').CustomApiConfig
-    modelPort?: StudioModelPort
-    toolChoice?: StudioToolChoice
-    runMetadata?: Record<string, unknown>
-  }) {
-    if (runInput.session.ownerId !== runInput.ownerId) {
-      return null
-    }
-    if (activeSessionRuns.has(runInput.session.id)) {
-      return null
-    }
-
-    const handle = await runtime.startBackgroundRun(runInput)
-    activeSessionRuns.set(runInput.session.id, handle.run.id)
-    activeRunHandles.set(handle.run.id, {
-      sessionId: runInput.session.id,
-      handle,
-    })
-
-    void handle.completion
-      .catch(() => {
-        // Run-specific failure is already logged by the session runner.
-      })
-      .finally(() => {
-        if (activeSessionRuns.get(runInput.session.id) === handle.run.id) {
-          activeSessionRuns.delete(runInput.session.id)
-        }
-        activeRunHandles.delete(handle.run.id)
-      })
-
-    return {
-      run: handle.run,
-      assistantMessage: handle.assistantMessage
-    }
-  }
+  const runService = createStudioRunService({
+    persistence: input.persistence,
+    runtime,
+    eventBus,
+  })
 
   return {
     ...sessionService,
-    getRun(ownerId: string, runId: string) {
-      return input.persistence.runStore.getById(ownerId, runId)
-    },
-    async startRun(runInput) {
-      return startBackgroundRunLocked(runInput)
-    },
-    async continueRun(runInput) {
-      const sourceRun = await input.persistence.runStore.getById(runInput.ownerId, runInput.sourceRunId)
-      if (!sourceRun) {
-        return { status: 'not_found' as const }
-      }
-
-      const session = await input.persistence.sessionStore.getById(runInput.ownerId, sourceRun.sessionId)
-      if (!session) {
-        return { status: 'not_found' as const, run: sourceRun }
-      }
-
-      if (!isStudioRunResumable(sourceRun)) {
-        return { status: 'not_resumable' as const, session, run: sourceRun }
-      }
-
-      if (activeSessionRuns.has(session.id)) {
-        return { status: 'conflict' as const, session, run: sourceRun }
-      }
-
-      const autonomy = readStudioRunAutonomyMetadata(sourceRun.metadata)
-      const started = await startBackgroundRunLocked({
-        ownerId: runInput.ownerId,
-        projectId: runInput.projectId,
-        session,
-        inputText: runInput.inputText?.trim() || buildStudioContinueInputText(autonomy.stopReason),
-        customApiConfig: runInput.customApiConfig,
-        modelPort: runInput.modelPort,
-        toolChoice: runInput.toolChoice,
-        runMetadata: buildStudioContinuationRunMetadata({
-          sourceRunId: sourceRun.id,
-          sourceMetadata: sourceRun.metadata,
-        }),
-      })
-
-      if (!started) {
-        return { status: 'conflict' as const, session, run: sourceRun }
-      }
-
-      return {
-        status: 'started' as const,
-        session,
-        run: started.run,
-        assistantMessage: started.assistantMessage,
-      }
-    },
+    ...runService,
     subscribeExternalEvents(sessionId: string, listener: (event: StudioExternalEvent) => void): () => void {
       return eventBus.subscribe(sessionId, (event) => {
         const adapted = adaptStudioEvent(event)
@@ -196,34 +64,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
           listener(adapted)
         }
       })
-    },
-    async cancelRun(cancelInput) {
-      const run = await input.persistence.runStore.getById(cancelInput.ownerId, cancelInput.runId)
-      if (!run) {
-        return { status: 'not_found' as const }
-      }
-
-      if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
-        return { status: 'already_finished' as const, run }
-      }
-
-      const reason = cancelInput.reason?.trim() || 'Run cancelled by user'
-      activeRunHandles.get(cancelInput.runId)?.handle.abort(reason)
-
-      const cancelledRun = await input.persistence.runStore.update(
-        cancelInput.ownerId,
-        cancelInput.runId,
-        cancelRunState(run, reason)
-      )
-        ?? cancelRunState(run, reason)
-
-      eventBus.publish({
-        type: 'run_updated',
-        sessionId: run.sessionId,
-        run: cancelledRun
-      })
-
-      return { status: 'cancelled' as const, run: cancelledRun }
     },
   }
 }
