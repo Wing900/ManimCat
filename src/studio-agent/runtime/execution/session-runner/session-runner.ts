@@ -13,7 +13,7 @@ import type {
   StudioSessionRunnerOptions
 } from './dependency-center'
 import { createAssistantMessage, createRun } from './factory'
-import { buildWorkContext, prepareRun } from './preparer'
+import { buildRenderContext, prepareRun } from './preparer'
 import { routePreparedRun } from './router'
 import { executePreparedStream } from './execution-manager'
 import { createDependencyCenter } from './dependency-center'
@@ -30,11 +30,8 @@ export class StudioSessionRunner {
       processor,
       createRun: (session, inputText, metadata) => createRun(session, inputText, metadata),
       createAssistantMessage: (session) => createAssistantMessage({ messageStore: options.messageStore }, session),
-      buildWorkContext: (input) => buildWorkContext({
-        workStore: options.workStore,
-        workResultStore: options.workResultStore,
-        taskStore: options.taskStore,
-        sessionEventStore: options.sessionEventStore
+      buildRenderContext: (input) => buildRenderContext({
+        renderStore: options.renderStore
       }, input)
     })
   }

@@ -5,7 +5,7 @@ import type {
   StudioSession,
   StudioSessionStore,
   StudioToolChoice,
-  StudioWorkContext,
+  StudioRenderContext,
   StudioRenderStore,
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
@@ -35,7 +35,7 @@ export interface StudioOpenAIToolLoopInput {
   partStore?: StudioRuntimeBackedToolContext['partStore']
   sessionStore?: StudioSessionStore
   renderStore?: StudioRenderStore
-  workContext?: StudioWorkContext
+  renderContext?: StudioRenderContext
   documentationContext?: string
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void

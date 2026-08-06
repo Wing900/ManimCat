@@ -1,9 +1,8 @@
 import { InMemoryStudioEventBus } from '../../../events/event-bus'
 import { createStudioUserMessage } from '../../../domain/factories'
 import { logPlotStudioTiming, readElapsedMs } from '../../../observability/plot-studio-timing'
-import { buildDraftAssistantMessage } from '../session-runner-helpers'
-import { buildStudioWorkContext } from '../work-context'
-import type { StudioSession, StudioWorkContext } from '../../../domain/types'
+import { buildStudioRenderContext } from '../work-context'
+import type { StudioRenderContext, StudioSession } from '../../../domain/types'
 import type {
   StudioPreparedRunContext,
   StudioRunRequestInput,
@@ -12,28 +11,16 @@ import type {
 import { hasUsableCustomApiConfig } from './factory'
 import { createEmptyStudioDocumentationContextProvider, loadStudioDocumentationContext } from '../../../documentation/studio-documentation-context'
 
-export async function buildWorkContext(
-  deps: Pick<StudioSessionRunnerDependencies, 'workStore' | 'workResultStore' | 'taskStore' | 'sessionEventStore'>,
-  input: {
-    session: StudioSession
-    inputText: string
-  },
-): Promise<StudioWorkContext> {
-  const draftAssistantMessage = buildDraftAssistantMessage(input.session)
-  const workContext = await buildStudioWorkContext({
+export async function buildRenderContext(
+  deps: Pick<StudioSessionRunnerDependencies, 'renderStore'>,
+  input: { session: StudioSession },
+): Promise<StudioRenderContext> {
+  return buildStudioRenderContext({
+    ownerId: input.session.ownerId,
     sessionId: input.session.id,
     agent: input.session.agentType,
-    assistantMessage: draftAssistantMessage,
-    workStore: deps.workStore,
-    workResultStore: deps.workResultStore,
-    taskStore: deps.taskStore,
-    sessionEventStore: deps.sessionEventStore
+    renderStore: deps.renderStore
   })
-
-  return workContext ?? {
-    sessionId: input.session.id,
-    agent: input.session.agentType
-  }
 }
 
 export async function prepareRun(
@@ -41,7 +28,7 @@ export async function prepareRun(
   input: StudioRunRequestInput,
 ): Promise<StudioPreparedRunContext> {
   const prepareStartedAt = Date.now()
-  const workContext = await deps.buildWorkContext(input)
+  const renderContext = await deps.buildRenderContext({ session: input.session })
   const documentationContext = await loadStudioDocumentationContext(deps.documentationProvider ?? createEmptyStudioDocumentationContextProvider(), {
     kind: input.session.studioKind ?? 'manim',
     query: input.inputText,
@@ -76,7 +63,7 @@ export async function prepareRun(
 
   return {
     input,
-    workContext,
+    renderContext,
     run: runningRun,
     assistantMessage,
     eventBus,

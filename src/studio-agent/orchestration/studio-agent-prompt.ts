@@ -1,11 +1,11 @@
 import { getStudioAgentSystemPrompt } from '../prompts/agent-prompt-loader'
-import type { StudioSession, StudioWorkContext } from '../domain/types'
+import type { StudioRenderContext, StudioSession } from '../domain/types'
 import { getStudioModeDefinition } from '../modes/studio-mode'
 import { getStudioExecutionPolicy } from './studio-execution-policy'
 
 interface BuildStudioAgentSystemPromptInput {
   session: StudioSession
-  workContext?: StudioWorkContext
+  renderContext?: StudioRenderContext
   documentationContext?: string
 }
 
@@ -31,9 +31,9 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
     renderGuardText,
   ]
 
-  const workContextText = formatWorkContext(input.workContext)
-  if (workContextText) {
-    sections.push('', '<studio_work_context>', workContextText, '</studio_work_context>')
+  const renderContextText = formatRenderContext(input.renderContext)
+  if (renderContextText) {
+    sections.push('', '<studio_render_context>', renderContextText, '</studio_render_context>')
   }
 
   const documentationContext = input.documentationContext?.trim()
@@ -44,42 +44,24 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
   return sections.join('\n').trim()
 }
 
-function formatWorkContext(workContext?: StudioWorkContext): string {
-  if (!workContext) {
+function formatRenderContext(renderContext?: StudioRenderContext): string {
+  if (!renderContext) {
     return ''
   }
 
   const lines: string[] = [
-    `session_id: ${workContext.sessionId}`,
-    `agent: ${workContext.agent}`
+    `session_id: ${renderContext.sessionId}`,
+    `agent: ${renderContext.agent}`
   ]
 
-  if (workContext.currentWork) {
+  if (renderContext.latestRender) {
     lines.push(
-      `current_work: ${workContext.currentWork.title}`,
-      `current_work_type: ${workContext.currentWork.type}`,
-      `current_work_status: ${workContext.currentWork.status}`
+      `latest_render_id: ${renderContext.latestRender.id}`,
+      `latest_render_status: ${renderContext.latestRender.status}`,
+      `latest_render_time: ${new Date(renderContext.latestRender.timestamp).toISOString()}`
     )
-  }
-
-  if (workContext.lastRender) {
-    lines.push(
-      `last_render_status: ${workContext.lastRender.status}`,
-      `last_render_time: ${new Date(workContext.lastRender.timestamp).toISOString()}`
-    )
-    if (workContext.lastRender.error) {
-      lines.push(`last_render_error: ${workContext.lastRender.error}`)
-    }
-  }
-
-  if (workContext.lastStaticCheck?.issues.length) {
-    lines.push(`last_static_check_issue_count: ${workContext.lastStaticCheck.issues.length}`)
-  }
-
-  if (workContext.fileChanges?.length) {
-    lines.push('recent_file_changes:')
-    for (const change of workContext.fileChanges.slice(0, 20)) {
-      lines.push(`- ${change.status} ${change.path}`)
+    if (renderContext.latestRender.error) {
+      lines.push(`latest_render_error: ${renderContext.latestRender.error}`)
     }
   }
 

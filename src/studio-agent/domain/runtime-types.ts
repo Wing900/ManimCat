@@ -1,16 +1,9 @@
 import type { StudioAssistantMessage, StudioFileAttachment } from './message-types'
 
-export interface StudioWorkContextCurrentWork {
+export interface StudioRenderContextLatestRender {
   id: string
-  type: 'review' | 'design' | 'render' | 'edit' | 'video' | 'plot' | 'render-fix'
   status: 'pending' | 'running' | 'completed' | 'failed'
-  title: string
-}
-
-export interface StudioWorkContextLastRender {
-  status: 'success' | 'failed'
   timestamp: number
-  workId?: string
   output?: {
     videoPath?: string
     imagePaths?: string[]
@@ -18,32 +11,10 @@ export interface StudioWorkContextLastRender {
   error?: string
 }
 
-export interface StudioWorkContextLastStaticCheck {
-  timestamp: number
-  issues: Array<{ file: string; line: number; severity: 'error' | 'warning' }>
-}
-
-export interface StudioWorkContextFileChange {
-  path: string
-  status: 'added' | 'modified' | 'deleted'
-}
-
-export interface StudioWorkContextPendingEvent {
-  id: string
-  kind: 'render-status'
-  title: string
-  summary: string
-  createdAt: string
-}
-
-export interface StudioWorkContext {
+export interface StudioRenderContext {
   sessionId: string
   agent: string
-  currentWork?: StudioWorkContextCurrentWork
-  lastRender?: StudioWorkContextLastRender
-  lastStaticCheck?: StudioWorkContextLastStaticCheck
-  fileChanges?: StudioWorkContextFileChange[]
-  pendingEvents?: StudioWorkContextPendingEvent[]
+  latestRender?: StudioRenderContextLatestRender
 }
 
 export interface StudioStreamAssistantMessageStart {

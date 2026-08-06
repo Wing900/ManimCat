@@ -14,7 +14,7 @@ import type {
   StudioSessionStore,
   StudioTaskStore,
   StudioToolChoice,
-  StudioWorkContext,
+  StudioRenderContext,
   StudioWorkResultStore,
   StudioWorkStore,
   StudioRenderStore,
@@ -50,7 +50,7 @@ export interface StudioRunRequestInput {
 
 export interface StudioPreparedRunContext {
   input: StudioRunRequestInput
-  workContext: StudioWorkContext
+  renderContext: StudioRenderContext
   run: StudioRun
   assistantMessage: StudioAssistantMessage
   eventBus: StudioEventBus
@@ -88,7 +88,7 @@ export interface StudioSessionRunnerDependencies {
   sharedEventBus?: StudioEventBus
   createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
   createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
-  buildWorkContext: (input: { session: StudioSession; inputText: string }) => Promise<StudioWorkContext>
+  buildRenderContext: (input: { session: StudioSession }) => Promise<StudioRenderContext>
 }
 
 export function createDependencyCenter(
@@ -97,7 +97,7 @@ export function createDependencyCenter(
     processor: StudioRunProcessor
     createRun: StudioSessionRunnerDependencies['createRun']
     createAssistantMessage: StudioSessionRunnerDependencies['createAssistantMessage']
-    buildWorkContext: StudioSessionRunnerDependencies['buildWorkContext']
+    buildRenderContext: StudioSessionRunnerDependencies['buildRenderContext']
   },
 ): StudioSessionRunnerDependencies {
   return {
@@ -116,6 +116,6 @@ export function createDependencyCenter(
     sharedEventBus: options.eventBus,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,
-    buildWorkContext: input.buildWorkContext
+    buildRenderContext: input.buildRenderContext
   }
 }
