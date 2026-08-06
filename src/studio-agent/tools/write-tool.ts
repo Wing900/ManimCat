@@ -15,10 +15,7 @@ export function createStudioWriteTool(): StudioToolDefinition<WriteToolInput> {
     name: 'write',
     parameters: writeToolParameters,
     description: 'Write a file in the current workspace.',
-    category: 'edit',
-    permission: 'write',
     allowedAgents: ['builder'],
-    requiresTask: false,
     execute: async (input, context) => executeWriteTool(input, context as StudioRuntimeBackedToolContext)
   }
 }

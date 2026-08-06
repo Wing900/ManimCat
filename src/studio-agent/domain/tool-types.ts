@@ -7,15 +7,6 @@ import type {
 } from './store-types'
 import type { StudioToolParameters } from '../tools/tool-parameters'
 
-export type StudioToolCategory =
-  | 'safe-read'
-  | 'edit'
-  | 'agent'
-  | 'shell'
-  | 'review'
-  | 'render'
-  | 'external'
-
 export interface StudioToolResult {
   title: string
   output: string
@@ -43,10 +34,7 @@ export interface StudioToolDefinition<TInput = unknown> {
   name: string
   parameters: StudioToolParameters
   description: string
-  category: StudioToolCategory
-  permission: string
   allowedAgents: StudioAgentType[]
   allowedStudioKinds?: StudioKind[]
-  requiresTask: boolean
   execute: (input: TInput, context: StudioToolContext) => Promise<StudioToolResult>
 }

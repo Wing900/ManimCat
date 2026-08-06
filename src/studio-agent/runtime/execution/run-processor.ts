@@ -425,7 +425,6 @@ export class StudioRunProcessor {
       failureKind: event.metadata?.failureKind,
       recoverable: event.metadata?.recoverable,
       failureCount: event.metadata?.failureCount,
-      permission: event.metadata?.permission,
       errorName: event.metadata?.errorName,
       targetPath: event.metadata?.targetPath,
       resolvedPath: event.metadata?.resolvedPath,

@@ -15,10 +15,7 @@ export function createStudioApplyPatchTool(): StudioToolDefinition<ApplyPatchToo
     name: 'apply_patch',
     parameters: applyPatchToolParameters,
     description: 'Apply structured search/replace patches to a workspace file.',
-    category: 'edit',
-    permission: 'apply_patch',
     allowedAgents: ['builder'],
-    requiresTask: false,
     execute: async (input, context) => executeApplyPatchTool(input, context as StudioRuntimeBackedToolContext)
   }
 }

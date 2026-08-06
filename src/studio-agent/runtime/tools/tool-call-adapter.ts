@@ -156,7 +156,6 @@ function logDetectedToolFailure(
     error: string
     failureStage: string
     failureKind: string
-    permission?: string
     errorName?: string
     stackPreview?: string
     targetPath?: string
@@ -174,7 +173,6 @@ function logDetectedToolFailure(
     callId: input.toolCallId,
     failureStage: details.failureStage,
     failureKind: details.failureKind,
-    permission: details.permission,
     errorName: details.errorName,
     error: details.error,
     stackPreview: details.stackPreview,

@@ -17,10 +17,7 @@ export function createStudioEditTool(): StudioToolDefinition<EditToolInput> {
     name: 'edit',
     parameters: editToolParameters,
     description: 'Replace text in a workspace file.',
-    category: 'edit',
-    permission: 'edit',
     allowedAgents: ['builder'],
-    requiresTask: false,
     execute: async (input, context) => executeEditTool(input, context as StudioRuntimeBackedToolContext)
   }
 }

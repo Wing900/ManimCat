@@ -23,11 +23,8 @@ export function createPlotStudioRenderTool(
     name: 'render',
     parameters: plotRenderToolParameters,
     description: 'Execute matplotlib code and persist static plot outputs for preview.',
-    category: 'render',
-    permission: 'render',
     allowedAgents: ['builder'],
     allowedStudioKinds: ['plot'],
-    requiresTask: true,
     execute: async (input, context) => executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
   }
 }
