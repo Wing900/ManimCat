@@ -62,6 +62,7 @@ triangle.png
 !CLA.md
 !CONTRIBUTING.md
 !DEVELOPMENT.md
+!STUDIO_AGENT_DEVELOPMENT.md
 !.github/pull_request_template.md
 !BUILDER_ARCHITECTURE.md
 !src/prompts/templates/**/*.md
