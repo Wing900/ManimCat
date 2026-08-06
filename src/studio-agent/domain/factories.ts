@@ -8,6 +8,8 @@ import type {
   StudioPermissionLevel,
   StudioPermissionRule,
   StudioReasoningPart,
+  StudioRender,
+  StudioRenderStatus,
   StudioRun,
   StudioSession,
   StudioTask,
@@ -76,6 +78,44 @@ export function createStudioRun(input: {
     activeAgent: input.activeAgent,
     createdAt: nowIso(),
     metadata: createInitialStudioRunMetadata(input.metadata)
+  }
+}
+
+export function createStudioRender(input: {
+  ownerId: string
+  sessionId: string
+  runId?: string
+  kind: StudioKind
+  title: string
+  concept: string
+  outputMode: 'video' | 'image'
+  quality?: 'low' | 'medium' | 'high'
+  status?: StudioRenderStatus
+  jobId?: string
+  sourcePath?: string
+  attachments?: StudioFileAttachment[]
+  error?: string
+  metadata?: Record<string, unknown>
+}): StudioRender {
+  const timestamp = nowIso()
+  return {
+    id: `render_${randomUUID()}`,
+    ownerId: input.ownerId,
+    sessionId: input.sessionId,
+    runId: input.runId,
+    kind: input.kind,
+    title: input.title,
+    status: input.status ?? 'queued',
+    concept: input.concept,
+    outputMode: input.outputMode,
+    quality: input.quality,
+    jobId: input.jobId,
+    sourcePath: input.sourcePath,
+    attachments: input.attachments,
+    error: input.error,
+    metadata: input.metadata,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   }
 }
 

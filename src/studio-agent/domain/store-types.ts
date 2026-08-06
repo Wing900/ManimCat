@@ -1,4 +1,4 @@
-import type { StudioRun, StudioSession, StudioTask, StudioWork, StudioWorkResult, StudioSessionEvent } from './core-types'
+import type { StudioRender, StudioRun, StudioSession, StudioTask, StudioWork, StudioWorkResult, StudioSessionEvent } from './core-types'
 import type {
   StudioAssistantMessage,
   StudioMessage,
@@ -36,6 +36,13 @@ export interface StudioRunStore {
   getById: (ownerId: string, runId: string) => Promise<StudioRun | null>
   update: (ownerId: string, runId: string, patch: Partial<StudioRun>) => Promise<StudioRun | null>
   listBySessionId: (ownerId: string, sessionId: string) => Promise<StudioRun[]>
+}
+
+export interface StudioRenderStore {
+  create: (render: StudioRender) => Promise<StudioRender>
+  getById: (ownerId: string, renderId: string) => Promise<StudioRender | null>
+  update: (ownerId: string, renderId: string, patch: Partial<StudioRender>) => Promise<StudioRender | null>
+  listBySessionId: (ownerId: string, sessionId: string) => Promise<StudioRender[]>
 }
 
 export interface StudioTaskStore {

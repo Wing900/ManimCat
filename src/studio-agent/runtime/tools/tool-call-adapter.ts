@@ -12,7 +12,6 @@ import type {
 import path from 'node:path'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
-import type { CustomApiConfig } from '../../../types'
 import { buildStudioPreToolCommentary } from './pre-tool-commentary'
 import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
 import { WorkspacePathError } from '../../tools/workspace-paths'
@@ -33,8 +32,8 @@ export interface StudioToolCallExecutionOptions {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
+  renderStore?: StudioRuntimeBackedToolContext['renderStore']
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
-  customApiConfig?: CustomApiConfig
   commentary?: string | null
   abortSignal?: AbortSignal
 }
@@ -137,34 +136,14 @@ async function executeTool(input: {
     taskStore: input.options.taskStore,
     workStore: input.options.workStore,
     workResultStore: input.options.workResultStore,
+    renderStore: input.options.renderStore,
     setToolMetadata: (metadata: { title?: string; metadata?: Record<string, unknown> }) => {
       input.options.setToolMetadata(input.options.toolCallId, metadata)
     },
     sessionStore: input.options.sessionStore
   } as StudioRuntimeBackedToolContext
 
-  const normalizedToolInput = injectToolDefaults(
-    input.options.toolName,
-    input.options.toolInput,
-    input.options.customApiConfig
-  )
-
-  return input.tool.execute(normalizedToolInput, toolContext)
-}
-
-function injectToolDefaults(
-  toolName: string,
-  toolInput: Record<string, unknown>,
-  customApiConfig?: CustomApiConfig
-): Record<string, unknown> {
-  if (toolName !== 'render' || !customApiConfig || 'customApiConfig' in toolInput) {
-    return toolInput
-  }
-
-  return {
-    ...toolInput,
-    customApiConfig
-  }
+  return input.tool.execute(input.options.toolInput, toolContext)
 }
 
 function createToolErrorEvent(

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { CustomApiConfig, OutputMode, VideoQuality } from '../../types'
+import type { OutputMode, VideoQuality } from '../../types'
 
 export interface ManimRenderSubmissionInput {
   jobId: string
@@ -7,7 +7,6 @@ export interface ManimRenderSubmissionInput {
   code: string
   outputMode: OutputMode
   quality: VideoQuality
-  customApiConfig?: CustomApiConfig
   workspaceDirectory: string
 }
 

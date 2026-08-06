@@ -13,6 +13,7 @@ import {
   InMemoryStudioTaskStore,
   InMemoryStudioWorkResultStore,
   InMemoryStudioWorkStore,
+  InMemoryStudioRenderStore,
   type ManimRenderSubmissionInput,
   type PlotRenderExecution,
   type StudioRuntimeBackedToolContext
@@ -52,6 +53,7 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
     taskStore: new InMemoryStudioTaskStore(),
     workStore: new InMemoryStudioWorkStore(),
     workResultStore: new InMemoryStudioWorkResultStore()
+    ,renderStore: new InMemoryStudioRenderStore()
   }
 }
 
@@ -125,6 +127,39 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.equal(calls[0]?.workspaceDirectory, context.session.directory)
     assert.equal(calls[0]?.code, 'class MainScene(Scene): pass')
     assert.equal(result.metadata?.jobId, calls[0]?.jobId)
+  })
+
+  await run('Manim render persists before queue submission and records failure', async () => {
+    const order: string[] = []
+    const renderStore = new InMemoryStudioRenderStore()
+    const context = createToolContext('manim')
+    context.renderStore = {
+      async create(render) {
+        order.push('create')
+        return renderStore.create(render)
+      },
+      async getById(ownerId, renderId) {
+        return renderStore.getById(ownerId, renderId)
+      },
+      async update(ownerId, renderId, patch) {
+        order.push(`update:${patch.status ?? 'unknown'}`)
+        return renderStore.update(ownerId, renderId, patch)
+      },
+      async listBySessionId(ownerId, sessionId) {
+        return renderStore.listBySessionId(ownerId, sessionId)
+      },
+    }
+    const tool = createStudioRenderTool({
+      async submit() {
+        order.push('submit')
+        throw new Error('queue unavailable')
+      }
+    })
+
+    await assert.rejects(() => tool.execute({ concept: 'broken queue', code: 'class Scene: pass' }, context), /queue unavailable/)
+    assert.deepEqual(order, ['create', 'submit', 'update:failed'])
+    const renders = await renderStore.listBySessionId(context.session.ownerId, context.session.id)
+    assert.equal(renders[0]?.status, 'failed')
   })
 
   await run('Plot render tool uses an injected render port', async () => {

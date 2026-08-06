@@ -2,6 +2,7 @@ import type {
   StudioMessageStore,
   StudioPartStore,
   StudioRunStore,
+  StudioRenderStore,
   StudioSessionEventStore,
   StudioSessionStore,
   StudioTaskStore,
@@ -14,6 +15,7 @@ export interface StudioPersistence {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
   runStore: StudioRunStore
+  renderStore: StudioRenderStore
   taskStore: StudioTaskStore
   workStore: StudioWorkStore
   workResultStore: StudioWorkResultStore

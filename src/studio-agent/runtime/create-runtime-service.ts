@@ -129,6 +129,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     taskStore: input.persistence.taskStore,
     workStore: input.persistence.workStore,
     workResultStore: input.persistence.workResultStore,
+    renderStore: input.persistence.renderStore,
     sessionEventStore: input.persistence.sessionEventStore,
     eventBus,
   })
@@ -207,16 +208,17 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
 
     await syncSessionState(ownerId, session.id)
 
-    const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
+    const [messages, runs, renders, sessionEvents, tasks, works, workResults] = await Promise.all([
       input.persistence.messageStore.listBySessionId(session.id),
       input.persistence.runStore.listBySessionId(ownerId, session.id),
+      input.persistence.renderStore.listBySessionId(ownerId, session.id),
       input.persistence.sessionEventStore.listBySessionId(session.id),
       input.persistence.taskStore.listBySessionId(session.id),
       input.persistence.workStore.listBySessionId(session.id),
       listWorkResults(session.id),
     ])
 
-    return { session, messages, runs, sessionEvents, tasks, works, workResults }
+    return { session, messages, runs, renders, sessionEvents, tasks, works, workResults }
   }
 
   async function getSessionTasks(ownerId: string, sessionId: string): Promise<StudioTask[] | null> {

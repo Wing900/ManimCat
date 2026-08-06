@@ -5,7 +5,8 @@ import type {
   StudioSessionStore,
   StudioTaskStore,
   StudioWorkResultStore,
-  StudioWorkStore
+  StudioWorkStore,
+  StudioRenderStore,
 } from './store-types'
 import type { StudioToolParameters } from '../tools/tool-parameters'
 
@@ -40,6 +41,7 @@ export interface StudioToolContext {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
+  renderStore?: StudioRenderStore
   setToolMetadata?: (metadata: { title?: string; metadata?: Record<string, unknown> }) => void
 }
 

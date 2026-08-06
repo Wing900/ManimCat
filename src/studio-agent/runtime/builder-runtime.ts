@@ -12,7 +12,8 @@ import type {
   StudioTaskStore,
   StudioToolChoice,
   StudioWorkResultStore,
-  StudioWorkStore
+  StudioWorkStore,
+  StudioRenderStore,
 } from '../domain/types'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioSessionRunner } from './execution/session-runner/session-runner'
@@ -29,6 +30,7 @@ interface StudioBuilderRuntimeOptions {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
+  renderStore?: StudioRenderStore
   eventBus?: StudioEventBus
 }
 
@@ -46,6 +48,7 @@ export class StudioBuilderRuntime {
       taskStore: options.taskStore,
       workStore: options.workStore,
       workResultStore: options.workResultStore,
+      renderStore: options.renderStore,
       eventBus: options.eventBus,
     })
   }

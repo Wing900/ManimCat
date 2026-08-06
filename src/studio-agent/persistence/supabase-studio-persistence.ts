@@ -8,6 +8,8 @@ import type {
   StudioPermissionRule,
   StudioRun,
   StudioRunStore,
+  StudioRender,
+  StudioRenderStore,
   StudioSession,
   StudioSessionEvent,
   StudioSessionStore,
@@ -30,6 +32,7 @@ const TABLES = {
   tasks: 'studio_tasks',
   works: 'studio_works',
   workResults: 'studio_work_results',
+  renders: 'studio_renders',
 } as const
 
 type JsonRecord = Record<string, unknown>
@@ -88,6 +91,26 @@ type StudioRunRow = {
   completed_at: string | null
   error: string | null
   metadata: JsonRecord | null
+}
+
+type StudioRenderRow = {
+  id: string
+  owner_id: string
+  session_id: string
+  run_id: string | null
+  kind: StudioRender['kind']
+  title: string
+  status: StudioRender['status']
+  concept: string
+  output_mode: StudioRender['outputMode']
+  quality: StudioRender['quality'] | null
+  job_id: string | null
+  source_path: string | null
+  attachments: JsonRecord[] | null
+  error: string | null
+  metadata: JsonRecord | null
+  created_at: string
+  updated_at: string
 }
 
 type StudioSessionEventRow = {
@@ -150,6 +173,7 @@ export function createSupabaseStudioPersistence(client: SupabaseClient): StudioP
     messageStore: createSupabaseStudioMessageStore(client),
     partStore,
     runStore: createSupabaseStudioRunStore(client),
+    renderStore: createSupabaseStudioRenderStore(client),
     sessionEventStore: createSupabaseStudioSessionEventStore(client),
     taskStore: createSupabaseStudioTaskStore(client),
     workStore: createSupabaseStudioWorkStore(client),
@@ -324,6 +348,51 @@ function createSupabaseStudioRunStore(client: SupabaseClient): StudioRunStore {
         .order('created_at', { ascending: true })
       if (error) throw new Error(`[StudioDB] Failed to list runs: ${error.message}`)
       return (data ?? []).map((row) => fromRunRow(row as StudioRunRow))
+    },
+  }
+}
+
+function createSupabaseStudioRenderStore(client: SupabaseClient): StudioRenderStore {
+  return {
+    async create(render) {
+      const { data, error } = await client.from(TABLES.renders).insert(toRenderRow(render)).select('*').single()
+      if (error) throw new Error(`[StudioDB] Failed to create render: ${error.message}`)
+      return fromRenderRow(data as StudioRenderRow)
+    },
+    async getById(ownerId, renderId) {
+      const { data, error } = await client
+        .from(TABLES.renders)
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('id', renderId)
+        .maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to get render: ${error.message}`)
+      return data ? fromRenderRow(data as StudioRenderRow) : null
+    },
+    async update(ownerId, renderId, patch) {
+      const payload = toRenderPatch(patch)
+      if (!Object.keys(payload).length) {
+        return this.getById(ownerId, renderId)
+      }
+      const { data, error } = await client
+        .from(TABLES.renders)
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('owner_id', ownerId)
+        .eq('id', renderId)
+        .select('*')
+        .maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to update render: ${error.message}`)
+      return data ? fromRenderRow(data as StudioRenderRow) : null
+    },
+    async listBySessionId(ownerId, sessionId) {
+      const { data, error } = await client
+        .from(TABLES.renders)
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true })
+      if (error) throw new Error(`[StudioDB] Failed to list renders: ${error.message}`)
+      return (data ?? []).map((row) => fromRenderRow(row as StudioRenderRow))
     },
   }
 }
@@ -560,6 +629,28 @@ function fromRunRow(row: StudioRunRow): StudioRun {
   }
 }
 
+function fromRenderRow(row: StudioRenderRow): StudioRender {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    sessionId: row.session_id,
+    runId: asOptional(row.run_id),
+    kind: row.kind,
+    title: row.title,
+    status: row.status,
+    concept: row.concept,
+    outputMode: row.output_mode,
+    quality: asOptional(row.quality),
+    jobId: asOptional(row.job_id),
+    sourcePath: asOptional(row.source_path),
+    attachments: asAttachments(row.attachments),
+    error: asOptional(row.error),
+    metadata: asOptional(row.metadata),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 function fromTaskRow(row: StudioTaskRow): StudioTask {
   return {
     id: row.id,
@@ -716,6 +807,28 @@ function toRunRow(run: StudioRun): StudioRunRow {
   }
 }
 
+function toRenderRow(render: StudioRender): StudioRenderRow {
+  return {
+    id: render.id,
+    owner_id: render.ownerId,
+    session_id: render.sessionId,
+    run_id: asNullable(render.runId),
+    kind: render.kind,
+    title: render.title,
+    status: render.status,
+    concept: render.concept,
+    output_mode: render.outputMode,
+    quality: asNullable(render.quality),
+    job_id: asNullable(render.jobId),
+    source_path: asNullable(render.sourcePath),
+    attachments: render.attachments ? (render.attachments as unknown as JsonRecord[]) : null,
+    error: asNullable(render.error),
+    metadata: asNullable(render.metadata),
+    created_at: render.createdAt,
+    updated_at: render.updatedAt,
+  }
+}
+
 function toTaskRow(task: StudioTask): StudioTaskRow {
   return {
     id: task.id,
@@ -830,6 +943,25 @@ function toRunPatch(patch: Partial<StudioRun>) {
     active_agent: patch.activeAgent,
     created_at: patch.createdAt,
     completed_at: patch.completedAt,
+    error: patch.error,
+    metadata: patch.metadata,
+  })
+}
+
+function toRenderPatch(patch: Partial<StudioRender>) {
+  return compactObject({
+    owner_id: patch.ownerId,
+    session_id: patch.sessionId,
+    run_id: patch.runId,
+    kind: patch.kind,
+    title: patch.title,
+    status: patch.status,
+    concept: patch.concept,
+    output_mode: patch.outputMode,
+    quality: patch.quality,
+    job_id: patch.jobId,
+    source_path: patch.sourcePath,
+    attachments: patch.attachments ? (patch.attachments as unknown as JsonRecord[]) : undefined,
     error: patch.error,
     metadata: patch.metadata,
   })

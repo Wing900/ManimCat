@@ -10,6 +10,7 @@ import type {
   StudioWorkContext,
   StudioWorkResultStore,
   StudioWorkStore
+  ,StudioRenderStore
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type {
@@ -40,6 +41,7 @@ export interface StudioOpenAIToolLoopInput {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
+  renderStore?: StudioRenderStore
   workContext?: StudioWorkContext
   documentationContext?: string
   createAssistantMessage: () => Promise<StudioAssistantMessage>

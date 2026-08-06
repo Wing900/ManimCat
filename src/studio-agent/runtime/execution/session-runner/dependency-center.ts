@@ -16,7 +16,8 @@ import type {
   StudioToolChoice,
   StudioWorkContext,
   StudioWorkResultStore,
-  StudioWorkStore
+  StudioWorkStore,
+  StudioRenderStore,
 } from '../../../domain/types'
 import type { StudioToolRegistry } from '../../../tools/registry'
 
@@ -30,6 +31,7 @@ export interface StudioSessionRunnerOptions {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
+  renderStore?: StudioRenderStore
   eventBus?: StudioEventBus
 }
 
@@ -76,6 +78,7 @@ export interface StudioSessionRunnerDependencies {
   taskStore?: StudioTaskStore
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
+  renderStore?: StudioRenderStore
   sharedEventBus?: StudioEventBus
   createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
   createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
@@ -102,6 +105,7 @@ export function createDependencyCenter(
     taskStore: options.taskStore,
     workStore: options.workStore,
     workResultStore: options.workResultStore,
+    renderStore: options.renderStore,
     sharedEventBus: options.eventBus,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,

@@ -145,8 +145,8 @@ async function* executeStudioSingleToolCall(
     taskStore: input.taskStore,
     workStore: input.workStore,
     workResultStore: input.workResultStore,
+    renderStore: input.renderStore,
     setToolMetadata: (callId, metadata) => input.setToolMetadata(runtime.currentAssistantMessage, callId, metadata),
-    customApiConfig: input.customApiConfig,
     abortSignal: input.abortSignal,
     commentary: hasAssistantText
       ? null
@@ -274,8 +274,8 @@ async function* executeAutoRender(
     taskStore: input.taskStore,
     workStore: input.workStore,
     workResultStore: input.workResultStore,
+    renderStore: input.renderStore,
     setToolMetadata: (callId, metadata) => input.setToolMetadata(runtime.currentAssistantMessage, callId, metadata),
-    customApiConfig: input.customApiConfig,
     abortSignal: input.abortSignal,
     commentary: null,
   })) {

@@ -3,6 +3,7 @@ import type {
   StudioPartStore,
   StudioMessageStore,
   StudioSessionStore,
+  StudioRenderStore,
   StudioToolContext
 } from '../../domain/types'
 
@@ -14,4 +15,5 @@ export interface StudioRuntimeBackedToolContext extends StudioToolContext {
   partStore?: StudioPartStore
   messageStore?: StudioMessageStore
   sessionStore?: StudioSessionStore
+  renderStore?: StudioRenderStore
 }

@@ -41,6 +41,28 @@ export type StudioWorkResultKind =
   | 'edit-result'
   | 'failure-report'
 
+export type StudioRenderStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface StudioRender {
+  id: string
+  ownerId: string
+  sessionId: string
+  runId?: string
+  kind: StudioKind
+  title: string
+  status: StudioRenderStatus
+  concept: string
+  outputMode: 'video' | 'image'
+  quality?: 'low' | 'medium' | 'high'
+  jobId?: string
+  sourcePath?: string
+  attachments?: StudioFileAttachment[]
+  error?: string
+  metadata?: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
 export type StudioSessionEventStatus = 'pending' | 'consumed'
 export type StudioSessionEventKind = 'render-status'
 
