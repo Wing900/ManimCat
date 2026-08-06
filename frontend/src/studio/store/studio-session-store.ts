@@ -3,9 +3,6 @@ import type {
   StudioRun,
   StudioRender,
   StudioSessionSnapshot,
-  StudioTask,
-  StudioWork,
-  StudioWorkResult,
 } from '../protocol/studio-agent-types'
 import { mergeMessages, preferNewerRun } from '../agent-response/reconciler'
 import type { StudioEntityState, StudioSessionState } from './studio-types'
@@ -27,7 +24,6 @@ export function createInitialStudioState(): StudioSessionState {
       assistantTextByRunId: {},
       optimisticAssistantMessageIdByRunId: {},
       pendingAssistantMessageId: null,
-      latestQuestion: null,
     },
     error: null,
   }
@@ -39,10 +35,7 @@ export function mergeStudioSnapshot(
 ): StudioSessionState {
   const messagesById = mergeMessages(current.entities.messagesById, snapshot.messages)
   const runsById = mergeRuns(current.entities.runsById, snapshot.runs)
-  const tasksById = mergeRecord(current.entities.tasksById, snapshot.tasks)
-  const worksById = mergeRecord(current.entities.worksById, snapshot.works)
-  const workResultsById = mergeRecord(current.entities.workResultsById, snapshot.workResults)
-  const rendersById = mergeRecord(current.entities.rendersById, snapshot.renders ?? [])
+  const rendersById = mergeRecord(current.entities.rendersById, snapshot.renders)
 
   return {
     ...current,
@@ -52,12 +45,6 @@ export function mergeStudioSnapshot(
       messageOrder: sortMessageIds(messagesById, current.entities.messageOrder, snapshot.messages.map((item) => item.id)),
       runsById,
       runOrder: sortRecordIdsBy(runsById, compareByCreatedAt),
-      tasksById,
-      taskOrder: sortRecordIdsBy(tasksById, compareByUpdatedAt),
-      worksById,
-      workOrder: sortRecordIdsBy(worksById, compareByUpdatedAt),
-      workResultsById,
-      workResultOrder: sortRecordIdsBy(workResultsById, compareByCreatedAt),
       rendersById,
       renderOrder: sortRecordIdsBy(rendersById, compareByUpdatedAt),
     },
@@ -96,33 +83,6 @@ export function upsertRuns(state: StudioEntityState, runs: StudioRun[]): StudioE
   }
 }
 
-export function upsertTasks(state: StudioEntityState, tasks: StudioTask[]): StudioEntityState {
-  const tasksById = mergeRecord(state.tasksById, tasks)
-  return {
-    ...state,
-    tasksById,
-    taskOrder: sortRecordIdsBy(tasksById, compareByUpdatedAt),
-  }
-}
-
-export function upsertWorks(state: StudioEntityState, works: StudioWork[]): StudioEntityState {
-  const worksById = mergeRecord(state.worksById, works)
-  return {
-    ...state,
-    worksById,
-    workOrder: sortRecordIdsBy(worksById, compareByUpdatedAt),
-  }
-}
-
-export function upsertWorkResults(state: StudioEntityState, results: StudioWorkResult[]): StudioEntityState {
-  const workResultsById = mergeRecord(state.workResultsById, results)
-  return {
-    ...state,
-    workResultsById,
-    workResultOrder: sortRecordIdsBy(workResultsById, compareByCreatedAt),
-  }
-}
-
 export function removeMessages(state: StudioEntityState, messageIds: string[]): StudioEntityState {
   if (messageIds.length === 0) {
     return state
@@ -156,12 +116,6 @@ function createEmptyEntityState(): StudioEntityState {
     messageOrder: [],
     runsById: {},
     runOrder: [],
-    tasksById: {},
-    taskOrder: [],
-    worksById: {},
-    workOrder: [],
-    workResultsById: {},
-    workResultOrder: [],
     rendersById: {},
     renderOrder: [],
   }

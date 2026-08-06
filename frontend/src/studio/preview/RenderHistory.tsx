@@ -1,7 +1,7 @@
 import { useI18n } from '../../i18n'
 import type { StudioRender } from '../protocol/studio-agent-types'
 import { studioStatusBadge } from '../theme'
-import { translateWorkStatus } from '../labels'
+import { translateRenderStatus } from '../labels'
 
 interface RenderHistoryProps {
   renders: StudioRender[]
@@ -49,7 +49,7 @@ export function RenderHistory({ renders, selectedRenderId, onSelectRender }: Ren
                 <div className="mt-1 truncate text-[10px] text-text-secondary/45">{render.concept}</div>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-tighter ${studioStatusBadge(render.status)}`}>
-                {translateWorkStatus(render.status, t)}
+                {translateRenderStatus(render.status, t)}
               </span>
             </button>
           )

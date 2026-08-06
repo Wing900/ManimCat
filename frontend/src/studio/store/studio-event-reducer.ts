@@ -10,9 +10,6 @@ import {
   mergeStudioSnapshot,
   upsertMessages,
   upsertRuns,
-  upsertTasks,
-  upsertWorkResults,
-  upsertWorks,
   upsertRenders,
 } from './studio-session-store'
 import { debugStudioMessages } from '../agent-response/debug'
@@ -202,21 +199,6 @@ function applyStudioExternalEvent(state: StudioSessionState, event: StudioExtern
   }
 
   switch (event.type) {
-    case 'task.updated':
-      return {
-        ...nextBase,
-        entities: upsertTasks(nextBase.entities, [event.properties.task]),
-      }
-    case 'work.updated':
-      return {
-        ...nextBase,
-        entities: upsertWorks(nextBase.entities, [event.properties.work]),
-      }
-    case 'work-result.updated':
-      return {
-        ...nextBase,
-        entities: upsertWorkResults(nextBase.entities, [event.properties.result]),
-      }
     case 'run.updated':
       return {
         ...nextBase,
@@ -239,18 +221,6 @@ function applyStudioExternalEvent(state: StudioSessionState, event: StudioExtern
       return applyToolCallEvent(nextBase, event.properties.runId, event.properties.callId, event.properties.toolName, event.properties.input, event.properties.messageId)
     case 'tool.result':
       return applyToolResultEvent(nextBase, event.properties.runId, event.properties.callId, event.properties.toolName, event.properties, event.properties.messageId)
-    case 'question.requested':
-      return {
-        ...nextBase,
-        runtime: {
-          ...nextBase.runtime,
-          latestQuestion: {
-            runId: event.properties.runId,
-            question: event.properties.question,
-            details: event.properties.details,
-          },
-        },
-      }
     case 'studio.connected':
       return {
         ...nextBase,

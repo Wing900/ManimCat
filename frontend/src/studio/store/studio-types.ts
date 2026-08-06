@@ -3,9 +3,6 @@ import type {
   StudioRun,
   StudioRender,
   StudioSession,
-  StudioTask,
-  StudioWork,
-  StudioWorkResult,
 } from '../protocol/studio-agent-types'
 
 export interface StudioEntityState {
@@ -14,12 +11,6 @@ export interface StudioEntityState {
   messageOrder: string[]
   runsById: Record<string, StudioRun>
   runOrder: string[]
-  tasksById: Record<string, StudioTask>
-  taskOrder: string[]
-  worksById: Record<string, StudioWork>
-  workOrder: string[]
-  workResultsById: Record<string, StudioWorkResult>
-  workResultOrder: string[]
   rendersById: Record<string, StudioRender>
   renderOrder: string[]
 }
@@ -39,11 +30,6 @@ export interface StudioRuntimeState {
   assistantTextByRunId: Record<string, string>
   optimisticAssistantMessageIdByRunId: Record<string, string>
   pendingAssistantMessageId: string | null
-  latestQuestion: {
-    runId: string
-    question: string
-    details?: string
-  } | null
 }
 
 export interface StudioSessionState {

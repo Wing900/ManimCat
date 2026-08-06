@@ -1,5 +1,5 @@
 import { useI18n } from '../../i18n'
-import { translateEventStatus, translateRunStatus, translateSnapshotStatus, translateWorkStatus } from '../labels'
+import { translateEventStatus, translateRenderStatus, translateRunStatus, translateSnapshotStatus } from '../labels'
 import type { StudioRender, StudioRun } from '../protocol/studio-agent-types'
 import { studioStatusBadge, truncateStudioText } from '../theme'
 
@@ -34,7 +34,7 @@ export function RunStatus({ latestRun, render, latestAssistantText, snapshotStat
 
         <div className="mt-5 space-y-2.5">
           <StatusRow label={t('studio.status.run')} value={latestRun ? translateRunStatus(latestRun.status, t) : t('studio.idle')} tone={latestRun?.status ?? 'idle'} />
-          <StatusRow label={t('studio.status.render')} value={render ? translateWorkStatus(render.status, t) : t('studio.idle')} tone={render?.status ?? 'idle'} />
+          <StatusRow label={t('studio.status.render')} value={render ? translateRenderStatus(render.status, t) : t('studio.idle')} tone={render?.status ?? 'idle'} />
           <StatusRow label={t('studio.pipeline.eventStream')} value={translateEventStatus(eventStatus, t)} tone={eventStatus} />
           <StatusRow label={t('studio.pipeline.snapshot')} value={translateSnapshotStatus(snapshotStatus, t)} tone={snapshotStatus} />
         </div>

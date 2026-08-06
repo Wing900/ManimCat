@@ -1,6 +1,6 @@
 import { useI18n } from '../../i18n'
 import type { StudioFileAttachment, StudioRender, StudioRun, StudioSession } from '../protocol/studio-agent-types'
-import { translateRunStatus, translateWorkStatus } from '../labels'
+import { translateRenderStatus, translateRunStatus } from '../labels'
 import { formatStudioTime, studioStatusBadge } from '../theme'
 import { RenderHistory } from './RenderHistory'
 
@@ -32,7 +32,7 @@ export function StudioPreview({ session, renders, selectedRenderId, render, late
             </div>
           </div>
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${studioStatusBadge(render?.status ?? latestRun?.status ?? 'idle')}`}>
-            {render ? translateWorkStatus(render.status, t) : latestRun ? translateRunStatus(latestRun.status, t) : t('studio.idle')}
+            {render ? translateRenderStatus(render.status, t) : latestRun ? translateRunStatus(latestRun.status, t) : t('studio.idle')}
           </span>
         </div>
       </div>
@@ -81,7 +81,7 @@ function PreviewSurface({ attachment, render }: { attachment: StudioFileAttachme
 }
 
 function translateRenderStatus(status: StudioRender['status'], t: ReturnType<typeof useI18n>['t']) {
-  return translateWorkStatus(status, t)
+  return translateRenderStatus(status, t)
 }
 
 function isPreviewAttachment(attachment: StudioFileAttachment) {

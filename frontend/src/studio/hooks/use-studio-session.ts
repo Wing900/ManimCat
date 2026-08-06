@@ -15,12 +15,7 @@ import {
   createStudioViewSelectors,
   selectLatestAssistantText,
   selectLatestRun,
-  selectLatestTaskForWork,
-  selectSelectedWork,
   selectIsBusy,
-  selectTasksForWork,
-  selectWorkSummary,
-  selectWorkResult,
   selectStudioRenders,
   selectActiveRender,
   selectRenderPreview,
@@ -283,7 +278,6 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
 
   const messages = viewSelectors.selectStudioMessages(state)
   const runs = viewSelectors.selectStudioRuns(state)
-  const works = viewSelectors.selectStudioWorks(state)
   const renders = selectStudioRenders(state)
 
   return {
@@ -292,11 +286,9 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
     messages,
     runs,
     renders,
-    works,
     latestRun: selectLatestRun(state),
     latestAssistantText: selectLatestAssistantText(state),
     isBusy: selectIsBusy(state),
-    latestQuestion: state.runtime.latestQuestion,
     historyModal: {
       isOpen: isHistoryOpen,
       isLoading: isHistoryLoading,
@@ -308,11 +300,6 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
         setIsHistoryOpen(false)
       },
     },
-    workSummaries: works.map((work) => ({
-      work,
-      latestTask: selectLatestTaskForWork(state, work.id),
-      result: selectWorkSummary(state, work).result,
-    })),
     openHistory,
     refresh,
     runCommand: async (inputText: string) => {
@@ -340,14 +327,6 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
           text: t('studio.interruptMessage'),
         }),
       })
-    },
-    selectWork(workId: string | null) {
-      const work = selectSelectedWork(state, workId)
-      return {
-        work,
-        result: selectWorkResult(state, work),
-        tasks: selectTasksForWork(state, work?.id),
-      }
     },
     selectRender(renderId: string | null) {
       return selectRenderPreview(state, renderId)

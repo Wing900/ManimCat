@@ -55,14 +55,10 @@ export function useStudioEvents({ sessionId, onEvent, onStatusChange }: UseStudi
 
 function resolveEventSessionId(event: StudioExternalEvent): string | null {
   switch (event.type) {
-    case 'task.updated':
-    case 'work.updated':
-    case 'work-result.updated':
     case 'assistant.text':
     case 'tool.input-start':
     case 'tool.call':
     case 'tool.result':
-    case 'question.requested':
       return event.properties.sessionId
     case 'render.updated':
       return event.properties.sessionId

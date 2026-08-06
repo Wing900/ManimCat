@@ -52,9 +52,7 @@ function createSnapshot(session: StudioSession): StudioSessionSnapshot {
     session,
     messages: [],
     runs: [],
-    tasks: [],
-    works: [],
-    workResults: [],
+    renders: [],
   }
 }
 

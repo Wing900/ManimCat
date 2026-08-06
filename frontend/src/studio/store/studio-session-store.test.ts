@@ -34,9 +34,7 @@ describe('mergeStudioSnapshot', () => {
         ], '2026-03-24T00:00:40.000Z'),
       ],
       runs: [],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])
@@ -85,9 +83,7 @@ describe('mergeStudioSnapshot', () => {
         ], '2026-03-24T00:00:04.000Z'),
       ],
       runs: [],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])
@@ -133,9 +129,7 @@ describe('mergeStudioSnapshot', () => {
         ], '2026-03-24T00:01:00.000Z'),
       ],
       runs: [],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])
@@ -182,9 +176,7 @@ describe('mergeStudioSnapshot', () => {
       runs: [
         createRun(),
       ],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])
@@ -260,9 +252,7 @@ describe('mergeStudioSnapshot', () => {
         ], '2026-03-24T00:00:12.000Z'),
       ],
       runs: [],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])
@@ -305,9 +295,7 @@ describe('mergeStudioSnapshot', () => {
         },
       ],
       runs: [],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])
@@ -341,9 +329,7 @@ describe('mergeStudioSnapshot', () => {
           completedAt: undefined,
         }),
       ],
-      tasks: [],
-      works: [],
-      workResults: [],
+      renders: [],
     }
 
     const next = mergeStudioSnapshot(current, snapshot, [])

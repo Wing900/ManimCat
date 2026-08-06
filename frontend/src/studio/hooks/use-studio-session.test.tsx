@@ -47,9 +47,6 @@ function createSnapshot(session: StudioSession, renderStatus?: 'queued' | 'runni
     session,
     messages: [],
     runs: [],
-    tasks: [],
-    works: [],
-    workResults: [],
     renders: renderStatus ? [{
       id: 'render-1',
       sessionId: session.id,

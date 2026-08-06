@@ -65,10 +65,7 @@ export function useStudioRun({ session, onOptimisticMessagesCreated, onRunSubmit
           session: activeSession,
           messages: response.messages,
           runs: snapshotRuns,
-          tasks: response.tasks,
-          works: response.works,
-          workResults: response.workResults,
-          renders: response.renders ?? [],
+          renders: response.renders,
         })
       } catch (error) {
         if (

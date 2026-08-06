@@ -2,37 +2,7 @@ import type {
   StudioFileAttachment,
   StudioRun,
   StudioRender,
-  StudioTask,
-  StudioWork,
-  StudioWorkResult,
 } from './studio-agent-types'
-
-export interface StudioTaskUpdatedExternalEvent {
-  type: 'task.updated'
-  properties: {
-    sessionId: string
-    runId?: string
-    task: StudioTask
-  }
-}
-
-export interface StudioWorkUpdatedExternalEvent {
-  type: 'work.updated'
-  properties: {
-    sessionId: string
-    runId?: string
-    work: StudioWork
-  }
-}
-
-export interface StudioWorkResultUpdatedExternalEvent {
-  type: 'work-result.updated'
-  properties: {
-    sessionId: string
-    runId?: string
-    result: StudioWorkResult
-  }
-}
 
 export interface StudioRunUpdatedExternalEvent {
   type: 'run.updated'
@@ -102,16 +72,6 @@ export interface StudioToolResultExternalEvent {
   }
 }
 
-export interface StudioQuestionRequestedExternalEvent {
-  type: 'question.requested'
-  properties: {
-    sessionId: string
-    runId: string
-    question: string
-    details?: string
-  }
-}
-
 export interface StudioConnectedExternalEvent {
   type: 'studio.connected'
   properties: {
@@ -127,16 +87,12 @@ export interface StudioHeartbeatExternalEvent {
 }
 
 export type StudioExternalEvent =
-  | StudioTaskUpdatedExternalEvent
-  | StudioWorkUpdatedExternalEvent
-  | StudioWorkResultUpdatedExternalEvent
   | StudioRunUpdatedExternalEvent
   | StudioRenderUpdatedExternalEvent
   | StudioAssistantTextExternalEvent
   | StudioToolInputStartExternalEvent
   | StudioToolCallExternalEvent
   | StudioToolResultExternalEvent
-  | StudioQuestionRequestedExternalEvent
   | StudioConnectedExternalEvent
   | StudioHeartbeatExternalEvent
 
