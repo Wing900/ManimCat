@@ -36,6 +36,7 @@ type JsonRecord = Record<string, unknown>
 
 type StudioSessionRow = {
   id: string
+  owner_id: string
   project_id: string
   workspace_id: string | null
   parent_session_id: string | null
@@ -78,6 +79,7 @@ type StudioPartRow = {
 
 type StudioRunRow = {
   id: string
+  owner_id: string
   session_id: string
   status: StudioRun['status']
   input_text: string
@@ -163,30 +165,37 @@ function createSupabaseStudioSessionStore(client: SupabaseClient): StudioSession
       if (error) throw new Error(`[StudioDB] Failed to create session: ${error.message}`)
       return fromSessionRow(data as StudioSessionRow)
     },
-    async getById(sessionId) {
-      const { data, error } = await client.from(TABLES.sessions).select('*').eq('id', sessionId).maybeSingle()
+    async getById(ownerId, sessionId) {
+      const { data, error } = await client
+        .from(TABLES.sessions)
+        .select('*')
+        .eq('id', sessionId)
+        .eq('owner_id', ownerId)
+        .maybeSingle()
       if (error) throw new Error(`[StudioDB] Failed to get session: ${error.message}`)
       return data ? fromSessionRow(data as StudioSessionRow) : null
     },
-    async update(sessionId, patch) {
+    async update(ownerId, sessionId, patch) {
       const payload = toSessionPatch(patch)
       if (!Object.keys(payload).length) {
-        return this.getById(sessionId)
+        return this.getById(ownerId, sessionId)
       }
       const { data, error } = await client
         .from(TABLES.sessions)
         .update({ ...payload, updated_at: new Date().toISOString() })
         .eq('id', sessionId)
+        .eq('owner_id', ownerId)
         .select('*')
         .maybeSingle()
       if (error) throw new Error(`[StudioDB] Failed to update session: ${error.message}`)
       return data ? fromSessionRow(data as StudioSessionRow) : null
     },
-    async listChildren(parentSessionId) {
+    async listChildren(ownerId, parentSessionId) {
       const { data, error } = await client
         .from(TABLES.sessions)
         .select('*')
         .eq('parent_session_id', parentSessionId)
+        .eq('owner_id', ownerId)
         .order('created_at', { ascending: true })
       if (error) throw new Error(`[StudioDB] Failed to list child sessions: ${error.message}`)
       return (data ?? []).map((row) => fromSessionRow(row as StudioSessionRow))
@@ -275,15 +284,48 @@ function createSupabaseStudioPartStore(client: SupabaseClient): StudioPartStore 
 }
 
 function createSupabaseStudioRunStore(client: SupabaseClient): StudioRunStore {
-  return createCrudStore<StudioRun, StudioRunRow>({
-    client,
-    table: TABLES.runs,
-    toRow: toRunRow,
-    fromRow: fromRunRow,
-    toPatch: toRunPatch,
-    listColumn: 'session_id',
-    listOrderColumn: 'created_at',
-  })
+  return {
+    async create(run) {
+      const { data, error } = await client.from(TABLES.runs).insert(toRunRow(run)).select('*').single()
+      if (error) throw new Error(`[StudioDB] Failed to create run: ${error.message}`)
+      return fromRunRow(data as StudioRunRow)
+    },
+    async getById(ownerId, runId) {
+      const { data, error } = await client
+        .from(TABLES.runs)
+        .select('*')
+        .eq('id', runId)
+        .eq('owner_id', ownerId)
+        .maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to get run: ${error.message}`)
+      return data ? fromRunRow(data as StudioRunRow) : null
+    },
+    async update(ownerId, runId, patch) {
+      const payload = toRunPatch(patch)
+      if (!Object.keys(payload).length) {
+        return this.getById(ownerId, runId)
+      }
+      const { data, error } = await client
+        .from(TABLES.runs)
+        .update(payload)
+        .eq('id', runId)
+        .eq('owner_id', ownerId)
+        .select('*')
+        .maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to update run: ${error.message}`)
+      return data ? fromRunRow(data as StudioRunRow) : null
+    },
+    async listBySessionId(ownerId, sessionId) {
+      const { data, error } = await client
+        .from(TABLES.runs)
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true })
+      if (error) throw new Error(`[StudioDB] Failed to list runs: ${error.message}`)
+      return (data ?? []).map((row) => fromRunRow(row as StudioRunRow))
+    },
+  }
 }
 
 function createSupabaseStudioSessionEventStore(client: SupabaseClient) {
@@ -436,6 +478,7 @@ async function fromMessageRow(client: SupabaseClient, row: StudioMessageRow): Pr
 function fromSessionRow(row: StudioSessionRow): StudioSession {
   return {
     id: row.id,
+    ownerId: row.owner_id,
     projectId: row.project_id,
     workspaceId: asOptional(row.workspace_id),
     parentSessionId: asOptional(row.parent_session_id),
@@ -505,6 +548,7 @@ function fromSessionEventRow(row: StudioSessionEventRow): StudioSessionEvent {
 function fromRunRow(row: StudioRunRow): StudioRun {
   return {
     id: row.id,
+    ownerId: row.owner_id,
     sessionId: row.session_id,
     status: row.status,
     inputText: row.input_text,
@@ -563,6 +607,7 @@ function fromWorkResultRow(row: StudioWorkResultRow): StudioWorkResult {
 function toSessionRow(session: StudioSession): StudioSessionRow {
   return {
     id: session.id,
+    owner_id: session.ownerId,
     project_id: session.projectId,
     workspace_id: asNullable(session.workspaceId),
     parent_session_id: asNullable(session.parentSessionId),
@@ -659,6 +704,7 @@ function toSessionEventRow(event: StudioSessionEvent): StudioSessionEventRow {
 function toRunRow(run: StudioRun): StudioRunRow {
   return {
     id: run.id,
+    owner_id: run.ownerId,
     session_id: run.sessionId,
     status: run.status,
     input_text: run.inputText,
@@ -777,6 +823,7 @@ function toSessionEventPatch(patch: Partial<StudioSessionEvent>) {
 
 function toRunPatch(patch: Partial<StudioRun>) {
   return compactObject({
+    owner_id: patch.ownerId,
     session_id: patch.sessionId,
     status: patch.status,
     input_text: patch.inputText,

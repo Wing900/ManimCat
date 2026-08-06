@@ -8,6 +8,7 @@ import { createLogger } from '../utils/logger'
 import { AuthenticationError } from '../utils/errors'
 import { extractBearerToken } from '../utils/auth-utils'
 import { getAllowedManimcatApiKeys, hasManimcatApiKey } from '../utils/manimcat-auth'
+import { createStudioPrincipal } from '../studio-agent/auth/principal'
 
 const logger = createLogger('AuthMiddleware')
 
@@ -50,5 +51,6 @@ export function authMiddleware(
   }
 
   res.locals.manimcatApiKey = token
+  res.locals.studioPrincipal = createStudioPrincipal(token)
   next()
 }

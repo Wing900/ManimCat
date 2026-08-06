@@ -18,7 +18,7 @@ export async function handleCancelledRun(
   },
 ): Promise<never> {
   const cancelledRun = cancelRunState(input.run, input.reason)
-  await deps.runStore?.update(input.run.id, cancelledRun)
+  await deps.runStore?.update(input.run.ownerId, input.run.id, cancelledRun)
   ;(deps.sharedEventBus ?? new InMemoryStudioEventBus()).publish({
     type: 'run_updated',
     run: cancelledRun
@@ -38,7 +38,7 @@ export async function finalizeSuccessfulRun(
   },
 ): Promise<StudioRunExecutionResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
   const finishedRun = finalizeRunState({ run: input.run, outcome: input.outcome })
-  await deps.runStore?.update(input.run.id, finishedRun)
+  await deps.runStore?.update(input.run.ownerId, input.run.id, finishedRun)
   input.eventBus.publish({
     type: 'run_updated',
     run: finishedRun
@@ -67,7 +67,7 @@ export async function handleFailedRun(
 ): Promise<never> {
   const message = input.error instanceof Error ? input.error.message : String(input.error)
   const failedRun = failRunState(input.run, message)
-  await deps.runStore?.update(input.run.id, failedRun)
+  await deps.runStore?.update(input.run.ownerId, input.run.id, failedRun)
   ;(deps.sharedEventBus ?? new InMemoryStudioEventBus()).publish({
     type: 'run_updated',
     run: failedRun

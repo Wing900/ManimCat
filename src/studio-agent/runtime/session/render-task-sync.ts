@@ -16,6 +16,7 @@ import { syncRenderWorkFromTask } from '../../works/render-work-sync'
 import { syncRenderTaskSessionEvents } from './session-event-inbox'
 
 interface SyncStudioRenderTaskInput {
+  ownerId: string
   task: StudioTask
   taskStore: StudioTaskStore
   workStore: StudioWorkStore
@@ -109,6 +110,7 @@ export async function syncStudioRenderTask(input: SyncStudioRenderTaskInput): Pr
   }
 
   await publishRenderFailureFeedback({
+    ownerId: input.ownerId,
     task: finalTask,
     sessionStore: input.sessionStore,
     messageStore: input.messageStore,

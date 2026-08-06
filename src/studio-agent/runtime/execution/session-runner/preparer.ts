@@ -59,7 +59,7 @@ export async function prepareRun(
   })
 
   const runningRun = deps.runStore
-    ? await deps.runStore.update(persistedRun.id, { status: 'running' }) ?? { ...persistedRun, status: 'running' }
+    ? await deps.runStore.update(input.session.ownerId, persistedRun.id, { status: 'running' }) ?? { ...persistedRun, status: 'running' }
     : { ...persistedRun, status: 'running' as const }
 
   eventBus.publish({

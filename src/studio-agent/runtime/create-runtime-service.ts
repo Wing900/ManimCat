@@ -42,6 +42,7 @@ import { syncStudioRenderTask } from './session/render-task-sync'
 import { createStudioSessionMetadata } from './session/session-agent-config'
 import { flushTerminalSessionEventsToAssistant } from './session/session-event-inbox'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
+import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { cancelRunState } from './execution/session-runner-helpers'
 
 interface SubscribableStudioEventBus extends StudioEventBus {
@@ -61,8 +62,9 @@ interface CreateStudioRuntimeServiceInput {
 
 export interface StudioRuntimeService {
   createSession: (sessionInput: {
+    ownerId: string
     projectId: string
-    directory: string
+    directory?: string
     useDedicatedWorkspace?: boolean
     title?: string
     studioKind?: StudioKind
@@ -70,8 +72,9 @@ export interface StudioRuntimeService {
     workspaceId?: string
     toolChoice?: StudioToolChoice
   }) => Promise<StudioSession>
-  getSession: (sessionId: string) => Promise<StudioSession | null>
+  getSession: (ownerId: string, sessionId: string) => Promise<StudioSession | null>
   startRun: (input: {
+    ownerId: string
     projectId: string
     session: StudioSession
     inputText: string
@@ -79,6 +82,7 @@ export interface StudioRuntimeService {
     toolChoice?: StudioToolChoice
   }) => Promise<{ run: import('../domain/types').StudioRun; assistantMessage: import('../domain/types').StudioAssistantMessage } | null>
   continueRun: (input: {
+    ownerId: string
     projectId: string
     sourceRunId: string
     inputText?: string
@@ -94,13 +98,13 @@ export interface StudioRuntimeService {
     session?: StudioSession
     run?: import('../domain/types').StudioRun
   }>
-  getRun: (runId: string) => Promise<import('../domain/types').StudioRun | null>
-  getSessionSnapshot: (sessionId: string) => Promise<StudioSessionSnapshot | null>
-  getSessionTasks: (sessionId: string) => Promise<StudioTask[] | null>
-  getSessionWorkSnapshot: (sessionId: string) => Promise<StudioSessionWorkSnapshot | null>
+  getRun: (ownerId: string, runId: string) => Promise<import('../domain/types').StudioRun | null>
+  getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
+  getSessionTasks: (ownerId: string, sessionId: string) => Promise<StudioTask[] | null>
+  getSessionWorkSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionWorkSnapshot | null>
   listExternalEvents: () => StudioExternalEvent[]
   subscribeExternalEvents: (listener: (event: StudioExternalEvent) => void) => () => void
-  cancelRun: (input: { runId: string; reason?: string }) => Promise<{
+  cancelRun: (input: { ownerId: string; runId: string; reason?: string }) => Promise<{
     status: 'cancelled' | 'already_finished' | 'not_found'
     run?: import('../domain/types').StudioRun
   }>
@@ -143,6 +147,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   })
 
   async function startBackgroundRunLocked(runInput: {
+    ownerId: string
     projectId: string
     session: StudioSession
     inputText: string
@@ -150,6 +155,9 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     toolChoice?: StudioToolChoice
     runMetadata?: Record<string, unknown>
   }) {
+    if (runInput.session.ownerId !== runInput.ownerId) {
+      return null
+    }
     if (activeSessionRuns.has(runInput.session.id)) {
       return null
     }
@@ -178,10 +186,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     }
   }
 
-  async function syncSessionState(sessionId: string): Promise<void> {
+  async function syncSessionState(ownerId: string, sessionId: string): Promise<void> {
     const tasks = await input.persistence.taskStore.listBySessionId(sessionId)
     for (const task of tasks) {
       await syncTaskState({
+        ownerId,
         task,
         persistence: input.persistence,
         eventBus,
@@ -203,17 +212,17 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     return collectWorkResults(works, input.persistence)
   }
 
-  async function getSessionSnapshot(sessionId: string): Promise<StudioSessionSnapshot | null> {
-    const session = await input.persistence.sessionStore.getById(sessionId)
+  async function getSessionSnapshot(ownerId: string, sessionId: string): Promise<StudioSessionSnapshot | null> {
+    const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
     if (!session) {
       return null
     }
 
-    await syncSessionState(session.id)
+    await syncSessionState(ownerId, session.id)
 
     const [messages, runs, sessionEvents, tasks, works, workResults] = await Promise.all([
       input.persistence.messageStore.listBySessionId(session.id),
-      input.persistence.runStore.listBySessionId(session.id),
+      input.persistence.runStore.listBySessionId(ownerId, session.id),
       input.persistence.sessionEventStore.listBySessionId(session.id),
       input.persistence.taskStore.listBySessionId(session.id),
       input.persistence.workStore.listBySessionId(session.id),
@@ -223,23 +232,23 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     return { session, messages, runs, sessionEvents, tasks, works, workResults }
   }
 
-  async function getSessionTasks(sessionId: string): Promise<StudioTask[] | null> {
-    const session = await input.persistence.sessionStore.getById(sessionId)
+  async function getSessionTasks(ownerId: string, sessionId: string): Promise<StudioTask[] | null> {
+    const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
     if (!session) {
       return null
     }
 
-    await syncSessionState(session.id)
+    await syncSessionState(ownerId, session.id)
     return input.persistence.taskStore.listBySessionId(session.id)
   }
 
-  async function getSessionWorkSnapshot(sessionId: string): Promise<StudioSessionWorkSnapshot | null> {
-    const session = await input.persistence.sessionStore.getById(sessionId)
+  async function getSessionWorkSnapshot(ownerId: string, sessionId: string): Promise<StudioSessionWorkSnapshot | null> {
+    const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
     if (!session) {
       return null
     }
 
-    await syncSessionState(session.id)
+    await syncSessionState(ownerId, session.id)
     const [sessionEvents, works, workResults] = await Promise.all([
       input.persistence.sessionEventStore.listBySessionId(session.id),
       input.persistence.workStore.listBySessionId(session.id),
@@ -252,8 +261,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   return {
     async createSession(sessionInput) {
       const studioKind = sessionInput.studioKind ?? 'manim'
-      const normalizedDirectory = input.workspaceProvider.normalizeDirectory(sessionInput.directory)
+      const normalizedDirectory = input.workspaceProvider.normalizeDirectory(
+        sessionInput.directory ?? getDefaultStudioWorkspacePath()
+      )
       const session = createStudioSession({
+        ownerId: sessionInput.ownerId,
         projectId: sessionInput.projectId,
         workspaceId: sessionInput.workspaceId,
         studioKind,
@@ -281,11 +293,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
 
       return input.persistence.sessionStore.create(session)
     },
-    getSession(sessionId: string) {
-      return input.persistence.sessionStore.getById(sessionId)
+    getSession(ownerId: string, sessionId: string) {
+      return input.persistence.sessionStore.getById(ownerId, sessionId)
     },
-    getRun(runId: string) {
-      return input.persistence.runStore.getById(runId)
+    getRun(ownerId: string, runId: string) {
+      return input.persistence.runStore.getById(ownerId, runId)
     },
     getSessionSnapshot,
     getSessionTasks,
@@ -294,12 +306,12 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
       return startBackgroundRunLocked(runInput)
     },
     async continueRun(runInput) {
-      const sourceRun = await input.persistence.runStore.getById(runInput.sourceRunId)
+      const sourceRun = await input.persistence.runStore.getById(runInput.ownerId, runInput.sourceRunId)
       if (!sourceRun) {
         return { status: 'not_found' as const }
       }
 
-      const session = await input.persistence.sessionStore.getById(sourceRun.sessionId)
+      const session = await input.persistence.sessionStore.getById(runInput.ownerId, sourceRun.sessionId)
       if (!session) {
         return { status: 'not_found' as const, run: sourceRun }
       }
@@ -314,6 +326,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
 
       const autonomy = readStudioRunAutonomyMetadata(sourceRun.metadata)
       const started = await startBackgroundRunLocked({
+        ownerId: runInput.ownerId,
         projectId: runInput.projectId,
         session,
         inputText: runInput.inputText?.trim() || buildStudioContinueInputText(autonomy.stopReason),
@@ -348,7 +361,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
       })
     },
     async cancelRun(cancelInput) {
-      const run = await input.persistence.runStore.getById(cancelInput.runId)
+      const run = await input.persistence.runStore.getById(cancelInput.ownerId, cancelInput.runId)
       if (!run) {
         return { status: 'not_found' as const }
       }
@@ -360,7 +373,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
       const reason = cancelInput.reason?.trim() || 'Run cancelled by user'
       activeRunHandles.get(cancelInput.runId)?.handle.abort(reason)
 
-      const cancelledRun = await input.persistence.runStore.update(cancelInput.runId, cancelRunState(run, reason))
+      const cancelledRun = await input.persistence.runStore.update(
+        cancelInput.ownerId,
+        cancelInput.runId,
+        cancelRunState(run, reason)
+      )
         ?? cancelRunState(run, reason)
 
       eventBus.publish({
@@ -433,6 +450,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
 }
 
 async function syncTaskState(input: {
+  ownerId: string
   task: StudioTask
   persistence: StudioPersistence
   eventBus: StudioEventBus
@@ -444,6 +462,7 @@ async function syncTaskState(input: {
   }
 
   await syncStudioRenderTask({
+    ownerId: input.ownerId,
     task: input.task,
     taskStore: input.persistence.taskStore,
     workStore: input.persistence.workStore,

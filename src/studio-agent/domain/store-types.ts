@@ -8,9 +8,9 @@ import type {
 
 export interface StudioSessionStore {
   create: (session: StudioSession) => Promise<StudioSession>
-  getById: (sessionId: string) => Promise<StudioSession | null>
-  update: (sessionId: string, patch: Partial<StudioSession>) => Promise<StudioSession | null>
-  listChildren: (parentSessionId: string) => Promise<StudioSession[]>
+  getById: (ownerId: string, sessionId: string) => Promise<StudioSession | null>
+  update: (ownerId: string, sessionId: string, patch: Partial<StudioSession>) => Promise<StudioSession | null>
+  listChildren: (ownerId: string, parentSessionId: string) => Promise<StudioSession[]>
 }
 
 export interface StudioMessageStore {
@@ -33,9 +33,9 @@ export interface StudioPartStore {
 
 export interface StudioRunStore {
   create: (run: StudioRun) => Promise<StudioRun>
-  getById: (runId: string) => Promise<StudioRun | null>
-  update: (runId: string, patch: Partial<StudioRun>) => Promise<StudioRun | null>
-  listBySessionId: (sessionId: string) => Promise<StudioRun[]>
+  getById: (ownerId: string, runId: string) => Promise<StudioRun | null>
+  update: (ownerId: string, runId: string, patch: Partial<StudioRun>) => Promise<StudioRun | null>
+  listBySessionId: (ownerId: string, sessionId: string) => Promise<StudioRun[]>
 }
 
 export interface StudioTaskStore {

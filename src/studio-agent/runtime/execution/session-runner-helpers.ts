@@ -11,6 +11,7 @@ export function buildDraftRun(
   metadata?: Record<string, unknown>
 ): StudioRun {
   return createStudioRun({
+    ownerId: session.ownerId,
     sessionId: session.id,
     inputText,
     activeAgent: session.agentType,

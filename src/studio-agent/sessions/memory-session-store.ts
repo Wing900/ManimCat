@@ -8,13 +8,14 @@ export class InMemoryStudioSessionStore implements StudioSessionStore {
     return session
   }
 
-  async getById(sessionId: string): Promise<StudioSession | null> {
-    return this.sessions.get(sessionId) ?? null
+  async getById(ownerId: string, sessionId: string): Promise<StudioSession | null> {
+    const session = this.sessions.get(sessionId)
+    return session?.ownerId === ownerId ? session : null
   }
 
-  async update(sessionId: string, patch: Partial<StudioSession>): Promise<StudioSession | null> {
+  async update(ownerId: string, sessionId: string, patch: Partial<StudioSession>): Promise<StudioSession | null> {
     const current = this.sessions.get(sessionId)
-    if (!current) {
+    if (!current || current.ownerId !== ownerId) {
       return null
     }
 
@@ -27,8 +28,9 @@ export class InMemoryStudioSessionStore implements StudioSessionStore {
     return next
   }
 
-  async listChildren(parentSessionId: string): Promise<StudioSession[]> {
-    return [...this.sessions.values()].filter((session) => session.parentSessionId === parentSessionId)
+  async listChildren(ownerId: string, parentSessionId: string): Promise<StudioSession[]> {
+    return [...this.sessions.values()].filter((session) => (
+      session.ownerId === ownerId && session.parentSessionId === parentSessionId
+    ))
   }
 }
-

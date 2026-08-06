@@ -8,6 +8,7 @@ import type {
 import type { JobResult } from '../../types'
 
 interface PublishRenderFailureFeedbackInput {
+  ownerId: string
   task: StudioTask
   sessionStore: StudioSessionStore
   messageStore: StudioMessageStore
@@ -27,7 +28,7 @@ export async function publishRenderFailureFeedback(
     return
   }
 
-  const session = await input.sessionStore.getById(input.task.sessionId)
+  const session = await input.sessionStore.getById(input.ownerId, input.task.sessionId)
   if (!session) {
     return
   }

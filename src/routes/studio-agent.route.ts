@@ -13,6 +13,7 @@ import {
   parseStudioCreateSessionRequest
 } from './helpers/studio-agent-run-request'
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
+import { requireStudioPrincipal } from '../studio-agent/auth/principal'
 import { createLogger } from '../utils/logger'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { logPlotStudioTiming, logTimeline, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
@@ -23,13 +24,14 @@ const logger = createLogger('StudioAgentRoute')
 
 router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioCreateSessionRequest(req.body)
+  const principal = requireStudioPrincipal(res)
   const projectId = parsed.projectId ?? 'default-project'
-  const directory = parsed.directory ?? ensureDefaultStudioWorkspaceExists()
+  ensureDefaultStudioWorkspaceExists()
 
   const session = await studioRuntime.createSession({
+    ownerId: principal.ownerId,
     projectId,
-    directory,
-    useDedicatedWorkspace: !parsed.directory,
+    useDedicatedWorkspace: true,
     title: parsed.title,
     studioKind: parsed.studioKind,
     agentType: parsed.agentType,
@@ -42,14 +44,14 @@ router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, r
     projectId,
     studioKind: session.studioKind,
     agentType: session.agentType,
-    directory: session.directory,
   })
 
   sendStudioSuccess(res, { session })
 }))
 
 router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const snapshot = await studioRuntime.getSessionSnapshot(req.params.sessionId)
+  const principal = requireStudioPrincipal(res)
+  const snapshot = await studioRuntime.getSessionSnapshot(principal.ownerId, req.params.sessionId)
   if (!snapshot) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
@@ -58,7 +60,8 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
 }))
 
 router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
-  const run = await studioRuntime.getRun(req.params.runId)
+  const principal = requireStudioPrincipal(res)
+  const run = await studioRuntime.getRun(principal.ownerId, req.params.runId)
   if (!run) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Run not found', { runId: req.params.runId })
   }
@@ -67,7 +70,8 @@ router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req,
 }))
 
 router.get('/studio-agent/tasks/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const tasks = await studioRuntime.getSessionTasks(req.params.sessionId)
+  const principal = requireStudioPrincipal(res)
+  const tasks = await studioRuntime.getSessionTasks(principal.ownerId, req.params.sessionId)
   if (!tasks) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
@@ -76,7 +80,8 @@ router.get('/studio-agent/tasks/:sessionId', authMiddleware, asyncHandler(async 
 }))
 
 router.get('/studio-agent/works/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const snapshot = await studioRuntime.getSessionWorkSnapshot(req.params.sessionId)
+  const principal = requireStudioPrincipal(res)
+  const snapshot = await studioRuntime.getSessionWorkSnapshot(principal.ownerId, req.params.sessionId)
   if (!snapshot) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
@@ -130,6 +135,7 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
 router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) => {
   const requestStartedAt = Date.now()
   const parsed = parseStudioCreateRunRequest(req.body)
+  const principal = requireStudioPrincipal(res)
   const sessionId = parsed.sessionId
   const inputText = parsed.inputText
   const projectId = parsed.projectId ?? 'default-project'
@@ -138,7 +144,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     return sendStudioError(res, 400, 'INVALID_INPUT', 'sessionId and inputText are required')
   }
 
-  const session = await studioRuntime.getSession(sessionId)
+  const session = await studioRuntime.getSession(principal.ownerId, sessionId)
   if (!session) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
   }
@@ -160,6 +166,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
   logTimeline(session.studioKind, 'run.requested', JSON.stringify(inputText.slice(0, 20)))
 
   const started = await studioRuntime.startRun({
+    ownerId: principal.ownerId,
     projectId,
     session,
     inputText,
@@ -184,7 +191,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
   })
   logTimeline(session.studioKind, 'run.accepted', started.run.id)
 
-  const snapshot = await studioRuntime.getSessionSnapshot(session.id)
+  const snapshot = await studioRuntime.getSessionSnapshot(principal.ownerId, session.id)
   if (!snapshot) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: session.id })
   }
@@ -199,6 +206,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
 
 router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioContinueRunRequest(req.body)
+  const principal = requireStudioPrincipal(res)
   const projectId = parsed.projectId ?? 'default-project'
   const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
   const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
@@ -208,6 +216,7 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
   })
 
   const continued = await studioRuntime.continueRun({
+    ownerId: principal.ownerId,
     projectId,
     sourceRunId: req.params.runId,
     inputText: parsed.inputText,
@@ -243,7 +252,7 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
   const continuedSession = continued.session
   const continuedAssistantMessage = continued.assistantMessage
 
-  const snapshot = await studioRuntime.getSessionSnapshot(continuedSession.id)
+  const snapshot = await studioRuntime.getSessionSnapshot(principal.ownerId, continuedSession.id)
   if (!snapshot) {
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: continuedSession.id })
   }
@@ -257,7 +266,9 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
 }))
 
 router.post('/studio-agent/runs/:runId/cancel', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
   const cancelled = await studioRuntime.cancelRun({
+    ownerId: principal.ownerId,
     runId: req.params.runId,
     reason: typeof req.body?.reason === 'string' ? req.body.reason : undefined,
   })

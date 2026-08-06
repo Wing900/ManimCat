@@ -20,13 +20,12 @@ const studioContinueRunRequestSchema = studioRunControlRequestSchema
 
 export const studioCreateSessionRequestSchema = z.object({
   projectId: z.string().trim().min(1).optional(),
-  directory: z.string().trim().min(1).optional(),
   title: z.string().optional(),
   studioKind: studioKindSchema.optional(),
   agentType: z.enum(['builder']).optional(),
   workspaceId: z.string().optional(),
   toolChoice: studioToolChoiceSchema.optional(),
-})
+}).strict()
 
 export type StudioCreateRunRequest = z.infer<typeof studioCreateRunRequestSchema>
 export type StudioContinueRunRequest = z.infer<typeof studioContinueRunRequestSchema>

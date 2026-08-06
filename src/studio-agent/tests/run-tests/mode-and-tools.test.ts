@@ -24,6 +24,7 @@ import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 
 function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToolContext {
   const session = createStudioSession({
+    ownerId: 'owner-test',
     projectId: 'project-1',
     studioKind,
     agentType: 'builder',
@@ -33,6 +34,7 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
     permissionRules: defaultRulesForLevel('L4')
   })
   const runRecord = createStudioRun({
+    ownerId: session.ownerId,
     sessionId: session.id,
     inputText: 'create a test output',
     activeAgent: 'builder'
@@ -61,6 +63,7 @@ export async function runModeAndToolTests(): Promise<void> {
       blobStore: createLocalStudioBlobStore()
     })
     const session = await service.createSession({
+      ownerId: 'owner-test',
       projectId: 'project-1',
       directory: await createWorkspace(),
       useDedicatedWorkspace: false,
@@ -68,14 +71,14 @@ export async function runModeAndToolTests(): Promise<void> {
       agentType: 'builder'
     })
 
-    const snapshot = await service.getSessionSnapshot(session.id)
+    const snapshot = await service.getSessionSnapshot(session.ownerId, session.id)
     assert.ok(snapshot)
     assert.equal(snapshot.session.id, session.id)
     assert.deepEqual(snapshot.tasks, [])
-    assert.deepEqual(await service.getSessionTasks(session.id), [])
-    assert.deepEqual((await service.getSessionWorkSnapshot(session.id))?.works, [])
-    assert.equal(await service.getSessionSnapshot('missing-session'), null)
-    assert.equal(await service.getRun('missing-run'), null)
+    assert.deepEqual(await service.getSessionTasks(session.ownerId, session.id), [])
+    assert.deepEqual((await service.getSessionWorkSnapshot(session.ownerId, session.id))?.works, [])
+    assert.equal(await service.getSessionSnapshot(session.ownerId, 'missing-session'), null)
+    assert.equal(await service.getRun(session.ownerId, 'missing-run'), null)
   })
 
   await run('studio modes own their automatic render policy', async () => {

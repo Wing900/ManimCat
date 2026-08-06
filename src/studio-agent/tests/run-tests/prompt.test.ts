@@ -32,6 +32,7 @@ export async function runPromptTests() {
 
   await run('builder prompt requires code and checks before render', async () => {
     const session = createStudioSession({
+      ownerId: 'owner-test',
       projectId: 'project-1',
       agentType: 'builder',
       title: 'Prompt Session',
@@ -55,6 +56,7 @@ export async function runPromptTests() {
 
   await run('plot builder prompt does not require static-check by default', async () => {
     const session = createStudioSession({
+      ownerId: 'owner-test',
       projectId: 'project-1',
       agentType: 'builder',
       title: 'Plot Prompt Session',

@@ -8,13 +8,14 @@ export class InMemoryStudioRunStore implements StudioRunStore {
     return run
   }
 
-  async getById(runId: string): Promise<StudioRun | null> {
-    return this.runs.get(runId) ?? null
+  async getById(ownerId: string, runId: string): Promise<StudioRun | null> {
+    const run = this.runs.get(runId)
+    return run?.ownerId === ownerId ? run : null
   }
 
-  async update(runId: string, patch: Partial<StudioRun>): Promise<StudioRun | null> {
+  async update(ownerId: string, runId: string, patch: Partial<StudioRun>): Promise<StudioRun | null> {
     const current = this.runs.get(runId)
-    if (!current) {
+    if (!current || current.ownerId !== ownerId) {
       return null
     }
 
@@ -26,8 +27,7 @@ export class InMemoryStudioRunStore implements StudioRunStore {
     return next
   }
 
-  async listBySessionId(sessionId: string): Promise<StudioRun[]> {
-    return [...this.runs.values()].filter((run) => run.sessionId === sessionId)
+  async listBySessionId(ownerId: string, sessionId: string): Promise<StudioRun[]> {
+    return [...this.runs.values()].filter((run) => run.ownerId === ownerId && run.sessionId === sessionId)
   }
 }
-

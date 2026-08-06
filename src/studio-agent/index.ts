@@ -1,4 +1,5 @@
 export * from './domain/types'
+export * from './auth/principal'
 export * from './domain/factories'
 export * from './events/event-bus'
 export * from './tools/registry'

@@ -30,6 +30,7 @@ function nowIso(): string {
 
 export function createStudioSession(input: {
   projectId: string
+  ownerId: string
   workspaceId?: string
   parentSessionId?: string
   studioKind?: StudioKind
@@ -43,6 +44,7 @@ export function createStudioSession(input: {
   const timestamp = nowIso()
   return {
     id: `sess_${randomUUID()}`,
+    ownerId: input.ownerId,
     projectId: input.projectId,
     workspaceId: input.workspaceId,
     parentSessionId: input.parentSessionId,
@@ -59,6 +61,7 @@ export function createStudioSession(input: {
 }
 
 export function createStudioRun(input: {
+  ownerId: string
   sessionId: string
   inputText: string
   activeAgent: StudioAgentType
@@ -66,6 +69,7 @@ export function createStudioRun(input: {
 }): StudioRun {
   return {
     id: `run_${randomUUID()}`,
+    ownerId: input.ownerId,
     sessionId: input.sessionId,
     status: 'pending',
     inputText: input.inputText,

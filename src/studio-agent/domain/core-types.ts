@@ -4,6 +4,10 @@ export type StudioAgentType = 'builder'
 export type StudioKind = 'manim' | 'plot'
 export type StudioToolChoice = 'auto' | 'required' | 'none'
 
+export interface StudioPrincipal {
+  ownerId: string
+}
+
 export type StudioPermissionLevel = 'L0' | 'L1' | 'L2' | 'L3' | 'L4'
 
 export type StudioRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -48,6 +52,7 @@ export interface StudioPermissionRule {
 
 export interface StudioSession {
   id: string
+  ownerId: string
   projectId: string
   workspaceId?: string
   parentSessionId?: string
@@ -64,6 +69,7 @@ export interface StudioSession {
 
 export interface StudioRun {
   id: string
+  ownerId: string
   sessionId: string
   status: StudioRunStatus
   inputText: string

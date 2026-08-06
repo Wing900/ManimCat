@@ -53,7 +53,7 @@ export function createAgentLoopExecution(
       abortSignal: input.abortSignal,
       onCheckpoint: async (patch) => {
         const nextRun = deps.runStore
-          ? await deps.runStore.update(input.prepared.run.id, patch) ?? { ...input.prepared.run, ...patch }
+          ? await deps.runStore.update(input.prepared.run.ownerId, input.prepared.run.id, patch) ?? { ...input.prepared.run, ...patch }
           : { ...input.prepared.run, ...patch }
         input.prepared.run = nextRun
         input.prepared.eventBus.publish({
