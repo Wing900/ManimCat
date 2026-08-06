@@ -197,6 +197,10 @@ function applyStudioExternalEvent(state: StudioSessionState, event: StudioExtern
     },
   }
 
+  if ('sessionId' in event.properties && state.entities.session && event.properties.sessionId !== state.entities.session.id) {
+    return nextBase
+  }
+
   switch (event.type) {
     case 'task.updated':
       return {

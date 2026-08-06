@@ -22,6 +22,7 @@ import {
   selectWorkSummary,
   selectWorkResult,
   selectStudioRenders,
+  selectActiveRender,
 } from '../store/studio-selectors'
 import {
   forgetStudioSessionId,
@@ -196,10 +197,10 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
   }, [loadSnapshot, state.entities.session?.id])
 
   const sessionId = state.entities.session?.id ?? null
-  const activeRenderTask = hasActiveRenderTask(state)
+  const activeRender = selectActiveRender(state)
 
   useEffect(() => {
-    if (!sessionId || !activeRenderTask) {
+    if (!sessionId || !activeRender) {
       return
     }
 
@@ -225,7 +226,7 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
     }, 4000)
 
     return () => window.clearInterval(timer)
-  }, [activeRenderTask, loadSnapshot, sessionId])
+  }, [activeRender, loadSnapshot, sessionId])
 
   useStudioEvents({
     sessionId,
@@ -378,21 +379,6 @@ function buildInterruptedAssistantMessage(input: {
 
 function getDefaultStudioTitle(studioKind: StudioKind, t: (key: 'studio.plotTitle' | 'studio.manimTitle') => string): string {
   return studioKind === 'plot' ? t('studio.plotTitle') : t('studio.manimTitle')
-}
-
-function hasActiveRenderTask(state: StudioSessionState): boolean {
-  const sessionId = state.entities.session?.id
-  if (!sessionId) {
-    return false
-  }
-
-  return state.entities.renderOrder
-    .map((id) => state.entities.rendersById[id])
-    .filter((render): render is StudioRender => Boolean(render))
-    .some((render) => (
-      render.sessionId === sessionId
-      && (render.status === 'queued' || render.status === 'running')
-    ))
 }
 
 function buildHistoryEntry(snapshot: Awaited<ReturnType<typeof getStudioSessionSnapshot>>): StudioSessionHistoryEntry {

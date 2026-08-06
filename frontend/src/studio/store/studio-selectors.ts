@@ -40,6 +40,17 @@ export function selectLatestRender(state: StudioSessionState): StudioRender | nu
   return selectStudioRenders(state)[0] ?? null
 }
 
+export function selectActiveRender(state: StudioSessionState): StudioRender | null {
+  return selectStudioRenders(state).find((render) => render.status === 'queued' || render.status === 'running') ?? null
+}
+
+export function selectRenderPreview(state: StudioSessionState, renderId?: string | null): StudioRender | null {
+  if (renderId) {
+    return selectStudioRenders(state).find((render) => render.id === renderId) ?? null
+  }
+  return selectLatestRender(state)
+}
+
 export function selectLatestRun(state: StudioSessionState): StudioRun | null {
   return selectStudioRuns(state)[0] ?? null
 }
@@ -139,6 +150,7 @@ export function createStudioViewSelectors() {
   const messagesCache = createStableSessionListCache<StudioMessage>()
   const runsCache = createStableSessionListCache<StudioRun>()
   const worksCache = createStableSessionListCache<StudioWork>()
+  const rendersCache = createStableSessionListCache<StudioRender>()
 
   return {
     selectStudioMessages(state: StudioSessionState): StudioMessage[] {
@@ -163,6 +175,14 @@ export function createStudioViewSelectors() {
         order: state.entities.workOrder,
         getById: (id) => state.entities.worksById[id],
         cache: worksCache,
+      })
+    },
+    selectStudioRenders(state: StudioSessionState): StudioRender[] {
+      return selectStableSessionList({
+        state,
+        order: state.entities.renderOrder,
+        getById: (id) => state.entities.rendersById[id],
+        cache: rendersCache,
       })
     },
   }

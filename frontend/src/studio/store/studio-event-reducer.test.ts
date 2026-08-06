@@ -298,4 +298,49 @@ describe('studioEventReducer', () => {
     expect(readFirstAssistantText(next.entities.messagesById['local-assistant-1'])).toBe('')
     expect(next.runtime.assistantTextByRunId['run-1']).toBe('新的回复')
   })
+
+  it('stores render updates for the current session and ignores foreign sessions', () => {
+    const state = {
+      ...createInitialStudioState(),
+      entities: {
+        ...createInitialStudioState().entities,
+        session: createSessionMessage(),
+      },
+    }
+    const render = {
+      id: 'render-1',
+      sessionId: 'session-1',
+      kind: 'manim' as const,
+      status: 'completed' as const,
+      title: 'Heart',
+      concept: 'heart',
+      outputMode: 'video' as const,
+      createdAt: '2026-03-22T00:00:00.000Z',
+      updatedAt: '2026-03-22T00:00:01.000Z',
+    }
+
+    const stored = studioEventReducer(state, {
+      type: 'event_received',
+      event: {
+        type: 'render.updated',
+        properties: {
+          sessionId: 'session-1',
+          render,
+        },
+      },
+    })
+    const ignored = studioEventReducer(stored, {
+      type: 'event_received',
+      event: {
+        type: 'render.updated',
+        properties: {
+          sessionId: 'session-2',
+          render: { ...render, id: 'foreign-render', sessionId: 'session-2' },
+        },
+      },
+    })
+
+    expect(stored.entities.rendersById['render-1']).toEqual(render)
+    expect(ignored.entities.rendersById['foreign-render']).toBeUndefined()
+  })
 })
