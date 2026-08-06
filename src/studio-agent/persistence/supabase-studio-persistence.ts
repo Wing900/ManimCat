@@ -34,6 +34,8 @@ type StudioSessionRow = {
   agent_type: StudioSession['agentType']
   title: string
   directory: string
+  permission_level: 'L4'
+  permission_rules: JsonRecord[] | null
   metadata: JsonRecord | null
   created_at: string
   updated_at: string
@@ -499,6 +501,9 @@ function toSessionRow(session: StudioSession): StudioSessionRow {
     agent_type: session.agentType,
     title: session.title,
     directory: session.directory,
+    // Legacy columns remain required by the original migration. They are not read by the runtime.
+    permission_level: 'L4',
+    permission_rules: [],
     metadata: asNullable(session.metadata),
     created_at: session.createdAt,
     updated_at: session.updatedAt,
