@@ -9,6 +9,7 @@ import {
 import { createWorkAndTask } from '../works/work-lifecycle'
 import { manimRenderToolParameters } from './tool-parameters'
 import { createStudioRender } from '../domain/factories'
+import { publishStudioRenderUpdated } from '../render/render-events'
 
 interface RenderToolInput {
   concept: string
@@ -59,7 +60,8 @@ async function executeRenderTool(
       status: 'queued',
       jobId,
     })
-    await context.renderStore.create(render)
+    const createdRender = await context.renderStore.create(render)
+    publishStudioRenderUpdated(context.eventBus, createdRender)
 
     try {
       await renderPort.submit({
@@ -71,10 +73,13 @@ async function executeRenderTool(
         workspaceDirectory: context.session.directory
       })
     } catch (error) {
-      await context.renderStore.update(context.session.ownerId, render.id, {
+      const failedRender = await context.renderStore.update(context.session.ownerId, render.id, {
         status: 'failed',
         error: error instanceof Error ? error.message : String(error),
       })
+      if (failedRender) {
+        publishStudioRenderUpdated(context.eventBus, failedRender)
+      }
       throw error
     }
 

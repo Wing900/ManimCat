@@ -1,4 +1,4 @@
-import type { StudioRun, StudioSession, StudioSessionEvent, StudioTask, StudioWork, StudioWorkResult } from './core-types'
+import type { StudioRender, StudioRun, StudioSession, StudioSessionEvent, StudioTask, StudioWork, StudioWorkResult } from './core-types'
 import type { StudioFileAttachment } from './message-types'
 
 export interface StudioAssistantTextEvent {
@@ -78,6 +78,13 @@ export interface StudioRunEvent {
   run: StudioRun
 }
 
+export interface StudioRenderEvent {
+  type: 'render_updated'
+  sessionId: string
+  runId?: string
+  render: StudioRender
+}
+
 export type StudioAgentEvent =
   | StudioAssistantTextEvent
   | StudioToolInputStartEvent
@@ -88,6 +95,7 @@ export type StudioAgentEvent =
   | StudioWorkResultEvent
   | StudioSessionEventQueuedEvent
   | StudioRunEvent
+  | StudioRenderEvent
 
 export interface StudioEventBus {
   publish: (event: StudioAgentEvent) => void

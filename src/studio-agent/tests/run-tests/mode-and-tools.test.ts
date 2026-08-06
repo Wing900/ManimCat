@@ -19,6 +19,8 @@ import {
   type StudioRuntimeBackedToolContext
 } from '../../index'
 import { createWorkspace, run } from './factories'
+import { RecordingEventBus } from '../support/recording-event-bus'
+import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
@@ -52,8 +54,8 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
     eventBus: new InMemoryStudioEventBus(),
     taskStore: new InMemoryStudioTaskStore(),
     workStore: new InMemoryStudioWorkStore(),
-    workResultStore: new InMemoryStudioWorkResultStore()
-    ,renderStore: new InMemoryStudioRenderStore()
+    workResultStore: new InMemoryStudioWorkResultStore(),
+    renderStore: new InMemoryStudioRenderStore()
   }
 }
 
@@ -133,6 +135,8 @@ export async function runModeAndToolTests(): Promise<void> {
     const order: string[] = []
     const renderStore = new InMemoryStudioRenderStore()
     const context = createToolContext('manim')
+    const eventBus = new RecordingEventBus()
+    context.eventBus = eventBus
     context.renderStore = {
       async create(render) {
         order.push('create')
@@ -160,6 +164,10 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.deepEqual(order, ['create', 'submit', 'update:failed'])
     const renders = await renderStore.listBySessionId(context.session.ownerId, context.session.id)
     assert.equal(renders[0]?.status, 'failed')
+    assert.deepEqual(eventBus.events.filter((event) => event.type === 'render_updated').map((event) => event.render.status), [
+      'queued',
+      'failed'
+    ])
   })
 
   await run('Plot render tool uses an injected render port', async () => {
@@ -179,6 +187,8 @@ export async function runModeAndToolTests(): Promise<void> {
       }
     })
     const context = createToolContext('plot')
+    const eventBus = new RecordingEventBus()
+    context.eventBus = eventBus
 
     const result = await tool.execute({
       concept: 'A test plot',
@@ -191,5 +201,10 @@ export async function runModeAndToolTests(): Promise<void> {
     const renders = await context.renderStore?.listBySessionId(context.session.ownerId, context.session.id)
     assert.equal(renders?.[0]?.status, 'completed')
     assert.equal(renders?.[0]?.metadata?.scriptPath, 'renders/plot-test/plot_script.py')
+    const renderEvents = eventBus.events.filter((event) => event.type === 'render_updated')
+    assert.deepEqual(renderEvents.map((event) => event.render.status), ['running', 'completed'])
+    const externalEvent = adaptStudioEvent(renderEvents.at(-1)!)
+    assert.equal(externalEvent?.type, 'render.updated')
+    assert.equal(externalEvent?.properties.sessionId, context.session.id)
   })
 }

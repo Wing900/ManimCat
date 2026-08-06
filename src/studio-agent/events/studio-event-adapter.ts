@@ -100,6 +100,16 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         }
       }
 
+    case 'render_updated':
+      return {
+        type: 'render.updated',
+        properties: {
+          sessionId: event.sessionId,
+          runId: event.runId,
+          render: event.render
+        }
+      }
+
     case 'assistant_text':
       return {
         type: 'assistant.text',

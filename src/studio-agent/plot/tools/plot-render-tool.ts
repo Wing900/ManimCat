@@ -12,6 +12,7 @@ import {
 import { plotRenderToolParameters } from '../../tools/tool-parameters'
 import { createStudioRender } from '../../domain/factories'
 import { toWorkspaceRelativePath } from '../../tools/workspace-paths'
+import { publishStudioRenderUpdated } from '../../render/render-events'
 
 interface PlotRenderToolInput {
   concept: string
@@ -70,7 +71,8 @@ async function executePlotRenderTool(
     renderId = studioRender.id
     studioRender.metadata = { ...(studioRender.metadata ?? {}), renderId }
     lifecycleMetadata.renderId = renderId
-    await context.renderStore.create(studioRender)
+    const createdRender = await context.renderStore.create(studioRender)
+    publishStudioRenderUpdated(context.eventBus, createdRender)
   }
 
   const { work, task } = context.renderStore
@@ -125,6 +127,9 @@ async function executePlotRenderTool(
           imagePaths: execution.imagePaths.map((imagePath) => toWorkspaceRelativePath(context.session.directory, imagePath).replace(/\\/g, '/')),
         },
       })
+      if (completed) {
+        publishStudioRenderUpdated(context.eventBus, completed)
+      }
       return {
         title,
         output: `plot_render_id: ${studioRender.id}`,
@@ -211,10 +216,13 @@ async function executePlotRenderTool(
     }
   } catch (error) {
     if (studioRender && context.renderStore) {
-      await context.renderStore.update(context.session.ownerId, studioRender.id, {
+      const failedRender = await context.renderStore.update(context.session.ownerId, studioRender.id, {
         status: isStudioRunCancelledError(error) ? 'cancelled' : 'failed',
         error: error instanceof Error ? error.message : String(error),
       })
+      if (failedRender) {
+        publishStudioRenderUpdated(context.eventBus, failedRender)
+      }
       throw error
     }
 
