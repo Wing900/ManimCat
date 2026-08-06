@@ -1,6 +1,7 @@
 import { createStudioOpenAIToolLoop } from '../../../orchestration/openai-tool-loop/controller'
 import { readRunElapsedMs } from '../../../observability/plot-studio-timing'
 import type { CustomApiConfig } from '../../../../types'
+import type { StudioModelPort } from '../../../model/studio-model-port'
 import type { StudioToolChoice } from '../../../domain/types'
 import type { StudioPreparedRunContext, StudioPreparedRunExecution, StudioSessionRunnerDependencies } from './dependency-center'
 
@@ -8,7 +9,8 @@ export function createAgentLoopExecution(
   deps: StudioSessionRunnerDependencies,
   input: {
     prepared: StudioPreparedRunContext
-    customApiConfig: CustomApiConfig
+    customApiConfig?: CustomApiConfig
+    modelPort?: StudioModelPort
     toolChoice?: StudioToolChoice
     abortSignal: AbortSignal
   },
@@ -19,7 +21,7 @@ export function createAgentLoopExecution(
       payload: {
         sessionId: input.prepared.input.session.id,
         runId: input.prepared.run.id,
-        model: input.customApiConfig.model,
+        model: input.customApiConfig?.model ?? 'studio-port',
         toolChoice: input.toolChoice ?? null,
         runElapsedMs: readRunElapsedMs(input.prepared.run),
       }
@@ -50,6 +52,7 @@ export function createAgentLoopExecution(
         })
       },
       customApiConfig: input.customApiConfig,
+      modelPort: input.modelPort,
       toolChoice: input.toolChoice,
       abortSignal: input.abortSignal,
       onCheckpoint: async (patch) => {

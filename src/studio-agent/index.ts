@@ -70,3 +70,4 @@ export * from './orchestration/openai-tool-loop/types'
 
 export * from './modes/studio-mode'
 export * from './documentation/studio-documentation-context'
+export * from './model/studio-model-port'

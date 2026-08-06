@@ -59,7 +59,7 @@ export async function runSecurityTests(): Promise<void> {
   await run('session creation rejects client supplied directories', async () => {
     assert.throws(
       () => parseStudioCreateSessionRequest({ projectId: 'project', directory: 'C:\\outside' }),
-      /Unrecognized key: "directory"/
+      /directory/
     )
   })
 

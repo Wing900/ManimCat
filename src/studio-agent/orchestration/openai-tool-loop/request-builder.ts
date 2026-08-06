@@ -1,12 +1,10 @@
 import type { StudioAssistantMessage } from '../../domain/types'
-import type OpenAI from 'openai'
-import { createCustomOpenAIClient } from '../../../services/openai-client-factory'
+import { createOpenAICompatibleStudioModelAdapter } from '../../model/studio-model-port'
 import { logTimeline } from '../../observability/plot-studio-timing'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
 import { buildStudioAgentSystemPrompt } from '../studio-agent-prompt'
 import { buildStudioConversationMessages } from '../studio-message-history'
 import { persistProviderMessageSnapshot } from '../studio-provider-message'
-import { requestStudioChatCompletion } from '../studio-provider-request'
 import { buildStudioChatTools } from '../studio-tool-schema'
 import { normalizeStudioAssistantText } from './message-assembly'
 import { logStudioLoopStepResponse, logStudioLoopStepStarted } from './observability'
@@ -21,9 +19,8 @@ import type {
 const DEFAULT_MAX_STEPS = 8
 
 export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput): Promise<StudioLoopRuntime> {
-  const client = createCustomOpenAIClient(input.customApiConfig)
-  const model = (input.customApiConfig.model || '').trim()
-  if (!model) {
+  const model = input.customApiConfig?.model?.trim() || 'studio-scripted'
+  if (!input.modelPort && !input.customApiConfig) {
     throw new Error('Studio agent requires a provider model')
   }
 
@@ -31,7 +28,7 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
   const storedMessages = await input.messageStore.listBySessionId(input.session.id)
 
   return {
-    client,
+    modelPort: input.modelPort ?? createOpenAICompatibleStudioModelAdapter(input.customApiConfig!),
     model,
     tools,
     conversation: buildStudioConversationMessages({ messages: storedMessages }),
@@ -75,8 +72,7 @@ export async function requestStudioLoopStep(input: {
   })
   logTimeline(input.loopInput.session.studioKind, 'step.started', `step ${input.step + 1}, ${input.runtime.conversation.length} msgs`)
 
-  const completion = await requestStudioChatCompletion({
-    client: input.runtime.client,
+  const completion = await input.runtime.modelPort.complete({
     model: input.runtime.model,
     messages: input.request.messages,
     tools: input.runtime.tools,

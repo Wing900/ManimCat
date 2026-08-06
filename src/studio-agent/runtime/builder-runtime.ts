@@ -16,6 +16,7 @@ import type {
   StudioRenderStore,
 } from '../domain/types'
 import { StudioToolRegistry } from '../tools/registry'
+import type { StudioModelPort } from '../model/studio-model-port'
 import { StudioSessionRunner } from './execution/session-runner/session-runner'
 import type { StudioBackgroundRunHandle } from './execution/session-runner/dependency-center'
 import type { StudioRunExecutionResult } from './tools/tool-runtime-context'
@@ -66,6 +67,7 @@ export class StudioBuilderRuntime {
     session: StudioSession
     inputText: string
     customApiConfig?: CustomApiConfig
+    modelPort?: StudioModelPort
     toolChoice?: StudioToolChoice
     runMetadata?: Record<string, unknown>
   }): Promise<StudioRunExecutionResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
@@ -77,6 +79,7 @@ export class StudioBuilderRuntime {
     session: StudioSession
     inputText: string
     customApiConfig?: CustomApiConfig
+    modelPort?: StudioModelPort
     toolChoice?: StudioToolChoice
     runMetadata?: Record<string, unknown>
   }): Promise<StudioBackgroundRunHandle> {

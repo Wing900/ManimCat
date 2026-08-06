@@ -42,6 +42,7 @@ import { syncStudioRenderTask } from './session/render-task-sync'
 import { createStudioSessionMetadata } from './session/session-agent-config'
 import { flushTerminalSessionEventsToAssistant } from './session/session-event-inbox'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
+import type { StudioModelPort } from '../model/studio-model-port'
 import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { cancelRunState } from './execution/session-runner-helpers'
 
@@ -75,6 +76,7 @@ export interface StudioRuntimeService {
     session: StudioSession
     inputText: string
     customApiConfig?: import('../../types').CustomApiConfig
+    modelPort?: StudioModelPort
     toolChoice?: StudioToolChoice
   }) => Promise<{ run: import('../domain/types').StudioRun; assistantMessage: import('../domain/types').StudioAssistantMessage } | null>
   continueRun: (input: {
@@ -83,6 +85,7 @@ export interface StudioRuntimeService {
     sourceRunId: string
     inputText?: string
     customApiConfig?: import('../../types').CustomApiConfig
+    modelPort?: StudioModelPort
     toolChoice?: StudioToolChoice
   }) => Promise<{
     status: 'started'
@@ -140,6 +143,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     session: StudioSession
     inputText: string
     customApiConfig?: import('../../types').CustomApiConfig
+    modelPort?: StudioModelPort
     toolChoice?: StudioToolChoice
     runMetadata?: Record<string, unknown>
   }) {
@@ -320,6 +324,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         session,
         inputText: runInput.inputText?.trim() || buildStudioContinueInputText(autonomy.stopReason),
         customApiConfig: runInput.customApiConfig,
+        modelPort: runInput.modelPort,
         toolChoice: runInput.toolChoice,
         runMetadata: buildStudioContinuationRunMetadata({
           sourceRunId: sourceRun.id,

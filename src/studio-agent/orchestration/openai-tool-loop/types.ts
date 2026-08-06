@@ -1,4 +1,3 @@
-import type OpenAI from 'openai'
 import type {
   StudioAssistantMessage,
   StudioMessageStore,
@@ -9,8 +8,8 @@ import type {
   StudioToolChoice,
   StudioWorkContext,
   StudioWorkResultStore,
-  StudioWorkStore
-  ,StudioRenderStore
+  StudioWorkStore,
+  StudioRenderStore,
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type {
@@ -19,11 +18,11 @@ import type {
 import type { CustomApiConfig } from '../../../types'
 import type { buildStudioChatTools } from '../studio-tool-schema'
 import type { buildStudioConversationMessages } from '../studio-message-history'
-import type { requestStudioChatCompletion } from '../studio-provider-request'
 import type { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
+import type { StudioModelPort, StudioModelResponse } from '../../model/studio-model-port'
 
 export type StudioLoopAutonomy = ReturnType<typeof readStudioRunAutonomyMetadata>
-export type StudioChatCompletion = Awaited<ReturnType<typeof requestStudioChatCompletion>>
+export type StudioChatCompletion = StudioModelResponse
 export type StudioChatCompletionMessage = NonNullable<StudioChatCompletion['choices'][number]['message']>
 export type StudioChatToolCall = NonNullable<StudioChatCompletionMessage['tool_calls']>[number]
 
@@ -46,7 +45,8 @@ export interface StudioOpenAIToolLoopInput {
   documentationContext?: string
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
-  customApiConfig: CustomApiConfig
+  customApiConfig?: CustomApiConfig
+  modelPort?: StudioModelPort
   maxSteps?: number
   toolChoice?: StudioToolChoice
   onCheckpoint?: (patch: Partial<StudioRun>) => Promise<void>
@@ -54,7 +54,7 @@ export interface StudioOpenAIToolLoopInput {
 }
 
 export interface StudioLoopRuntime {
-  client: OpenAI
+  modelPort: StudioModelPort
   model: string
   tools: ReturnType<typeof buildStudioChatTools>
   conversation: ReturnType<typeof buildStudioConversationMessages>

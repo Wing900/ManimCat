@@ -20,6 +20,7 @@ import type {
   StudioRenderStore,
 } from '../../../domain/types'
 import type { StudioToolRegistry } from '../../../tools/registry'
+import type { StudioModelPort } from '../../../model/studio-model-port'
 
 export interface StudioSessionRunnerOptions {
   registry: StudioToolRegistry
@@ -40,6 +41,7 @@ export interface StudioRunRequestInput {
   session: StudioSession
   inputText: string
   customApiConfig?: CustomApiConfig
+  modelPort?: StudioModelPort
   toolChoice?: StudioToolChoice
   runMetadata?: Record<string, unknown>
 }

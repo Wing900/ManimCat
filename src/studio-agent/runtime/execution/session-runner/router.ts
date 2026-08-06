@@ -14,13 +14,14 @@ export async function routePreparedRun(
   abortSignal: AbortSignal,
 ): Promise<{ run: StudioRun; assistantMessage: StudioAssistantMessage; text: string }> {
   const customApiConfig = prepared.input.customApiConfig
-  if (!hasUsableCustomApiConfig(customApiConfig)) {
+  if (!hasUsableCustomApiConfig(customApiConfig) && !prepared.input.modelPort) {
     throw new Error('Studio agent requires a usable customApiConfig (apiUrl, apiKey, model) to run the agent loop.')
   }
 
   return executePreparedStream(deps, prepared, createAgentLoopExecution(deps, {
     prepared,
     customApiConfig,
+    modelPort: prepared.input.modelPort,
     toolChoice: resolveStudioToolChoice({ session: prepared.input.session, override: prepared.input.toolChoice }),
     abortSignal,
   }), abortSignal)
