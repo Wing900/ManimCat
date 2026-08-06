@@ -10,6 +10,7 @@ export interface StudioEventConnectionStatus {
 }
 
 interface StudioEventSubscriptionOptions {
+  sessionId: string
   signal: AbortSignal
   onEvent: (event: StudioExternalEvent) => void
   onStatusChange?: (status: StudioEventConnectionStatus) => void
@@ -48,7 +49,7 @@ export async function subscribeStudioEvents(options: StudioEventSubscriptionOpti
 }
 
 async function consumeStudioEventStream(options: StudioEventSubscriptionOptions): Promise<void> {
-  const response = await fetch(`${getStudioApiBase()}/events`, {
+  const response = await fetch(`${getStudioApiBase()}/sessions/${encodeURIComponent(options.sessionId)}/events`, {
     headers: {
       Accept: 'text/event-stream',
       ...getStudioAuthHeaders(),

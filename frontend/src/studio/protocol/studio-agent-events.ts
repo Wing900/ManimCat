@@ -1,6 +1,7 @@
 import type {
   StudioFileAttachment,
   StudioRun,
+  StudioRender,
   StudioTask,
   StudioWork,
   StudioWorkResult,
@@ -36,7 +37,17 @@ export interface StudioWorkResultUpdatedExternalEvent {
 export interface StudioRunUpdatedExternalEvent {
   type: 'run.updated'
   properties: {
+    sessionId: string
     run: StudioRun
+  }
+}
+
+export interface StudioRenderUpdatedExternalEvent {
+  type: 'render.updated'
+  properties: {
+    sessionId: string
+    runId?: string
+    render: StudioRender
   }
 }
 
@@ -120,6 +131,7 @@ export type StudioExternalEvent =
   | StudioWorkUpdatedExternalEvent
   | StudioWorkResultUpdatedExternalEvent
   | StudioRunUpdatedExternalEvent
+  | StudioRenderUpdatedExternalEvent
   | StudioAssistantTextExternalEvent
   | StudioToolInputStartExternalEvent
   | StudioToolCallExternalEvent

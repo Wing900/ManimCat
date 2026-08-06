@@ -1,5 +1,5 @@
 import type { StudioReviewChangeSet, StudioReviewFinding, StudioReviewMetadata } from '../protocol/studio-review-types'
-import type { StudioMessage, StudioRun, StudioTask, StudioWork, StudioWorkResult } from '../protocol/studio-agent-types'
+import type { StudioMessage, StudioRender, StudioRun, StudioTask, StudioWork, StudioWorkResult } from '../protocol/studio-agent-types'
 import type { StudioSessionState } from './studio-types'
 
 export function selectStudioMessages(state: StudioSessionState): StudioMessage[] {
@@ -25,6 +25,19 @@ export function selectStudioWorks(state: StudioSessionState): StudioWork[] {
     .map((id) => state.entities.worksById[id])
     .filter((work): work is StudioWork => Boolean(work))
     .filter((work) => (sessionId ? work.sessionId === sessionId : true))
+}
+
+export function selectStudioRenders(state: StudioSessionState): StudioRender[] {
+  const sessionId = state.entities.session?.id
+  return state.entities.renderOrder
+    .map((id) => state.entities.rendersById[id])
+    .filter((render): render is StudioRender => Boolean(render))
+    .filter((render) => (sessionId ? render.sessionId === sessionId : true))
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+}
+
+export function selectLatestRender(state: StudioSessionState): StudioRender | null {
+  return selectStudioRenders(state)[0] ?? null
 }
 
 export function selectLatestRun(state: StudioSessionState): StudioRun | null {

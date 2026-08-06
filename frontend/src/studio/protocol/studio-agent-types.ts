@@ -17,6 +17,7 @@ export type StudioTaskType = 'tool-execution' | 'static-check' | 'render'
 export type StudioWorkType = 'video' | 'plot' | 'edit' | 'render-fix'
 export type StudioWorkStatus = 'proposed' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type StudioWorkResultKind = 'render-output' | 'edit-result' | 'failure-report'
+export type StudioRenderStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface StudioPermissionRule {
   permission: string
@@ -58,6 +59,26 @@ export interface StudioRun {
   completedAt?: string
   error?: string
   metadata?: Record<string, unknown>
+}
+
+export interface StudioRender {
+  id: string
+  ownerId?: string
+  sessionId: string
+  runId?: string
+  kind: StudioKind
+  title: string
+  status: StudioRenderStatus
+  concept: string
+  outputMode: 'video' | 'image'
+  quality?: 'low' | 'medium' | 'high'
+  jobId?: string
+  sourcePath?: string
+  attachments?: StudioFileAttachment[]
+  error?: string
+  metadata?: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
 }
 
 export interface StudioTask {
@@ -228,6 +249,7 @@ export interface StudioSessionSnapshot {
   tasks: StudioTask[]
   works: StudioWork[]
   workResults: StudioWorkResult[]
+  renders?: StudioRender[]
 }
 
 export interface StudioCreateSessionInput {

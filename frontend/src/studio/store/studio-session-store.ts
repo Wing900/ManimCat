@@ -1,6 +1,7 @@
 import type {
   StudioMessage,
   StudioRun,
+  StudioRender,
   StudioSessionSnapshot,
   StudioTask,
   StudioWork,
@@ -41,6 +42,7 @@ export function mergeStudioSnapshot(
   const tasksById = mergeRecord(current.entities.tasksById, snapshot.tasks)
   const worksById = mergeRecord(current.entities.worksById, snapshot.works)
   const workResultsById = mergeRecord(current.entities.workResultsById, snapshot.workResults)
+  const rendersById = mergeRecord(current.entities.rendersById, snapshot.renders ?? [])
 
   return {
     ...current,
@@ -56,6 +58,8 @@ export function mergeStudioSnapshot(
       workOrder: sortRecordIdsBy(worksById, compareByUpdatedAt),
       workResultsById,
       workResultOrder: sortRecordIdsBy(workResultsById, compareByCreatedAt),
+      rendersById,
+      renderOrder: sortRecordIdsBy(rendersById, compareByUpdatedAt),
     },
     connection: {
       ...current.connection,
@@ -136,6 +140,15 @@ export function removeMessages(state: StudioEntityState, messageIds: string[]): 
   }
 }
 
+export function upsertRenders(state: StudioEntityState, renders: StudioRender[]): StudioEntityState {
+  const rendersById = mergeRecord(state.rendersById, renders)
+  return {
+    ...state,
+    rendersById,
+    renderOrder: sortRecordIdsBy(rendersById, compareByUpdatedAt),
+  }
+}
+
 function createEmptyEntityState(): StudioEntityState {
   return {
     session: null,
@@ -149,6 +162,8 @@ function createEmptyEntityState(): StudioEntityState {
     workOrder: [],
     workResultsById: {},
     workResultOrder: [],
+    rendersById: {},
+    renderOrder: [],
   }
 }
 

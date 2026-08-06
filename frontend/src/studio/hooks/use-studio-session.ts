@@ -4,7 +4,7 @@ import {
   createStudioSession,
   getStudioSessionSnapshot,
 } from '../api/studio-agent-api'
-import type { StudioKind, StudioMessage, StudioTask } from '../protocol/studio-agent-types'
+import type { StudioKind, StudioMessage, StudioRender } from '../protocol/studio-agent-types'
 import type { StudioSessionState } from '../store/studio-types'
 import { useStudioEvents } from './use-studio-events'
 import { useStudioRun } from './use-studio-run'
@@ -21,6 +21,7 @@ import {
   selectTasksForWork,
   selectWorkSummary,
   selectWorkResult,
+  selectStudioRenders,
 } from '../store/studio-selectors'
 import {
   forgetStudioSessionId,
@@ -281,12 +282,14 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
   const messages = viewSelectors.selectStudioMessages(state)
   const runs = viewSelectors.selectStudioRuns(state)
   const works = viewSelectors.selectStudioWorks(state)
+  const renders = selectStudioRenders(state)
 
   return {
     state,
     session: state.entities.session,
     messages,
     runs,
+    renders,
     works,
     latestRun: selectLatestRun(state),
     latestAssistantText: selectLatestAssistantText(state),
@@ -383,13 +386,12 @@ function hasActiveRenderTask(state: StudioSessionState): boolean {
     return false
   }
 
-  return state.entities.taskOrder
-    .map((id) => state.entities.tasksById[id])
-    .filter((task): task is StudioTask => Boolean(task))
-    .some((task) => (
-      task.sessionId === sessionId
-      && task.type === 'render'
-      && (task.status === 'queued' || task.status === 'running' || task.status === 'pending_confirmation')
+  return state.entities.renderOrder
+    .map((id) => state.entities.rendersById[id])
+    .filter((render): render is StudioRender => Boolean(render))
+    .some((render) => (
+      render.sessionId === sessionId
+      && (render.status === 'queued' || render.status === 'running')
     ))
 }
 

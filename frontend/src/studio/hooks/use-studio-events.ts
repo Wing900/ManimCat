@@ -21,6 +21,7 @@ export function useStudioEvents({ sessionId, onEvent, onStatusChange }: UseStudi
 
     void subscribeStudioEvents({
       signal: controller.signal,
+      sessionId,
       onEvent: (event) => {
         const eventSessionId = resolveEventSessionId(event)
         if (eventSessionId && eventSessionId !== sessionId) {
@@ -63,8 +64,10 @@ function resolveEventSessionId(event: StudioExternalEvent): string | null {
     case 'tool.result':
     case 'question.requested':
       return event.properties.sessionId
+    case 'render.updated':
+      return event.properties.sessionId
     case 'run.updated':
-      return event.properties.run.sessionId
+      return event.properties.sessionId
     case 'studio.connected':
     case 'studio.heartbeat':
       return null

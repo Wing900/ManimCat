@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '../../i18n'
 import { useStudioSession } from './use-studio-session'
 import { createStudioSession, getStudioSessionSnapshot } from '../api/studio-agent-api'
-import type { StudioSession, StudioSessionSnapshot } from '../protocol/studio-agent-types'
+import type { StudioRender, StudioSession, StudioSessionSnapshot } from '../protocol/studio-agent-types'
 
 vi.mock('../api/studio-agent-api', () => ({
   createStudioSession: vi.fn(),
@@ -41,23 +41,26 @@ function createSession(id = 'session-1'): StudioSession {
   }
 }
 
-function createSnapshot(session: StudioSession, taskStatus?: 'queued' | 'running' | 'pending_confirmation'): StudioSessionSnapshot {
+function createSnapshot(session: StudioSession, renderStatus?: 'queued' | 'running'): StudioSessionSnapshot {
   const now = '2026-03-22T00:00:00.000Z'
   return {
     session,
     messages: [],
     runs: [],
-    tasks: taskStatus ? [{
-      id: 'task-1',
-      sessionId: session.id,
-      type: 'render',
-      status: taskStatus,
-      title: 'Render scene',
-      createdAt: now,
-      updatedAt: now,
-    }] : [],
+    tasks: [],
     works: [],
     workResults: [],
+    renders: renderStatus ? [{
+      id: 'render-1',
+      sessionId: session.id,
+      kind: session.studioKind ?? 'manim',
+      status: renderStatus,
+      title: 'Render scene',
+      concept: 'Render scene',
+      outputMode: 'video',
+      createdAt: now,
+      updatedAt: now,
+    } satisfies StudioRender] : [],
   }
 }
 
@@ -71,7 +74,7 @@ describe('useStudioSession', () => {
     vi.useRealTimers()
   })
 
-  it('bootstraps a session and polls quietly only while a render task is active', async () => {
+  it('bootstraps a session and polls quietly only while a render is active', async () => {
     const session = createSession()
     mockedCreateStudioSession.mockResolvedValue(session)
     mockedGetStudioSessionSnapshot.mockResolvedValue(createSnapshot(session, 'running'))

@@ -1,6 +1,7 @@
 import type {
   StudioMessage,
   StudioRun,
+  StudioRender,
   StudioSession,
   StudioTask,
   StudioWork,
@@ -19,6 +20,8 @@ export interface StudioEntityState {
   workOrder: string[]
   workResultsById: Record<string, StudioWorkResult>
   workResultOrder: string[]
+  rendersById: Record<string, StudioRender>
+  renderOrder: string[]
 }
 
 export interface StudioConnectionState {

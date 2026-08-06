@@ -13,6 +13,7 @@ import {
   upsertTasks,
   upsertWorkResults,
   upsertWorks,
+  upsertRenders,
 } from './studio-session-store'
 import { debugStudioMessages } from '../agent-response/debug'
 import {
@@ -220,6 +221,11 @@ function applyStudioExternalEvent(state: StudioSessionState, event: StudioExtern
           ...nextBase.runtime,
           activeRunId: event.properties.run.id,
         },
+      }
+    case 'render.updated':
+      return {
+        ...nextBase,
+        entities: upsertRenders(nextBase.entities, [event.properties.render]),
       }
     case 'assistant.text':
       return applyAssistantTextEvent(nextBase, event.properties.runId, event.properties.text, event.properties.messageId)
