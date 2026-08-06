@@ -10,9 +10,6 @@ import {
   createStudioRuntimeService,
   defaultRulesForLevel,
   InMemoryStudioEventBus,
-  InMemoryStudioTaskStore,
-  InMemoryStudioWorkResultStore,
-  InMemoryStudioWorkStore,
   InMemoryStudioRenderStore,
   type ManimRenderSubmissionInput,
   type PlotRenderExecution,
@@ -52,9 +49,6 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
       agent: 'builder'
     }),
     eventBus: new InMemoryStudioEventBus(),
-    taskStore: new InMemoryStudioTaskStore(),
-    workStore: new InMemoryStudioWorkStore(),
-    workResultStore: new InMemoryStudioWorkResultStore(),
     renderStore: new InMemoryStudioRenderStore()
   }
 }

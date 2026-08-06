@@ -4,11 +4,8 @@ import type {
   StudioRun,
   StudioSession,
   StudioSessionStore,
-  StudioTaskStore,
   StudioToolChoice,
   StudioWorkContext,
-  StudioWorkResultStore,
-  StudioWorkStore,
   StudioRenderStore,
 } from '../../domain/types'
 import type { StudioToolRegistry } from '../../tools/registry'
@@ -37,9 +34,6 @@ export interface StudioOpenAIToolLoopInput {
   eventBus: StudioRuntimeBackedToolContext['eventBus']
   partStore?: StudioRuntimeBackedToolContext['partStore']
   sessionStore?: StudioSessionStore
-  taskStore?: StudioTaskStore
-  workStore?: StudioWorkStore
-  workResultStore?: StudioWorkResultStore
   renderStore?: StudioRenderStore
   workContext?: StudioWorkContext
   documentationContext?: string

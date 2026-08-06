@@ -4,10 +4,7 @@ import type {
   StudioRun,
   StudioSession,
   StudioSessionStore,
-  StudioTaskStore,
   StudioToolDefinition,
-  StudioWorkResultStore,
-  StudioWorkStore
 } from '../../domain/types'
 import path from 'node:path'
 import type { StudioToolRegistry } from '../../tools/registry'
@@ -29,9 +26,6 @@ export interface StudioToolCallExecutionOptions {
   messageStore?: StudioRuntimeBackedToolContext['messageStore']
   partStore?: StudioRuntimeBackedToolContext['partStore']
   sessionStore?: StudioSessionStore
-  taskStore?: StudioTaskStore
-  workStore?: StudioWorkStore
-  workResultStore?: StudioWorkResultStore
   renderStore?: StudioRuntimeBackedToolContext['renderStore']
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   commentary?: string | null
@@ -133,9 +127,6 @@ async function executeTool(input: {
     eventBus: input.options.eventBus,
     messageStore: input.options.messageStore,
     partStore: input.options.partStore,
-    taskStore: input.options.taskStore,
-    workStore: input.options.workStore,
-    workResultStore: input.options.workResultStore,
     renderStore: input.options.renderStore,
     setToolMetadata: (metadata: { title?: string; metadata?: Record<string, unknown> }) => {
       input.options.setToolMetadata(input.options.toolCallId, metadata)

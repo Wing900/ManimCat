@@ -3,9 +3,6 @@ import type { StudioAssistantMessage, StudioFileAttachment } from './message-typ
 import type { StudioEventBus } from './event-types'
 import type {
   StudioSessionStore,
-  StudioTaskStore,
-  StudioWorkResultStore,
-  StudioWorkStore,
   StudioRenderStore,
 } from './store-types'
 import type { StudioToolParameters } from '../tools/tool-parameters'
@@ -38,9 +35,6 @@ export interface StudioToolContext {
   abortSignal?: AbortSignal
   assistantMessage: StudioAssistantMessage
   eventBus: StudioEventBus
-  taskStore?: StudioTaskStore
-  workStore?: StudioWorkStore
-  workResultStore?: StudioWorkResultStore
   renderStore?: StudioRenderStore
   setToolMetadata?: (metadata: { title?: string; metadata?: Record<string, unknown> }) => void
 }
