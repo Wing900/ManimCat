@@ -63,6 +63,7 @@ export async function runAgentLoopTests(): Promise<void> {
       registry,
       eventBus: new InMemoryStudioEventBus(),
       renderStore: persistence.renderStore,
+      documentationContext: 'Manim parameter reference: use Axes for coordinate plots.',
       modelPort: model,
       createAssistantMessage: async () => assistantMessage,
       setToolMetadata: () => undefined,
@@ -72,6 +73,7 @@ export async function runAgentLoopTests(): Promise<void> {
     assert.equal(model.requests.length, 1)
     assert.equal(events.some((event) => event.type === 'text-delta' && event.text.includes('hello')), true)
     assert.equal(model.requests[0]?.messages[0]?.role, 'system')
+    assert.match(String(model.requests[0]?.messages[0]?.content), /Manim parameter reference/)
   })
 }
 

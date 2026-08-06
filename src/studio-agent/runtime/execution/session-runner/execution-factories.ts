@@ -39,6 +39,7 @@ export function createAgentLoopExecution(
       sessionStore: deps.sessionStore,
       renderStore: deps.renderStore,
       workContext: input.prepared.workContext,
+      documentationContext: input.prepared.documentationContext,
       createAssistantMessage: () => deps.createAssistantMessage(input.prepared.input.session, input.prepared.run.id),
       setToolMetadata: (assistantMessage, callId, metadata) => {
         void deps.processor.applyToolMetadata({

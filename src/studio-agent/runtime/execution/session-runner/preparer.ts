@@ -10,6 +10,7 @@ import type {
   StudioSessionRunnerDependencies
 } from './dependency-center'
 import { hasUsableCustomApiConfig } from './factory'
+import { createEmptyStudioDocumentationContextProvider, loadStudioDocumentationContext } from '../../../documentation/studio-documentation-context'
 
 export async function buildWorkContext(
   deps: Pick<StudioSessionRunnerDependencies, 'workStore' | 'workResultStore' | 'taskStore' | 'sessionEventStore'>,
@@ -41,6 +42,11 @@ export async function prepareRun(
 ): Promise<StudioPreparedRunContext> {
   const prepareStartedAt = Date.now()
   const workContext = await deps.buildWorkContext(input)
+  const documentationContext = await loadStudioDocumentationContext(deps.documentationProvider ?? createEmptyStudioDocumentationContextProvider(), {
+    kind: input.session.studioKind ?? 'manim',
+    query: input.inputText,
+    maxChars: 20_000,
+  })
   const run = deps.createRun(input.session, input.inputText, input.runMetadata)
   const persistedRun = deps.runStore ? await deps.runStore.create(run) : run
   await deps.messageStore.createUserMessage(createStudioUserMessage({
@@ -73,6 +79,7 @@ export async function prepareRun(
     workContext,
     run: runningRun,
     assistantMessage,
-    eventBus
+    eventBus,
+    documentationContext,
   }
 }

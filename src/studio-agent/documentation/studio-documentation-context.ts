@@ -1,22 +1,31 @@
 import type { StudioKind } from '../domain/types'
-import type { StudioDocumentationKey } from '../modes/studio-mode'
 
 export interface StudioDocumentationContextRequest {
-  studioKind: StudioKind
-  documentationKey: StudioDocumentationKey
-  task: string
-  workspaceDirectory?: string
-  files?: string[]
+  kind: StudioKind
+  query: string
+  maxChars: number
 }
 
 export interface StudioDocumentationContextProvider {
-  getContext: (input: StudioDocumentationContextRequest) => Promise<string | undefined>
+  getContext: (input: StudioDocumentationContextRequest) => Promise<string>
 }
 
 export function createEmptyStudioDocumentationContextProvider(): StudioDocumentationContextProvider {
   return {
     async getContext() {
-      return undefined
+      return ''
     }
+  }
+}
+
+export async function loadStudioDocumentationContext(
+  provider: StudioDocumentationContextProvider,
+  input: StudioDocumentationContextRequest,
+): Promise<string> {
+  try {
+    const context = await provider.getContext(input)
+    return context.trim().slice(0, input.maxChars)
+  } catch {
+    return ''
   }
 }

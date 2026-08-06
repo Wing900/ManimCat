@@ -38,7 +38,7 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
 
   const documentationContext = input.documentationContext?.trim()
   if (documentationContext) {
-    sections.push('', '<studio_documentation_context>', documentationContext, '</studio_documentation_context>')
+    sections.push('', '<studio_documentation>', documentationContext, '</studio_documentation>')
   }
 
   return sections.join('\n').trim()

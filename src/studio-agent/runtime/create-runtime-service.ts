@@ -43,6 +43,7 @@ import { createStudioSessionMetadata } from './session/session-agent-config'
 import { flushTerminalSessionEventsToAssistant } from './session/session-event-inbox'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioModelPort } from '../model/studio-model-port'
+import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
 import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { cancelRunState } from './execution/session-runner-helpers'
 
@@ -55,6 +56,7 @@ interface CreateStudioRuntimeServiceInput {
   manimRenderPort?: ManimRenderPort
   plotRenderPort?: PlotRenderPort
   renderJobPort?: StudioRenderJobPort
+  documentationProvider?: StudioDocumentationContextProvider
 }
 
 export interface StudioRuntimeService {
@@ -133,6 +135,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     workStore: input.persistence.workStore,
     workResultStore: input.persistence.workResultStore,
     renderStore: input.persistence.renderStore,
+    documentationProvider: input.documentationProvider,
     sessionEventStore: input.persistence.sessionEventStore,
     eventBus,
   })

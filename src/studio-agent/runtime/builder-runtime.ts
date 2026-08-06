@@ -15,6 +15,7 @@ import type {
   StudioWorkStore,
   StudioRenderStore,
 } from '../domain/types'
+import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
 import { StudioToolRegistry } from '../tools/registry'
 import type { StudioModelPort } from '../model/studio-model-port'
 import { StudioSessionRunner } from './execution/session-runner/session-runner'
@@ -32,6 +33,7 @@ interface StudioBuilderRuntimeOptions {
   workStore?: StudioWorkStore
   workResultStore?: StudioWorkResultStore
   renderStore?: StudioRenderStore
+  documentationProvider?: StudioDocumentationContextProvider
   eventBus?: StudioEventBus
 }
 
@@ -50,6 +52,7 @@ export class StudioBuilderRuntime {
       workStore: options.workStore,
       workResultStore: options.workResultStore,
       renderStore: options.renderStore,
+      documentationProvider: options.documentationProvider,
       eventBus: options.eventBus,
     })
   }
