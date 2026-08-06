@@ -2,15 +2,8 @@ import type { CustomApiConfig } from '../../types/api'
 
 export type StudioAgentType = 'builder'
 export type StudioKind = 'manim' | 'plot'
-export type StudioPermissionLevel = 'L0' | 'L1' | 'L2' | 'L3' | 'L4'
 export type StudioRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type StudioRenderStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
-
-export interface StudioPermissionRule {
-  permission: string
-  pattern: string
-  action: 'allow' | 'ask' | 'deny'
-}
 
 export interface StudioSessionMetadata {
   studioKind?: StudioKind
@@ -29,8 +22,6 @@ export interface StudioSession {
   agentType: StudioAgentType
   title: string
   directory: string
-  permissionLevel: StudioPermissionLevel
-  permissionRules: StudioPermissionRule[]
   metadata?: StudioSessionMetadata
   createdAt: string
   updatedAt: string
@@ -204,7 +195,6 @@ export interface StudioCreateSessionInput {
   title?: string
   studioKind?: StudioKind
   agentType?: StudioAgentType
-  permissionLevel?: StudioPermissionLevel
   workspaceId?: string
 }
 

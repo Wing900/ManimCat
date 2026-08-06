@@ -45,9 +45,6 @@ export function StudioRunComposer({ session, messages, disabled, onRun, onRefres
           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${studioStatusBadge(session?.agentType ?? 'idle')}`}>
             {session?.agentType ?? 'builder'}
           </span>
-          <span className="rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-black/10 dark:bg-white/10 dark:ring-white/10">
-            {session?.permissionLevel ?? 'L2'}
-          </span>
         </div>
         <textarea
           value={input}

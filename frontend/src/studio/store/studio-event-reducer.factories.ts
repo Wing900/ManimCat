@@ -7,8 +7,6 @@ export function createSessionMessage(): StudioSession {
     agentType: 'builder',
     title: 'Studio',
     directory: 'D:/projects/ManimCat',
-    permissionLevel: 'L2',
-    permissionRules: [],
     createdAt: '2026-03-22T00:00:00.000Z',
     updatedAt: '2026-03-22T00:00:00.000Z',
   }

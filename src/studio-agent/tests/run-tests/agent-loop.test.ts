@@ -21,7 +21,6 @@ export async function runAgentLoopTests(): Promise<void> {
       agentType: 'builder',
       title: 'Loop test',
       directory: 'workspace-loop',
-      permissionLevel: 'L4',
     })
     const runRecord = createStudioRun({
       ownerId: session.ownerId,

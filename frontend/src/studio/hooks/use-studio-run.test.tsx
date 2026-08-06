@@ -29,8 +29,6 @@ function createSession(id = 'session-1'): StudioSession {
     agentType: 'builder',
     title: 'Studio',
     directory: 'D:/projects/ManimCat',
-    permissionLevel: 'L2',
-    permissionRules: [],
     createdAt: now,
     updatedAt: now,
   }

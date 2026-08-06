@@ -5,7 +5,6 @@ import type {
   StudioMessagePart,
   StudioMessageStore,
   StudioPartStore,
-  StudioPermissionRule,
   StudioRun,
   StudioRunStore,
   StudioRender,
@@ -35,8 +34,6 @@ type StudioSessionRow = {
   agent_type: StudioSession['agentType']
   title: string
   directory: string
-  permission_level: StudioSession['permissionLevel']
-  permission_rules: StudioPermissionRule[] | null
   metadata: JsonRecord | null
   created_at: string
   updated_at: string
@@ -414,8 +411,6 @@ function fromSessionRow(row: StudioSessionRow): StudioSession {
     agentType: row.agent_type,
     title: row.title,
     directory: row.directory,
-    permissionLevel: row.permission_level,
-    permissionRules: row.permission_rules ?? [],
     metadata: asOptional(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -504,8 +499,6 @@ function toSessionRow(session: StudioSession): StudioSessionRow {
     agent_type: session.agentType,
     title: session.title,
     directory: session.directory,
-    permission_level: session.permissionLevel,
-    permission_rules: session.permissionRules,
     metadata: asNullable(session.metadata),
     created_at: session.createdAt,
     updated_at: session.updatedAt,
@@ -620,8 +613,6 @@ function toSessionPatch(patch: Partial<StudioSession>) {
     agent_type: patch.agentType,
     title: patch.title,
     directory: patch.directory,
-    permission_level: patch.permissionLevel,
-    permission_rules: patch.permissionRules,
     metadata: patch.metadata,
   })
 }

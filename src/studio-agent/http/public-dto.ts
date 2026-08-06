@@ -1,7 +1,7 @@
 import type { StudioExternalEvent } from '../events/studio-event-adapter'
 import type { StudioRender, StudioRun, StudioSession, StudioSessionSnapshot } from '../domain/types'
 
-export type PublicStudioSession = Omit<StudioSession, 'ownerId' | 'directory' | 'permissionLevel' | 'permissionRules' | 'parentSessionId'>
+export type PublicStudioSession = Omit<StudioSession, 'ownerId' | 'directory' | 'parentSessionId'>
 export type PublicStudioRun = Omit<StudioRun, 'ownerId'>
 export type PublicStudioRender = Omit<StudioRender, 'ownerId'>
 
@@ -13,7 +13,7 @@ export interface PublicStudioSnapshot {
 }
 
 export function toPublicStudioSession(session: StudioSession): PublicStudioSession {
-  const { ownerId: _ownerId, directory: _directory, permissionLevel: _permissionLevel, permissionRules: _permissionRules, parentSessionId: _parentSessionId, ...publicSession } = session
+  const { ownerId: _ownerId, directory: _directory, parentSessionId: _parentSessionId, ...publicSession } = session
   return publicSession
 }
 

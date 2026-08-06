@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import {
   buildStudioAgentSystemPrompt,
   createStudioSession,
-  defaultRulesForLevel,
   WorkspacePathError,
   resolveWorkspacePath
 } from '../../index'
@@ -36,9 +35,7 @@ export async function runPromptTests() {
       projectId: 'project-1',
       agentType: 'builder',
       title: 'Prompt Session',
-      directory: await createWorkspace(),
-      permissionLevel: 'L4',
-      permissionRules: defaultRulesForLevel('L4')
+      directory: await createWorkspace()
     })
 
     const prompt = buildStudioAgentSystemPrompt({
@@ -61,8 +58,6 @@ export async function runPromptTests() {
       agentType: 'builder',
       title: 'Plot Prompt Session',
       directory: await createWorkspace(),
-      permissionLevel: 'L4',
-      permissionRules: defaultRulesForLevel('L4'),
       studioKind: 'plot'
     })
 

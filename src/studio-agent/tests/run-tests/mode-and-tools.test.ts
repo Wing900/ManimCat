@@ -7,7 +7,6 @@ import {
   createStudioRun,
   createStudioSession,
   createStudioRuntimeService,
-  defaultRulesForLevel,
   InMemoryStudioEventBus,
   InMemoryStudioRenderStore,
   type ManimRenderSubmissionInput,
@@ -28,9 +27,7 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
     studioKind,
     agentType: 'builder',
     title: `${studioKind} test session`,
-    directory: `/workspace/${studioKind}`,
-    permissionLevel: 'L4',
-    permissionRules: defaultRulesForLevel('L4')
+    directory: `/workspace/${studioKind}`
   })
   const runRecord = createStudioRun({
     ownerId: session.ownerId,

@@ -40,7 +40,6 @@ export async function runSecurityTests(): Promise<void> {
       agentType: 'builder',
       title: 'Owner A',
       directory: 'workspace-a',
-      permissionLevel: 'L4',
     })
     const runRecord = createStudioRun({
       ownerId: session.ownerId,
@@ -72,7 +71,6 @@ export async function runSecurityTests(): Promise<void> {
       agentType: 'builder',
       title: 'Owner A',
       directory: 'D:/private/studio',
-      permissionLevel: 'L4',
     })
     const render = createStudioRender({
       ownerId: session.ownerId,

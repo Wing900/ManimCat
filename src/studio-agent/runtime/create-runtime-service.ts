@@ -190,8 +190,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         agentType: sessionInput.agentType ?? 'builder',
         title: sessionInput.title ?? getDefaultSessionTitle(studioKind),
         directory: normalizedDirectory,
-        permissionLevel: 'L4',
-        permissionRules: [],
         metadata: createStudioSessionMetadata({
           existing: { studioKind },
           agentConfig: {

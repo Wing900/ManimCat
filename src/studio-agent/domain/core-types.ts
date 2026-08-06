@@ -8,8 +8,6 @@ export interface StudioPrincipal {
   ownerId: string
 }
 
-export type StudioPermissionLevel = 'L0' | 'L1' | 'L2' | 'L3' | 'L4'
-
 export type StudioRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export type StudioRenderStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -34,12 +32,6 @@ export interface StudioRender {
   updatedAt: string
 }
 
-export interface StudioPermissionRule {
-  permission: string
-  pattern: string
-  action: 'allow' | 'deny'
-}
-
 export interface StudioSession {
   id: string
   ownerId: string
@@ -50,8 +42,6 @@ export interface StudioSession {
   agentType: StudioAgentType
   title: string
   directory: string
-  permissionLevel: StudioPermissionLevel
-  permissionRules: StudioPermissionRule[]
   metadata?: Record<string, unknown>
   createdAt: string
   updatedAt: string

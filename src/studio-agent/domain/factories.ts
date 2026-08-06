@@ -5,8 +5,6 @@ import type {
   StudioFileAttachment,
   StudioKind,
   StudioMessagePart,
-  StudioPermissionLevel,
-  StudioPermissionRule,
   StudioReasoningPart,
   StudioRender,
   StudioRenderStatus,
@@ -31,8 +29,6 @@ export function createStudioSession(input: {
   agentType: StudioAgentType
   title: string
   directory: string
-  permissionLevel: StudioPermissionLevel
-  permissionRules?: StudioPermissionRule[]
   metadata?: Record<string, unknown>
 }): StudioSession {
   const timestamp = nowIso()
@@ -46,8 +42,6 @@ export function createStudioSession(input: {
     agentType: input.agentType,
     title: input.title,
     directory: input.directory,
-    permissionLevel: input.permissionLevel,
-    permissionRules: input.permissionRules ?? [],
     metadata: input.metadata,
     createdAt: timestamp,
     updatedAt: timestamp
