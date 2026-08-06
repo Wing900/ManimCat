@@ -8,11 +8,7 @@ import {
   InMemoryStudioMessageStore,
   InMemoryStudioPartStore,
   InMemoryStudioRunStore,
-  InMemoryStudioSessionEventStore,
   InMemoryStudioSessionStore,
-  InMemoryStudioTaskStore,
-  InMemoryStudioWorkResultStore,
-  InMemoryStudioWorkStore,
   StudioBuilderRuntime,
   StudioToolRegistry,
   type StudioAssistantMessage,
@@ -32,10 +28,6 @@ export function createTestRuntime(options?: {
   const partStore = new InMemoryStudioPartStore()
   const runStore = new InMemoryStudioRunStore()
   const sessionStore = new InMemoryStudioSessionStore()
-  const taskStore = new InMemoryStudioTaskStore()
-  const sessionEventStore = new InMemoryStudioSessionEventStore()
-  const workStore = new InMemoryStudioWorkStore()
-  const workResultStore = new InMemoryStudioWorkResultStore()
 
   const runtime = new StudioBuilderRuntime({
     registry,
@@ -43,10 +35,6 @@ export function createTestRuntime(options?: {
     partStore,
     runStore,
     sessionStore,
-    sessionEventStore,
-    taskStore,
-    workStore,
-    workResultStore,
     eventBus: options?.eventBus
   })
 
@@ -56,11 +44,7 @@ export function createTestRuntime(options?: {
     messageStore,
     partStore,
     runStore,
-    sessionStore,
-    sessionEventStore,
-    taskStore,
-    workStore,
-    workResultStore
+    sessionStore
   }
 }
 

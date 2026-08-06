@@ -131,12 +131,8 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     partStore: input.persistence.partStore,
     runStore: input.persistence.runStore,
     sessionStore: input.persistence.sessionStore,
-    taskStore: input.persistence.taskStore,
-    workStore: input.persistence.workStore,
-    workResultStore: input.persistence.workResultStore,
     renderStore: input.persistence.renderStore,
     documentationProvider: input.documentationProvider,
-    sessionEventStore: input.persistence.sessionEventStore,
     eventBus,
   })
 

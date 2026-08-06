@@ -10,13 +10,9 @@ import type {
   StudioRun,
   StudioRunStore,
   StudioSession,
-  StudioSessionEventStore,
   StudioSessionStore,
-  StudioTaskStore,
   StudioToolChoice,
   StudioRenderContext,
-  StudioWorkResultStore,
-  StudioWorkStore,
   StudioRenderStore,
 } from '../../../domain/types'
 import type { StudioDocumentationContextProvider } from '../../../documentation/studio-documentation-context'
@@ -29,10 +25,6 @@ export interface StudioSessionRunnerOptions {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   sessionStore?: StudioSessionStore
-  sessionEventStore?: StudioSessionEventStore
-  taskStore?: StudioTaskStore
-  workStore?: StudioWorkStore
-  workResultStore?: StudioWorkResultStore
   renderStore?: StudioRenderStore
   documentationProvider?: StudioDocumentationContextProvider
   eventBus?: StudioEventBus
@@ -79,10 +71,6 @@ export interface StudioSessionRunnerDependencies {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   sessionStore?: StudioSessionStore
-  sessionEventStore?: StudioSessionEventStore
-  taskStore?: StudioTaskStore
-  workStore?: StudioWorkStore
-  workResultStore?: StudioWorkResultStore
   renderStore?: StudioRenderStore
   documentationProvider?: StudioDocumentationContextProvider
   sharedEventBus?: StudioEventBus
@@ -107,10 +95,6 @@ export function createDependencyCenter(
     partStore: options.partStore,
     runStore: options.runStore,
     sessionStore: options.sessionStore,
-    sessionEventStore: options.sessionEventStore,
-    taskStore: options.taskStore,
-    workStore: options.workStore,
-    workResultStore: options.workResultStore,
     renderStore: options.renderStore,
     documentationProvider: options.documentationProvider,
     sharedEventBus: options.eventBus,

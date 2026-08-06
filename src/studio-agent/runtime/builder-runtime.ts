@@ -7,12 +7,8 @@ import type {
   StudioRun,
   StudioRunStore,
   StudioSession,
-  StudioSessionEventStore,
   StudioSessionStore,
-  StudioTaskStore,
   StudioToolChoice,
-  StudioWorkResultStore,
-  StudioWorkStore,
   StudioRenderStore,
 } from '../domain/types'
 import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
@@ -28,10 +24,6 @@ interface StudioBuilderRuntimeOptions {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   sessionStore?: StudioSessionStore
-  sessionEventStore?: StudioSessionEventStore
-  taskStore?: StudioTaskStore
-  workStore?: StudioWorkStore
-  workResultStore?: StudioWorkResultStore
   renderStore?: StudioRenderStore
   documentationProvider?: StudioDocumentationContextProvider
   eventBus?: StudioEventBus
@@ -47,10 +39,6 @@ export class StudioBuilderRuntime {
       partStore: options.partStore,
       runStore: options.runStore,
       sessionStore: options.sessionStore,
-      sessionEventStore: options.sessionEventStore,
-      taskStore: options.taskStore,
-      workStore: options.workStore,
-      workResultStore: options.workResultStore,
       renderStore: options.renderStore,
       documentationProvider: options.documentationProvider,
       eventBus: options.eventBus,
