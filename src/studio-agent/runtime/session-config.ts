@@ -1,4 +1,4 @@
-import type { StudioSession, StudioToolChoice } from '../../domain/types'
+import type { StudioSession, StudioToolChoice } from '../domain/types'
 
 export interface StudioSessionAgentConfig {
   toolChoice?: StudioToolChoice
@@ -63,3 +63,4 @@ export function createStudioSessionMetadata(input: {
 function normalizeToolChoice(value: unknown): StudioToolChoice | undefined {
   return value === 'auto' || value === 'required' || value === 'none' ? value : undefined
 }
+

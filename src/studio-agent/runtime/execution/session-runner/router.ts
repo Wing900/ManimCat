@@ -1,4 +1,4 @@
-import { resolveStudioToolChoice } from '../../session/session-agent-config'
+import { resolveStudioToolChoice } from '../../session-config'
 import type { StudioAssistantMessage, StudioRun } from '../../../domain/types'
 import type {
   StudioPreparedRunContext,

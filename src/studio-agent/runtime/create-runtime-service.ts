@@ -29,7 +29,7 @@ import {
 } from '../runs/autonomy-policy'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
-import { createStudioSessionMetadata } from './session/session-agent-config'
+import { createStudioSessionMetadata } from './session-config'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioModelPort } from '../model/studio-model-port'
 import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
