@@ -9,18 +9,7 @@ import type {
 } from '../domain/types'
 import { InMemoryStudioEventBus } from '../events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
-import { registerManimStudioTools } from '../manim/register-manim-tools'
-import {
-  createUnconfiguredManimRenderPort,
-  type ManimRenderPort,
-} from '../manim/manim-render-port'
 import type { StudioPersistence } from '../persistence/studio-persistence'
-import { registerPlotStudioTools } from '../plot/register-plot-tools'
-import {
-  createUnconfiguredPlotRenderPort,
-  type PlotRenderPort,
-} from '../plot/plot-render-port'
-import { registerSharedStudioTools } from '../shared/register-shared-tools'
 import {
   buildStudioContinueInputText,
   buildStudioContinuationRunMetadata,
@@ -35,14 +24,15 @@ import type { StudioModelPort } from '../model/studio-model-port'
 import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
 import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { cancelRunState } from './execution/session-runner-helpers'
+import { configureStudioToolRegistry } from './studio-tool-registry'
 
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
   workspaceProvider: StudioWorkspaceProvider
   registry?: StudioToolRegistry
   eventBus?: StudioEventBus
-  manimRenderPort?: ManimRenderPort
-  plotRenderPort?: PlotRenderPort
+  manimRenderPort?: import('../manim/manim-render-port').ManimRenderPort
+  plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
   documentationProvider?: StudioDocumentationContextProvider
 }
 
@@ -104,11 +94,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     handle: Awaited<ReturnType<StudioBuilderRuntime['startBackgroundRun']>>
   }>()
 
-  registerSharedStudioTools(registry)
-  registerManimStudioTools(registry, input.manimRenderPort ?? createUnconfiguredManimRenderPort())
-  registerPlotStudioTools(registry, input.plotRenderPort ?? createUnconfiguredPlotRenderPort())
-
-
+  configureStudioToolRegistry({
+    registry,
+    manimRenderPort: input.manimRenderPort,
+    plotRenderPort: input.plotRenderPort,
+  })
   const runtime = new StudioBuilderRuntime({
     registry,
     messageStore: input.persistence.messageStore,
