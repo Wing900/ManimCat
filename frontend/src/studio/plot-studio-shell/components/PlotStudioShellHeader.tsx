@@ -2,11 +2,10 @@ import ManimCatLogo from '../../../components/ManimCatLogo'
 import { useI18n } from '../../../i18n'
 
 interface PlotStudioShellHeaderProps {
-  directory: string | null | undefined
   onExitClick: () => void
 }
 
-export function PlotStudioShellHeader({ directory, onExitClick }: PlotStudioShellHeaderProps) {
+export function PlotStudioShellHeader({ onExitClick }: PlotStudioShellHeaderProps) {
   const { t } = useI18n()
 
   return (
@@ -15,7 +14,7 @@ export function PlotStudioShellHeader({ directory, onExitClick }: PlotStudioShel
         <ManimCatLogo className="h-8 w-8 shrink-0 opacity-80 mix-blend-multiply dark:mix-blend-normal sm:h-9 sm:w-9" />
         <div className="flex min-w-0 items-baseline gap-4 sm:gap-6">
           <span className="truncate text-lg font-light tracking-[0.22em] sm:text-xl sm:tracking-[0.28em]">MANIMCAT</span>
-          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.36em] text-text-secondary/80 sm:text-[11px]">{directory ?? 'workspace'}</span>
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.36em] text-text-secondary/80 sm:text-[11px]">{t('studio.status.render')}</span>
         </div>
       </div>
       <button

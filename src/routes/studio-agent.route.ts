@@ -18,6 +18,12 @@ import { createLogger } from '../utils/logger'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { logPlotStudioTiming, logTimeline, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
 import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
+import {
+  toPublicStudioEvent,
+  toPublicStudioRun,
+  toPublicStudioSession,
+  toPublicStudioSnapshot,
+} from '../studio-agent/http/public-dto'
 
 const router = express.Router()
 const logger = createLogger('StudioAgentRoute')
@@ -46,7 +52,7 @@ router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, r
     agentType: session.agentType,
   })
 
-  sendStudioSuccess(res, { session })
+  sendStudioSuccess(res, { session: toPublicStudioSession(session) })
 }))
 
 router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
@@ -56,7 +62,7 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
   }
 
-  sendStudioSuccess(res, snapshot)
+  sendStudioSuccess(res, toPublicStudioSnapshot(snapshot))
 }))
 
 router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
@@ -66,27 +72,7 @@ router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req,
     return sendStudioError(res, 404, 'NOT_FOUND', 'Run not found', { runId: req.params.runId })
   }
 
-  sendStudioSuccess(res, { run })
-}))
-
-router.get('/studio-agent/tasks/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const principal = requireStudioPrincipal(res)
-  const tasks = await studioRuntime.getSessionTasks(principal.ownerId, req.params.sessionId)
-  if (!tasks) {
-    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
-  }
-
-  sendStudioSuccess(res, { sessionId: req.params.sessionId, tasks })
-}))
-
-router.get('/studio-agent/works/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
-  const principal = requireStudioPrincipal(res)
-  const snapshot = await studioRuntime.getSessionWorkSnapshot(principal.ownerId, req.params.sessionId)
-  if (!snapshot) {
-    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
-  }
-
-  sendStudioSuccess(res, snapshot)
+  sendStudioSuccess(res, { run: toPublicStudioRun(run) })
 }))
 
 router.get('/studio-agent/sessions/:sessionId/events', authMiddleware, asyncHandler(async (req, res) => {
@@ -114,7 +100,7 @@ router.get('/studio-agent/sessions/:sessionId/events', authMiddleware, asyncHand
 
   const unsubscribe = studioRuntime.subscribeExternalEvents(sessionId, (event) => {
     res.write(`event: ${event.type}\n`)
-    res.write(`data: ${JSON.stringify(event)}\n\n`)
+    res.write(`data: ${JSON.stringify(toPublicStudioEvent(event))}\n\n`)
   })
 
   res.write('event: studio.connected\n')
@@ -196,7 +182,7 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
   }
 
   sendStudioSuccess(res, {
-    run: started.run,
+    run: toPublicStudioRun(started.run),
     assistantMessage: started.assistantMessage,
     text: '',
     ...withoutSession(snapshot)
@@ -257,7 +243,7 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
   }
 
   sendStudioSuccess(res, {
-    run: continued.run,
+    run: toPublicStudioRun(continued.run),
     assistantMessage: continuedAssistantMessage,
     text: '',
     ...withoutSession(snapshot)
@@ -278,14 +264,14 @@ router.post('/studio-agent/runs/:runId/cancel', authMiddleware, asyncHandler(asy
 
   if (cancelled.status === 'already_finished') {
     return sendStudioSuccess(res, {
-      run: cancelled.run,
+      run: cancelled.run ? toPublicStudioRun(cancelled.run) : undefined,
       status: cancelled.run?.status ?? 'completed',
       message: 'Run already finished',
     })
   }
 
   sendStudioSuccess(res, {
-    run: cancelled.run,
+    run: cancelled.run ? toPublicStudioRun(cancelled.run) : undefined,
     status: 'cancelled',
     message: 'Run cancelled',
   })
@@ -293,7 +279,7 @@ router.post('/studio-agent/runs/:runId/cancel', authMiddleware, asyncHandler(asy
 
 export default router
 
-function withoutSession(snapshot: StudioSessionSnapshot): Omit<StudioSessionSnapshot, 'session'> {
-  const { session: _session, ...rest } = snapshot
+function withoutSession(snapshot: StudioSessionSnapshot): Omit<ReturnType<typeof toPublicStudioSnapshot>, 'session'> {
+  const { session: _session, ...rest } = toPublicStudioSnapshot(snapshot)
   return rest
 }

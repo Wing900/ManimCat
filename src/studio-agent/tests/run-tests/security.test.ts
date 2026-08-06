@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import {
   createStudioPrincipal,
   createStudioRun,
+  createStudioRender,
   createStudioSession,
   InMemoryStudioRunStore,
   InMemoryStudioSessionStore,
@@ -18,6 +19,7 @@ import {
 } from '../../index'
 import { buildStudioChatTools } from '../../orchestration/studio-tool-schema'
 import { parseStudioCreateSessionRequest } from '../../../routes/helpers/studio-agent-run-request'
+import { toPublicStudioRender, toPublicStudioSession, toPublicStudioSnapshot } from '../../http/public-dto'
 import { run } from './factories'
 
 export async function runSecurityTests(): Promise<void> {
@@ -61,6 +63,43 @@ export async function runSecurityTests(): Promise<void> {
       () => parseStudioCreateSessionRequest({ projectId: 'project', directory: 'C:\\outside' }),
       /directory/
     )
+  })
+
+  await run('public studio DTO never exposes host paths or owner identifiers', async () => {
+    const session = createStudioSession({
+      ownerId: 'owner-a',
+      projectId: 'project',
+      agentType: 'builder',
+      title: 'Owner A',
+      directory: 'D:/private/studio',
+      permissionLevel: 'L4',
+    })
+    const render = createStudioRender({
+      ownerId: session.ownerId,
+      sessionId: session.id,
+      kind: 'plot',
+      title: 'Plot',
+      concept: 'plot',
+      outputMode: 'image',
+    })
+
+    const publicSession = toPublicStudioSession(session)
+    const publicRender = toPublicStudioRender(render)
+    const publicSnapshot = toPublicStudioSnapshot({
+      session,
+      messages: [],
+      runs: [],
+      renders: [render],
+      sessionEvents: [],
+      tasks: [],
+      works: [],
+      workResults: [],
+    })
+
+    assert.equal('directory' in publicSession, false)
+    assert.equal('ownerId' in publicSession, false)
+    assert.equal('ownerId' in publicRender, false)
+    assert.equal(publicSnapshot.renders[0]?.id, render.id)
   })
 
   await run('event bus only publishes to the subscribed session', async () => {

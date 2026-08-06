@@ -32,7 +32,6 @@ export function PlotStudioShell({ onExit, isExiting }: PlotStudioShellProps) {
         />
 
         <PlotStudioShellHeader
-          directory={shell.studio.session?.directory}
           onExitClick={() => shell.setConfirmExitOpen(true)}
         />
 
