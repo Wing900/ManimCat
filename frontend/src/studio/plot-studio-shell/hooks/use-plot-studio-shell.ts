@@ -1,36 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useStudioSession } from '../../hooks/use-studio-session'
-import { areSameIds, computeMaxHistorySlots, orderWorkSummaries } from '../utils/work-order'
 
 export function usePlotStudioShell() {
   const studio = useStudioSession({
     studioKind: 'plot',
     title: 'Plot Studio'
   })
-  const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
-  const [orderedWorkIds, setOrderedWorkIds] = useState<string[]>([])
+  const [selectedRenderId, setSelectedRenderId] = useState<string | null>(null)
   const [confirmExitOpen, setConfirmExitOpen] = useState(false)
   const [interruptArmedUntil, setInterruptArmedUntil] = useState<number | null>(null)
 
-  const orderedWorkSummaries = useMemo(
-    () => orderWorkSummaries(studio.workSummaries, orderedWorkIds),
-    [orderedWorkIds, studio.workSummaries]
-  )
+  const effectiveSelectedRenderId =
+    selectedRenderId && studio.renders.some((render) => render.id === selectedRenderId)
+      ? selectedRenderId
+      : studio.renders[0]?.id ?? null
 
-  const effectiveSelectedWorkId =
-    selectedWorkId && orderedWorkSummaries.some((entry) => entry.work.id === selectedWorkId)
-      ? selectedWorkId
-      : orderedWorkSummaries[0]?.work.id ?? null
-
-  const selected = studio.selectWork(effectiveSelectedWorkId)
-  const historyCount = orderedWorkSummaries.length
-  const historyCountLabel = String(historyCount).padStart(2, '0')
-  const maxHistorySlots = computeMaxHistorySlots(historyCount)
+  const selectedRender = studio.selectRender(effectiveSelectedRenderId)
   const interruptHintActive = interruptArmedUntil !== null && interruptArmedUntil > Date.now()
-
-  const handleReorderWorks = (nextWorkIds: string[]) => {
-    setOrderedWorkIds((current) => (areSameIds(current, nextWorkIds) ? current : nextWorkIds))
-  }
 
   const handleEscapePress = () => {
     const activeRun = studio.latestRun
@@ -55,16 +41,12 @@ export function usePlotStudioShell() {
 
   return {
     studio,
-    selected,
-    orderedWorkSummaries,
-    effectiveSelectedWorkId,
-    historyCountLabel,
-    maxHistorySlots,
+    selectedRender,
+    effectiveSelectedRenderId,
     confirmExitOpen,
     setConfirmExitOpen,
     interruptHintActive,
-    setSelectedWorkId,
-    handleReorderWorks,
+    setSelectedRenderId,
     handleEscapePress,
   }
 }

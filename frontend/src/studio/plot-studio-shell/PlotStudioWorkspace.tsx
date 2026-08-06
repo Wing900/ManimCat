@@ -1,8 +1,8 @@
 import type { RefObject } from 'react'
 import { StudioCommandPanel, type StudioCommandPanelHandle } from '../components/StudioCommandPanel'
-import { PlotPreviewPanel } from '../plot/PlotPreviewPanel'
+import { StudioPreview } from '../preview/StudioPreview'
+import { RunStatus } from '../status/RunStatus'
 import type { usePlotStudioShell } from './hooks/use-plot-studio-shell'
-import { PlotStudioHistoryAside } from './components/PlotStudioHistoryAside'
 
 interface PlotStudioWorkspaceProps {
   commandPanelRef: RefObject<StudioCommandPanelHandle | null>
@@ -18,52 +18,41 @@ export function PlotStudioWorkspace({
   interruptPlaceholder,
 }: PlotStudioWorkspaceProps) {
   return (
-    <>
-      <main className="relative mb-10 flex min-h-[36vh] flex-1 items-center justify-center md:mb-12 md:min-h-0">
-        <div className="h-full w-full">
-          <PlotPreviewPanel
-            session={shell.studio.session}
-            works={shell.orderedWorkSummaries}
-            selectedWorkId={shell.effectiveSelectedWorkId}
-            work={shell.selected.work}
-            result={shell.selected.result}
-            latestRun={shell.studio.latestRun}
-            tasks={shell.selected.tasks}
-            latestAssistantText={shell.studio.latestAssistantText}
-            errorMessage={shell.studio.state.error ?? shell.studio.state.connection.eventError}
-            onSelectWork={shell.setSelectedWorkId}
-            onReorderWorks={shell.handleReorderWorks}
-            onSendPreviewToComposer={(attachment) => commandPanelRef.current?.appendPreviewAttachment(attachment)}
-            variant="pure-minimal-top"
-          />
-        </div>
-      </main>
+    <main className="flex min-h-0 flex-1 overflow-hidden">
+      <StudioPreview
+        session={shell.studio.session}
+        renders={shell.studio.renders}
+        selectedRenderId={shell.effectiveSelectedRenderId}
+        render={shell.selectedRender}
+        latestRun={shell.studio.latestRun}
+        onSelectRender={shell.setSelectedRenderId}
+      />
 
-      <section className="flex shrink-0 min-h-0 flex-col gap-5 md:h-72 md:flex-row md:gap-12 lg:gap-16">
-        <div className="relative flex min-h-[15rem] min-w-0 flex-1 flex-col md:pl-5 md:pr-5 lg:pl-8 lg:pr-10">
-          <StudioCommandPanel
-            ref={commandPanelRef}
-            session={shell.studio.session}
-            messages={shell.studio.messages}
-            latestAssistantText={shell.studio.latestAssistantText}
-            isBusy={shell.studio.isBusy}
-            disabled={shell.studio.isBusy || shell.studio.state.connection.snapshotStatus !== 'ready'}
-            onRun={shell.studio.runCommand}
-            onExit={onExit}
-            variant="pure-minimal-bottom"
-            onEscapePress={shell.handleEscapePress}
-            inputPlaceholderOverride={interruptPlaceholder}
-          />
-        </div>
-
-        <PlotStudioHistoryAside
-          works={shell.orderedWorkSummaries}
-          selectedWorkId={shell.effectiveSelectedWorkId}
-          historyCountLabel={shell.historyCountLabel}
-          maxHistorySlots={shell.maxHistorySlots}
-          onSelectWork={shell.setSelectedWorkId}
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col px-6 pb-6 md:px-10">
+        <StudioCommandPanel
+          ref={commandPanelRef}
+          session={shell.studio.session}
+          messages={shell.studio.messages}
+          latestAssistantText={shell.studio.latestAssistantText}
+          isBusy={shell.studio.isBusy}
+          disabled={shell.studio.isBusy || shell.studio.state.connection.snapshotStatus !== 'ready'}
+          onRun={shell.studio.runCommand}
+          onExit={onExit}
+          onEscapePress={shell.handleEscapePress}
+          inputPlaceholderOverride={interruptPlaceholder}
         />
-      </section>
-    </>
+      </div>
+
+      <RunStatus
+        latestRun={shell.studio.latestRun}
+        render={shell.selectedRender}
+        latestAssistantText={shell.studio.latestAssistantText}
+        snapshotStatus={shell.studio.state.connection.snapshotStatus}
+        eventStatus={shell.studio.state.connection.eventStatus}
+        errorMessage={shell.studio.state.error ?? shell.studio.state.connection.eventError}
+        onRefresh={shell.studio.refresh}
+        onCancel={() => shell.studio.cancelCurrentRun('Cancelled from Plot Studio status')}
+      />
+    </main>
   )
 }
