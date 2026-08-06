@@ -1,4 +1,4 @@
-import type { StudioFileAttachment, StudioRenderContext, StudioRenderStore } from '../../domain/types'
+import type { StudioRenderContext, StudioRenderStore } from '../../domain/types'
 
 interface BuildStudioRenderContextInput {
   ownerId: string
@@ -21,10 +21,6 @@ export async function buildStudioRenderContext(input: BuildStudioRenderContextIn
         id: latestRender.id,
         status: mapRenderStatus(latestRender.status),
         timestamp: Date.parse(latestRender.updatedAt),
-        output: {
-          videoPath: findAttachment(latestRender.attachments, 'video/'),
-          imagePaths: listAttachments(latestRender.attachments, 'image/')
-        },
         error: latestRender.error
       }
     }
@@ -42,13 +38,3 @@ function mapRenderStatus(status: 'queued' | 'running' | 'completed' | 'failed' |
   }
   return status
 }
-
-function findAttachment(attachments: StudioFileAttachment[] | undefined, prefix: string): string | undefined {
-  return attachments?.find((attachment) => attachment.mimeType?.startsWith(prefix))?.path
-}
-
-function listAttachments(attachments: StudioFileAttachment[] | undefined, prefix: string): string[] | undefined {
-  const paths = attachments?.filter((attachment) => attachment.mimeType?.startsWith(prefix)).map((attachment) => attachment.path) ?? []
-  return paths.length ? paths : undefined
-}
-

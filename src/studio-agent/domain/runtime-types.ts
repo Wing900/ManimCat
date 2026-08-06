@@ -4,10 +4,6 @@ export interface StudioRenderContextLatestRender {
   id: string
   status: 'pending' | 'running' | 'completed' | 'failed'
   timestamp: number
-  output?: {
-    videoPath?: string
-    imagePaths?: string[]
-  }
   error?: string
 }
 
