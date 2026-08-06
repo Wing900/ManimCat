@@ -37,7 +37,6 @@ async function executeReadTool(
     output: output.text,
     metadata: {
       path: relativePath,
-      absolutePath: file.absolutePath,
       truncated: output.truncated
     }
   }

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import path from 'node:path'
+import os from 'node:os'
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import {
   createStudioPrincipal,
   createStudioRun,
@@ -6,6 +9,9 @@ import {
   InMemoryStudioRunStore,
   InMemoryStudioSessionStore,
   InMemoryStudioEventBus,
+  resolveSafeWorkspacePath,
+  readWorkspaceFile,
+  writeWorkspaceFile,
 } from '../../index'
 import { parseStudioCreateSessionRequest } from '../../../routes/helpers/studio-agent-run-request'
 import { run } from './factories'
@@ -72,5 +78,27 @@ export async function runSecurityTests(): Promise<void> {
     assert.deepEqual(ownerBEvents, [])
     unsubscribeA()
     unsubscribeB()
+  })
+
+  await run('workspace rejects traversal and symlink escape', async () => {
+    const workspace = await mkdtemp(path.join(os.tmpdir(), 'manimcat-workspace-'))
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'manimcat-outside-'))
+    await writeFile(path.join(outside, 'secret.py'), 'secret', 'utf8')
+    await mkdir(path.join(workspace, 'linked'))
+    await symlink(outside, path.join(workspace, 'linked', 'outside'), 'junction')
+
+    await assert.rejects(
+      () => resolveSafeWorkspacePath(workspace, '../outside.py'),
+      /Workspace path must be relative|Path escapes workspace/
+    )
+    await assert.rejects(
+      () => readWorkspaceFile(workspace, 'linked/outside/secret.py'),
+      /Path escapes workspace/
+    )
+    await assert.rejects(
+      () => writeWorkspaceFile(workspace, 'linked/outside/new.py', 'blocked'),
+      /Path escapes workspace/
+    )
+    assert.equal(await readFile(path.join(outside, 'secret.py'), 'utf8'), 'secret')
   })
 }

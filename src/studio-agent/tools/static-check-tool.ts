@@ -45,7 +45,6 @@ async function executeStaticCheckTool(
     output: output.text,
     metadata: {
       path: relativePath,
-      absolutePath: file.absolutePath,
       outputMode,
       diagnosticCount: result.diagnostics.length,
       diagnostics: result.diagnostics,

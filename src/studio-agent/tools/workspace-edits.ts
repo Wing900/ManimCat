@@ -1,15 +1,22 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { resolveWorkspacePath } from './workspace-paths'
+import { resolveSafeWorkspacePath } from './workspace-paths'
 
 export async function writeWorkspaceFile(
   baseDirectory: string,
   targetPath: string,
   content: string
 ): Promise<{ absolutePath: string; bytes: number }> {
-  const absolutePath = resolveWorkspacePath(baseDirectory, targetPath)
+  const absolutePath = await resolveSafeWorkspacePath(baseDirectory, targetPath)
   await mkdir(path.dirname(absolutePath), { recursive: true })
-  await writeFile(absolutePath, content, 'utf8')
+  const temporaryPath = `${absolutePath}.${randomUUID()}.tmp`
+  try {
+    await writeFile(temporaryPath, content, 'utf8')
+    await rename(temporaryPath, absolutePath)
+  } finally {
+    await unlink(temporaryPath).catch(() => undefined)
+  }
   return {
     absolutePath,
     bytes: Buffer.byteLength(content, 'utf8')
@@ -23,7 +30,7 @@ export async function replaceInWorkspaceFile(input: {
   replace: string
   replaceAll?: boolean
 }): Promise<{ absolutePath: string; content: string; replacements: number }> {
-  const absolutePath = resolveWorkspacePath(input.baseDirectory, input.targetPath)
+  const absolutePath = await resolveSafeWorkspacePath(input.baseDirectory, input.targetPath)
   const current = await readFile(absolutePath, 'utf8')
   const replacements = countOccurrences(current, input.search)
   if (replacements === 0) {
@@ -34,7 +41,7 @@ export async function replaceInWorkspaceFile(input: {
     ? current.split(input.search).join(input.replace)
     : current.replace(input.search, input.replace)
 
-  await writeFile(absolutePath, nextContent, 'utf8')
+  await writeWorkspaceFile(input.baseDirectory, input.targetPath, nextContent)
   return {
     absolutePath,
     content: nextContent,
@@ -47,7 +54,7 @@ export async function applyWorkspacePatch(input: {
   targetPath: string
   patches: Array<{ search: string; replace: string; replaceAll?: boolean }>
 }): Promise<{ absolutePath: string; replacements: number; content: string }> {
-  const absolutePath = resolveWorkspacePath(input.baseDirectory, input.targetPath)
+  const absolutePath = await resolveSafeWorkspacePath(input.baseDirectory, input.targetPath)
   let current = await readFile(absolutePath, 'utf8')
   let replacements = 0
 
@@ -63,7 +70,7 @@ export async function applyWorkspacePatch(input: {
     replacements += patch.replaceAll ? count : 1
   }
 
-  await writeFile(absolutePath, current, 'utf8')
+  await writeWorkspaceFile(input.baseDirectory, input.targetPath, current)
   return { absolutePath, replacements, content: current }
 }
 

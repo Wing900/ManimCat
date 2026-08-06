@@ -35,7 +35,6 @@ async function executeLsTool(
     output: output.text,
     metadata: {
       path: relativePath,
-      absolutePath: listing.absolutePath,
       entryCount: listing.entries.length,
       truncated: output.truncated
     }

@@ -9,6 +9,7 @@ import type {
   StudioWorkResultStore,
   StudioWorkStore
 } from '../../domain/types'
+import path from 'node:path'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
 import type { CustomApiConfig } from '../../../types'
@@ -219,22 +220,19 @@ function logDetectedToolFailure(
 
 function toWorkspacePathFailureDetails(error: unknown): {
   targetPath?: string
-  resolvedPath?: string
-  workspaceRoot?: string
-  allowedRoots?: string[]
-  allowedRootCount?: number
 } {
   if (!(error instanceof WorkspacePathError)) {
     return {}
   }
 
+  const targetPath = error.targetPath.trim()
   return {
-    targetPath: error.targetPath,
-    resolvedPath: error.resolvedPath,
-    workspaceRoot: error.workspaceRoot,
-    allowedRoots: error.allowedRoots,
-    allowedRootCount: error.allowedRoots.length,
+    targetPath: pathLooksRelative(targetPath) ? targetPath : '[outside-workspace]'
   }
+}
+
+function pathLooksRelative(value: string): boolean {
+  return Boolean(value) && !value.includes('\\0') && !/^[A-Za-z]:[\\/]/.test(value) && !value.startsWith('\\\\') && !value.startsWith('/')
 }
 
 function summarizeToolInput(input: Record<string, unknown>): string {

@@ -44,7 +44,6 @@ async function executeApplyPatchTool(
     output: output.text,
     metadata: {
       path: relativePath,
-      absolutePath: result.absolutePath,
       replacements: result.replacements,
       patchCount: input.patches.length,
       truncated: output.truncated

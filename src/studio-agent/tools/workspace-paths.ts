@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { lstat, readdir, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
 
 const DEFAULT_MAX_OUTPUT_CHARS = 16000
@@ -16,7 +16,7 @@ export class WorkspacePathError extends Error {
     workspaceRoot: string
     allowedRoots: string[]
   }) {
-    super(`Path escapes workspace: ${input.targetPath}`)
+    super('Path escapes workspace')
     this.name = 'WorkspacePathError'
     this.targetPath = input.targetPath
     this.resolvedPath = input.resolvedPath
@@ -30,7 +30,7 @@ export async function readWorkspaceFile(
   targetPath: string,
   options?: { allowedRoots?: string[] }
 ): Promise<{ absolutePath: string; content: string }> {
-  const absolutePath = resolveWorkspacePath(baseDirectory, targetPath, options)
+  const absolutePath = await resolveSafeWorkspacePath(baseDirectory, targetPath, options)
   const content = await readFile(absolutePath, 'utf8')
   return {
     absolutePath,
@@ -43,7 +43,7 @@ export async function listWorkspaceDirectory(
   targetPath?: string,
   options?: { allowedRoots?: string[] }
 ): Promise<{ absolutePath: string; entries: string[] }> {
-  const absolutePath = resolveWorkspacePath(baseDirectory, targetPath ?? '.', options)
+  const absolutePath = await resolveSafeWorkspacePath(baseDirectory, targetPath ?? '.', options)
   const entries = await readdir(absolutePath, { withFileTypes: true })
 
   return {
@@ -55,7 +55,7 @@ export async function listWorkspaceDirectory(
 }
 
 export async function walkWorkspaceFiles(baseDirectory: string, startPath = '.'): Promise<string[]> {
-  const root = resolveWorkspacePath(baseDirectory, startPath)
+  const root = await resolveSafeWorkspacePath(baseDirectory, startPath)
   const results: string[] = []
   await walkDirectory(baseDirectory, root, results)
   return results
@@ -67,8 +67,19 @@ export function resolveWorkspacePath(
   options?: { allowedRoots?: string[] }
 ): string {
   const workspaceRoot = path.resolve(baseDirectory)
-  const resolved = path.resolve(workspaceRoot, targetPath)
   const allowedRoots = [workspaceRoot, ...(options?.allowedRoots ?? []).map((root) => path.resolve(root))]
+  try {
+    assertWorkspaceRelativePath(targetPath)
+  } catch {
+    throw new WorkspacePathError({
+      targetPath,
+      resolvedPath: path.resolve(workspaceRoot, targetPath),
+      workspaceRoot,
+      allowedRoots,
+    })
+  }
+
+  const resolved = path.resolve(workspaceRoot, targetPath)
 
   for (const root of allowedRoots) {
     const relative = path.relative(root, resolved)
@@ -83,6 +94,40 @@ export function resolveWorkspacePath(
     workspaceRoot,
     allowedRoots,
   })
+}
+
+export async function resolveSafeWorkspacePath(
+  baseDirectory: string,
+  targetPath: string,
+  options?: { allowedRoots?: string[] }
+): Promise<string> {
+  const workspaceRoot = await realpath(path.resolve(baseDirectory))
+  const lexicalPath = path.resolve(workspaceRoot, targetPath)
+  const allowedRoots = [workspaceRoot, ...(options?.allowedRoots ?? []).map((root) => path.resolve(root))]
+  try {
+    assertWorkspaceRelativePath(targetPath)
+  } catch {
+    throw new WorkspacePathError({
+      targetPath,
+      resolvedPath: lexicalPath,
+      workspaceRoot,
+      allowedRoots,
+    })
+  }
+
+  const existingPath = await findExistingPath(lexicalPath)
+  const resolvedPath = existingPath ? await realpath(existingPath) : lexicalPath
+
+  if (!isInsideAnyRoot(resolvedPath, allowedRoots)) {
+    throw new WorkspacePathError({
+      targetPath,
+      resolvedPath,
+      workspaceRoot,
+      allowedRoots,
+    })
+  }
+
+  return resolvedPath
 }
 
 export function toWorkspaceRelativePath(baseDirectory: string, absolutePath: string): string {
@@ -120,6 +165,10 @@ async function walkDirectory(baseDirectory: string, directory: string, results: 
       return
     }
 
+    if (entry.isSymbolicLink()) {
+      continue
+    }
+
     const absolutePath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
       await walkDirectory(baseDirectory, absolutePath, results)
@@ -128,4 +177,51 @@ async function walkDirectory(baseDirectory: string, directory: string, results: 
 
     results.push(toWorkspaceRelativePath(baseDirectory, absolutePath).replace(/\\/g, '/'))
   }
+}
+
+function assertWorkspaceRelativePath(targetPath: string): void {
+  if (typeof targetPath !== 'string' || targetPath.includes('\0')) {
+    throw new Error('Workspace path must be a non-empty relative path without null bytes')
+  }
+
+  if (
+    !targetPath.trim()
+    || path.isAbsolute(targetPath)
+    || path.win32.isAbsolute(targetPath)
+    || /^[A-Za-z]:/.test(targetPath)
+    || targetPath.startsWith('\\\\')
+  ) {
+    throw new Error(`Workspace path must be relative: ${targetPath}`)
+  }
+}
+
+function isInsideAnyRoot(candidate: string, roots: string[]): boolean {
+  return roots.some((root) => {
+    const relative = path.relative(root, candidate)
+    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+  })
+}
+
+async function findExistingPath(candidate: string): Promise<string | null> {
+  let current = candidate
+  while (true) {
+    try {
+      await lstat(current)
+      return current
+    } catch (error) {
+      if (!isMissingPathError(error)) {
+        throw error
+      }
+
+      const parent = path.dirname(current)
+      if (parent === current) {
+        return null
+      }
+      current = parent
+    }
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')
 }

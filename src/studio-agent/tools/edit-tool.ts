@@ -45,7 +45,6 @@ async function executeEditTool(input: EditToolInput, context: StudioRuntimeBacke
     output: output.text,
     metadata: {
       path: relativePath,
-      absolutePath: result.absolutePath,
       replacements: result.replacements,
       truncated: output.truncated
     }

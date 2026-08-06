@@ -35,7 +35,6 @@ async function executeWriteTool(input: WriteToolInput, context: StudioRuntimeBac
     output: `File written successfully: ${relativePath}`,
     metadata: {
       path: relativePath,
-      absolutePath: result.absolutePath,
       bytes: result.bytes
     }
   }
