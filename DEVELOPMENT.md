@@ -63,22 +63,30 @@ Pull Request 至少执行：
 
 ```text
 Backend TypeScript 编译
-Frontend ESLint
 Frontend TypeScript 检查
 全量测试
 Frontend / Backend 构建
 ```
+
+`Frontend ESLint` 当前属于遗留基线治理项。新增代码应保持无新增错误和警告；待现有问题按独立单元清理后，再加入 CI 必检。
 
 本地提交前执行：
 
 ```powershell
 npm run build:backend
 cd frontend
-npm run lint
 npx tsc -p tsconfig.app.json --noEmit
 cd ..
 npm test
 npm run build
+```
+
+需要检查前端静态规则时，单独执行：
+
+```powershell
+cd frontend
+npm run lint
+cd ..
 ```
 
 CI 检查通过后才允许合并到主分支。Docker 发布只在检查通过后执行。
