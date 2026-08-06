@@ -3,7 +3,6 @@ import type {
   StudioProcessorStreamEvent,
   StudioRun,
   StudioSession,
-  StudioSessionStore,
   StudioToolDefinition,
 } from '../../domain/types'
 import path from 'node:path'
@@ -23,9 +22,6 @@ export interface StudioToolCallExecutionOptions {
   toolInput: Record<string, unknown>
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
-  messageStore?: StudioRuntimeBackedToolContext['messageStore']
-  partStore?: StudioRuntimeBackedToolContext['partStore']
-  sessionStore?: StudioSessionStore
   renderStore?: StudioRuntimeBackedToolContext['renderStore']
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   commentary?: string | null
@@ -125,13 +121,10 @@ async function executeTool(input: {
     abortSignal: input.options.abortSignal,
     assistantMessage: input.options.assistantMessage,
     eventBus: input.options.eventBus,
-    messageStore: input.options.messageStore,
-    partStore: input.options.partStore,
     renderStore: input.options.renderStore,
     setToolMetadata: (metadata: { title?: string; metadata?: Record<string, unknown> }) => {
       input.options.setToolMetadata(input.options.toolCallId, metadata)
-    },
-    sessionStore: input.options.sessionStore
+    }
   } as StudioRuntimeBackedToolContext
 
   return input.tool.execute(input.options.toolInput, toolContext)

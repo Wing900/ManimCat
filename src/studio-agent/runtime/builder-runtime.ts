@@ -7,7 +7,6 @@ import type {
   StudioRun,
   StudioRunStore,
   StudioSession,
-  StudioSessionStore,
   StudioToolChoice,
   StudioRenderStore,
 } from '../domain/types'
@@ -23,7 +22,6 @@ interface StudioBuilderRuntimeOptions {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
   runStore?: StudioRunStore
-  sessionStore?: StudioSessionStore
   renderStore?: StudioRenderStore
   documentationProvider?: StudioDocumentationContextProvider
   eventBus?: StudioEventBus
@@ -38,7 +36,6 @@ export class StudioBuilderRuntime {
       messageStore: options.messageStore,
       partStore: options.partStore,
       runStore: options.runStore,
-      sessionStore: options.sessionStore,
       renderStore: options.renderStore,
       documentationProvider: options.documentationProvider,
       eventBus: options.eventBus,

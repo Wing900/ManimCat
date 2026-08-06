@@ -3,7 +3,6 @@ import type {
   StudioMessageStore,
   StudioRun,
   StudioSession,
-  StudioSessionStore,
   StudioToolChoice,
   StudioRenderContext,
   StudioRenderStore,
@@ -32,8 +31,6 @@ export interface StudioOpenAIToolLoopInput {
   messageStore: StudioMessageStore
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
-  partStore?: StudioRuntimeBackedToolContext['partStore']
-  sessionStore?: StudioSessionStore
   renderStore?: StudioRenderStore
   renderContext?: StudioRenderContext
   documentationContext?: string

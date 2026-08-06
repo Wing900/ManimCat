@@ -10,7 +10,6 @@ import type {
   StudioRun,
   StudioRunStore,
   StudioSession,
-  StudioSessionStore,
   StudioToolChoice,
   StudioRenderContext,
   StudioRenderStore,
@@ -24,7 +23,6 @@ export interface StudioSessionRunnerOptions {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
   runStore?: StudioRunStore
-  sessionStore?: StudioSessionStore
   renderStore?: StudioRenderStore
   documentationProvider?: StudioDocumentationContextProvider
   eventBus?: StudioEventBus
@@ -70,7 +68,6 @@ export interface StudioSessionRunnerDependencies {
   messageStore: StudioMessageStore
   partStore: StudioPartStore
   runStore?: StudioRunStore
-  sessionStore?: StudioSessionStore
   renderStore?: StudioRenderStore
   documentationProvider?: StudioDocumentationContextProvider
   sharedEventBus?: StudioEventBus
@@ -94,7 +91,6 @@ export function createDependencyCenter(
     messageStore: options.messageStore,
     partStore: options.partStore,
     runStore: options.runStore,
-    sessionStore: options.sessionStore,
     renderStore: options.renderStore,
     documentationProvider: options.documentationProvider,
     sharedEventBus: options.eventBus,

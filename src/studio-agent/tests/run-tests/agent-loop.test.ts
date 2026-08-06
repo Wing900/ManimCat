@@ -58,7 +58,6 @@ export async function runAgentLoopTests(): Promise<void> {
       assistantMessage,
       inputText: runRecord.inputText,
       messageStore: persistence.messageStore,
-      partStore: persistence.partStore,
       registry,
       eventBus: new InMemoryStudioEventBus(),
       renderStore: persistence.renderStore,

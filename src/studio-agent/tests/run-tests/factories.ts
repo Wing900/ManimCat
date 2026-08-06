@@ -34,7 +34,6 @@ export function createTestRuntime(options?: {
     messageStore,
     partStore,
     runStore,
-    sessionStore,
     eventBus: options?.eventBus
   })
 

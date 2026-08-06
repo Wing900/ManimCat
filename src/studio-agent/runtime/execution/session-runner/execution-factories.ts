@@ -35,8 +35,6 @@ export function createAgentLoopExecution(
       messageStore: deps.messageStore,
       registry: deps.registry,
       eventBus: input.prepared.eventBus,
-      partStore: deps.partStore,
-      sessionStore: deps.sessionStore,
       renderStore: deps.renderStore,
       renderContext: input.prepared.renderContext,
       documentationContext: input.prepared.documentationContext,
