@@ -188,5 +188,8 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.equal(receivedCode, 'import matplotlib.pyplot as plt')
     assert.equal(result.metadata?.imageCount, 1)
     assert.equal(result.attachments?.[0]?.mimeType, 'image/png')
+    const renders = await context.renderStore?.listBySessionId(context.session.ownerId, context.session.id)
+    assert.equal(renders?.[0]?.status, 'completed')
+    assert.equal(renders?.[0]?.metadata?.scriptPath, 'renders/plot-test/plot_script.py')
   })
 }

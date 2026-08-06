@@ -10,6 +10,8 @@ import {
   type PlotRenderPort
 } from '../plot-render-port'
 import { plotRenderToolParameters } from '../../tools/tool-parameters'
+import { createStudioRender } from '../../domain/factories'
+import { toWorkspaceRelativePath } from '../../tools/workspace-paths'
 
 interface PlotRenderToolInput {
   concept: string
@@ -41,7 +43,7 @@ async function executePlotRenderTool(
     throw new Error('Render tool requires non-empty "concept" and "code"')
   }
 
-  const renderId = `plot_${randomUUID()}`
+  let renderId = `plot_${randomUUID()}`
   const title = `Plot render: ${input.concept.slice(0, 80)}`
   const lifecycleMetadata = {
     renderId,
@@ -50,36 +52,57 @@ async function executePlotRenderTool(
     outputMode: 'image'
   }
 
-  const { work, task } = await createWorkAndTask({
-    context,
-    work: {
-      sessionId: context.session.id,
-      runId: context.run.id,
-      type: 'plot',
-      title,
-      status: 'running',
-      metadata: lifecycleMetadata
-    },
-    task: {
-      sessionId: context.session.id,
-      runId: context.run.id,
-      type: 'render',
-      status: 'running',
-      title,
-      detail: input.concept,
-      metadata: lifecycleMetadata
-    },
-    workMetadata: lifecycleMetadata
-  })
+  const studioRender = context.renderStore
+    ? createStudioRender({
+        ownerId: context.session.ownerId,
+        sessionId: context.session.id,
+        runId: context.run.id,
+        kind: 'plot',
+        title,
+        concept: input.concept,
+        outputMode: 'image',
+        quality: 'medium',
+        status: 'running',
+        metadata: lifecycleMetadata,
+      })
+    : undefined
+  if (studioRender && context.renderStore) {
+    renderId = studioRender.id
+    studioRender.metadata = { ...(studioRender.metadata ?? {}), renderId }
+    lifecycleMetadata.renderId = renderId
+    await context.renderStore.create(studioRender)
+  }
+
+  const { work, task } = context.renderStore
+    ? { work: undefined, task: undefined }
+    : await createWorkAndTask({
+        context,
+        work: {
+          sessionId: context.session.id,
+          runId: context.run.id,
+          type: 'plot',
+          title,
+          status: 'running',
+          metadata: lifecycleMetadata
+        },
+        task: {
+          sessionId: context.session.id,
+          runId: context.run.id,
+          type: 'render',
+          status: 'running',
+          title,
+          detail: input.concept,
+          metadata: lifecycleMetadata
+        },
+        workMetadata: lifecycleMetadata
+      })
 
   context.setToolMetadata?.({
     title,
-    metadata: {
-      renderId,
-      workId: work?.id,
-      taskId: task?.id,
-      studioKind: 'plot'
-    }
+      metadata: {
+        renderId,
+        studioKind: 'plot'
+      }
   })
 
   try {
@@ -89,6 +112,31 @@ async function executePlotRenderTool(
       code: input.code,
       signal: context.abortSignal,
     })
+
+    if (studioRender && context.renderStore) {
+      const attachments = buildAttachments(execution.imageDataUris, execution.imagePaths)
+      const completed = await context.renderStore.update(context.session.ownerId, studioRender.id, {
+        status: 'completed',
+        attachments,
+        metadata: {
+          ...lifecycleMetadata,
+          imageCount: execution.imageDataUris.length,
+          scriptPath: toWorkspaceRelativePath(context.session.directory, execution.scriptPath).replace(/\\/g, '/'),
+          imagePaths: execution.imagePaths.map((imagePath) => toWorkspaceRelativePath(context.session.directory, imagePath).replace(/\\/g, '/')),
+        },
+      })
+      return {
+        title,
+        output: `plot_render_id: ${studioRender.id}`,
+        attachments,
+        metadata: {
+          renderId: studioRender.id,
+          imageCount: execution.imageDataUris.length,
+          scriptPath: completed?.metadata?.scriptPath,
+          imagePaths: completed?.metadata?.imagePaths,
+        },
+      }
+    }
 
     const workResult = await persistWorkResult({
       context,
@@ -162,6 +210,14 @@ async function executePlotRenderTool(
       }
     }
   } catch (error) {
+    if (studioRender && context.renderStore) {
+      await context.renderStore.update(context.session.ownerId, studioRender.id, {
+        status: isStudioRunCancelledError(error) ? 'cancelled' : 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      })
+      throw error
+    }
+
     if (isStudioRunCancelledError(error)) {
       await updateTaskAndWork({
         context,
