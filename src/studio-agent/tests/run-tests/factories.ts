@@ -14,7 +14,7 @@ import {
   type StudioAssistantMessage,
   type StudioRuntimeBackedToolContext
 } from '../../index'
-import type { StudioSession, StudioRun, StudioTask, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
+import type { StudioSession, StudioRun, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
 
 export function createTestRuntime(options?: {
   eventBus?: InMemoryStudioEventBus

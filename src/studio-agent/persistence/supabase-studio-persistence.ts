@@ -11,15 +11,8 @@ import type {
   StudioRender,
   StudioRenderStore,
   StudioSession,
-  StudioSessionEvent,
   StudioSessionStore,
-  StudioTask,
-  StudioTaskStore,
   StudioUserMessage,
-  StudioWork,
-  StudioWorkResult,
-  StudioWorkResultStore,
-  StudioWorkStore,
 } from '../domain/types'
 import type { StudioPersistence } from './studio-persistence'
 
@@ -28,10 +21,6 @@ const TABLES = {
   messages: 'studio_messages',
   parts: 'studio_message_parts',
   runs: 'studio_runs',
-  sessionEvents: 'studio_session_events',
-  tasks: 'studio_tasks',
-  works: 'studio_works',
-  workResults: 'studio_work_results',
   renders: 'studio_renders',
 } as const
 
@@ -113,58 +102,6 @@ type StudioRenderRow = {
   updated_at: string
 }
 
-type StudioSessionEventRow = {
-  id: string
-  session_id: string
-  run_id: string | null
-  kind: StudioSessionEvent['kind']
-  status: StudioSessionEvent['status']
-  title: string
-  summary: string
-  metadata: JsonRecord | null
-  created_at: string
-  updated_at: string
-  consumed_at: string | null
-}
-
-type StudioTaskRow = {
-  id: string
-  session_id: string
-  run_id: string | null
-  work_id: string | null
-  type: StudioTask['type']
-  status: StudioTask['status']
-  title: string
-  detail: string | null
-  metadata: JsonRecord | null
-  created_at: string
-  updated_at: string
-}
-
-type StudioWorkRow = {
-  id: string
-  session_id: string
-  run_id: string | null
-  type: StudioWork['type']
-  title: string
-  status: StudioWork['status']
-  latest_task_id: string | null
-  current_result_id: string | null
-  metadata: JsonRecord | null
-  created_at: string
-  updated_at: string
-}
-
-type StudioWorkResultRow = {
-  id: string
-  work_id: string
-  kind: StudioWorkResult['kind']
-  summary: string
-  attachments: JsonRecord[] | null
-  metadata: JsonRecord | null
-  created_at: string
-}
-
 export function createSupabaseStudioPersistence(client: SupabaseClient): StudioPersistence {
   const partStore = createSupabaseStudioPartStore(client)
 
@@ -174,10 +111,6 @@ export function createSupabaseStudioPersistence(client: SupabaseClient): StudioP
     partStore,
     runStore: createSupabaseStudioRunStore(client),
     renderStore: createSupabaseStudioRenderStore(client),
-    sessionEventStore: createSupabaseStudioSessionEventStore(client),
-    taskStore: createSupabaseStudioTaskStore(client),
-    workStore: createSupabaseStudioWorkStore(client),
-    workResultStore: createSupabaseStudioWorkResultStore(client),
   }
 }
 
@@ -397,80 +330,6 @@ function createSupabaseStudioRenderStore(client: SupabaseClient): StudioRenderSt
   }
 }
 
-function createSupabaseStudioSessionEventStore(client: SupabaseClient) {
-  return createCrudStore<StudioSessionEvent, StudioSessionEventRow>({
-    client,
-    table: TABLES.sessionEvents,
-    toRow: toSessionEventRow,
-    fromRow: fromSessionEventRow,
-    toPatch: toSessionEventPatch,
-    listColumn: 'session_id',
-    listOrderColumn: 'created_at',
-  })
-}
-
-function createSupabaseStudioTaskStore(client: SupabaseClient): StudioTaskStore {
-  return createCrudStore<StudioTask, StudioTaskRow>({
-    client,
-    table: TABLES.tasks,
-    toRow: toTaskRow,
-    fromRow: fromTaskRow,
-    toPatch: toTaskPatch,
-    listColumn: 'session_id',
-    listOrderColumn: 'updated_at',
-    listAscending: false,
-  })
-}
-
-function createSupabaseStudioWorkStore(client: SupabaseClient): StudioWorkStore {
-  return createCrudStore<StudioWork, StudioWorkRow>({
-    client,
-    table: TABLES.works,
-    toRow: toWorkRow,
-    fromRow: fromWorkRow,
-    toPatch: toWorkPatch,
-    listColumn: 'session_id',
-    listOrderColumn: 'updated_at',
-    listAscending: false,
-  })
-}
-
-function createSupabaseStudioWorkResultStore(client: SupabaseClient): StudioWorkResultStore {
-  return {
-    async create(result) {
-      const row = toWorkResultRow(result)
-      const { data, error } = await client.from(TABLES.workResults).insert(row).select('*').single()
-      if (error) throw new Error(`[StudioDB] Failed to create work result: ${error.message}`)
-      return fromWorkResultRow(data as StudioWorkResultRow)
-    },
-    async getById(resultId) {
-      const { data, error } = await client.from(TABLES.workResults).select('*').eq('id', resultId).maybeSingle()
-      if (error) throw new Error(`[StudioDB] Failed to get work result: ${error.message}`)
-      return data ? fromWorkResultRow(data as StudioWorkResultRow) : null
-    },
-    async update(resultId, patch) {
-      const payload = toWorkResultPatch(patch)
-      const { data, error } = await client
-        .from(TABLES.workResults)
-        .update(payload)
-        .eq('id', resultId)
-        .select('*')
-        .maybeSingle()
-      if (error) throw new Error(`[StudioDB] Failed to update work result: ${error.message}`)
-      return data ? fromWorkResultRow(data as StudioWorkResultRow) : null
-    },
-    async listByWorkId(workId) {
-      const { data, error } = await client
-        .from(TABLES.workResults)
-        .select('*')
-        .eq('work_id', workId)
-        .order('created_at', { ascending: true })
-      if (error) throw new Error(`[StudioDB] Failed to list work results: ${error.message}`)
-      return (data ?? []).map((row) => fromWorkResultRow(row as StudioWorkResultRow))
-    },
-  }
-}
-
 function createCrudStore<T extends { id: string }, R extends { id: string }>(config: {
   client: SupabaseClient
   table: string
@@ -598,22 +457,6 @@ function fromPartRow(row: StudioPartRow): StudioMessagePart {
   }
 }
 
-function fromSessionEventRow(row: StudioSessionEventRow): StudioSessionEvent {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    runId: asOptional(row.run_id),
-    kind: row.kind,
-    status: row.status,
-    title: row.title,
-    summary: row.summary,
-    metadata: asOptional(row.metadata),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    consumedAt: asOptional(row.consumed_at),
-  }
-}
-
 function fromRunRow(row: StudioRunRow): StudioRun {
   return {
     id: row.id,
@@ -648,50 +491,6 @@ function fromRenderRow(row: StudioRenderRow): StudioRender {
     metadata: asOptional(row.metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  }
-}
-
-function fromTaskRow(row: StudioTaskRow): StudioTask {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    runId: asOptional(row.run_id),
-    workId: asOptional(row.work_id),
-    type: row.type,
-    status: row.status,
-    title: row.title,
-    detail: asOptional(row.detail),
-    metadata: asOptional(row.metadata),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
-function fromWorkRow(row: StudioWorkRow): StudioWork {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    runId: asOptional(row.run_id),
-    type: row.type,
-    title: row.title,
-    status: row.status,
-    latestTaskId: asOptional(row.latest_task_id),
-    currentResultId: asOptional(row.current_result_id),
-    metadata: asOptional(row.metadata),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
-function fromWorkResultRow(row: StudioWorkResultRow): StudioWorkResult {
-  return {
-    id: row.id,
-    workId: row.work_id,
-    kind: row.kind,
-    summary: row.summary,
-    attachments: asAttachments(row.attachments),
-    metadata: asOptional(row.metadata),
-    createdAt: row.created_at,
   }
 }
 
@@ -776,22 +575,6 @@ function toPartRow(part: StudioMessagePart): StudioPartRow {
   }
 }
 
-function toSessionEventRow(event: StudioSessionEvent): StudioSessionEventRow {
-  return {
-    id: event.id,
-    session_id: event.sessionId,
-    run_id: asNullable(event.runId),
-    kind: event.kind,
-    status: event.status,
-    title: event.title,
-    summary: event.summary,
-    metadata: asNullable(event.metadata),
-    created_at: event.createdAt,
-    updated_at: event.updatedAt,
-    consumed_at: asNullable(event.consumedAt),
-  }
-}
-
 function toRunRow(run: StudioRun): StudioRunRow {
   return {
     id: run.id,
@@ -826,50 +609,6 @@ function toRenderRow(render: StudioRender): StudioRenderRow {
     metadata: asNullable(render.metadata),
     created_at: render.createdAt,
     updated_at: render.updatedAt,
-  }
-}
-
-function toTaskRow(task: StudioTask): StudioTaskRow {
-  return {
-    id: task.id,
-    session_id: task.sessionId,
-    run_id: asNullable(task.runId),
-    work_id: asNullable(task.workId),
-    type: task.type,
-    status: task.status,
-    title: task.title,
-    detail: asNullable(task.detail),
-    metadata: asNullable(task.metadata),
-    created_at: task.createdAt,
-    updated_at: task.updatedAt,
-  }
-}
-
-function toWorkRow(work: StudioWork): StudioWorkRow {
-  return {
-    id: work.id,
-    session_id: work.sessionId,
-    run_id: asNullable(work.runId),
-    type: work.type,
-    title: work.title,
-    status: work.status,
-    latest_task_id: asNullable(work.latestTaskId),
-    current_result_id: asNullable(work.currentResultId),
-    metadata: asNullable(work.metadata),
-    created_at: work.createdAt,
-    updated_at: work.updatedAt,
-  }
-}
-
-function toWorkResultRow(result: StudioWorkResult): StudioWorkResultRow {
-  return {
-    id: result.id,
-    work_id: result.workId,
-    kind: result.kind,
-    summary: result.summary,
-    attachments: result.attachments ? (result.attachments as unknown as JsonRecord[]) : null,
-    metadata: asNullable(result.metadata),
-    created_at: result.createdAt,
   }
 }
 
@@ -919,21 +658,6 @@ function toPartPatch(patch: Partial<StudioMessagePart>) {
   })
 }
 
-function toSessionEventPatch(patch: Partial<StudioSessionEvent>) {
-  return compactObject({
-    session_id: patch.sessionId,
-    run_id: patch.runId,
-    kind: patch.kind,
-    status: patch.status,
-    title: patch.title,
-    summary: patch.summary,
-    metadata: patch.metadata,
-    created_at: patch.createdAt,
-    updated_at: patch.updatedAt,
-    consumed_at: patch.consumedAt,
-  })
-}
-
 function toRunPatch(patch: Partial<StudioRun>) {
   return compactObject({
     owner_id: patch.ownerId,
@@ -967,47 +691,6 @@ function toRenderPatch(patch: Partial<StudioRender>) {
   })
 }
 
-function toTaskPatch(patch: Partial<StudioTask>) {
-  return compactObject({
-    session_id: patch.sessionId,
-    run_id: patch.runId,
-    work_id: patch.workId,
-    type: patch.type,
-    status: patch.status,
-    title: patch.title,
-    detail: patch.detail,
-    metadata: patch.metadata,
-    created_at: patch.createdAt,
-    updated_at: patch.updatedAt,
-  })
-}
-
-function toWorkPatch(patch: Partial<StudioWork>) {
-  return compactObject({
-    session_id: patch.sessionId,
-    run_id: patch.runId,
-    type: patch.type,
-    title: patch.title,
-    status: patch.status,
-    latest_task_id: patch.latestTaskId,
-    current_result_id: patch.currentResultId,
-    metadata: patch.metadata,
-    created_at: patch.createdAt,
-    updated_at: patch.updatedAt,
-  })
-}
-
-function toWorkResultPatch(patch: Partial<StudioWorkResult>) {
-  return compactObject({
-    work_id: patch.workId,
-    kind: patch.kind,
-    summary: patch.summary,
-    attachments: patch.attachments ? (patch.attachments as unknown as JsonRecord[]) : undefined,
-    metadata: patch.metadata,
-    created_at: patch.createdAt,
-  })
-}
-
 function compactObject<T extends Record<string, unknown>>(value: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined))
 }
@@ -1034,8 +717,8 @@ function asTimeRange(value: JsonRecord | null) {
   return end === undefined ? { start } : { start, end }
 }
 
-function asAttachments(value: JsonRecord[] | null): StudioWorkResult['attachments'] | undefined {
-  return value ? (value as unknown as StudioWorkResult['attachments']) : undefined
+function asAttachments(value: JsonRecord[] | null): StudioRender['attachments'] | undefined {
+  return value ? (value as unknown as StudioRender['attachments']) : undefined
 }
 
 function readStudioKindFromMetadata(metadata: JsonRecord | null): StudioSession['studioKind'] | undefined {

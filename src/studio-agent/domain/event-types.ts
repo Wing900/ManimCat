@@ -1,4 +1,4 @@
-import type { StudioRender, StudioRun, StudioSession, StudioSessionEvent, StudioTask, StudioWork, StudioWorkResult } from './core-types'
+import type { StudioRender, StudioRun, StudioSession } from './core-types'
 import type { StudioFileAttachment } from './message-types'
 
 export interface StudioAssistantTextEvent {
@@ -44,34 +44,6 @@ export interface StudioToolResultEvent {
   error?: string
 }
 
-export interface StudioTaskEvent {
-  type: 'task_updated'
-  sessionId: string
-  runId?: string
-  task: StudioTask
-}
-
-export interface StudioWorkEvent {
-  type: 'work_updated'
-  sessionId: string
-  runId?: string
-  work: StudioWork
-}
-
-export interface StudioWorkResultEvent {
-  type: 'work_result_updated'
-  sessionId: string
-  runId?: string
-  result: StudioWorkResult
-}
-
-export interface StudioSessionEventQueuedEvent {
-  type: 'session_event_queued'
-  sessionId: string
-  runId?: string
-  event: StudioSessionEvent
-}
-
 export interface StudioRunEvent {
   type: 'run_updated'
   sessionId: string
@@ -90,10 +62,6 @@ export type StudioAgentEvent =
   | StudioToolInputStartEvent
   | StudioToolCallEvent
   | StudioToolResultEvent
-  | StudioTaskEvent
-  | StudioWorkEvent
-  | StudioWorkResultEvent
-  | StudioSessionEventQueuedEvent
   | StudioRunEvent
   | StudioRenderEvent
 

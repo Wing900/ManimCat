@@ -12,35 +12,6 @@ export type StudioPermissionLevel = 'L0' | 'L1' | 'L2' | 'L3' | 'L4'
 
 export type StudioRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
-export type StudioTaskStatus =
-  | 'proposed'
-  | 'pending_confirmation'
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-
-export type StudioTaskType =
-  | 'tool-execution'
-  | 'static-check'
-  | 'render'
-
-export type StudioWorkType = 'video' | 'plot' | 'edit' | 'render-fix'
-
-export type StudioWorkStatus =
-  | 'proposed'
-  | 'queued'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-
-export type StudioWorkResultKind =
-  | 'render-output'
-  | 'edit-result'
-  | 'failure-report'
-
 export type StudioRenderStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface StudioRender {
@@ -62,9 +33,6 @@ export interface StudioRender {
   createdAt: string
   updatedAt: string
 }
-
-export type StudioSessionEventStatus = 'pending' | 'consumed'
-export type StudioSessionEventKind = 'render-status'
 
 export interface StudioPermissionRule {
   permission: string
@@ -100,56 +68,4 @@ export interface StudioRun {
   completedAt?: string
   error?: string
   metadata?: Record<string, unknown>
-}
-
-export interface StudioTask {
-  id: string
-  sessionId: string
-  runId?: string
-  workId?: string
-  type: StudioTaskType
-  status: StudioTaskStatus
-  title: string
-  detail?: string
-  createdAt: string
-  updatedAt: string
-  metadata?: Record<string, unknown>
-}
-
-export interface StudioWork {
-  id: string
-  sessionId: string
-  runId?: string
-  type: StudioWorkType
-  title: string
-  status: StudioWorkStatus
-  latestTaskId?: string
-  currentResultId?: string
-  createdAt: string
-  updatedAt: string
-  metadata?: Record<string, unknown>
-}
-
-export interface StudioWorkResult {
-  id: string
-  workId: string
-  kind: StudioWorkResultKind
-  summary: string
-  attachments?: StudioFileAttachment[]
-  metadata?: Record<string, unknown>
-  createdAt: string
-}
-
-export interface StudioSessionEvent {
-  id: string
-  sessionId: string
-  runId?: string
-  kind: StudioSessionEventKind
-  status: StudioSessionEventStatus
-  title: string
-  summary: string
-  metadata?: Record<string, unknown>
-  createdAt: string
-  updatedAt: string
-  consumedAt?: string
 }

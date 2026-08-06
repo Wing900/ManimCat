@@ -3,11 +3,7 @@ import type {
   StudioPartStore,
   StudioRunStore,
   StudioRenderStore,
-  StudioSessionEventStore,
   StudioSessionStore,
-  StudioTaskStore,
-  StudioWorkResultStore,
-  StudioWorkStore,
 } from '../domain/types'
 
 export interface StudioPersistence {
@@ -16,8 +12,4 @@ export interface StudioPersistence {
   partStore: StudioPartStore
   runStore: StudioRunStore
   renderStore: StudioRenderStore
-  taskStore: StudioTaskStore
-  workStore: StudioWorkStore
-  workResultStore: StudioWorkResultStore
-  sessionEventStore: StudioSessionEventStore
 }

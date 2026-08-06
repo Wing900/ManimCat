@@ -1,4 +1,4 @@
-import type { StudioRender, StudioRun, StudioSession, StudioTask, StudioWork, StudioWorkResult, StudioSessionEvent } from './core-types'
+import type { StudioRender, StudioRun, StudioSession } from './core-types'
 import type {
   StudioAssistantMessage,
   StudioMessage,
@@ -43,32 +43,4 @@ export interface StudioRenderStore {
   getById: (ownerId: string, renderId: string) => Promise<StudioRender | null>
   update: (ownerId: string, renderId: string, patch: Partial<StudioRender>) => Promise<StudioRender | null>
   listBySessionId: (ownerId: string, sessionId: string) => Promise<StudioRender[]>
-}
-
-export interface StudioTaskStore {
-  create: (task: StudioTask) => Promise<StudioTask>
-  getById: (taskId: string) => Promise<StudioTask | null>
-  update: (taskId: string, patch: Partial<StudioTask>) => Promise<StudioTask | null>
-  listBySessionId: (sessionId: string) => Promise<StudioTask[]>
-}
-
-export interface StudioWorkStore {
-  create: (work: StudioWork) => Promise<StudioWork>
-  getById: (workId: string) => Promise<StudioWork | null>
-  update: (workId: string, patch: Partial<StudioWork>) => Promise<StudioWork | null>
-  listBySessionId: (sessionId: string) => Promise<StudioWork[]>
-}
-
-export interface StudioWorkResultStore {
-  create: (result: StudioWorkResult) => Promise<StudioWorkResult>
-  getById: (resultId: string) => Promise<StudioWorkResult | null>
-  update: (resultId: string, patch: Partial<StudioWorkResult>) => Promise<StudioWorkResult | null>
-  listByWorkId: (workId: string) => Promise<StudioWorkResult[]>
-}
-
-export interface StudioSessionEventStore {
-  create: (event: StudioSessionEvent) => Promise<StudioSessionEvent>
-  getById: (eventId: string) => Promise<StudioSessionEvent | null>
-  update: (eventId: string, patch: Partial<StudioSessionEvent>) => Promise<StudioSessionEvent | null>
-  listBySessionId: (sessionId: string) => Promise<StudioSessionEvent[]>
 }

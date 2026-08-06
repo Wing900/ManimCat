@@ -12,17 +12,9 @@ import type {
   StudioRenderStatus,
   StudioRun,
   StudioSession,
-  StudioTask,
-  StudioTaskStatus,
-  StudioTaskType,
   StudioTextPart,
   StudioToolPart,
   StudioUserMessage,
-  StudioWork,
-  StudioWorkResult,
-  StudioWorkResultKind,
-  StudioWorkStatus,
-  StudioWorkType
 } from './types'
 import { createInitialStudioRunMetadata } from '../runs/autonomy-policy'
 
@@ -116,76 +108,6 @@ export function createStudioRender(input: {
     metadata: input.metadata,
     createdAt: timestamp,
     updatedAt: timestamp,
-  }
-}
-
-export function createStudioTask(input: {
-  sessionId: string
-  runId?: string
-  workId?: string
-  type: StudioTaskType
-  status?: StudioTaskStatus
-  title: string
-  detail?: string
-  metadata?: Record<string, unknown>
-}): StudioTask {
-  const timestamp = nowIso()
-  return {
-    id: `task_${randomUUID()}`,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    workId: input.workId,
-    type: input.type,
-    status: input.status ?? 'proposed',
-    title: input.title,
-    detail: input.detail,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    metadata: input.metadata
-  }
-}
-
-export function createStudioWork(input: {
-  sessionId: string
-  runId?: string
-  type: StudioWorkType
-  title: string
-  status?: StudioWorkStatus
-  latestTaskId?: string
-  currentResultId?: string
-  metadata?: Record<string, unknown>
-}): StudioWork {
-  const timestamp = nowIso()
-  return {
-    id: `work_${randomUUID()}`,
-    sessionId: input.sessionId,
-    runId: input.runId,
-    type: input.type,
-    title: input.title,
-    status: input.status ?? 'proposed',
-    latestTaskId: input.latestTaskId,
-    currentResultId: input.currentResultId,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    metadata: input.metadata
-  }
-}
-
-export function createStudioWorkResult(input: {
-  workId: string
-  kind: StudioWorkResultKind
-  summary: string
-  attachments?: StudioFileAttachment[]
-  metadata?: Record<string, unknown>
-}): StudioWorkResult {
-  return {
-    id: `work_result_${randomUUID()}`,
-    workId: input.workId,
-    kind: input.kind,
-    summary: input.summary,
-    attachments: input.attachments,
-    metadata: input.metadata,
-    createdAt: nowIso()
   }
 }
 
