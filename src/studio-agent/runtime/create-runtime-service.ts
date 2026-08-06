@@ -1,10 +1,6 @@
-import fs from 'node:fs'
-import { createStudioSession } from '../domain/factories'
 import type {
   StudioEventBus,
-  StudioKind,
   StudioSession,
-  StudioSessionSnapshot,
   StudioToolChoice,
 } from '../domain/types'
 import { InMemoryStudioEventBus } from '../events/event-bus'
@@ -18,13 +14,12 @@ import {
 } from '../runs/autonomy-policy'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
-import { createStudioSessionMetadata } from './session-config'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioModelPort } from '../model/studio-model-port'
 import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
-import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { cancelRunState } from './execution/session-runner-helpers'
 import { configureStudioToolRegistry } from './studio-tool-registry'
+import { createStudioSessionService, type StudioSessionService } from './session-service'
 
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
@@ -36,19 +31,7 @@ interface CreateStudioRuntimeServiceInput {
   documentationProvider?: StudioDocumentationContextProvider
 }
 
-export interface StudioRuntimeService {
-  createSession: (sessionInput: {
-    ownerId: string
-    projectId: string
-    directory?: string
-    useDedicatedWorkspace?: boolean
-    title?: string
-    studioKind?: StudioKind
-    agentType?: StudioSession['agentType']
-    workspaceId?: string
-    toolChoice?: StudioToolChoice
-  }) => Promise<StudioSession>
-  getSession: (ownerId: string, sessionId: string) => Promise<StudioSession | null>
+export interface StudioRuntimeService extends StudioSessionService {
   startRun: (input: {
     ownerId: string
     projectId: string
@@ -77,7 +60,6 @@ export interface StudioRuntimeService {
     run?: import('../domain/types').StudioRun
   }>
   getRun: (ownerId: string, runId: string) => Promise<import('../domain/types').StudioRun | null>
-  getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
   subscribeExternalEvents: (sessionId: string, listener: (event: StudioExternalEvent) => void) => () => void
   cancelRun: (input: { ownerId: string; runId: string; reason?: string }) => Promise<{
     status: 'cancelled' | 'already_finished' | 'not_found'
@@ -107,6 +89,10 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     renderStore: input.persistence.renderStore,
     documentationProvider: input.documentationProvider,
     eventBus,
+  })
+  const sessionService = createStudioSessionService({
+    persistence: input.persistence,
+    workspaceProvider: input.workspaceProvider,
   })
 
   async function startBackgroundRunLocked(runInput: {
@@ -150,61 +136,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     }
   }
 
-  async function getSessionSnapshot(ownerId: string, sessionId: string): Promise<StudioSessionSnapshot | null> {
-    const session = await input.persistence.sessionStore.getById(ownerId, sessionId)
-    if (!session) {
-      return null
-    }
-
-    const [messages, runs, renders] = await Promise.all([
-      input.persistence.messageStore.listBySessionId(session.id),
-      input.persistence.runStore.listBySessionId(ownerId, session.id),
-      input.persistence.renderStore.listBySessionId(ownerId, session.id),
-    ])
-
-    return { session, messages, runs, renders }
-  }
-
   return {
-    async createSession(sessionInput) {
-      const studioKind = sessionInput.studioKind ?? 'manim'
-      const normalizedDirectory = input.workspaceProvider.normalizeDirectory(
-        sessionInput.directory ?? getDefaultStudioWorkspacePath()
-      )
-      const session = createStudioSession({
-        ownerId: sessionInput.ownerId,
-        projectId: sessionInput.projectId,
-        workspaceId: sessionInput.workspaceId,
-        studioKind,
-        agentType: sessionInput.agentType ?? 'builder',
-        title: sessionInput.title ?? getDefaultSessionTitle(studioKind),
-        directory: normalizedDirectory,
-        metadata: createStudioSessionMetadata({
-          existing: { studioKind },
-          agentConfig: {
-            toolChoice: sessionInput.toolChoice,
-          },
-        }),
-      })
-
-      if (sessionInput.useDedicatedWorkspace !== false) {
-        session.directory = input.workspaceProvider.normalizeDirectory(
-          `${studioKind}-studio/${session.id}`,
-          { session },
-        )
-      }
-
-      fs.mkdirSync(session.directory, { recursive: true })
-
-      return input.persistence.sessionStore.create(session)
-    },
-    getSession(ownerId: string, sessionId: string) {
-      return input.persistence.sessionStore.getById(ownerId, sessionId)
-    },
+    ...sessionService,
     getRun(ownerId: string, runId: string) {
       return input.persistence.runStore.getById(ownerId, runId)
     },
-    getSessionSnapshot,
     async startRun(runInput) {
       return startBackgroundRunLocked(runInput)
     },
@@ -290,8 +226,4 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
       return { status: 'cancelled' as const, run: cancelledRun }
     },
   }
-}
-
-function getDefaultSessionTitle(studioKind: StudioKind): string {
-  return studioKind === 'plot' ? 'Plot Studio Session' : 'Manim Studio Session'
 }
