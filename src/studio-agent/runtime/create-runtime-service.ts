@@ -11,7 +11,7 @@ import type {
   StudioWork,
   StudioWorkResult,
 } from '../domain/types'
-import { InMemoryStudioEventBus, type StudioEventListener } from '../events/event-bus'
+import { InMemoryStudioEventBus } from '../events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
 import { registerManimStudioTools } from '../manim/register-manim-tools'
 import {
@@ -45,16 +45,12 @@ import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-prov
 import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
 import { cancelRunState } from './execution/session-runner-helpers'
 
-interface SubscribableStudioEventBus extends StudioEventBus {
-  subscribe: (listener: StudioEventListener) => () => void
-}
-
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
   workspaceProvider: StudioWorkspaceProvider
   blobStore: StudioBlobStore
   registry?: StudioToolRegistry
-  eventBus?: SubscribableStudioEventBus
+  eventBus?: StudioEventBus
   manimRenderPort?: ManimRenderPort
   plotRenderPort?: PlotRenderPort
   renderJobPort?: StudioRenderJobPort
@@ -102,8 +98,7 @@ export interface StudioRuntimeService {
   getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
   getSessionTasks: (ownerId: string, sessionId: string) => Promise<StudioTask[] | null>
   getSessionWorkSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionWorkSnapshot | null>
-  listExternalEvents: () => StudioExternalEvent[]
-  subscribeExternalEvents: (listener: (event: StudioExternalEvent) => void) => () => void
+  subscribeExternalEvents: (sessionId: string, listener: (event: StudioExternalEvent) => void) => () => void
   cancelRun: (input: { ownerId: string; runId: string; reason?: string }) => Promise<{
     status: 'cancelled' | 'already_finished' | 'not_found'
     run?: import('../domain/types').StudioRun
@@ -112,9 +107,8 @@ export interface StudioRuntimeService {
 
 export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInput): StudioRuntimeService {
   const registry = input.registry ?? new StudioToolRegistry()
-  const eventBus: SubscribableStudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
+  const eventBus: StudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
   const renderJobPort = input.renderJobPort ?? createEmptyStudioRenderJobPort()
-  const externalEventLog: StudioExternalEvent[] = []
   const activeSessionRuns = new Map<string, string>()
   const activeRunHandles = new Map<string, {
     sessionId: string
@@ -137,13 +131,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     workResultStore: input.persistence.workResultStore,
     sessionEventStore: input.persistence.sessionEventStore,
     eventBus,
-  })
-
-  eventBus.subscribe((event) => {
-    const adapted = adaptStudioEvent(event)
-    if (adapted) {
-      externalEventLog.push(adapted)
-    }
   })
 
   async function startBackgroundRunLocked(runInput: {
@@ -349,11 +336,8 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
         assistantMessage: started.assistantMessage,
       }
     },
-    listExternalEvents(): StudioExternalEvent[] {
-      return [...externalEventLog]
-    },
-    subscribeExternalEvents(listener: (event: StudioExternalEvent) => void): () => void {
-      return eventBus.subscribe((event) => {
+    subscribeExternalEvents(sessionId: string, listener: (event: StudioExternalEvent) => void): () => void {
+      return eventBus.subscribe(sessionId, (event) => {
         const adapted = adaptStudioEvent(event)
         if (adapted) {
           listener(adapted)
@@ -382,6 +366,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
 
       eventBus.publish({
         type: 'run_updated',
+        sessionId: run.sessionId,
         run: cancelledRun
       })
 

@@ -64,6 +64,7 @@ export async function prepareRun(
 
   eventBus.publish({
     type: 'run_updated',
+    sessionId: input.session.id,
     run: runningRun
   })
 

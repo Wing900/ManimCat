@@ -21,6 +21,7 @@ export async function handleCancelledRun(
   await deps.runStore?.update(input.run.ownerId, input.run.id, cancelledRun)
   ;(deps.sharedEventBus ?? new InMemoryStudioEventBus()).publish({
     type: 'run_updated',
+    sessionId: input.session.id,
     run: cancelledRun
   })
 
@@ -41,6 +42,7 @@ export async function finalizeSuccessfulRun(
   await deps.runStore?.update(input.run.ownerId, input.run.id, finishedRun)
   input.eventBus.publish({
     type: 'run_updated',
+    sessionId: input.session.id,
     run: finishedRun
   })
 
@@ -70,6 +72,7 @@ export async function handleFailedRun(
   await deps.runStore?.update(input.run.ownerId, input.run.id, failedRun)
   ;(deps.sharedEventBus ?? new InMemoryStudioEventBus()).publish({
     type: 'run_updated',
+    sessionId: input.session.id,
     run: failedRun
   })
 

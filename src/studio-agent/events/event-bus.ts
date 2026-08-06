@@ -3,28 +3,31 @@ import type { StudioAgentEvent, StudioEventBus } from '../domain/types'
 export type StudioEventListener = (event: StudioAgentEvent) => void
 
 export class InMemoryStudioEventBus implements StudioEventBus {
-  private readonly events: StudioAgentEvent[] = []
-  private readonly listeners = new Set<StudioEventListener>()
+  private readonly listenersBySession = new Map<string, Set<StudioEventListener>>()
 
   publish(event: StudioAgentEvent): void {
-    this.events.push(event)
-    for (const listener of this.listeners) {
+    const sessionId = getEventSessionId(event)
+    for (const listener of this.listenersBySession.get(sessionId) ?? []) {
       listener(event)
     }
   }
 
-  list(): StudioAgentEvent[] {
-    return [...this.events]
-  }
-
-  clear(): void {
-    this.events.length = 0
-  }
-
-  subscribe(listener: StudioEventListener): () => void {
-    this.listeners.add(listener)
+  subscribe(sessionId: string, listener: StudioEventListener): () => void {
+    const listeners = this.listenersBySession.get(sessionId) ?? new Set<StudioEventListener>()
+    listeners.add(listener)
+    this.listenersBySession.set(sessionId, listeners)
     return () => {
-      this.listeners.delete(listener)
+      listeners.delete(listener)
+      if (listeners.size === 0) {
+        this.listenersBySession.delete(sessionId)
+      }
     }
   }
+}
+
+function getEventSessionId(event: StudioAgentEvent): string {
+  if (event.type === 'run_updated') {
+    return event.sessionId
+  }
+  return event.sessionId
 }

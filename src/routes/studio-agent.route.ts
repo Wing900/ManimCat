@@ -89,8 +89,14 @@ router.get('/studio-agent/works/:sessionId', authMiddleware, asyncHandler(async 
   sendStudioSuccess(res, snapshot)
 }))
 
-router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res) => {
-  const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : undefined
+router.get('/studio-agent/sessions/:sessionId/events', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  const sessionId = req.params.sessionId
+  const session = await studioRuntime.getSession(principal.ownerId, sessionId)
+  if (!session) {
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
+  }
+
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
@@ -98,22 +104,15 @@ router.get('/studio-agent/events', authMiddleware, asyncHandler(async (req, res)
 
   logPlotStudioTiming('plot', 'events.client.connected', {
     sessionId: sessionId ?? null,
-    backlogSize: studioRuntime.listExternalEvents().length,
   })
   logTimeline('plot', 'sse.connected')
-
-  const backlog = studioRuntime.listExternalEvents()
-  for (const event of backlog) {
-    res.write(`event: ${event.type}\n`)
-    res.write(`data: ${JSON.stringify(event)}\n\n`)
-  }
 
   const heartbeat = setInterval(() => {
     res.write('event: studio.heartbeat\n')
     res.write(`data: ${JSON.stringify({ type: 'studio.heartbeat', properties: { timestamp: Date.now() } })}\n\n`)
   }, 15000)
 
-  const unsubscribe = studioRuntime.subscribeExternalEvents((event) => {
+  const unsubscribe = studioRuntime.subscribeExternalEvents(sessionId, (event) => {
     res.write(`event: ${event.type}\n`)
     res.write(`data: ${JSON.stringify(event)}\n\n`)
   })

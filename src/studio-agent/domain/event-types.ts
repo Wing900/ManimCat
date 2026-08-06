@@ -74,6 +74,7 @@ export interface StudioSessionEventQueuedEvent {
 
 export interface StudioRunEvent {
   type: 'run_updated'
+  sessionId: string
   run: StudioRun
 }
 
@@ -90,6 +91,5 @@ export type StudioAgentEvent =
 
 export interface StudioEventBus {
   publish: (event: StudioAgentEvent) => void
-  list: () => StudioAgentEvent[]
-  clear: () => void
+  subscribe: (sessionId: string, listener: (event: StudioAgentEvent) => void) => () => void
 }

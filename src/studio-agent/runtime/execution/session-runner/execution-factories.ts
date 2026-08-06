@@ -58,6 +58,7 @@ export function createAgentLoopExecution(
         input.prepared.run = nextRun
         input.prepared.eventBus.publish({
           type: 'run_updated',
+          sessionId: input.prepared.input.session.id,
           run: nextRun
         })
       }

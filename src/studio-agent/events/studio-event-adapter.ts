@@ -95,6 +95,7 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
       return {
         type: 'run.updated',
         properties: {
+          sessionId: event.sessionId,
           run: event.run
         }
       }

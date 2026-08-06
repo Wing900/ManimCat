@@ -5,6 +5,7 @@ import {
   createStudioSession,
   InMemoryStudioRunStore,
   InMemoryStudioSessionStore,
+  InMemoryStudioEventBus,
 } from '../../index'
 import { parseStudioCreateSessionRequest } from '../../../routes/helpers/studio-agent-run-request'
 import { run } from './factories'
@@ -50,5 +51,26 @@ export async function runSecurityTests(): Promise<void> {
       () => parseStudioCreateSessionRequest({ projectId: 'project', directory: 'C:\\outside' }),
       /Unrecognized key: "directory"/
     )
+  })
+
+  await run('event bus only publishes to the subscribed session', async () => {
+    const bus = new InMemoryStudioEventBus()
+    const ownerAEvents: string[] = []
+    const ownerBEvents: string[] = []
+    const unsubscribeA = bus.subscribe('session-a', (event) => ownerAEvents.push(event.type))
+    const unsubscribeB = bus.subscribe('session-b', (event) => ownerBEvents.push(event.type))
+
+    bus.publish({
+      type: 'assistant_text',
+      sessionId: 'session-a',
+      runId: 'run-a',
+      messageId: 'message-a',
+      text: 'private'
+    })
+
+    assert.deepEqual(ownerAEvents, ['assistant_text'])
+    assert.deepEqual(ownerBEvents, [])
+    unsubscribeA()
+    unsubscribeB()
   })
 }
