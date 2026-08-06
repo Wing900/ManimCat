@@ -22,15 +22,15 @@ export function translateRunStatus(status: string, t: Translate) {
 export function translateRenderStatus(status: string, t: Translate) {
   switch (status) {
     case 'queued':
-      return t('studio.workStatus.queued')
+      return t('studio.renderStatus.queued')
     case 'running':
-      return t('studio.workStatus.running')
+      return t('studio.renderStatus.running')
     case 'completed':
-      return t('studio.workStatus.completed')
+      return t('studio.renderStatus.completed')
     case 'failed':
-      return t('studio.workStatus.failed')
+      return t('studio.renderStatus.failed')
     case 'cancelled':
-      return t('studio.workStatus.cancelled')
+      return t('studio.renderStatus.cancelled')
     default:
       return status
   }
@@ -58,7 +58,7 @@ export function translateSnapshotStatus(status: string, t: Translate) {
     case 'ready':
       return t('studio.event.snapshotReady')
     case 'error':
-      return t('studio.workStatus.failed')
+      return t('studio.runStatus.failed')
     default:
       return t('studio.idle')
   }

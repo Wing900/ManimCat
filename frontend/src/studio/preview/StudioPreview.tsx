@@ -80,10 +80,6 @@ function PreviewSurface({ attachment, render }: { attachment: StudioFileAttachme
   return null
 }
 
-function translateRenderStatus(status: StudioRender['status'], t: ReturnType<typeof useI18n>['t']) {
-  return translateRenderStatus(status, t)
-}
-
 function isPreviewAttachment(attachment: StudioFileAttachment) {
   return Boolean(
     attachment.mimeType?.startsWith('video/')
