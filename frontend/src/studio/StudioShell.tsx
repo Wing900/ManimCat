@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { StudioAssetsPanel } from './components/StudioAssetsPanel'
 import { StudioCommandPanel } from './components/StudioCommandPanel'
-import { StudioPipelinePanel } from './components/StudioPipelinePanel'
+import { StudioPreview } from './preview/StudioPreview'
+import { RunStatus } from './status/RunStatus'
 import { StudioSessionHistoryModal } from './commands/ui/StudioSessionHistoryModal'
-import { useStudioReview } from './hooks/use-studio-review'
 import { useStudioSession } from './hooks/use-studio-session'
 import type { StudioKind } from './protocol/studio-agent-types'
 
@@ -18,13 +17,12 @@ export function StudioShell({ onExit, isExiting, studioKind = 'manim' }: StudioS
     studioKind,
     title: studioKind === 'plot' ? 'Plot Studio' : 'Manim Studio'
   })
-  const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
-  const effectiveSelectedWorkId =
-    selectedWorkId && studio.works.some((work) => work.id === selectedWorkId)
-      ? selectedWorkId
-      : studio.works[0]?.id ?? null
-  const selected = studio.selectWork(effectiveSelectedWorkId)
-  const review = useStudioReview(selected.result)
+  const [selectedRenderId, setSelectedRenderId] = useState<string | null>(null)
+  const effectiveSelectedRenderId =
+    selectedRenderId && studio.renders.some((render) => render.id === selectedRenderId)
+      ? selectedRenderId
+      : studio.renders[0]?.id ?? null
+  const selectedRender = studio.selectRender(effectiveSelectedRenderId)
 
   return (
     <>
@@ -39,14 +37,13 @@ export function StudioShell({ onExit, isExiting, studioKind = 'manim' }: StudioS
         </div>
 
         <div className="relative flex h-screen min-h-0 overflow-hidden backdrop-blur-[2px]">
-          <StudioAssetsPanel
+          <StudioPreview
             session={studio.session}
-            works={studio.workSummaries}
-            selectedWorkId={effectiveSelectedWorkId}
-            work={selected.work}
-            result={selected.result}
+            renders={studio.renders}
+            selectedRenderId={effectiveSelectedRenderId}
+            render={selectedRender}
             latestRun={studio.latestRun}
-            onSelectWork={setSelectedWorkId}
+            onSelectRender={setSelectedRenderId}
           />
 
           <StudioCommandPanel
@@ -59,18 +56,15 @@ export function StudioShell({ onExit, isExiting, studioKind = 'manim' }: StudioS
             onExit={onExit}
           />
 
-          <StudioPipelinePanel
+          <RunStatus
             latestRun={studio.latestRun}
-            work={selected.work}
-            result={selected.result}
-            tasks={selected.tasks}
-            review={review}
+            render={selectedRender}
             latestAssistantText={studio.latestAssistantText}
-            latestQuestion={studio.latestQuestion}
             snapshotStatus={studio.state.connection.snapshotStatus}
             eventStatus={studio.state.connection.eventStatus}
             errorMessage={studio.state.error ?? studio.state.connection.eventError}
             onRefresh={studio.refresh}
+            onCancel={() => studio.cancelCurrentRun('Cancelled from Studio status')}
           />
         </div>
       </div>

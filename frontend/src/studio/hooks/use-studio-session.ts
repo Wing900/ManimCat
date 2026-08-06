@@ -4,7 +4,7 @@ import {
   createStudioSession,
   getStudioSessionSnapshot,
 } from '../api/studio-agent-api'
-import type { StudioKind, StudioMessage, StudioRender } from '../protocol/studio-agent-types'
+import type { StudioKind, StudioMessage } from '../protocol/studio-agent-types'
 import type { StudioSessionState } from '../store/studio-types'
 import { useStudioEvents } from './use-studio-events'
 import { useStudioRun } from './use-studio-run'
@@ -23,6 +23,7 @@ import {
   selectWorkResult,
   selectStudioRenders,
   selectActiveRender,
+  selectRenderPreview,
 } from '../store/studio-selectors'
 import {
   forgetStudioSessionId,
@@ -347,6 +348,9 @@ export function useStudioSession(options: UseStudioSessionOptions = {}) {
         result: selectWorkResult(state, work),
         tasks: selectTasksForWork(state, work?.id),
       }
+    },
+    selectRender(renderId: string | null) {
+      return selectRenderPreview(state, renderId)
     },
   }
 }
