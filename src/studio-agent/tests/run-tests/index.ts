@@ -5,6 +5,7 @@ import { runModeAndToolTests } from './mode-and-tools.test'
 import { runSecurityTests } from './security.test'
 import { runAgentLoopTests } from './agent-loop.test'
 import { runDocumentationTests } from './documentation.test'
+import { runPersistenceTests } from './persistence.test'
 
 async function main() {
   await runPromptTests()
@@ -14,6 +15,7 @@ async function main() {
   await runSecurityTests()
   await runAgentLoopTests()
   await runDocumentationTests()
+  await runPersistenceTests()
   console.log('All studio-agent tests passed')
 }
 
