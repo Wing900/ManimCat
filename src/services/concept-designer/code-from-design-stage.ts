@@ -12,8 +12,10 @@ import {
 import { createChatCompletionText } from '../openai-stream'
 import { buildTokenParams } from '../../utils/reasoning-model'
 import { JobCancelledError } from '../../utils/errors'
+import { executeAiStageWithTransportRetry } from '../ai-stage-transport-retry'
 
 const logger = createLogger('CodeFromDesignStage')
+const TRANSPORT_MAX_ATTEMPTS = parseInt(process.env.CODE_GENERATION_TRANSPORT_ATTEMPTS || '2', 10)
 
 interface CodeFromDesignStageParams {
   client: OpenAI
@@ -55,20 +57,34 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
       : generateCodeGenerationPrompt(concept, seed, sceneDesign, outputMode)
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, outputMode, seed })
-    if (onCheckpoint) await onCheckpoint()
-
-    const { content, mode, response } = await createChatCompletionText(
-      client,
+    const { content, mode, response } = await executeAiStageWithTransportRetry(
+      (attempt) => createChatCompletionText(
+        client,
+        {
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: coderTemperature,
+          ...buildTokenParams(thinkingTokens, maxTokens)
+        },
+        { fallbackToNonStream: true, usageLabel: `code-generation-${attempt}` }
+      ),
       {
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: coderTemperature,
-        ...buildTokenParams(thinkingTokens, maxTokens)
-      },
-      { fallbackToNonStream: true, usageLabel: 'code-generation' }
+        maxAttempts: TRANSPORT_MAX_ATTEMPTS,
+        onCheckpoint,
+        onRetry: ({ attempt, nextAttempt, maxAttempts: retryLimit, delayMs, error }) => {
+          logger.warn('代码生成连接失败，准备重试完整阶段', {
+            concept,
+            attempt,
+            nextAttempt,
+            maxAttempts: retryLimit,
+            delayMs,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        }
+      }
     )
     if (onCheckpoint) await onCheckpoint()
 
