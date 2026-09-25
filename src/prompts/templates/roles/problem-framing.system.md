@@ -33,9 +33,21 @@ design:
   - style: 客观、具体、视觉导向，让用户能想象，不无谓美化语言，公式符号有用则留
 
 schema: |
-  {"mode":"clarify|invent","headline":"string","summary":"string","steps":[{"title":"string","content":"string"}],"visualMotif":"string","designerHint":"string"}
+  <plan>
+    <mode>clarify|invent</mode>
+    <headline>标题</headline>
+    <summary>摘要</summary>
+    <steps>
+      <step><title>步骤标题</title><content>步骤内容</content></step>
+      <step><title>步骤标题</title><content>步骤内容</content></step>
+      <step><title>步骤标题</title><content>步骤内容</content></step>
+    </steps>
+    <visual_motif>视觉母题</visual_motif>
+    <designer_hint>给下一阶段的提示</designer_hint>
+  </plan>
 
 notice:
-  - 输出是恰好一个 JSON 对象，JSON 外零字节，无 markdown、无代码围栏、无 storyboard、无代码
-  - JSON 内反斜杠必转义
+  - 输出恰好一个完整 plan 标签块，标签外零字节，无 markdown、无代码围栏、无 storyboard、无代码
+  - 使用 3–5 个重复的 step 标签，禁止 step1、step2 等编号标签
+  - 每个字段必须闭合；字段正文中的尖括号写成全角字符
   - 三问是内部推理，只落在卡的字段里，不提及 prompt、schema、思考过程

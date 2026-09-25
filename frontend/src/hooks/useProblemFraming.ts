@@ -29,6 +29,8 @@ interface UseProblemFramingResult {
   draft: GenerationDraft | null;
   startPlan: (options: StartPlanOptions) => Promise<void>;
   refinePlan: (options: RefinePlanOptions) => Promise<void>;
+  retryPlan: () => Promise<void>;
+  updatePlan: (plan: ProblemFramingPlan) => void;
   reset: () => void;
 }
 
@@ -49,6 +51,7 @@ export function useProblemFraming(): UseProblemFramingResult {
   const [draft, setDraft] = useState<GenerationDraft | null>(null);
   const [feedbackHistory, setFeedbackHistory] = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const requestSequenceRef = useRef(0);
 
   const callPlanner = useCallback(async (
     request: GenerationDraft,
@@ -82,8 +85,10 @@ export function useProblemFraming(): UseProblemFramingResult {
   }, [locale, t]);
 
   const startPlan = useCallback(async ({ request, feedback }: StartPlanOptions) => {
+    const requestId = ++requestSequenceRef.current;
     setStatus('loading');
     setError(null);
+    setPlan(null);
     setDraft(request);
     const trimmedFeedback = feedback?.trim();
     const nextHistory = trimmedFeedback ? [trimmedFeedback] : [];
@@ -91,10 +96,11 @@ export function useProblemFraming(): UseProblemFramingResult {
 
     try {
       const response = await callPlanner(request, trimmedFeedback, undefined, nextHistory);
+      if (requestId !== requestSequenceRef.current) return;
       setPlan(response.plan);
       setStatus('ready');
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (requestId !== requestSequenceRef.current || (err instanceof Error && err.name === 'AbortError')) {
         return;
       }
       setStatus('error');
@@ -107,6 +113,7 @@ export function useProblemFraming(): UseProblemFramingResult {
       return;
     }
 
+    const requestId = ++requestSequenceRef.current;
     setStatus('loading');
     setError(null);
     const trimmedFeedback = feedback.trim();
@@ -114,11 +121,12 @@ export function useProblemFraming(): UseProblemFramingResult {
 
     try {
       const response = await callPlanner(draft, trimmedFeedback, plan, nextHistory);
+      if (requestId !== requestSequenceRef.current) return;
       setPlan(response.plan);
       setFeedbackHistory(nextHistory);
       setStatus('ready');
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (requestId !== requestSequenceRef.current || (err instanceof Error && err.name === 'AbortError')) {
         return;
       }
       setStatus('error');
@@ -126,7 +134,33 @@ export function useProblemFraming(): UseProblemFramingResult {
     }
   }, [callPlanner, draft, feedbackHistory, plan, t]);
 
+  const retryPlan = useCallback(async () => {
+    if (!draft) return;
+
+    const requestId = ++requestSequenceRef.current;
+    setStatus('loading');
+    setError(null);
+
+    try {
+      const response = await callPlanner(draft, undefined, undefined, feedbackHistory);
+      if (requestId !== requestSequenceRef.current) return;
+      setPlan(response.plan);
+      setStatus('ready');
+    } catch (err) {
+      if (requestId !== requestSequenceRef.current || (err instanceof Error && err.name === 'AbortError')) {
+        return;
+      }
+      setStatus('error');
+      setError(err instanceof Error ? err.message : t('generation.problemFramingFailed'));
+    }
+  }, [callPlanner, draft, feedbackHistory, t]);
+
+  const updatePlan = useCallback((nextPlan: ProblemFramingPlan) => {
+    setPlan(nextPlan);
+  }, []);
+
   const reset = useCallback(() => {
+    requestSequenceRef.current += 1;
     abortControllerRef.current?.abort();
     setStatus('idle');
     setPlan(null);
@@ -142,6 +176,8 @@ export function useProblemFraming(): UseProblemFramingResult {
     draft,
     startPlan,
     refinePlan,
+    retryPlan,
+    updatePlan,
     reset,
   };
 }

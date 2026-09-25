@@ -12,6 +12,8 @@ interface ProblemFramingOverlayProps {
   generating: boolean;
   onAdjustmentChange: (value: string) => void;
   onRetry: () => void;
+  onInitialRetry: () => void;
+  onPlanChange: (plan: ProblemFramingPlan) => void;
   onGenerate: () => void;
   onClose: () => void;
 }
@@ -91,6 +93,8 @@ export function ProblemFramingOverlay({
   generating,
   onAdjustmentChange,
   onRetry,
+  onInitialRetry,
+  onPlanChange,
   onGenerate,
   onClose,
 }: ProblemFramingOverlayProps) {
@@ -98,13 +102,8 @@ export function ProblemFramingOverlay({
     return null;
   }
 
-  const planKey = plan
-    ? `${status}-${plan.summary}-${plan.steps.map((step) => `${step.title}:${step.content}`).join('|')}`
-    : `empty-${status}`;
-
   return (
     <ProblemFramingOverlayContent
-      key={planKey}
       status={status}
       plan={plan}
       error={error}
@@ -112,6 +111,8 @@ export function ProblemFramingOverlay({
       generating={generating}
       onAdjustmentChange={onAdjustmentChange}
       onRetry={onRetry}
+      onInitialRetry={onInitialRetry}
+      onPlanChange={onPlanChange}
       onGenerate={onGenerate}
       onClose={onClose}
     />
@@ -126,6 +127,8 @@ interface ProblemFramingOverlayContentProps {
   generating: boolean;
   onAdjustmentChange: (value: string) => void;
   onRetry: () => void;
+  onInitialRetry: () => void;
+  onPlanChange: (plan: ProblemFramingPlan) => void;
   onGenerate: () => void;
   onClose: () => void;
 }
@@ -138,15 +141,14 @@ function ProblemFramingOverlayContent({
   generating,
   onAdjustmentChange,
   onRetry,
+  onInitialRetry,
+  onPlanChange,
   onGenerate,
   onClose,
 }: ProblemFramingOverlayContentProps) {
   const { t } = useI18n();
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
-  const [draftSteps, setDraftSteps] = useState<Array<{ title: string; content: string }>>(() =>
-    plan ? plan.steps.map((step) => ({ title: step.title, content: step.content })) : []
-  );
   const [cardPositions, setCardPositions] = useState<CardPosition[]>(() =>
     plan
       ? plan.steps.map((_, index) => {
@@ -159,7 +161,7 @@ function ProblemFramingOverlayContent({
   const dragStateRef = useRef<DragState | null>(null);
   const statusKey =
     status === 'loading'
-      ? 'problem.status.loading'
+      ? plan ? 'problem.status.refining' : 'problem.status.loading'
       : status === 'ready'
         ? 'problem.status.ready'
         : 'problem.status.error';
@@ -167,6 +169,16 @@ function ProblemFramingOverlayContent({
   useEffect(() => {
     dragStateRef.current = null;
   }, []);
+
+  useEffect(() => {
+    const count = plan?.steps.length || 0;
+    setCardPositions((previous) => Array.from({ length: count }, (_, index) => {
+      if (previous[index]) return previous[index];
+      const layout = CARD_LAYOUTS[index] || CARD_LAYOUTS[index % CARD_LAYOUTS.length];
+      return { x: layout.x, y: layout.y, rotate: layout.rotate };
+    }));
+    setActiveStepIndex((current) => current !== null && current >= count ? null : current);
+  }, [plan?.steps.length]);
 
   const stepCount = plan?.steps.length || 4;
 
@@ -316,7 +328,7 @@ function ProblemFramingOverlayContent({
               <section className="min-h-0 flex-1 overflow-hidden px-4 pb-2 pt-2 sm:px-6 sm:pb-3 sm:pt-3">
                 <div className="mx-auto h-full max-w-5xl">
                   <div className="h-full">
-                    {status === 'loading' && (
+                    {status === 'loading' && !plan && (
                       <div ref={canvasRef} className="relative h-full min-h-[470px] overflow-hidden">
                         <CanvasTransition />
                         <p className="absolute right-0 top-0 text-sm text-text-secondary">{t(statusKey)}</p>
@@ -345,14 +357,15 @@ function ProblemFramingOverlayContent({
                       </div>
                     )}
 
-                    {status !== 'loading' && plan && (
+                    {plan && (
                       <div ref={canvasRef} className="relative h-full min-h-[470px] overflow-hidden">
+                        {status === 'loading' && <CanvasTransition />}
                         <p className="absolute right-0 top-0 text-sm text-text-secondary">{t(statusKey)}</p>
                         <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-35" viewBox="0 0 1100 620" preserveAspectRatio="none">
                           <path d="M 40 220 C 180 90, 280 90, 370 230 S 560 420, 670 250 S 860 90, 1060 250" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="6 8" className="text-text-secondary/35" />
                         </svg>
 
-                        {draftSteps.map((step, index) => {
+                        {plan.steps.map((step, index) => {
                           const isActive = index === activeStepIndex;
                           const position = cardPositions[index] || CARD_LAYOUTS[index] || CARD_LAYOUTS[CARD_LAYOUTS.length - 1];
                           const renderedPosition = getRenderedPosition(index, position);
@@ -388,10 +401,10 @@ function ProblemFramingOverlayContent({
                                 <textarea
                                   value={step.content}
                                   onChange={(event) => {
-                                    const nextSteps = draftSteps.map((item, itemIndex) =>
+                                    const nextSteps = plan.steps.map((item, itemIndex) =>
                                       itemIndex === index ? { ...item, content: event.target.value } : item
                                     );
-                                    setDraftSteps(nextSteps);
+                                    onPlanChange({ ...plan, steps: nextSteps });
                                   }}
                                   rows={7}
                                   spellCheck={false}
@@ -409,11 +422,29 @@ function ProblemFramingOverlayContent({
                         )}
                       </div>
                     )}
+
+                    {status === 'error' && !plan && (
+                      <div className="flex h-full min-h-[470px] items-center justify-center px-4">
+                        <div className="max-w-md rounded-[1.5rem] border border-red-400/25 bg-bg-primary/70 p-7 text-center">
+                          <h3 className="text-base font-medium text-text-primary">{t('problem.initialErrorTitle')}</h3>
+                          <p className="mt-3 text-sm leading-6 text-text-secondary">
+                            {error || t('problem.initialErrorDescription')}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={onInitialRetry}
+                            className="mt-6 rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+                          >
+                            {t('problem.retry')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
 
-              <aside className="px-5 pb-5 pt-1 sm:px-7 sm:pb-6">
+              {plan && <aside className="px-5 pb-5 pt-1 sm:px-7 sm:pb-6">
                 <div className="mx-auto grid max-w-[860px] gap-4 lg:grid-cols-[minmax(0,520px)_auto] lg:items-center lg:translate-x-8">
                   <div className="lg:translate-y-3">
                     <textarea
@@ -462,7 +493,7 @@ function ProblemFramingOverlayContent({
                     </button>
                   </div>
                 </div>
-              </aside>
+              </aside>}
             </div>
           </div>
 

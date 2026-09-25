@@ -14,6 +14,13 @@ export interface ProblemFramingPlan {
   designerHint: string
 }
 
+export class ProblemFramingFormatError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ProblemFramingFormatError'
+  }
+}
+
 function stripCodeFence(text: string): string {
   return text
     .replace(/^```json\s*/i, '')
@@ -36,6 +43,81 @@ export function extractProblemFramingJson(text: string): string {
   }
 
   return cleaned.slice(start, end + 1)
+}
+
+function decodeTagText(value: string): string {
+  return value
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .trim()
+}
+
+function extractCompleteTag(text: string, tag: string): string | undefined {
+  const match = text.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i'))
+  return match?.[1] === undefined ? undefined : decodeTagText(match[1])
+}
+
+function extractCompleteTagBlocks(text: string, tag: string): string[] {
+  const blocks: string[] = []
+  const expression = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}\\s*>`, 'gi')
+  for (const match of text.matchAll(expression)) {
+    if (match[1] !== undefined) {
+      blocks.push(match[1])
+    }
+  }
+  return blocks
+}
+
+function parseTaggedPlan(text: string, locale: PromptLocale): ProblemFramingPlan {
+  const cleaned = stripCodeFence(text)
+  if (/^\s*<!DOCTYPE\s+html/i.test(cleaned) || /^\s*<html/i.test(cleaned)) {
+    throw new ProblemFramingFormatError('Problem framing response was HTML, not a tagged plan')
+  }
+
+  const headline = extractCompleteTag(cleaned, 'headline')
+  const summary = extractCompleteTag(cleaned, 'summary')
+  const steps = extractCompleteTagBlocks(cleaned, 'step')
+    .map((block) => ({
+      title: extractCompleteTag(block, 'title') || '',
+      content: extractCompleteTag(block, 'content') || '',
+    }))
+    .filter((step) => step.title && step.content)
+    .slice(0, 6)
+
+  if (!headline || !summary || steps.length < 3) {
+    throw new ProblemFramingFormatError(
+      `Tagged plan requires headline, summary, and at least 3 complete steps; received ${steps.length} steps`,
+    )
+  }
+
+  return normalizeProblemFramingPlan({
+    mode: extractCompleteTag(cleaned, 'mode'),
+    headline,
+    summary,
+    steps,
+    visualMotif: extractCompleteTag(cleaned, 'visual_motif'),
+    designerHint: extractCompleteTag(cleaned, 'designer_hint'),
+  }, locale)
+}
+
+export function parseProblemFramingResponse(text: string, locale: PromptLocale): ProblemFramingPlan {
+  const cleaned = stripCodeFence(text)
+  const hasTaggedPlan = /<(?:plan|headline|steps?|step)>/i.test(cleaned)
+
+  if (hasTaggedPlan) {
+    return parseTaggedPlan(cleaned, locale)
+  }
+
+  try {
+    return normalizeProblemFramingPlan(JSON.parse(extractProblemFramingJson(cleaned)), locale)
+  } catch (error) {
+    throw new ProblemFramingFormatError(
+      `Problem framing response matched neither the tagged protocol nor legacy JSON: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
 }
 
 function sanitizeString(value: unknown, fallback: string): string {

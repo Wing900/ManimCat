@@ -168,6 +168,10 @@ function App() {
     void problemFraming.refinePlan({ feedback: problemAdjustment.trim() });
   };
 
+  const handleProblemInitialRetry = () => {
+    void problemFraming.retryPlan();
+  };
+
   const handleProblemGenerate = () => {
     if (!problemFraming.draft || !problemFraming.plan) {
       return;
@@ -263,6 +267,8 @@ function App() {
             problemAdjustment={problemAdjustment}
             onProblemAdjustmentChange={setProblemAdjustment}
             onProblemRetry={handleProblemRetry}
+            onProblemInitialRetry={handleProblemInitialRetry}
+            onProblemPlanChange={problemFraming.updatePlan}
             onProblemClose={handleProblemClose}
             onProblemGenerate={handleProblemGenerate}
           />

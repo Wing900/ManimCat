@@ -48,6 +48,8 @@ interface StudioPageProps {
   problemAdjustment: string;
   onProblemAdjustmentChange: (value: string) => void;
   onProblemRetry: () => void;
+  onProblemInitialRetry: () => void;
+  onProblemPlanChange: (plan: ProblemFramingPlan) => void;
   onProblemClose: () => void;
   onProblemGenerate: () => void;
 }
@@ -84,6 +86,8 @@ export function StudioPage({
   problemAdjustment,
   onProblemAdjustmentChange,
   onProblemRetry,
+  onProblemInitialRetry,
+  onProblemPlanChange,
   onProblemClose,
   onProblemGenerate,
 }: StudioPageProps) {
@@ -153,6 +157,8 @@ export function StudioPage({
         generating={isBusy}
         onAdjustmentChange={onProblemAdjustmentChange}
         onRetry={onProblemRetry}
+        onInitialRetry={onProblemInitialRetry}
+        onPlanChange={onProblemPlanChange}
         onGenerate={onProblemGenerate}
         onClose={onProblemClose}
       />

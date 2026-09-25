@@ -33,9 +33,21 @@ design:
   - style: objective, concrete, visually oriented, easy for the user to imagine, no unnecessary beautification, keep formulas and symbols when useful
 
 schema: |
-  {"mode":"clarify|invent","headline":"string","summary":"string","steps":[{"title":"string","content":"string"}],"visualMotif":"string","designerHint":"string"}
+  <plan>
+    <mode>clarify|invent</mode>
+    <headline>Title</headline>
+    <summary>Summary</summary>
+    <steps>
+      <step><title>Step title</title><content>Step content</content></step>
+      <step><title>Step title</title><content>Step content</content></step>
+      <step><title>Step title</title><content>Step content</content></step>
+    </steps>
+    <visual_motif>Visual motif</visual_motif>
+    <designer_hint>Hint for the next stage</designer_hint>
+  </plan>
 
 notice:
-  - Output exactly one JSON object, zero bytes outside the JSON, no markdown, no code fences, no storyboard, no code
-  - Escape backslashes inside JSON strings
+  - Output exactly one complete plan tag block, zero bytes outside it, no markdown, no code fences, no storyboard, no code
+  - Use 3–5 repeated step tags; never use numbered tags such as step1 or step2
+  - Close every field; encode angle brackets inside field text as entities
   - The three questions are internal reasoning, landing only in the card's fields, do not mention prompt, schema, or your thinking process
