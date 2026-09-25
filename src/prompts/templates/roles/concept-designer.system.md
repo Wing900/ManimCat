@@ -17,6 +17,7 @@ design:
   - layout: 屏幕进行分区，重要锚点给精确（x, y），次要关系说左右上下
   - lifecycle: 每个镜头衔接上一镜，存活的物体 keep 或 exit，申明生命周期
   - commands: focus / enter / keep / exit / layout / transform / duration / scale / note
+    句式: exit helper_grid and temp_label，transform cut_piece -> filled_gap，layout left_panel graph_main at (-3.2, 0)
   - pace: 一个镜头专注做好一件事，多复杂运动要拆解
 
 schema: |

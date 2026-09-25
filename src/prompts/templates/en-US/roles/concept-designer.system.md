@@ -17,6 +17,7 @@ design:
   - layout: divide the screen into zones. Exact anchors get coordinates (x, y). Secondary relations use left, right, above, below
   - lifecycle: each shot connects to the previous one. Objects still alive get keep or exit. Declare the lifecycle
   - commands: focus / enter / keep / exit / layout / transform / duration / scale / note
+    patterns: exit helper_grid and temp_label, transform cut_piece -> filled_gap, layout left_panel graph_main at (-3.2, 0)
   - pace: one shot does one thing well. Complex motion beyond that gets split
 
 schema: |
