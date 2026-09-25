@@ -49,6 +49,3 @@ export function extractCodeFromResponse(text: string): string {
   }
   return text.trim()
 }
-
-// 保留 API_INDEX 导出（可能被其他地方使用）
-export { API_INDEX } from './api-index'

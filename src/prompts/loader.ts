@@ -5,7 +5,6 @@
 
 import fs from 'fs'
 import path from 'path'
-import { API_INDEX, SOUL_INDEX } from './api-index'
 
 // 使用项目根目录，兼容开发和生产环境
 const TEMPLATES_DIR = path.join(process.cwd(), 'src', 'prompts', 'templates')
@@ -136,14 +135,6 @@ function replaceLiteral(source: string, placeholder: string, value: string): str
   return source.split(placeholder).join(value)
 }
 
-function resolveIndexPlaceholders(template: string): string {
-  return replaceLiteral(
-    replaceLiteral(template, '{{apiIndex}}', API_INDEX.trim()),
-    '{{soulIndex}}',
-    SOUL_INDEX.trim()
-  )
-}
-
 function replaceVariables(template: string, variables: Record<string, TemplateValue>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const value = variables[key]
@@ -192,9 +183,6 @@ function assembleTemplate(
   // 4. 替换变量占位符
   result = replaceVariables(result, variables as Record<string, TemplateValue>)
 
-  // 5. 解析索引占位符（用于 shared 模板与 override）
-  result = resolveIndexPlaceholders(result)
-
   return result.trim()
 }
 
@@ -239,7 +227,7 @@ export function getSharedModule(
 ): string {
   const locale = resolveLocale(overrides)
   const raw = overrides?.shared?.[module] ?? readTemplate(resolveTemplateFile(SHARED_FILE_RELATIVE_PATHS[module], locale))
-  return resolveIndexPlaceholders(raw)
+  return raw
 }
 
 /**

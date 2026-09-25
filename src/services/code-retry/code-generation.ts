@@ -2,12 +2,15 @@ import OpenAI from 'openai'
 import { createLogger } from '../../utils/logger'
 import { cleanManimCode } from '../../utils/manim-code-cleaner'
 import { getClient } from './client'
-import type { CodeRetryContext } from './types'
+import type { ChatMessage, CodeRetryContext, RetryCheckpoint } from './types'
 import { buildRetryPrompt, getCodeRetrySystemPrompt } from './prompt-builder'
 import { dedupeSharedBlocksInMessages } from '../prompt-dedup'
 import { createChatCompletionText } from '../openai-stream'
 import { buildTokenParams } from '../../utils/reasoning-model'
-import { applyPatchSetToCode, extractTargetLine, parsePatchResponse } from './utils'
+import { applyPatchSetToCode, extractTargetLine } from './utils'
+import { RuntimeManimApiProvider } from '../manim-api'
+import { runRepairSession } from './repair-session'
+import { inferAutomaticApiRequests } from './api-hints'
 
 const logger = createLogger('CodeRetryCodeGen')
 
@@ -30,7 +33,8 @@ export async function retryCodeGeneration(
   attempt: number,
   currentCode: string,
   codeSnippet: string | undefined,
-  customApiConfig?: unknown
+  customApiConfig?: unknown,
+  onCheckpoint?: RetryCheckpoint
 ): Promise<string> {
   const client = getClient(customApiConfig as any)
   if (!client) {
@@ -38,50 +42,66 @@ export async function retryCodeGeneration(
   }
 
   const retryPrompt = buildRetryPrompt(context, errorMessage, attempt, currentCode, codeSnippet)
+  const apiProvider = new RuntimeManimApiProvider()
 
   try {
-    const requestMessages = dedupeSharedBlocksInMessages(
+    const automaticRequests = inferAutomaticApiRequests(currentCode, errorMessage)
+    const automaticResults = await Promise.all(
+      automaticRequests.map((request) => apiProvider.lookup(request))
+    )
+    const automaticApiContext = automaticResults.length > 0
+      ? `\n\n[[AUTOMATIC_API_CONTEXT]]\n${automaticResults
+          .map((result) => result.content)
+          .join('\n\n---\n\n')}\n[[END]]\nUse this runtime-verified context. If it is insufficient, return an API_REQUEST.`
+      : ''
+
+    logger.info('Automatic retry API context resolved', {
+      attempt,
+      requests: automaticRequests.map((request) => request.symbols[0]),
+      statuses: automaticResults.map((result) => result.status)
+    })
+
+    const requestMessages: ChatMessage[] = dedupeSharedBlocksInMessages(
       [
         { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
-        { role: 'user', content: retryPrompt }
+        { role: 'user', content: `${retryPrompt}${automaticApiContext}` }
       ],
       context.promptOverrides
     )
 
-    const { content, mode } = await createChatCompletionText(
-      client,
-      {
-        model: getModel(customApiConfig),
-        messages: requestMessages,
-        temperature: AI_TEMPERATURE,
-        ...buildTokenParams(THINKING_TOKENS, MAX_TOKENS)
-      },
-      { fallbackToNonStream: true, usageLabel: `retry-${attempt}` }
-    )
-
-    if (!content) {
-      throw new Error('AI returned empty content')
-    }
-
-    logger.info('Code retry model response received', {
+    const session = await runRepairSession({
+      messages: requestMessages,
+      apiProvider,
       concept: context.concept,
       attempt,
-      mode,
-      contentLength: content.length,
-      contentPreview: content.trim().slice(0, 500)
+      onCheckpoint,
+      requestTurn: (messages, turn) => createChatCompletionText(
+        client,
+        {
+          model: getModel(customApiConfig),
+          messages,
+          temperature: AI_TEMPERATURE,
+          ...buildTokenParams(THINKING_TOKENS, MAX_TOKENS)
+        },
+        { fallbackToNonStream: true, usageLabel: `retry-${attempt}-turn-${turn}` }
+      )
     })
 
-    const patchSet = parsePatchResponse(content)
-    const patchedCode = applyPatchSetToCode(currentCode, patchSet, extractTargetLine(errorMessage))
+    const patchedCode = applyPatchSetToCode(
+      currentCode,
+      session.patchSet,
+      extractTargetLine(errorMessage)
+    )
     const cleaned = cleanManimCode(patchedCode)
 
     logger.info('Code retry patch applied', {
       concept: context.concept,
       attempt,
-      mode,
-      patchCount: patchSet.patches.length,
+      turn: session.turn,
+      mode: session.mode,
+      patchCount: session.patchSet.patches.length,
       codeLength: cleaned.code.length,
-      patchLengths: patchSet.patches.map((patch) => ({
+      patchLengths: session.patchSet.patches.map((patch) => ({
         originalSnippetLength: patch.originalSnippet.length,
         replacementSnippetLength: patch.replacementSnippet.length
       })),

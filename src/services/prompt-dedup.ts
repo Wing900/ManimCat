@@ -1,9 +1,8 @@
-import { API_INDEX, SOUL_INDEX } from '../prompts/api-index'
 import { getSharedModule, type PromptOverrides } from '../prompts'
 import type { ChatMessage } from './code-retry/types'
 
 interface SharedBlock {
-  name: 'apiIndexModule' | 'specification' | 'apiIndex' | 'soulIndex'
+  name: 'apiIndexModule' | 'specification'
   content: string
 }
 
@@ -50,8 +49,6 @@ function removeDuplicateOccurrences(text: string, fragment: string): string {
 function buildSharedBlocks(promptOverrides?: PromptOverrides): SharedBlock[] {
   const apiIndexModule = normalizeText(getSharedModule('apiIndex', promptOverrides)).trim()
   const specification = normalizeText(getSharedModule('specification', promptOverrides)).trim()
-  const apiIndex = normalizeText(API_INDEX).trim()
-  const soulIndex = normalizeText(SOUL_INDEX).trim()
   const blocks: SharedBlock[] = []
 
   if (apiIndexModule.length > 0) {
@@ -60,13 +57,6 @@ function buildSharedBlocks(promptOverrides?: PromptOverrides): SharedBlock[] {
   if (specification.length > 0) {
     blocks.push({ name: 'specification', content: specification })
   }
-  if (apiIndex.length > 0) {
-    blocks.push({ name: 'apiIndex', content: apiIndex })
-  }
-  if (soulIndex.length > 0) {
-    blocks.push({ name: 'soulIndex', content: soulIndex })
-  }
-
   return blocks
 }
 

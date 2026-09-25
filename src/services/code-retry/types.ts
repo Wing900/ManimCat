@@ -1,4 +1,5 @@
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
+import type { ManimApiRequest } from '../manim-api'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -20,6 +21,10 @@ export interface CodePatch {
 export interface CodePatchSet {
   patches: CodePatch[]
 }
+
+export type CodeRetryAction =
+  | { type: 'patch'; patchSet: CodePatchSet }
+  | { type: 'api-request'; request: ManimApiRequest }
 
 export interface CodeRetryOptions {
   context: CodeRetryContext

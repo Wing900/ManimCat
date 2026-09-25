@@ -165,3 +165,13 @@ export function extractErrorMessage(stderr: string): string {
 
   return lastLine || stderr.slice(0, 500)
 }
+
+export function extractErrorContext(stderr: string, maxLength = 3000): string {
+  if (!stderr) return 'Unknown error'
+
+  const normalized = stderr.replace(/\r\n/g, '\n').trim()
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+  return `...[traceback truncated]\n${normalized.slice(-maxLength)}`
+}

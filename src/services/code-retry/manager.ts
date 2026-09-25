@@ -9,13 +9,13 @@ import type {
   RetryCheckpoint
 } from './types'
 import type { OutputMode, PromptOverrides } from '../../types'
-import { extractErrorMessage, getErrorType } from './utils'
+import { extractErrorContext, extractErrorMessage, getErrorType } from './utils'
 import { retryCodeGeneration } from './code-generation'
 import { JobCancelledError } from '../../utils/errors'
 
 const logger = createLogger('CodeRetryManager')
 
-const MAX_RETRIES = parseInt(process.env.CODE_RETRY_MAX_RETRIES || '4', 10)
+const MAX_RETRIES = parseInt(process.env.CODE_RETRY_MAX_RETRIES || '6', 10)
 
 export function createRetryContext(
   concept: string,
@@ -88,7 +88,7 @@ export async function executeCodeRetry(
     }
   }
 
-  let errorMessage = extractErrorMessage(renderResult.stderr)
+  let errorMessage = extractErrorContext(renderResult.stderr)
   let errorType = getErrorType(renderResult.stderr)
   logger.warn('Initial render failed', { errorType, error: errorMessage })
 
@@ -111,7 +111,8 @@ export async function executeCodeRetry(
         attempt,
         currentCode,
         currentCodeSnippet,
-        customApiConfig
+        customApiConfig,
+        onCheckpoint
       )
       generationTimeMs += Date.now() - generationStart
 
@@ -143,7 +144,7 @@ export async function executeCodeRetry(
         }
       }
 
-      errorMessage = extractErrorMessage(renderResult.stderr)
+      errorMessage = extractErrorContext(renderResult.stderr)
       errorType = getErrorType(renderResult.stderr)
       logger.warn('Retry render failed', { attempt: attempt + 1, errorType, error: errorMessage })
     } catch (error) {
