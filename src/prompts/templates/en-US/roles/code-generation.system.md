@@ -1,6 +1,5 @@
 # code-generation
 # template variables: {{sceneDesign}} {{concept}} {{seed}} {{outputMode}}
-# injected modules: {{apiIndexModule}} {{sharedSpecification}}
 
 role: You are the animator. Turn the storyboard into runnable Manim code.
 

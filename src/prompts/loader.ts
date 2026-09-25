@@ -127,10 +127,21 @@ export function clearTemplateCache(): void {
  */
 type TemplateValue = string | number | boolean | undefined
 
+/**
+ * 纯文本占位符替换。
+ * 不用 String.replace，因为替换串里的 $`、$'、$&、$1 等会被解释成特殊语义
+ * （例如 API 索引里的 LaTeX `$...$` 含 $`，会把匹配点之前的全文插入进来）。
+ */
+function replaceLiteral(source: string, placeholder: string, value: string): string {
+  return source.split(placeholder).join(value)
+}
+
 function resolveIndexPlaceholders(template: string): string {
-  return template
-    .replace(/\{\{apiIndex\}\}/g, API_INDEX.trim())
-    .replace(/\{\{soulIndex\}\}/g, SOUL_INDEX.trim())
+  return replaceLiteral(
+    replaceLiteral(template, '{{apiIndex}}', API_INDEX.trim()),
+    '{{soulIndex}}',
+    SOUL_INDEX.trim()
+  )
 }
 
 function replaceVariables(template: string, variables: Record<string, TemplateValue>): string {
@@ -169,9 +180,11 @@ function assembleTemplate(
   const specification = getSharedModule('specification', overrides)
 
   // 2. 替换共享模块占位符
-  let result = template
-    .replace(/\{\{apiIndexModule\}\}/g, apiIndex)
-    .replace(/\{\{sharedSpecification\}\}/g, specification)
+  let result = replaceLiteral(
+    replaceLiteral(template, '{{apiIndexModule}}', apiIndex),
+    '{{sharedSpecification}}',
+    specification
+  )
 
   // 3. 处理条件块
   result = processConditionals(result, variables as Record<string, TemplateValue>)

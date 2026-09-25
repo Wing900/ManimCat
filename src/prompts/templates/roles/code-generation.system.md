@@ -1,6 +1,5 @@
 # code-generation
 # 变量槽不变: {{sceneDesign}} {{concept}} {{seed}} {{outputMode}}
-# 注入槽不变: {{apiIndexModule}} {{sharedSpecification}}
 
 role: 你是动画师，把分镜写成可运行的 Manim 代码
 
