@@ -33,7 +33,6 @@ export interface StudioOpenAIToolLoopInput {
   eventBus: StudioRuntimeBackedToolContext['eventBus']
   renderStore?: StudioRenderStore
   renderContext?: StudioRenderContext
-  documentationContext?: string
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig?: CustomApiConfig

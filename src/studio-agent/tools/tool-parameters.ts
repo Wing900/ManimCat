@@ -88,6 +88,26 @@ export const staticCheckToolParameters: StudioToolParameters = {
   additionalProperties: false,
 }
 
+export const lookupApiToolParameters: StudioToolParameters = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      description: 'What API behavior needs verification?',
+      minLength: 1,
+      maxLength: 500,
+    },
+    symbols: {
+      type: 'array',
+      description: 'Optional runtime symbols to verify, for example Axes.plot or Scene.add.',
+      items: { type: 'string', maxLength: 160 },
+      maxItems: 12,
+    },
+  },
+  required: ['query'],
+  additionalProperties: false,
+}
+
 export const manimRenderToolParameters: StudioToolParameters = {
   type: 'object',
   properties: {

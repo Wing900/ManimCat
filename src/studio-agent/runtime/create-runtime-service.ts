@@ -5,7 +5,7 @@ import type { StudioPersistence } from '../persistence/studio-persistence'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
-import type { StudioDocumentationContextProvider } from '../documentation/studio-documentation-context'
+import type { StudioKnowledgeProvider } from '../knowledge/studio-knowledge-types'
 import { configureStudioToolRegistry } from './studio-tool-registry'
 import { createStudioSessionService, type StudioSessionService } from './session-service'
 import {
@@ -20,7 +20,7 @@ interface CreateStudioRuntimeServiceInput {
   eventBus?: StudioEventBus
   manimRenderPort?: import('../manim/manim-render-port').ManimRenderPort
   plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
-  documentationProvider?: StudioDocumentationContextProvider
+  knowledgeProvider?: StudioKnowledgeProvider
 }
 
 export interface StudioRuntimeService extends StudioSessionService, StudioRunService {
@@ -34,6 +34,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     registry,
     manimRenderPort: input.manimRenderPort,
     plotRenderPort: input.plotRenderPort,
+    knowledgeProvider: input.knowledgeProvider,
   })
   const runtime = new StudioBuilderRuntime({
     registry,
@@ -41,7 +42,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     partStore: input.persistence.partStore,
     runStore: input.persistence.runStore,
     renderStore: input.persistence.renderStore,
-    documentationProvider: input.documentationProvider,
     eventBus,
   })
   const sessionService = createStudioSessionService({

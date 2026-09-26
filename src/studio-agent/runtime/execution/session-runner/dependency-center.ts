@@ -14,7 +14,6 @@ import type {
   StudioRenderContext,
   StudioRenderStore,
 } from '../../../domain/types'
-import type { StudioDocumentationContextProvider } from '../../../documentation/studio-documentation-context'
 import type { StudioToolRegistry } from '../../../tools/registry'
 import type { StudioModelPort } from '../../../model/studio-model-port'
 
@@ -24,7 +23,6 @@ export interface StudioSessionRunnerOptions {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   renderStore?: StudioRenderStore
-  documentationProvider?: StudioDocumentationContextProvider
   eventBus?: StudioEventBus
 }
 
@@ -44,7 +42,6 @@ export interface StudioPreparedRunContext {
   run: StudioRun
   assistantMessage: StudioAssistantMessage
   eventBus: StudioEventBus
-  documentationContext: string
 }
 
 export interface StudioPreparedRunExecution {
@@ -69,7 +66,6 @@ export interface StudioSessionRunnerDependencies {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   renderStore?: StudioRenderStore
-  documentationProvider?: StudioDocumentationContextProvider
   sharedEventBus?: StudioEventBus
   createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
   createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
@@ -92,7 +88,6 @@ export function createDependencyCenter(
     partStore: options.partStore,
     runStore: options.runStore,
     renderStore: options.renderStore,
-    documentationProvider: options.documentationProvider,
     sharedEventBus: options.eventBus,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,

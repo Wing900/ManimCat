@@ -140,7 +140,7 @@ export async function runModeAndToolTests(): Promise<void> {
     ])
   })
 
-  await run('shared tool set excludes question interaction', async () => {
+  await run('shared tool set excludes question interaction and includes API lookup', async () => {
     const toolNames = createSharedStudioTools().map((tool) => tool.name)
     assert.deepEqual(toolNames, [
       'read',
@@ -150,8 +150,10 @@ export async function runModeAndToolTests(): Promise<void> {
       'write',
       'edit',
       'apply_patch',
-      'static-check'
+      'static-check',
+      'lookup-api'
     ])
+    assert.equal(toolNames.filter((name) => name === 'lookup-api').length, 1)
   })
 
   await run('Manim render tool uses an injected render port', async () => {

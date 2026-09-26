@@ -115,7 +115,7 @@ export async function runPromptTests() {
     )
   })
 
-  await run('optional render and documentation contexts stay represented', async () => {
+  await run('optional render context stays represented and documentation stays gone', async () => {
     const directory = await createWorkspace()
     const session = createStudioSession({
       ownerId: 'owner-test',
@@ -135,14 +135,14 @@ export async function runPromptTests() {
           status: 'completed',
           timestamp: Date.UTC(2026, 0, 2)
         }
-      },
-      documentationContext: '  api notes  '
+      }
     })
 
     assert.match(prompt, /<studio_render_context>\nsession_id: /)
     assert.match(prompt, /\nlatest_render_id: render-1\n/)
     assert.match(prompt, /\nlatest_render_status: completed\n/)
-    assert.match(prompt, /\n<\/studio_render_context>\n\n<studio_documentation>\napi notes\n<\/studio_documentation>$/)
+    assert.match(prompt, /\n<\/studio_render_context>$/)
+    assert.doesNotMatch(prompt, /<studio_documentation>/)
   })
 
   await run('removed domain manual phrases do not return', async () => {

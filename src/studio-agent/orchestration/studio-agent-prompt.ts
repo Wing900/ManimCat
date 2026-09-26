@@ -5,7 +5,6 @@ import { getStudioModeDefinition } from '../modes/studio-mode'
 interface BuildStudioAgentSystemPromptInput {
   session: StudioSession
   renderContext?: StudioRenderContext
-  documentationContext?: string
 }
 
 /**
@@ -21,11 +20,6 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
   const renderContextText = formatRenderContext(input.renderContext)
   if (renderContextText) {
     sections.push('', '<studio_render_context>', renderContextText, '</studio_render_context>')
-  }
-
-  const documentationContext = input.documentationContext?.trim()
-  if (documentationContext) {
-    sections.push('', '<studio_documentation>', documentationContext, '</studio_documentation>')
   }
 
   return sections.join('\n').trim()
