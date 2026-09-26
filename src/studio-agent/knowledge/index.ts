@@ -14,7 +14,5 @@ export {
   formatStudioKnowledgeUnavailableContent,
   STUDIO_KNOWLEDGE_UNAVAILABLE_SOURCE
 } from './unavailable-studio-knowledge-provider'
-export {
-  createDefaultStudioKnowledgeProvider,
-  MATPLOTLIB_KNOWLEDGE_SOURCE
-} from './create-default-studio-knowledge-provider'
+export { createDefaultStudioKnowledgeProvider } from './create-default-studio-knowledge-provider'
+export * from './matplotlib'

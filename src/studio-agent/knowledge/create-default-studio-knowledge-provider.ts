@@ -1,26 +1,28 @@
 import { RuntimeManimApiProvider, type ManimApiProvider } from '../../services/manim-api'
 import { ManimKnowledgeAdapter } from './manim-knowledge-adapter'
+import { MatplotlibKnowledgeAdapter } from './matplotlib/matplotlib-knowledge-adapter'
+import type { MatplotlibCatalogLoader } from './matplotlib/runtime-matplotlib-catalog'
 import { StudioKnowledgeRouter } from './studio-knowledge-router'
-import { createUnavailableStudioKnowledgeProvider } from './unavailable-studio-knowledge-provider'
 import type { StudioKnowledgeProvider } from './studio-knowledge-types'
-
-export const MATPLOTLIB_KNOWLEDGE_SOURCE = 'matplotlib-runtime-catalog'
 
 /**
  * Production Knowledge composition: Manim reuses the Runtime Manim Catalog provider,
- * Plot stays unavailable until the Matplotlib adapter lands. Instantiate once at
- * module scope so the Runtime Manim cache remains effective across tool calls.
+ * Plot uses the lazy Matplotlib Runtime Catalog adapter. Instantiate once at module
+ * scope (runtime/runtime-service.ts) so the caches remain effective across tool calls.
+ *
+ * The Matplotlib catalog is loaded on first lookup, so constructing this provider
+ * never starts Python.
  */
 export function createDefaultStudioKnowledgeProvider(input?: {
   manimApiProvider?: ManimApiProvider
+  plotKnowledgeProvider?: StudioKnowledgeProvider
+  plotCatalogLoader?: MatplotlibCatalogLoader
 }): StudioKnowledgeProvider {
   return new StudioKnowledgeRouter({
     adapters: {
       manim: new ManimKnowledgeAdapter(input?.manimApiProvider ?? new RuntimeManimApiProvider()),
-      plot: createUnavailableStudioKnowledgeProvider({
-        source: MATPLOTLIB_KNOWLEDGE_SOURCE,
-        reason: 'Matplotlib runtime catalog lookup is not available in this build.'
-      })
+      plot: input?.plotKnowledgeProvider
+        ?? new MatplotlibKnowledgeAdapter(input?.plotCatalogLoader)
     }
   })
 }

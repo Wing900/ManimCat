@@ -91,16 +91,30 @@ export async function runKnowledgeTests(): Promise<void> {
     assert.equal(result.cached, false)
     assert.equal(result.truncated, false)
 
-    // The production composition keeps Plot explicit until the Matplotlib adapter lands.
-    const productionPlot = await lookupStudioKnowledge(createDefaultStudioKnowledgeProvider(), {
+    // 04B wires a real Matplotlib adapter into the production composition, so the
+    // injection seam is exercised here instead of calling the real Plot lookup.
+    const productionPlot = await lookupStudioKnowledge(createDefaultStudioKnowledgeProvider({
+      plotKnowledgeProvider: {
+        async lookup(request) {
+          return {
+            status: 'found',
+            source: MATPLOTLIB_KNOWLEDGE_SOURCE,
+            query: request.query,
+            symbols: request.symbols,
+            content: 'Status: FOUND\nclass matplotlib.figure.Figure',
+            cached: false,
+            truncated: false
+          }
+        }
+      }
+    }), {
       kind: 'plot',
       query: 'matplotlib figure sizing',
       symbols: [],
       maxChars: 1000
     })
-    assert.equal(productionPlot.status, 'unavailable')
+    assert.equal(productionPlot.status, 'found')
     assert.equal(productionPlot.source, MATPLOTLIB_KNOWLEDGE_SOURCE)
-    assert.match(productionPlot.content, /Status: UNAVAILABLE/)
   })
 
   await run('provider failure yields a bounded structured unavailable result', async () => {
