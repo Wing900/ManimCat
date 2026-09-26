@@ -1,7 +1,6 @@
 import { getStudioAgentSystemPrompt } from '../prompts/agent-prompt-loader'
-import type { StudioRenderContext, StudioSession } from '../domain/types'
+import type { StudioKind, StudioRenderContext, StudioSession } from '../domain/types'
 import { getStudioModeDefinition } from '../modes/studio-mode'
-import { getStudioExecutionPolicy } from './studio-execution-policy'
 
 interface BuildStudioAgentSystemPromptInput {
   session: StudioSession
@@ -10,25 +9,13 @@ interface BuildStudioAgentSystemPromptInput {
 }
 
 /**
- * 构建 Studio Agent 的系统提示词
+ * 构建 Studio Agent 的系统提示词：最小 Builder Core + 结构化场景事实。
  */
 export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPromptInput): string {
-  const studioKind = input.session.studioKind ?? 'manim'
-  const mode = getStudioModeDefinition(studioKind)
-  const policy = getStudioExecutionPolicy(studioKind)
-  const renderGuardText = studioKind === 'plot'
-    ? 'Plot Studio 中 write/edit/apply_patch 完成后自动触发 render，不要手动调用。'
-    : '渲染是最后一步。代码必须先写入工作目录并完成 static-check，才能渲染。'
+  const studioKind: StudioKind = input.session.studioKind ?? 'manim'
   const sections = [
     getStudioAgentSystemPrompt(input.session.agentType, studioKind),
-    `当前 Studio 模式：${mode.label}。`,
-    `模式目标：${mode.runtimeSummary}`,
-    `文档上下文命名空间：${mode.documentationKey}。`,
-    `当前运行环境：ManimCat ${policy.studioLabel}。`,
-    policy.runtimeSummary,
-    ...policy.builderRules,
-    `工作目录：${input.session.directory}`,
-    renderGuardText,
+    formatStudioScene(input.session, studioKind),
   ]
 
   const renderContextText = formatRenderContext(input.renderContext)
@@ -42,6 +29,28 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
   }
 
   return sections.join('\n').trim()
+}
+
+/**
+ * 以事实形式描述当前场景能力，不承载领域教程或执行配方。
+ */
+function formatStudioScene(session: StudioSession, studioKind: StudioKind): string {
+  const mode = getStudioModeDefinition(studioKind)
+  const automaticRenderAfter = mode.autoRenderAfterTools.length
+    ? mode.autoRenderAfterTools.join(', ')
+    : 'none'
+
+  return [
+    '<studio_scene>',
+    `kind: ${studioKind}`,
+    `label: ${mode.label}`,
+    `runtime: ${mode.runtimeSummary}`,
+    `language: ${mode.codeLanguage}`,
+    `outputs: ${mode.outputModes.join(', ')}`,
+    `workspace: ${session.directory}`,
+    `automatic_render_after: ${automaticRenderAfter}`,
+    '</studio_scene>',
+  ].join('\n')
 }
 
 function formatRenderContext(renderContext?: StudioRenderContext): string {

@@ -20,16 +20,15 @@ export function clearStudioAgentPromptCache(): void {
   templateCache.clear()
 }
 
+/**
+ * Loads the shared builder role template.
+ * `studioKind` is kept for call compatibility; scene facts travel as structured
+ * `<studio_scene>` context built in orchestration/studio-agent-prompt.ts.
+ */
 export function getStudioAgentSystemPrompt(
   agentType: StudioAgentType,
   studioKind: StudioKind = 'manim'
 ): string {
-  const studioSpecificPath = path.join(TEMPLATE_ROOT, 'studios', studioKind, 'roles', `${agentType}.system.md`)
-  if (fs.existsSync(studioSpecificPath)) {
-    return readTemplate(studioSpecificPath).trim()
-  }
-
-  const fallbackPath = path.join(TEMPLATE_ROOT, 'roles', `${agentType}.system.md`)
-  return readTemplate(fallbackPath).trim()
+  void studioKind
+  return readTemplate(path.join(TEMPLATE_ROOT, 'roles', `${agentType}.system.md`)).trim()
 }
-
