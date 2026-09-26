@@ -292,6 +292,75 @@ export async function runStaticCheckTests(): Promise<void> {
     assert.equal(units[1].lineOffset, 7)
   })
 
+  await run('an inline image marker maps its code to the same document line', async () => {
+    const source = '#!/usr/bin/env python\n### YON_IMAGE_1_START ###x = 1\n### YON_IMAGE_1_END ###'
+    const units = parseImageCodeUnits(source)
+
+    assert.equal(units.length, 1)
+    assert.equal(units[0].code, 'x = 1')
+    assert.equal(units[0].lineOffset, 1)
+    assert.equal(1 + units[0].lineOffset, 2)
+  })
+
+  await run('blank lines between the marker and the code count in the offset', async () => {
+    const source = ['header', '### YON_IMAGE_1_START ###', '', '', 'x = 1', '### YON_IMAGE_1_END ###'].join('\n')
+    const units = parseImageCodeUnits(source)
+
+    assert.equal(units.length, 1)
+    assert.equal(units[0].code, 'x = 1')
+    assert.equal(units[0].lineOffset, 4)
+    assert.equal(1 + units[0].lineOffset, 5)
+  })
+
+  await run('CRLF sources keep their document line mapping', async () => {
+    const source = ['header', '### YON_IMAGE_1_START ###', 'x = 1', 'y = 2', '### YON_IMAGE_1_END ###'].join('\r\n')
+    const units = parseImageCodeUnits(source)
+
+    assert.equal(units.length, 1)
+    assert.equal(units[0].code, 'x = 1\r\ny = 2')
+    assert.equal(units[0].lineOffset, 2)
+    assert.equal(2 + units[0].lineOffset, 4)
+  })
+
+  await run('indented code keeps trimming compatibility and the line mapping', async () => {
+    const source = ['### YON_IMAGE_1_START ###', '    x = 1', '    y = 2', '### YON_IMAGE_1_END ###'].join('\n')
+    const units = parseImageCodeUnits(source)
+
+    assert.equal(units.length, 1)
+    assert.equal(units[0].code, 'x = 1\n    y = 2')
+    assert.equal(units[0].lineOffset, 1)
+    assert.equal(1 + units[0].lineOffset, 2)
+  })
+
+  await run('multiple image blocks keep independent absolute offsets', async () => {
+    const source = [
+      'header',
+      '### YON_IMAGE_1_START ###',
+      'first',
+      '### YON_IMAGE_1_END ###',
+      '',
+      '### YON_IMAGE_2_START ###',
+      '',
+      'second',
+      '### YON_IMAGE_2_END ###'
+    ].join('\n')
+    const units = parseImageCodeUnits(source)
+
+    assert.equal(units.length, 2)
+    assert.equal(units[0].code, 'first')
+    assert.equal(units[0].lineOffset, 2)
+    assert.equal(units[1].code, 'second')
+    assert.equal(units[1].lineOffset, 7)
+  })
+
+  await run('unit-relative diagnostic lines map onto document lines', async () => {
+    const units = parseImageCodeUnits(IMAGE_SOURCE)
+
+    assert.equal(1 + units[0].lineOffset, 3)
+    assert.equal(2 + units[0].lineOffset, 4)
+    assert.equal(1 + units[1].lineOffset, 8)
+  })
+
   await run('a source without image markers stays one unit at offset zero', async () => {
     const units = parseImageCodeUnits('print(1)\nprint(2)')
 

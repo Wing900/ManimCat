@@ -166,26 +166,30 @@ function parseMypyDiagnostics(stdout: string, stderr: string, lineOffset: number
 
 /**
  * Pure image-block extraction for `image` output mode. Each unit carries the line
- * offset that maps its unit-relative diagnostics back onto the original document.
- * Exported for unit-level specification; the subprocess engine stays private.
+ * offset that maps its unit-relative diagnostics back onto the original document:
+ * `lineOffset` is the number of `\n` characters before the first character of
+ * `unit.code`, so `documentLine = unitLine + lineOffset` holds for LF and CRLF
+ * documents alike. Exported for unit-level specification; the subprocess engine
+ * stays private.
  */
 export function parseImageCodeUnits(code: string): CodeUnit[] {
   const units: CodeUnit[] = []
-  const blockRegex = /###\s*YON_IMAGE_(\d+)_START\s*###([\s\S]*?)###\s*YON_IMAGE_\1_END\s*###/g
+  const blockRegex = /(###\s*YON_IMAGE_(\d+)_START\s*###)([\s\S]*?)###\s*YON_IMAGE_\2_END\s*###/g
 
   let match: RegExpExecArray | null
   while ((match = blockRegex.exec(code)) !== null) {
-    const fullMatch = match[0]
-    const blockCode = match[2].trim()
+    const rawCode = match[3]
+    const blockCode = rawCode.trim()
     if (!blockCode) {
       continue
     }
 
-    const prefix = code.slice(0, match.index)
-    const startMarker = fullMatch.indexOf(match[2])
-    const beforeCode = fullMatch.slice(0, startMarker)
-    const lineOffset = prefix.split('\n').length - 1 + beforeCode.split('\n').length - 1
-    units.push({ code: blockCode, lineOffset })
+    // The marker capture ends exactly where the raw block starts; trimming may then skip
+    // leading newlines, indentation or both, and every skipped newline is a document line.
+    const rawStart = match.index + match[1].length
+    const leadingWhitespace = rawCode.length - rawCode.trimStart().length
+    const codeStart = rawStart + leadingWhitespace
+    units.push({ code: blockCode, lineOffset: countDocumentLinesBefore(code, codeStart) })
   }
 
   if (units.length === 0) {
@@ -193,6 +197,17 @@ export function parseImageCodeUnits(code: string): CodeUnit[] {
   }
 
   return units
+}
+
+/** The document line of `index` is `countDocumentLinesBefore(source, index) + 1`. */
+function countDocumentLinesBefore(source: string, index: number): number {
+  let newlines = 0
+  for (let position = 0; position < index; position += 1) {
+    if (source.charCodeAt(position) === 10) {
+      newlines += 1
+    }
+  }
+  return newlines
 }
 
 function getCodeUnits(code: string, outputMode: OutputMode): CodeUnit[] {
