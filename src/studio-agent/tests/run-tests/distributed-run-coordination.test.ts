@@ -1343,8 +1343,22 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       const calls: Array<{ method: string; args: unknown[] }> = []
       let pendingStatus: StudioRun['status'] = entry.to
       let applied = false
+      const row = (status: StudioRun['status']) => ({
+        id: 'row',
+        owner_id: OWNER_ID,
+        session_id: 'session-1',
+        status,
+        input_text: 'x',
+        active_agent: 'builder',
+        created_at: '2026-01-01T00:00:00.000Z',
+        completed_at: null,
+        error: null,
+        metadata: null
+      })
+      let isUpdate = false
       const builder = {
         update(payload: Record<string, unknown>) {
+          isUpdate = true
           pendingStatus = payload.status as StudioRun['status']
           return builder
         },
@@ -1360,18 +1374,21 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
         },
         // Mirrors the SQL write: the predicate decides, and only then does the row change.
         maybeSingle() {
+          const isWrite = isUpdate
+          // Consume the flag: the re-read after a lost race arrives on the same client.
+          isUpdate = false
+          if (!isWrite) {
+            // The `getById` re-read after a lost race returns the stored row unchanged.
+            return { data: row(storedStatus), error: null }
+          }
           const predicate = calls.find((call) => call.method === 'in')
           const expected = (predicate?.args[1] as StudioRun['status'][] | undefined) ?? []
           applied = expected.includes(storedStatus)
-          if (applied) {
-            storedStatus = pendingStatus
+          if (!applied) {
+            return { data: null, error: null }
           }
-          return {
-            data: applied
-              ? { id: 'row', owner_id: OWNER_ID, session_id: 'session-1', status: storedStatus, input_text: 'x', active_agent: 'builder', created_at: '2026-01-01T00:00:00.000Z', completed_at: null, error: null, metadata: null }
-              : null,
-            error: null
-          }
+          storedStatus = pendingStatus
+          return { data: row(storedStatus), error: null }
         }
       }
       const client = { from: () => builder }
@@ -1540,11 +1557,18 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       () => resolveStudioRunLeaseRenewMs({ STUDIO_RUN_LEASE_TTL_MS: '60000', STUDIO_RUN_LEASE_RENEW_MS: '40000' }, 60_000),
       () => resolveStudioRunCancellationTtlMs({ STUDIO_RUN_CANCEL_TTL_MS: '0' }),
       () => resolveStudioRunRedisPrefix({ STUDIO_RUN_REDIS_PREFIX: 'has whitespace' }),
-      () => resolveStudioRunControlChannel({ STUDIO_RUN_CONTROL_CHANNEL: '   ' })
+      () => resolveStudioRunControlChannel({ STUDIO_RUN_CONTROL_CHANNEL: 'has whitespace' })
     ]
     for (const invalid of invalidConfig) {
       assert.throws(invalid)
     }
+
+    // A blank override means "not provided" (docker-compose passes `${VAR:-}`), never fatal.
+    assert.equal(resolveStudioRunRedisPrefix({ STUDIO_RUN_REDIS_PREFIX: '   ' }), 'manimcat:production:studio-run')
+    assert.equal(
+      resolveStudioRunControlChannel({ STUDIO_RUN_CONTROL_CHANNEL: '' }),
+      'manimcat:production:studio-run-control'
+    )
 
     assert.equal(resolveStudioRunLeaseTtlMs({}), 60_000)
     assert.equal(resolveStudioRunLeaseRenewMs({}, 60_000), 15_000)
@@ -2221,7 +2245,9 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const admission = await admissionPromise
     await service.whenIdle()
     assert.equal(admission.status, 'coordination_unavailable')
-    assert.equal(coordinator.renewCallCount, 1)
+    // The queued tick resumes once the proof settles and renews the still-registered provisional
+    // entry before the rollback runs; the release stays token-checked, so no ownership leaks.
+    assert.equal(coordinator.renewCallCount, 2)
     assert.equal(service.getSessionLease('session-1'), null)
     assert.equal(coordinator.releasedLeases.length, 1)
   })
@@ -2242,7 +2268,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     // A syntactically valid JSON envelope that is far larger than any legal command.
     const oversizedButValidJson = JSON.stringify({
       version: 1,
-      commandId: 'c'.repeat(1_024),
+      commandId: 'c'.repeat(STUDIO_RUN_CANCELLATION_MAX_PAYLOAD_LENGTH),
       runId: 'run-1',
       reason: 'stop',
       requestedAt: '2026-01-01T00:00:00.000Z'

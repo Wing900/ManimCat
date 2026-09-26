@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '../../i18n'
 import { RunStatus } from './RunStatus'
-import { StudioTokenUsageView, formatStudioTokenCount } from './StudioTokenUsageView'
+import { formatStudioTokenCount } from './format-studio-token-count'
+import { StudioTokenUsageView } from './StudioTokenUsageView'
 import type { StudioRun, StudioTokenUsage } from '../protocol/studio-agent-types'
 
 function createUsage(overrides: Partial<StudioTokenUsage> = {}): StudioTokenUsage {

@@ -16,6 +16,7 @@ import {
   STUDIO_KNOWLEDGE_LIMITS,
   STUDIO_KNOWLEDGE_LOOKUP_SOURCE,
   StudioKnowledgeRouter,
+  StudioToolRegistry,
   type StudioKnowledgeProvider,
   type StudioKnowledgeRequest,
   type StudioKnowledgeResult,

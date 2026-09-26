@@ -37,7 +37,8 @@ export function normalizeStudioRunCancellationReason(
   if (!collapsed) {
     return fallback
   }
-  return collapsed.slice(0, STUDIO_RUN_CANCELLATION_REASON_MAX_LENGTH)
+  // Trimming after the cut keeps the bounded value free of a trailing space.
+  return collapsed.slice(0, STUDIO_RUN_CANCELLATION_REASON_MAX_LENGTH).trim()
 }
 
 /**

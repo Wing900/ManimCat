@@ -476,8 +476,12 @@ export async function runDistributedEventTests(): Promise<void> {
     const publicRender = renderProperties.render as Record<string, unknown>
 
     // The internal values did carry ownerId; the public path removes it.
-    assert.equal('ownerId' in (runEvent as { run: Record<string, unknown> }).run, true)
-    assert.equal('ownerId' in (renderEvent as { render: Record<string, unknown> }).render, true)
+    const internalRun = runEvent.type === 'run_updated' ? runEvent.run : undefined
+    const internalRender = renderEvent.type === 'render_updated' ? renderEvent.render : undefined
+    assert.ok(internalRun)
+    assert.ok(internalRender)
+    assert.equal('ownerId' in internalRun, true)
+    assert.equal('ownerId' in internalRender, true)
     assert.equal('ownerId' in publicRun, false)
     assert.equal('ownerId' in publicRender, false)
     assert.equal(published[0]?.type, 'run.updated')

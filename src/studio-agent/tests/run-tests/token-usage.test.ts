@@ -544,7 +544,28 @@ export async function runTokenUsageTests(): Promise<void> {
       }
     }))
 
-    assert.deepEqual(order, ['call:1', 'checkpoint:1', 'call:2', 'checkpoint:2'])
+    // The loop also checkpoints Run metadata on its own (pre-existing), so the recorded order is not
+    // one entry per call. The invariant: every call is checkpointed before the next call starts, and
+    // the reported usage count never regresses.
+    const firstCall = order.indexOf('call:1')
+    const secondCall = order.indexOf('call:2')
+    assert.ok(firstCall >= 0 && secondCall > firstCall, `both model calls must run: ${order.join(',')}`)
+    assert.ok(
+      order.slice(firstCall, secondCall).includes('checkpoint:1'),
+      `the first call must be checkpointed before the next call: ${order.join(',')}`
+    )
+    assert.ok(
+      order.slice(secondCall).includes('checkpoint:2'),
+      `the second call must be checkpointed: ${order.join(',')}`
+    )
+    const usageCounts = order
+      .filter((entry) => entry.startsWith('checkpoint:'))
+      .map((entry) => Number(entry.slice('checkpoint:'.length)))
+    assert.deepEqual(
+      usageCounts,
+      [...usageCounts].sort((left, right) => left - right),
+      `checkpointed usage must not regress: ${order.join(',')}`
+    )
     const persisted = await fixture.persistence.runStore.getById(fixture.runRecord.ownerId, fixture.runRecord.id)
     assert.deepEqual(persisted?.tokenUsage, {
       promptTokens: 10,
@@ -554,11 +575,19 @@ export async function runTokenUsageTests(): Promise<void> {
       unmeasuredCalls: 0
     })
     const runUpdates = eventBus.events.filter((event) => event.type === 'run_updated')
-    const firstUpdate = runUpdates[0]
-    const secondUpdate = runUpdates[1]
-    assert.equal(runUpdates.length, 2)
-    assert.equal(firstUpdate?.type === 'run_updated' ? firstUpdate.run.tokenUsage?.totalTokens : undefined, 15)
-    assert.equal(secondUpdate?.type === 'run_updated' ? secondUpdate.run.tokenUsage?.totalTokens : undefined, 22)
+    // Metadata checkpoints publish `run.updated` too, so the count is not per call; the invariant is
+    // that the published usage starts at call 1's total and never regresses from there.
+    assert.ok(runUpdates.length >= 2, `run.updated must be published: ${runUpdates.length}`)
+    const publishedTotals = runUpdates
+      .map((event) => (event.type === 'run_updated' ? event.run.tokenUsage?.totalTokens : undefined))
+      .filter((total): total is number => total !== undefined)
+    assert.equal(publishedTotals[0], 15, 'call 1 usage is published before the second call runs')
+    assert.equal(publishedTotals[publishedTotals.length - 1], 22, 'the cumulative total is published')
+    assert.deepEqual(
+      publishedTotals,
+      [...publishedTotals].sort((left, right) => left - right),
+      `published usage must not regress: ${publishedTotals.join(',')}`
+    )
   })
 
   await run('completed, failed and cancelled runs keep the latest cumulative usage', async () => {

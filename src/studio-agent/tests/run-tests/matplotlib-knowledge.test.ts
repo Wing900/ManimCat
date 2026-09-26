@@ -139,50 +139,50 @@ export async function runMatplotlibKnowledgeTests(): Promise<void> {
   })
 
   await run('repeated identical lookup is cached and loads the catalog once', async () => {
-    const loader = createCountingLoader()
-    const adapter = new MatplotlibKnowledgeAdapter(loader)
+    const counting = createCountingLoader()
+    const adapter = new MatplotlibKnowledgeAdapter(counting.loader)
 
     const first = await lookup(adapter, { query: 'Axes class', symbols: ['Axes'] })
     const second = await lookup(adapter, { query: 'Axes class', symbols: ['Axes'] })
 
-    assert.equal(loader.calls, 1)
+    assert.equal(counting.calls, 1)
     assert.equal(first.cached, false)
     assert.equal(second.cached, true)
     assert.equal(second.content, first.content)
   })
 
   await run('different request keys reuse the loaded catalog', async () => {
-    const loader = createCountingLoader()
-    const adapter = new MatplotlibKnowledgeAdapter(loader)
+    const counting = createCountingLoader()
+    const adapter = new MatplotlibKnowledgeAdapter(counting.loader)
 
     const axes = await lookup(adapter, { query: 'Axes class', symbols: ['Axes'] })
     const figure = await lookup(adapter, { query: 'Figure class', symbols: ['Figure'] })
 
-    assert.equal(loader.calls, 1)
+    assert.equal(counting.calls, 1)
     assert.equal(axes.status, 'found')
     assert.equal(figure.status, 'found')
     assert.equal(figure.cached, false)
   })
 
   await run('default provider routes Plot requests to the Matplotlib adapter', async () => {
-    const loader = createCountingLoader()
-    const provider = createDefaultStudioKnowledgeProvider({ plotCatalogLoader: loader })
+    const counting = createCountingLoader()
+    const provider = createDefaultStudioKnowledgeProvider({ plotCatalogLoader: counting.loader })
 
     const result = await lookup(provider, { query: 'Axes class', symbols: ['Axes'] }, 'plot')
 
     assert.equal(result.status, 'found')
     assert.equal(result.source, MATPLOTLIB_KNOWLEDGE_SOURCE)
-    assert.equal(loader.calls, 1)
+    assert.equal(counting.calls, 1)
   })
 
   await run('production provider construction stays lazy', async () => {
-    const loader = createCountingLoader()
-    const provider = createDefaultStudioKnowledgeProvider({ plotCatalogLoader: loader })
+    const counting = createCountingLoader()
+    const provider = createDefaultStudioKnowledgeProvider({ plotCatalogLoader: counting.loader })
 
-    assert.equal(loader.calls, 0, 'constructing the provider must not start Python')
+    assert.equal(counting.calls, 0, 'constructing the provider must not start Python')
 
     await lookup(provider, { query: 'Figure class', symbols: ['Figure'] }, 'plot')
-    assert.equal(loader.calls, 1)
+    assert.equal(counting.calls, 1)
   })
 
   await run('python selection prefers trusted environment configuration', async () => {
@@ -298,7 +298,8 @@ export async function runMatplotlibKnowledgeTests(): Promise<void> {
     const result = await lookup(adapter, { query: 'misspelled private base', symbols: ['AxesBase'] })
 
     assert.match(result.content, /\[fuzzy\] class matplotlib\.axes\.Axes/)
-    assert.doesNotMatch(matchSection(result.content), /_AxesBase/)
+    // A public symbol's MRO line may name its private base factually; the suggestion surface must not.
+    assertNoPrivateSuggestion(result.content)
   })
 
   await run('short-name and canonical lookup of a private symbol stay hidden', async () => {
@@ -317,6 +318,19 @@ export async function runMatplotlibKnowledgeTests(): Promise<void> {
 function matchSection(content: string): string {
   // Request echo (query/symbols) is not a suggestion: only inspect the match section.
   return content.split('Matches:')[1] ?? ''
+}
+
+function matchHeaders(content: string): string[] {
+  return content.match(/^\[(?:exact|inherited|search|fuzzy)\].*$/gm) ?? []
+}
+
+/** `_AxesBase` is the only private symbol in the fixture. */
+function assertNoPrivateSuggestion(content: string): void {
+  const headers = matchHeaders(content)
+  assert.ok(
+    headers.every((line) => !line.includes('_AxesBase')),
+    `a private symbol must never be suggested, got: ${headers.join(' | ')}`
+  )
 }
 
 function expectSchemaError(candidate: unknown): void {
@@ -351,13 +365,18 @@ function createFakeCatalogLoader(): MatplotlibCatalogLoader {
   return async () => createFakeCatalog()
 }
 
-function createCountingLoader(): MatplotlibCatalogLoader & { readonly calls: number } {
+function createCountingLoader(): { readonly loader: MatplotlibCatalogLoader; readonly calls: number } {
   let calls = 0
-  const loader: MatplotlibCatalogLoader = async () => {
-    calls += 1
-    return createFakeCatalog()
+  // A live accessor on the returned object: a getter flattened by an eager copy would freeze at 0.
+  return {
+    loader: async () => {
+      calls += 1
+      return createFakeCatalog()
+    },
+    get calls() {
+      return calls
+    }
   }
-  return Object.assign(loader, { get calls() { return calls } })
 }
 
 function matchCount(content: string): number {
