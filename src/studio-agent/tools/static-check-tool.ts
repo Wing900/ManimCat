@@ -1,8 +1,9 @@
 import { readWorkspaceFile, toWorkspaceRelativePath, truncateToolText } from './workspace-paths'
-import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
+import type { StudioKind, StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
-import { runStaticChecks } from '../../services/static-guard/checker'
 import type { OutputMode } from '../../types'
+import { createUnconfiguredStudioStaticCheckPort } from '../static-check/create-default-studio-static-check-port'
+import type { StudioStaticCheckPort } from '../static-check/studio-static-check-types'
 import { staticCheckToolParameters } from './tool-parameters'
 
 interface StaticCheckToolInput {
@@ -11,28 +12,46 @@ interface StaticCheckToolInput {
   outputMode?: OutputMode
 }
 
-export function createStudioStaticCheckTool(): StudioToolDefinition<StaticCheckToolInput> {
+/**
+ * The Tool is domain-neutral: the Studio kind is derived from the trusted session and
+ * routed by the injected Port. Tool input never selects a Studio kind or an Adapter.
+ *
+ * The default Port is explicitly unconfigured and exists only for isolated composition;
+ * production injects one shared Port through the registry.
+ */
+export function createStudioStaticCheckTool(
+  staticCheckPort: StudioStaticCheckPort = createUnconfiguredStudioStaticCheckPort()
+): StudioToolDefinition<StaticCheckToolInput> {
   return {
     name: 'static-check',
     parameters: staticCheckToolParameters,
-    description: 'Run static checks for Python or Manim code.',
+    description: 'Check the current Studio Python source.',
     allowedAgents: ['builder'],
-    execute: async (input, context) => executeStaticCheckTool(input, context as StudioRuntimeBackedToolContext)
+    execute: async (input, context) => executeStaticCheckTool(
+      input,
+      context as StudioRuntimeBackedToolContext,
+      staticCheckPort
+    )
   }
 }
 
 async function executeStaticCheckTool(
   input: StaticCheckToolInput,
-  context: StudioRuntimeBackedToolContext
+  context: StudioRuntimeBackedToolContext,
+  staticCheckPort: StudioStaticCheckPort
 ): Promise<StudioToolResult> {
   const target = input.path ?? input.file
   if (!target) {
     throw new Error('Static-check tool requires "path" or "file"')
   }
 
+  const kind: StudioKind = context.session.studioKind ?? 'manim'
   const file = await readWorkspaceFile(context.session.directory, target)
-  const outputMode = input.outputMode ?? 'video'
-  const result = await runStaticChecks(file.content, outputMode)
+  const result = await staticCheckPort.check({
+    kind,
+    code: file.content,
+    outputMode: input.outputMode
+  })
   const relativePath = toWorkspaceRelativePath(context.session.directory, file.absolutePath).replace(/\\/g, '/')
   const summary = result.diagnostics.length
     ? result.diagnostics.map((item) => `${item.tool}:${item.line}${item.column ? `:${item.column}` : ''} ${item.message}`).join('\n')
@@ -44,7 +63,8 @@ async function executeStaticCheckTool(
     output: output.text,
     metadata: {
       path: relativePath,
-      outputMode,
+      kind: result.kind,
+      outputMode: result.outputMode,
       diagnosticCount: result.diagnostics.length,
       diagnostics: result.diagnostics,
       truncated: output.truncated

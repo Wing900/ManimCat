@@ -327,7 +327,7 @@ export async function runKnowledgeTests(): Promise<void> {
         }
       }
     }
-    const lookupTool = createSharedStudioTools(provider).find((tool) => tool.name === 'lookup-api')
+    const lookupTool = createSharedStudioTools({ knowledgeProvider: provider }).find((tool) => tool.name === 'lookup-api')
     assert.ok(lookupTool, 'lookup-api must be part of the shared tool set')
 
     await lookupTool.execute({ query: 'figure sizing' }, createToolContext('plot'))
@@ -350,7 +350,7 @@ export async function runKnowledgeTests(): Promise<void> {
         }
       }
     }
-    const lookupTool = createSharedStudioTools(provider).find((tool) => tool.name === 'lookup-api')!
+    const lookupTool = createSharedStudioTools({ knowledgeProvider: provider }).find((tool) => tool.name === 'lookup-api')!
 
     const result = await lookupTool.execute({ query: 'Axes', symbols: ['Axes'] }, createToolContext('manim'))
 

@@ -164,7 +164,12 @@ function parseMypyDiagnostics(stdout: string, stderr: string, lineOffset: number
   return diagnostics
 }
 
-function parseImageCodeUnits(code: string): CodeUnit[] {
+/**
+ * Pure image-block extraction for `image` output mode. Each unit carries the line
+ * offset that maps its unit-relative diagnostics back onto the original document.
+ * Exported for unit-level specification; the subprocess engine stays private.
+ */
+export function parseImageCodeUnits(code: string): CodeUnit[] {
   const units: CodeUnit[] = []
   const blockRegex = /###\s*YON_IMAGE_(\d+)_START\s*###([\s\S]*?)###\s*YON_IMAGE_\1_END\s*###/g
 
@@ -241,7 +246,16 @@ function getCodeLine(code: string, oneBasedLineNumber: number): CodeLine | null 
   }
 }
 
-function shouldIgnoreMypyDiagnostic(diagnostic: StaticDiagnostic, code: string, lineOffset: number): boolean {
+/**
+ * Manim camera.frame false-positive policy: mypy reports `attr-defined` for the
+ * `camera.frame` accessor even though it exists at runtime. Returns true for
+ * diagnostics that must be dropped. Exported for unit-level specification.
+ */
+export function shouldIgnoreManimCameraDiagnostic(
+  diagnostic: StaticDiagnostic,
+  code: string,
+  lineOffset: number
+): boolean {
   if (diagnostic.tool !== 'mypy') {
     return false
   }
@@ -276,7 +290,11 @@ function shouldIgnoreMypyDiagnostic(diagnostic: StaticDiagnostic, code: string, 
   return false
 }
 
-async function checkUnit(code: string, lineOffset: number): Promise<StaticDiagnostic[]> {
+async function checkCodeUnit(
+  code: string,
+  lineOffset: number,
+  ignoreDiagnostic: PythonStaticCheckIgnorePredicate
+): Promise<StaticDiagnostic[]> {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manim-static-'))
   const codeFile = path.join(tempDir, 'scene.py')
 
@@ -312,7 +330,7 @@ async function checkUnit(code: string, lineOffset: number): Promise<StaticDiagno
       tempDir
     )
     const mypyDiagnostics = parseMypyDiagnostics(mypyResult.stdout, mypyResult.stderr, lineOffset)
-      .filter((diagnostic) => !shouldIgnoreMypyDiagnostic(diagnostic, code, lineOffset))
+      .filter((diagnostic) => !ignoreDiagnostic(diagnostic, code, lineOffset))
 
     logger.info('mypy check summarized', {
       codeFile,
@@ -343,12 +361,62 @@ async function checkUnit(code: string, lineOffset: number): Promise<StaticDiagno
   }
 }
 
+/**
+ * Returns true for diagnostics that must be dropped. It is applied to mypy
+ * diagnostics only: a syntactically invalid unit short-circuits mypy entirely.
+ */
+export type PythonStaticCheckIgnorePredicate = (
+  diagnostic: StaticDiagnostic,
+  code: string,
+  lineOffset: number
+) => boolean
+
+export interface PythonStaticCheckOptions {
+  /** Added to every reported line so unit-relative lines map onto the document. */
+  lineOffset?: number
+  /** Domain policy for dropped diagnostics; omit for a raw whole-file check. */
+  ignoreDiagnostic?: PythonStaticCheckIgnorePredicate
+}
+
+function compareDiagnostics(left: StaticDiagnostic, right: StaticDiagnostic): number {
+  return left.line - right.line || (left.column || 0) - (right.column || 0)
+}
+
+function neverIgnoreDiagnostic(): boolean {
+  return false
+}
+
+/**
+ * Package-neutral whole-file Python check: one temporary file, py_compile then mypy,
+ * parsed diagnostics, deterministic ordering, cleanup in `finally`. This is the single
+ * subprocess entry point; domain Adapters add policy through `options` only.
+ */
+export async function runPythonStaticChecks(
+  code: string,
+  options?: PythonStaticCheckOptions
+): Promise<StaticCheckBatch> {
+  const lineOffset = options?.lineOffset ?? 0
+  const ignoreDiagnostic = options?.ignoreDiagnostic ?? neverIgnoreDiagnostic
+  const diagnostics = await checkCodeUnit(code, lineOffset, ignoreDiagnostic)
+  diagnostics.sort(compareDiagnostics)
+  return { diagnostics }
+}
+
+/**
+ * Classic entry point, unchanged for the generation workflow: `image` mode splits
+ * YON_IMAGE_n blocks and keeps each block's line offset, `video` mode checks the
+ * whole source, and the Manim camera.frame policy stays applied here.
+ */
 export async function runStaticChecks(code: string, outputMode: OutputMode): Promise<StaticCheckBatch> {
   const units = getCodeUnits(code, outputMode)
   const diagnostics: StaticDiagnostic[] = []
   for (const unit of units) {
-    diagnostics.push(...(await checkUnit(unit.code, unit.lineOffset)))
+    const batch = await runPythonStaticChecks(unit.code, {
+      lineOffset: unit.lineOffset,
+      ignoreDiagnostic: shouldIgnoreManimCameraDiagnostic
+    })
+    diagnostics.push(...batch.diagnostics)
   }
-  diagnostics.sort((left, right) => left.line - right.line || (left.column || 0) - (right.column || 0))
+  diagnostics.sort(compareDiagnostics)
   return { diagnostics }
 }

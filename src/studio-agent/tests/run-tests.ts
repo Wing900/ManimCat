@@ -6,6 +6,7 @@ import { runSecurityTests } from './run-tests/security.test'
 import { runAgentLoopTests } from './run-tests/agent-loop.test'
 import { runKnowledgeTests } from './run-tests/knowledge.test'
 import { runMatplotlibKnowledgeTests } from './run-tests/matplotlib-knowledge.test'
+import { runStaticCheckTests } from './run-tests/static-check.test'
 import { runPersistenceTests } from './run-tests/persistence.test'
 
 async function main() {
@@ -17,6 +18,7 @@ async function main() {
   await runAgentLoopTests()
   await runKnowledgeTests()
   await runMatplotlibKnowledgeTests()
+  await runStaticCheckTests()
   await runPersistenceTests()
   console.log('All studio-agent tests passed')
 }

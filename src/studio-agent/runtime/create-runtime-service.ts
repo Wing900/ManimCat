@@ -6,6 +6,7 @@ import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioKnowledgeProvider } from '../knowledge/studio-knowledge-types'
+import type { StudioStaticCheckPort } from '../static-check/studio-static-check-types'
 import { configureStudioToolRegistry } from './studio-tool-registry'
 import { createStudioSessionService, type StudioSessionService } from './session-service'
 import {
@@ -21,6 +22,7 @@ interface CreateStudioRuntimeServiceInput {
   manimRenderPort?: import('../manim/manim-render-port').ManimRenderPort
   plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
   knowledgeProvider?: StudioKnowledgeProvider
+  staticCheckPort?: StudioStaticCheckPort
 }
 
 export interface StudioRuntimeService extends StudioSessionService, StudioRunService {
@@ -35,6 +37,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     manimRenderPort: input.manimRenderPort,
     plotRenderPort: input.plotRenderPort,
     knowledgeProvider: input.knowledgeProvider,
+    staticCheckPort: input.staticCheckPort,
   })
   const runtime = new StudioBuilderRuntime({
     registry,
