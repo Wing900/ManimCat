@@ -91,6 +91,27 @@ export interface JobTimings {
   total?: number;
 }
 
+export interface JobTokenUsageCall {
+  label: string;
+  model?: string;
+  mode: 'stream' | 'stream-partial' | 'non-stream';
+  maxTokens?: number;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+}
+
+export interface JobTokenUsageSummary {
+  totals: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    measuredCalls: number;
+    unmeasuredCalls: number;
+  };
+  calls: JobTokenUsageCall[];
+}
+
 /** 生成请求 */
 export interface GenerateRequest {
   concept: string;
@@ -183,6 +204,7 @@ export interface JobResult {
   generation_type?: string;
   render_peak_memory_mb?: number;
   timings?: JobTimings;
+  token_usage?: JobTokenUsageSummary;
 
   error?: string;
   details?: string;

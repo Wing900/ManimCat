@@ -17,7 +17,7 @@ export interface ChatCompletionTextResult {
 }
 
 const logger = createLogger('OpenAIStream')
-const INCLUDE_STREAM_USAGE = process.env.OPENAI_STREAM_INCLUDE_USAGE === 'true'
+const INCLUDE_STREAM_USAGE = process.env.OPENAI_STREAM_INCLUDE_USAGE !== 'false'
 const STREAM_HEARTBEAT_MS = parseInt(process.env.OPENAI_STREAM_HEARTBEAT_MS || '15000', 10)
 const STREAM_IDLE_TIMEOUT_MS = parseInt(process.env.OPENAI_STREAM_IDLE_TIMEOUT_MS || '240000', 10)
 const STREAM_CONTENT_TIMEOUT_MS = parseInt(process.env.OPENAI_STREAM_CONTENT_TIMEOUT_MS || '240000', 10)

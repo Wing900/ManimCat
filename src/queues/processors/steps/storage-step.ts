@@ -9,6 +9,7 @@ import { createHistory } from '../../../database'
 import type { RenderResult } from './render-step-types'
 import { createLogger } from '../../../utils/logger'
 import { normalizeTimings } from '../../../utils/timings'
+import { getCurrentJobTokenUsage } from '../../../services/job-log-context'
 
 const logger = createLogger('StorageStep')
 
@@ -38,6 +39,7 @@ export async function storeResult(
   } = renderResult
 
   const normalizedTimings = normalizeTimings(timings)
+  const tokenUsage = getCurrentJobTokenUsage()
   await ensureJobNotCancelled(jobId)
 
   const storeOutcome = await storeJobResult(jobId, {
@@ -55,7 +57,8 @@ export async function storeResult(
       quality: quality as any,
       generationType: generationType as any,
       renderPeakMemoryMB,
-      timings: normalizedTimings
+      timings: normalizedTimings,
+      tokenUsage
     }
   })
   logger.info('Result storage resolved', { jobId, outputMode, videoUrl, imageCount, storeOutcome })

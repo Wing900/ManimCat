@@ -23,6 +23,7 @@ import type { GenerationResult } from './analysis-step'
 import type { CustomApiConfig, PromptOverrides, VideoConfig } from '../../../types'
 import type { RenderResult } from './render-step-types'
 import { executeRenderWithRetry } from './render-with-retry'
+import { extractCodeContext } from '../../../services/code-retry/utils'
 
 const logger = createLogger('RenderVideoStep')
 
@@ -156,7 +157,7 @@ export async function renderVideo(
     lastRenderPeakMemoryMB = result.peakMemoryMB
     return {
       ...result,
-      codeSnippet: cleaned.code
+      codeSnippet: result.success ? undefined : extractCodeContext(cleaned.code, result.stderr)
     }
   }
 

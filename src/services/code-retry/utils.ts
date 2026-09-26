@@ -98,6 +98,30 @@ export function extractTargetLine(errorMessage: string): number | undefined {
   return Number.isFinite(line) && line > 0 ? line : undefined
 }
 
+export function extractCodeContext(
+  code: string,
+  errorMessage: string,
+  contextLines = 20,
+  maxLength = 6000
+): string | undefined {
+  const lines = code.split(/\r?\n/)
+  const sourceFrames = [...errorMessage.matchAll(/File\s+["']([^"']+\.py)["'],\s+line\s+(\d+)/gi)]
+  const projectFrame = sourceFrames.find((match) => !/[\\/](?:site-packages|dist-packages|manim)[\\/]/i.test(match[1]))
+  const richFrame = errorMessage.match(/[│|]\s*(?:❱|>)\s*(\d+)\s+/)
+  const candidate = projectFrame?.[2] || richFrame?.[1]
+  const targetLine = candidate ? Number.parseInt(candidate, 10) : extractTargetLine(errorMessage)
+
+  if (typeof targetLine !== 'number' || !Number.isFinite(targetLine) || targetLine < 1 || targetLine > lines.length) {
+    return undefined
+  }
+
+  const start = Math.max(0, targetLine - contextLines - 1)
+  const end = Math.min(lines.length, targetLine + contextLines)
+  const snippet = lines.slice(start, end).join('\n').trim()
+  if (!snippet) return undefined
+  return snippet.length <= maxLength ? snippet : snippet.slice(0, maxLength)
+}
+
 export function applyPatchToCode(code: string, patch: CodePatch, targetLine?: number): string {
   const matches: number[] = []
   let searchIndex = 0
@@ -138,6 +162,7 @@ export function getErrorType(stderr: string): string {
   if (!stderr) return 'Unknown'
 
   const errorPatterns = [
+    { name: 'MemoryError', pattern: /MemoryError|Unable to allocate|out of memory/i },
     { name: 'NameError', pattern: /NameError/i },
     { name: 'SyntaxError', pattern: /SyntaxError/i },
     { name: 'AttributeError', pattern: /AttributeError/i },

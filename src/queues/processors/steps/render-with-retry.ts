@@ -77,8 +77,11 @@ export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): 
     }
 
     if (!retryManagerResult.success) {
+      const failurePrefix = retryManagerResult.retrySkipped
+        ? `AI retry skipped for ${retryManagerResult.failureCategory || 'operational'} failure`
+        : `Code retry failed after ${retryManagerResult.attempts} attempts`
       throw new Error(
-        `Code retry failed after ${retryManagerResult.attempts} attempts: ${retryManagerResult.lastError}`
+        `${failurePrefix}: ${retryManagerResult.lastError}`
       )
     }
 

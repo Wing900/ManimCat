@@ -12,6 +12,7 @@ import type { OutputMode, PromptOverrides } from '../../types'
 import { extractErrorContext, extractErrorMessage, getErrorType } from './utils'
 import { retryCodeGeneration } from './code-generation'
 import { JobCancelledError } from '../../utils/errors'
+import { classifyRenderFailure } from './render-failure-policy'
 
 const logger = createLogger('CodeRetryManager')
 
@@ -65,7 +66,7 @@ export async function executeCodeRetry(
   }
 
   let renderResult = await renderer(currentCode)
-  let currentCodeSnippet = renderResult.codeSnippet || currentCode
+  let currentCodeSnippet = renderResult.codeSnippet
 
   if (renderResult.success) {
     logger.info('Initial render succeeded')
@@ -77,7 +78,7 @@ export async function executeCodeRetry(
       await onRenderFailure({
         attempt: 1,
         code: currentCode,
-        codeSnippet: renderResult.codeSnippet || currentCode,
+        codeSnippet: renderResult.codeSnippet,
         stderr: renderResult.stderr,
         stdout: renderResult.stdout,
         peakMemoryMB: renderResult.peakMemoryMB,
@@ -90,7 +91,24 @@ export async function executeCodeRetry(
 
   let errorMessage = extractErrorContext(renderResult.stderr)
   let errorType = getErrorType(renderResult.stderr)
+  const failureDecision = classifyRenderFailure(renderResult.stderr)
   logger.warn('Initial render failed', { errorType, error: errorMessage })
+
+  if (!failureDecision.allowAiRepair) {
+    logger.warn('Skipping AI code retry for non-repairable render failure', {
+      category: failureDecision.category,
+      reason: failureDecision.reason
+    })
+    return {
+      code: currentCode,
+      success: false,
+      attempts: 1,
+      generationTimeMs,
+      lastError: `${failureDecision.reason}: ${extractErrorMessage(renderResult.stderr)}`,
+      failureCategory: failureDecision.category,
+      retrySkipped: true
+    }
+  }
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     logger.info('Starting retry patch attempt', {
@@ -121,7 +139,7 @@ export async function executeCodeRetry(
       }
 
       renderResult = await renderer(currentCode)
-      currentCodeSnippet = renderResult.codeSnippet || currentCode
+      currentCodeSnippet = renderResult.codeSnippet
 
       if (renderResult.success) {
         logger.info('Retry render succeeded', { attempt: attempt + 1 })

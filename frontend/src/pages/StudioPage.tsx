@@ -140,11 +140,12 @@ export function StudioPage({
         </div>
       </div>
 
-      {status === 'completed' && (
+      {(status === 'completed' || result?.token_usage) && (
         <TimingPanel
           timings={result?.timings}
           submittedAt={result?.submitted_at ?? submittedAt}
           finishedAt={result?.finished_at ?? null}
+          tokenUsage={result?.token_usage}
         />
       )}
 

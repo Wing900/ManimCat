@@ -1,20 +1,11 @@
 import { AsyncLocalStorage } from 'async_hooks'
-
-export interface TokenUsageEntry {
-  label: string
-  model?: string
-  mode: 'stream' | 'stream-partial' | 'non-stream'
-  maxTokens?: number
-  promptTokens: number | null
-  completionTokens: number | null
-  totalTokens: number | null
-}
+import type { JobTokenUsageCall, JobTokenUsageSummary } from '../types'
 
 interface JobLogContext {
   jobId: string
   outputMode: string
   attempts: number
-  tokenUsages: TokenUsageEntry[]
+  tokenUsages: JobTokenUsageCall[]
 }
 
 const storage = new AsyncLocalStorage<JobLogContext>()
@@ -71,14 +62,8 @@ export function getCurrentJobLogSummary(): {
   jobId: string
   outputMode: string
   attempts: number
-  calls: TokenUsageEntry[]
-  totals: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-    measuredCalls: number
-    unmeasuredCalls: number
-  }
+  calls: JobTokenUsageCall[]
+  totals: JobTokenUsageSummary['totals']
 } | null {
   const context = storage.getStore()
   if (!context) {
@@ -119,3 +104,13 @@ export function getCurrentJobLogSummary(): {
   }
 }
 
+export function getCurrentJobTokenUsage(): JobTokenUsageSummary | undefined {
+  const summary = getCurrentJobLogSummary()
+  if (!summary || summary.calls.length === 0) {
+    return undefined
+  }
+  return {
+    totals: summary.totals,
+    calls: summary.calls
+  }
+}

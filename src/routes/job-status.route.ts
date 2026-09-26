@@ -81,6 +81,7 @@ router.get(
         generation_type: result.data.generationType,
         render_peak_memory_mb: result.data.renderPeakMemoryMB,
         timings: result.data.timings,
+        token_usage: result.data.tokenUsage,
       })
     }
 
@@ -98,6 +99,7 @@ router.get(
         error: result.data.error,
         details: result.data.details,
         cancel_reason: result.data.cancelReason,
+        token_usage: result.data.tokenUsage,
       })
     }
 

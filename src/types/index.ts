@@ -113,6 +113,7 @@ export interface CompletedJobResult {
     generationType: GenerationType
     renderPeakMemoryMB?: number
     timings?: JobTimings
+    tokenUsage?: JobTokenUsageSummary
   }
   timestamp: number
 }
@@ -127,11 +128,33 @@ export interface FailedJobResult {
     details?: string
     cancelReason?: string
     outputMode?: OutputMode
+    tokenUsage?: JobTokenUsageSummary
   }
   timestamp: number
 }
 
 export type JobResult = CompletedJobResult | FailedJobResult
+
+export interface JobTokenUsageCall {
+  label: string
+  model?: string
+  mode: 'stream' | 'stream-partial' | 'non-stream'
+  maxTokens?: number
+  promptTokens: number | null
+  completionTokens: number | null
+  totalTokens: number | null
+}
+
+export interface JobTokenUsageSummary {
+  totals: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+    measuredCalls: number
+    unmeasuredCalls: number
+  }
+  calls: JobTokenUsageCall[]
+}
 
 /**
  * Cached completed render metadata.
@@ -212,6 +235,7 @@ export interface JobStatusCompletedResponse {
   generation_type: GenerationType
   render_peak_memory_mb?: number
   timings?: JobTimings
+  token_usage?: JobTokenUsageSummary
 }
 
 /**
@@ -229,6 +253,7 @@ export interface JobStatusFailedResponse {
   error: string
   details?: string
   cancel_reason?: string
+  token_usage?: JobTokenUsageSummary
 }
 
 export type JobStatusResponse =

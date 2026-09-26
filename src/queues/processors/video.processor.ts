@@ -12,7 +12,7 @@ import { createLogger } from '../../utils/logger'
 import type { VideoJobData } from '../../types'
 import { runEditFlow, runGenerationFlow, runPreGeneratedFlow } from './video-processor-flows-static'
 import { getRetryMeta, shouldDisableQueueRetry, storeProcessingStage } from './video-processor-utils'
-import { getCurrentJobLogSummary, runWithJobLogContext } from '../../services/job-log-context'
+import { getCurrentJobLogSummary, getCurrentJobTokenUsage, runWithJobLogContext } from '../../services/job-log-context'
 
 const logger = createLogger('VideoProcessor')
 const activeExecutions = new Map<string, Promise<unknown>>()
@@ -185,7 +185,12 @@ async function executeVideoJob(job: any): Promise<unknown> {
 
     const storeOutcome = await storeJobResult(jobId, {
       status: 'failed',
-      data: { error: errorMessage, cancelReason, outputMode }
+      data: {
+        error: errorMessage,
+        cancelReason,
+        outputMode,
+        tokenUsage: getCurrentJobTokenUsage()
+      }
     })
     if (!cancelReason) {
       await clearJobCancelled(jobId)

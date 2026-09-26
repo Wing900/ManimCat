@@ -1,5 +1,6 @@
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
 import type { ManimApiRequest } from '../manim-api'
+import type { RenderFailureCategory } from './render-failure-policy'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -53,6 +54,8 @@ export interface RetryManagerResult {
   attempts: number
   generationTimeMs?: number
   lastError?: string
+  failureCategory?: RenderFailureCategory
+  retrySkipped?: boolean
 }
 
 export type RetryCheckpoint = () => Promise<void>
