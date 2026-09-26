@@ -36,7 +36,21 @@ export function toPublicStudioSnapshot(snapshot: StudioSessionSnapshot): PublicS
   }
 }
 
+/**
+ * Public transport sanitizer. The SSE path publishes internal Run objects, so `run.updated`
+ * must be re-derived through `toPublicStudioRun`; `ownerId` never leaves the server.
+ */
 export function toPublicStudioEvent(event: StudioExternalEvent): StudioExternalEvent {
+  if (event.type === 'run.updated') {
+    return {
+      ...event,
+      properties: {
+        ...event.properties,
+        run: toPublicStudioRun(event.properties.run as StudioRun),
+      },
+    }
+  }
+
   if (event.type !== 'render.updated') {
     return event
   }

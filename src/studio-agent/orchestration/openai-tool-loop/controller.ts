@@ -1,5 +1,6 @@
 import type { StudioProcessorStreamEvent } from '../../domain/types'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
+import { StudioTokenUsageTracker } from '../../runs/studio-token-usage-tracker'
 import { determineStudioAgentLoopAction } from './loop-policy'
 import { appendStudioAssistantConversationTurn, emitStudioAssistantText } from './message-assembly'
 import { createStudioLoopFinishStepEvent, logStudioLoopStepFinished } from './observability'
@@ -19,6 +20,11 @@ export async function* createStudioOpenAIToolLoop(
 ): AsyncGenerator<StudioProcessorStreamEvent> {
   const runtime = await createStudioLoopRuntime(input)
   const checkpoints = new StudioLoopCheckpointManager(input)
+  const onCheckpoint = input.onCheckpoint
+  const usageTracker = new StudioTokenUsageTracker({
+    initialUsage: input.run.tokenUsage,
+    checkpoint: onCheckpoint ? (usage) => onCheckpoint({ tokenUsage: usage }) : undefined
+  })
   logTimeline(input.session.studioKind, 'loop.started', `maxSteps=${runtime.maxSteps}`)
 
   for (let step = 0; step < runtime.maxSteps; step += 1) {
@@ -41,7 +47,8 @@ export async function* createStudioOpenAIToolLoop(
       runtime,
       request,
       step,
-      stepStartedAt
+      stepStartedAt,
+      usageTracker
     })
 
     await persistStudioProviderSnapshot(input, runtime.currentAssistantMessage, result.message)

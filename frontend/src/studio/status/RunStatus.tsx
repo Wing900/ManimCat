@@ -2,6 +2,7 @@ import { useI18n } from '../../i18n'
 import { translateEventStatus, translateRenderStatus, translateRunStatus, translateSnapshotStatus } from '../labels'
 import type { StudioRender, StudioRun } from '../protocol/studio-agent-types'
 import { studioStatusBadge, truncateStudioText } from '../theme'
+import { StudioTokenUsageView } from './StudioTokenUsageView'
 
 interface RunStatusProps {
   latestRun: StudioRun | null
@@ -38,6 +39,8 @@ export function RunStatus({ latestRun, render, latestAssistantText, snapshotStat
           <StatusRow label={t('studio.pipeline.eventStream')} value={translateEventStatus(eventStatus, t)} tone={eventStatus} />
           <StatusRow label={t('studio.pipeline.snapshot')} value={translateSnapshotStatus(snapshotStatus, t)} tone={snapshotStatus} />
         </div>
+
+        {latestRun?.tokenUsage && <StudioTokenUsageView usage={latestRun.tokenUsage} />}
 
         {errorMessage && <MessageBlock tone="rose" text={errorMessage} />}
         {latestAssistantText && <MessageBlock tone="sky" text={truncateStudioText(latestAssistantText, 220)} />}

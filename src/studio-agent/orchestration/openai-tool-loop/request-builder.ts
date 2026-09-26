@@ -2,6 +2,7 @@ import type { StudioAssistantMessage } from '../../domain/types'
 import { createOpenAICompatibleStudioModelAdapter } from '../../model/studio-model-port'
 import { logTimeline } from '../../observability/plot-studio-timing'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
+import type { StudioTokenUsageTracker } from '../../runs/studio-token-usage-tracker'
 import { buildStudioAgentSystemPrompt } from '../studio-agent-prompt'
 import { buildStudioConversationMessages } from '../studio-message-history'
 import { persistProviderMessageSnapshot } from '../studio-provider-message'
@@ -61,6 +62,7 @@ export async function requestStudioLoopStep(input: {
   request: StudioLoopStepRequest
   step: number
   stepStartedAt: number
+  usageTracker: StudioTokenUsageTracker
 }): Promise<StudioLoopStepResult> {
   logStudioLoopStepStarted({
     loopInput: input.loopInput,
@@ -71,21 +73,25 @@ export async function requestStudioLoopStep(input: {
   })
   logTimeline(input.loopInput.session.studioKind, 'step.started', `step ${input.step + 1}, ${input.runtime.conversation.length} msgs`)
 
-  const completion = await input.runtime.modelPort.complete({
-    model: input.runtime.model,
-    messages: input.request.messages,
-    tools: input.runtime.tools,
-    toolChoice: input.runtime.toolChoice,
-    sessionId: input.loopInput.session.id,
-    runId: input.loopInput.run.id,
-    step: input.step + 1,
-    assistantMessageId: input.runtime.currentAssistantMessage.id,
-    studioKind: input.loopInput.session.studioKind,
-    runCreatedAt: input.loopInput.run.createdAt,
-    requestMessageCount: input.request.messages.length,
-    requestMessageCharsApprox: input.request.requestMessageCharsApprox,
-    requestToolSchemaCharsApprox: input.request.requestToolSchemaCharsApprox,
-    signal: input.loopInput.abortSignal,
+  // One provider invocation, one usage increment, checkpointed before the loop continues.
+  const completion = await input.usageTracker.trackProviderCall({
+    invoke: () => input.runtime.modelPort.complete({
+      model: input.runtime.model,
+      messages: input.request.messages,
+      tools: input.runtime.tools,
+      toolChoice: input.runtime.toolChoice,
+      sessionId: input.loopInput.session.id,
+      runId: input.loopInput.run.id,
+      step: input.step + 1,
+      assistantMessageId: input.runtime.currentAssistantMessage.id,
+      studioKind: input.loopInput.session.studioKind,
+      runCreatedAt: input.loopInput.run.createdAt,
+      requestMessageCount: input.request.messages.length,
+      requestMessageCharsApprox: input.request.requestMessageCharsApprox,
+      requestToolSchemaCharsApprox: input.request.requestToolSchemaCharsApprox,
+      signal: input.loopInput.abortSignal,
+    }),
+    readUsage: (response) => response.usage
   })
 
   const choice = completion.choices[0]

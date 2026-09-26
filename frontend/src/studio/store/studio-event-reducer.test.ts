@@ -343,4 +343,64 @@ describe('studioEventReducer', () => {
     expect(stored.entities.rendersById['render-1']).toEqual(render)
     expect(ignored.entities.rendersById['foreign-render']).toBeUndefined()
   })
+
+  it('replaces the stored run with newer cumulative token usage', () => {
+    const storedUsage = {
+      promptTokens: 40,
+      completionTokens: 10,
+      totalTokens: 50,
+      measuredCalls: 1,
+      unmeasuredCalls: 0,
+    }
+    const liveUsage = {
+      promptTokens: 130,
+      completionTokens: 30,
+      totalTokens: 160,
+      measuredCalls: 2,
+      unmeasuredCalls: 1,
+    }
+    const state = {
+      ...createInitialStudioState(),
+      entities: {
+        ...createInitialStudioState().entities,
+        session: createSessionMessage(),
+        runsById: { 'run-1': createRunMessage({ tokenUsage: storedUsage }) },
+        runOrder: ['run-1'],
+      },
+      runtime: {
+        ...createInitialStudioState().runtime,
+        activeRunId: 'run-1',
+      },
+    }
+
+    const live = studioEventReducer(state, {
+      type: 'event_received',
+      event: {
+        type: 'run.updated',
+        properties: {
+          sessionId: 'session-1',
+          run: createRunMessage({ tokenUsage: liveUsage }),
+        },
+      },
+    })
+    const finished = studioEventReducer(live, {
+      type: 'event_received',
+      event: {
+        type: 'run.updated',
+        properties: {
+          sessionId: 'session-1',
+          run: createRunMessage({
+            status: 'completed',
+            completedAt: '2026-03-22T00:00:09.000Z',
+            tokenUsage: { ...liveUsage, totalTokens: 210, measuredCalls: 3 },
+          }),
+        },
+      },
+    })
+
+    expect(live.entities.runsById['run-1']?.tokenUsage).toEqual(liveUsage)
+    expect(finished.entities.runsById['run-1']?.status).toBe('completed')
+    expect(finished.entities.runsById['run-1']?.tokenUsage).toEqual({ ...liveUsage, totalTokens: 210, measuredCalls: 3 })
+    expect(live.runtime.activeRunId).toBe('run-1')
+  })
 })

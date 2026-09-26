@@ -27,6 +27,14 @@ export interface StudioSession {
   updatedAt: string
 }
 
+export interface StudioTokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  measuredCalls: number
+  unmeasuredCalls: number
+}
+
 export interface StudioRun {
   id: string
   sessionId: string
@@ -37,6 +45,7 @@ export interface StudioRun {
   completedAt?: string
   error?: string
   metadata?: Record<string, unknown>
+  tokenUsage?: StudioTokenUsage
 }
 
 export interface StudioRender {

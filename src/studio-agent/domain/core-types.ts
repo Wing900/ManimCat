@@ -47,6 +47,22 @@ export interface StudioSession {
   updatedAt: string
 }
 
+/**
+ * Cumulative, provider-neutral Studio token accounting. One value per Studio run.
+ *
+ * A call is measured when the provider response carried at least one usable token
+ * counter, unmeasured when it carried none or the invocation threw. Individual missing
+ * counters contribute zero. `measuredCalls + unmeasuredCalls` equals the number of
+ * model invocations observed by the Studio loop.
+ */
+export interface StudioTokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  measuredCalls: number
+  unmeasuredCalls: number
+}
+
 export interface StudioRun {
   id: string
   ownerId: string
@@ -58,4 +74,5 @@ export interface StudioRun {
   completedAt?: string
   error?: string
   metadata?: Record<string, unknown>
+  tokenUsage?: StudioTokenUsage
 }

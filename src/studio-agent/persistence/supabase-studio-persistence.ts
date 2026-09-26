@@ -14,6 +14,7 @@ import type {
   StudioUserMessage,
 } from '../domain/types'
 import type { StudioPersistence } from './studio-persistence'
+import { readStudioTokenUsage } from '../runs/token-usage'
 
 const TABLES = {
   sessions: 'studio_sessions',
@@ -79,6 +80,8 @@ type StudioRunRow = {
   completed_at: string | null
   error: string | null
   metadata: JsonRecord | null
+  // Optional on purpose: rows written before migration 009 simply have no column.
+  token_usage?: JsonRecord | null
 }
 
 type StudioRenderRow = {
@@ -466,6 +469,8 @@ function fromRunRow(row: StudioRunRow): StudioRun {
     completedAt: asOptional(row.completed_at),
     error: asOptional(row.error),
     metadata: asOptional(row.metadata),
+    // Stored JSON is untrusted: malformed usage resolves to undefined, never to NaN.
+    tokenUsage: readStudioTokenUsage(row.token_usage)
   }
 }
 
@@ -585,6 +590,7 @@ function toRunRow(run: StudioRun): StudioRunRow {
     completed_at: asNullable(run.completedAt),
     error: asNullable(run.error),
     metadata: asNullable(run.metadata),
+    token_usage: run.tokenUsage ? (run.tokenUsage as unknown as JsonRecord) : null,
   }
 }
 
@@ -665,6 +671,7 @@ function toRunPatch(patch: Partial<StudioRun>) {
     completed_at: patch.completedAt,
     error: patch.error,
     metadata: patch.metadata,
+    token_usage: patch.tokenUsage ? (patch.tokenUsage as unknown as JsonRecord) : undefined,
   })
 }
 
