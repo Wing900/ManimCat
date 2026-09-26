@@ -4,7 +4,7 @@
  */
 
 import { videoQueue } from '../../config/bull'
-import { storeJobResult } from '../../services/job-store'
+import { storeJobResult, touchJobTracking } from '../../services/job-store'
 import { clearJobCancelled } from '../../services/job-cancel-store'
 import { createHistory } from '../../database'
 import { JobCancelledError } from '../../utils/errors'
@@ -15,6 +15,8 @@ import { getRetryMeta, shouldDisableQueueRetry, storeProcessingStage } from './v
 import { getCurrentJobLogSummary, runWithJobLogContext } from '../../services/job-log-context'
 
 const logger = createLogger('VideoProcessor')
+const activeExecutions = new Map<string, Promise<unknown>>()
+const JOB_HEARTBEAT_MS = 15_000
 
 function emitJobSummary(args: {
   jobId: string
@@ -57,7 +59,7 @@ function emitJobSummary(args: {
   })
 }
 
-videoQueue.process(async (job) => {
+async function executeVideoJob(job: any): Promise<unknown> {
   const data = job.data as VideoJobData
   const contextAttempt = typeof job.attemptsMade === 'number' ? job.attemptsMade + 1 : 1
 
@@ -181,14 +183,28 @@ videoQueue.process(async (job) => {
       maxAttempts: currentRetryMeta.maxAttempts
     })
 
-    await storeJobResult(jobId, {
+    const storeOutcome = await storeJobResult(jobId, {
       status: 'failed',
       data: { error: errorMessage, cancelReason, outputMode }
     })
-    await clearJobCancelled(jobId)
+    if (!cancelReason) {
+      await clearJobCancelled(jobId)
+    }
+
+    if (storeOutcome === 'preserved-completed') {
+      logger.warn('Duplicate execution failed after a completed result; preserving success', {
+        jobId,
+        error: errorMessage,
+        currentAttempt: currentRetryMeta.currentAttempt,
+      })
+      return {
+        success: true,
+        source: 'preserved-completed-result',
+      }
+    }
 
     // 写入持久化历史记录（保存错误原因和提示词）
-    if (data.clientId) {
+    if (data.clientId && storeOutcome === 'stored') {
       try {
         await createHistory({
           client_id: data.clientId,
@@ -219,4 +235,34 @@ videoQueue.process(async (job) => {
   }
     }
   )
+}
+
+videoQueue.process(async (job) => {
+  const data = job.data as VideoJobData
+  const jobId = data.jobId || String(job.id)
+  const activeExecution = activeExecutions.get(jobId)
+
+  if (activeExecution) {
+    logger.warn('Duplicate Bull execution joined the existing in-process job', {
+      jobId,
+      attemptsMade: job.attemptsMade,
+    })
+    return activeExecution
+  }
+
+  const execution = executeVideoJob(job)
+  activeExecutions.set(jobId, execution)
+  const heartbeat = setInterval(() => {
+    void touchJobTracking(jobId, (job.attemptsMade ?? 0) + 1)
+  }, JOB_HEARTBEAT_MS)
+  heartbeat.unref()
+
+  try {
+    return await execution
+  } finally {
+    clearInterval(heartbeat)
+    if (activeExecutions.get(jobId) === execution) {
+      activeExecutions.delete(jobId)
+    }
+  }
 })

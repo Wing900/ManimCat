@@ -85,3 +85,7 @@ export async function getJobAccessCreatedAt(jobId: string): Promise<number | nul
     return null
   }
 }
+
+export async function deleteJobAccess(jobId: string): Promise<void> {
+  await redisClient.del(generateRedisKey(JOB_ACCESS_KEY_PREFIX, jobId))
+}

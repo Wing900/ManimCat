@@ -30,8 +30,16 @@ router.post(
     })
 
     const result = await cancelJob(jobId)
-    const status = result.jobState == 'completed' ? 'completed' : 'cancelled'
-    const message = status == 'completed' ? 'Job already completed' : 'Job cancelled'
+    const status = result.jobState === 'completed'
+      ? 'completed'
+      : result.jobState === 'failed'
+        ? 'failed'
+        : 'cancelled'
+    const message = status === 'completed'
+      ? 'Job already completed'
+      : status === 'failed'
+        ? 'Job already failed'
+        : 'Job cancelled'
 
     res.status(200).json({
       success: true,

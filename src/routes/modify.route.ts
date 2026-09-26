@@ -7,7 +7,7 @@ import express from 'express'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { videoQueue } from '../config/bull'
-import { storeJobStage } from '../services/job-store'
+import { deleteJobStage, storeJobStage } from '../services/job-store'
 import { recordUsageSubmission } from '../services/usage-metrics'
 import { createLogger } from '../utils/logger'
 import { ValidationError } from '../utils/errors'
@@ -25,7 +25,7 @@ import {
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
-import { storeJobAccess } from '../services/job-access-store'
+import { deleteJobAccess, storeJobAccess } from '../services/job-access-store'
 import { buildClassicRenderCacheKey } from '../utils/render-cache-workspace'
 
 const router = express.Router()
@@ -104,33 +104,41 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     submittedAt
   })
 
-  await videoQueue.add(
-    {
-      jobId,
-      concept: sanitizedConcept,
-      outputMode,
-      quality,
-      editCode: code,
-      editInstructions: sanitizedInstructions,
-      customApiConfig: effectiveCustomApiConfig,
-      promptOverrides,
-      videoConfig,
-      clientId,
-      renderCacheKey: stableRenderCacheKey,
-      timestamp: submittedAt
-    },
-    {
-      jobId,
-      timeout: resolveJobTimeoutMs(videoConfig as any)
+  try {
+    if (authenticatedManimcatApiKey) {
+      await storeJobAccess({
+        jobId,
+        apiKey: authenticatedManimcatApiKey,
+        clientId,
+      })
     }
-  )
 
-  if (authenticatedManimcatApiKey) {
-    await storeJobAccess({
-      jobId,
-      apiKey: authenticatedManimcatApiKey,
-      clientId,
-    })
+    await videoQueue.add(
+      {
+        jobId,
+        concept: sanitizedConcept,
+        outputMode,
+        quality,
+        editCode: code,
+        editInstructions: sanitizedInstructions,
+        customApiConfig: effectiveCustomApiConfig,
+        promptOverrides,
+        videoConfig,
+        clientId,
+        renderCacheKey: stableRenderCacheKey,
+        timestamp: submittedAt
+      },
+      {
+        jobId,
+        timeout: resolveJobTimeoutMs(videoConfig as any)
+      }
+    )
+  } catch (error) {
+    await Promise.allSettled([
+      deleteJobStage(jobId),
+      authenticatedManimcatApiKey ? deleteJobAccess(jobId) : Promise.resolve(),
+    ])
+    throw error
   }
 
   await recordUsageSubmission('modify', outputMode)

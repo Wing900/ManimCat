@@ -20,6 +20,7 @@ const logger = createLogger('OpenAIStream')
 const INCLUDE_STREAM_USAGE = process.env.OPENAI_STREAM_INCLUDE_USAGE === 'true'
 const STREAM_HEARTBEAT_MS = parseInt(process.env.OPENAI_STREAM_HEARTBEAT_MS || '15000', 10)
 const STREAM_IDLE_TIMEOUT_MS = parseInt(process.env.OPENAI_STREAM_IDLE_TIMEOUT_MS || '240000', 10)
+const STREAM_CONTENT_TIMEOUT_MS = parseInt(process.env.OPENAI_STREAM_CONTENT_TIMEOUT_MS || '240000', 10)
 
 interface MessageStats {
   messageCount: number
@@ -145,6 +146,7 @@ export async function createChatCompletionText(
   let lastChunkAt = startedAt
   let heartbeatTimer: NodeJS.Timeout | null = null
   let idleTimer: NodeJS.Timeout | null = null
+  let contentTimer: NodeJS.Timeout | null = null
 
   try {
     let usageTrackingEnabled = INCLUDE_STREAM_USAGE
@@ -219,6 +221,23 @@ export async function createChatCompletionText(
       }, checkEveryMs)
     }
 
+    if (Number.isFinite(STREAM_CONTENT_TIMEOUT_MS) && STREAM_CONTENT_TIMEOUT_MS > 0) {
+      contentTimer = setTimeout(() => {
+        if (receivedContent) return
+        logger.warn('OpenAI stream produced no content before deadline, aborting stream', {
+          model,
+          contentTimeoutMs: STREAM_CONTENT_TIMEOUT_MS,
+          chunkCount,
+          elapsedMs: Date.now() - startedAt,
+        })
+        try {
+          abortStream()
+        } catch (error) {
+          logger.warn('Failed to abort content-silent OpenAI stream', { model, error: String(error) })
+        }
+      }, STREAM_CONTENT_TIMEOUT_MS)
+    }
+
     for await (const chunk of stream) {
       chunkCount += 1
       lastChunkAt = Date.now()
@@ -250,6 +269,10 @@ export async function createChatCompletionText(
       clearInterval(idleTimer)
       idleTimer = null
     }
+    if (contentTimer) {
+      clearTimeout(contentTimer)
+      contentTimer = null
+    }
 
     logger.info('OpenAI chat stream completed', {
       model,
@@ -280,6 +303,10 @@ export async function createChatCompletionText(
     if (idleTimer) {
       clearInterval(idleTimer)
       idleTimer = null
+    }
+    if (contentTimer) {
+      clearTimeout(contentTimer)
+      contentTimer = null
     }
 
     logger.warn('OpenAI chat stream failed', {

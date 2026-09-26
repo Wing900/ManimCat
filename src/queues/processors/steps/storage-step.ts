@@ -40,7 +40,7 @@ export async function storeResult(
   const normalizedTimings = normalizeTimings(timings)
   await ensureJobNotCancelled(jobId)
 
-  await storeJobResult(jobId, {
+  const storeOutcome = await storeJobResult(jobId, {
     status: 'completed',
     data: {
       outputMode,
@@ -58,9 +58,9 @@ export async function storeResult(
       timings: normalizedTimings
     }
   })
-  logger.info('Result stored', { jobId, outputMode, videoUrl, imageCount })
+  logger.info('Result storage resolved', { jobId, outputMode, videoUrl, imageCount, storeOutcome })
 
-  if (clientId) {
+  if (clientId && storeOutcome === 'stored') {
     try {
       await createHistory({
         client_id: clientId,

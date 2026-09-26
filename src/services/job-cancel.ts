@@ -6,13 +6,24 @@
 import { videoQueue } from '../config/bull'
 import { createLogger } from '../utils/logger'
 import { JobCancelledError } from '../utils/errors'
-import { clearJobCancelled, getCancelReason, isJobCancelled, markJobCancelled } from './job-cancel-store'
+import { getCancelReason, isJobCancelled, markJobCancelled } from './job-cancel-store'
 import { cancelManimProcess } from '../utils/manim-process-registry'
 import { deleteJobStage, getJobResult, storeJobResult } from './job-store'
 import { createHistory } from '../database'
 import type { OutputMode } from '../types'
 
 const logger = createLogger('JobCancel')
+
+async function stopDuplicateExecution(jobId: string, terminalStatus: 'completed' | 'failed'): Promise<void> {
+  const duplicate = await videoQueue.getJob(jobId)
+  if (!duplicate || await duplicate.getState() !== 'active') return
+
+  await markJobCancelled(jobId, `Superseded by ${terminalStatus} result`)
+  duplicate.discard()
+  cancelManimProcess(jobId)
+  logger.warn('Signaled duplicate active execution after terminal result', { jobId, terminalStatus })
+}
+
 export async function ensureJobNotCancelled(jobId: string, job?: { discard: () => void }): Promise<void> {
   if (!(await isJobCancelled(jobId))) {
     return
@@ -31,15 +42,19 @@ export async function ensureJobNotCancelled(jobId: string, job?: { discard: () =
 export async function cancelJob(jobId: string): Promise<{ jobState: string | null }> {
   const existing = await getJobResult(jobId)
   if (existing?.status === 'completed') {
+    await stopDuplicateExecution(jobId, 'completed')
     return { jobState: 'completed' }
+  }
+  if (existing?.status === 'failed') {
+    await stopDuplicateExecution(jobId, 'failed')
+    return { jobState: 'failed' }
   }
 
   const cancelReason = 'Cancelled by client'
   await markJobCancelled(jobId, cancelReason)
 
   let jobState: string | null = null
-  let outputMode: OutputMode | undefined =
-    existing?.status === 'failed' ? existing.data.outputMode : undefined
+  let outputMode: OutputMode | undefined
   const job = await videoQueue.getJob(jobId)
 
   if (job) {
@@ -51,7 +66,6 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
 
     if (jobState === 'waiting' || jobState === 'delayed') {
       await job.remove()
-      await clearJobCancelled(jobId)
       logger.info('Removed pending job', { jobId, jobState })
     }
 
@@ -59,16 +73,12 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
       const killed = cancelManimProcess(jobId)
       logger.info('Signaled active job cancellation', { jobId, killed })
     }
-  } else {
-    await clearJobCancelled(jobId)
   }
 
-  if (!existing || existing.status != 'failed') {
-    await storeJobResult(jobId, {
-      status: 'failed',
-      data: { error: 'Job cancelled', cancelReason, outputMode }
-    })
-  }
+  await storeJobResult(jobId, {
+    status: 'failed',
+    data: { error: 'Job cancelled', cancelReason, outputMode }
+  })
 
   await deleteJobStage(jobId)
 

@@ -19,6 +19,10 @@ import { getRequestClientId } from '../utils/request-client-id'
 
 const router = express.Router()
 const logger = createLogger('JobStatusRoute')
+const configuredTrackingStaleMs = parseInt(process.env.JOB_TRACKING_STALE_MS || '60000', 10)
+const JOB_TRACKING_STALE_MS = Number.isFinite(configuredTrackingStaleMs) && configuredTrackingStaleMs > 0
+  ? configuredTrackingStaleMs
+  : 60_000
 
 /**
  * GET /api/jobs/:jobId
@@ -53,7 +57,50 @@ router.get(
     const attempt = tracking?.attempt ?? 1
     const updatedAt = tracking?.updatedAt
 
-    // 首先从 Bull 队列检查任务状态
+    // Terminal Result 是权威状态，Bull 中残留的 Active/Waiting 不得遮蔽终态。
+    const result = await getJobResult(jobId)
+
+    if (result?.status === 'completed') {
+      logger.info('任务成功完成', { jobId })
+      return res.status(200).json({
+        jobId,
+        status: 'completed' as const,
+        success: true as const,
+        submitted_at: submittedAt,
+        finished_at: new Date(result.timestamp).toISOString(),
+        updated_at: updatedAt,
+        revision,
+        attempt,
+        output_mode: result.data.outputMode || 'video',
+        video_url: result.data.videoUrl ?? null,
+        image_urls: result.data.imageUrls,
+        image_count: result.data.imageCount,
+        code: result.data.code,
+        used_ai: result.data.usedAI,
+        render_quality: result.data.quality,
+        generation_type: result.data.generationType,
+        render_peak_memory_mb: result.data.renderPeakMemoryMB,
+        timings: result.data.timings,
+      })
+    }
+
+    if (result?.status === 'failed') {
+      logger.info('任务失败', { jobId, error: result.data.error })
+      return res.status(200).json({
+        jobId,
+        status: 'failed' as const,
+        success: false as const,
+        submitted_at: submittedAt,
+        finished_at: new Date(result.timestamp).toISOString(),
+        updated_at: updatedAt,
+        revision,
+        attempt,
+        error: result.data.error,
+        details: result.data.details,
+        cancel_reason: result.data.cancelReason,
+      })
+    }
+
     const bullJobStatus = await getBullJobStatus(jobId)
 
     if (bullJobStatus === 'active' || bullJobStatus === 'waiting' || bullJobStatus === 'delayed') {
@@ -75,31 +122,21 @@ router.get(
       })
     }
 
-    // 从 Redis 读取最终结果
-    const result = await getJobResult(jobId)
+    const trackingAgeMs = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Number.POSITIVE_INFINITY
+    const trackingIsFresh = (
+      tracking?.status === 'queued' || tracking?.status === 'processing'
+    ) && Number.isFinite(trackingAgeMs) && trackingAgeMs <= JOB_TRACKING_STALE_MS
 
-    if (!result) {
-      // 任务不存在或已经清理
-      if (bullJobStatus === null) {
-        logger.debug('未找到任务 (可能因后端重启已清理)', { jobId })
-        return res.status(200).json({
-          jobId,
-          status: 'failed' as const,
-          success: false as const,
-          error: '任务已失效或不存在',
-          message: '任务已失效（后端服务可能已重启），请重新提交生成请求',
-          submitted_at: submittedAt,
-          finished_at: new Date().toISOString(),
-          updated_at: updatedAt,
-          revision,
-          attempt,
-        })
-      }
-      // 任务还在处理中
-      logger.debug('任务仍在处理中', { jobId })
+    if (trackingIsFresh) {
+      logger.warn('Bull 任务记录暂时缺失，使用新鲜的 Worker 心跳维持处理中状态', {
+        jobId,
+        trackingAgeMs,
+      })
+      const stage = tracking?.stage || await getJobStage(jobId)
       return res.status(200).json({
         jobId,
-        status: 'processing' as const,
+        status: tracking?.status === 'queued' ? 'queued' as const : 'processing' as const,
+        stage: stage || 'analyzing',
         message: '正在生成内容...',
         submitted_at: submittedAt,
         updated_at: updatedAt,
@@ -108,46 +145,18 @@ router.get(
       })
     }
 
-    if (result.status === 'completed') {
-      logger.info('任务成功完成', { jobId })
-        return res.status(200).json({
-          jobId,
-          status: 'completed' as const,
-          success: true as const,
-          submitted_at: submittedAt,
-          finished_at: new Date(result.timestamp).toISOString(),
-          updated_at: updatedAt,
-          revision,
-          attempt,
-          output_mode: result.data.outputMode || 'video',
-          video_url: result.data.videoUrl ?? null,
-          image_urls: result.data.imageUrls,
-          image_count: result.data.imageCount,
-          code: result.data.code,
-          used_ai: result.data.usedAI,
-          render_quality: result.data.quality,
-          generation_type: result.data.generationType,
-          render_peak_memory_mb: result.data.renderPeakMemoryMB,
-          timings: result.data.timings
-
-
-        })
-    }
-
-    // 任务失败
-    logger.info('任务失败', { jobId, error: result.data.error })
+    logger.warn('任务记录与 Worker 心跳均已失效', { jobId, bullJobStatus, trackingAgeMs })
     return res.status(200).json({
       jobId,
       status: 'failed' as const,
       success: false as const,
+      error: '任务已失效或不存在',
+      message: '任务执行记录与 Worker 心跳均已失效，请重新提交生成请求',
       submitted_at: submittedAt,
-      finished_at: new Date(result.timestamp).toISOString(),
+      finished_at: new Date().toISOString(),
       updated_at: updatedAt,
       revision,
       attempt,
-      error: result.data.error,
-      details: result.data.details,
-      cancel_reason: result.data.cancelReason
     })
   })
 )

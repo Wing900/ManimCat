@@ -74,6 +74,8 @@ export function useGeneration(): UseGenerationReturn {
   const abortControllerRef = useRef<AbortController | null>(null);
   const transientPollErrorCountRef = useRef(0);
   const latestRevisionRef = useRef(0);
+  const pollInFlightRef = useRef(false);
+  const pollSessionRef = useRef(0);
 
   const clearPolling = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -100,9 +102,11 @@ export function useGeneration(): UseGenerationReturn {
 
   const startPolling = useCallback((nextJobId: string, initialStage: ProcessingStage, initialSubmittedAt: string | null) => {
     clearPolling();
+    const pollSession = ++pollSessionRef.current;
     pollCountRef.current = 0;
     transientPollErrorCountRef.current = 0;
     latestRevisionRef.current = 0;
+    pollInFlightRef.current = false;
     setJobId(nextJobId);
     setStatus('processing');
     setError(null);
@@ -110,10 +114,17 @@ export function useGeneration(): UseGenerationReturn {
     syncTransientStage(nextJobId, initialStage, initialSubmittedAt);
 
     pollIntervalRef.current = window.setInterval(async () => {
+      if (pollInFlightRef.current) {
+        return;
+      }
+      pollInFlightRef.current = true;
       pollCountRef.current += 1;
 
       try {
         const data = await getJobStatus(nextJobId, abortControllerRef.current?.signal);
+        if (pollSession !== pollSessionRef.current) {
+          return;
+        }
         transientPollErrorCountRef.current = 0;
         if (typeof data.revision === 'number') {
           if (data.revision < latestRevisionRef.current) {
@@ -152,6 +163,9 @@ export function useGeneration(): UseGenerationReturn {
           persistActiveJob(nextJobId);
         }
       } catch (err) {
+        if (pollSession !== pollSessionRef.current) {
+          return;
+        }
         if (err instanceof Error && err.name === 'AbortError') {
           return;
         }
@@ -190,6 +204,10 @@ export function useGeneration(): UseGenerationReturn {
         setStatus('error');
         setSubmittedAt(null);
         setError(err instanceof Error ? localizeApiMessage(err.message) : t('api.jobStatusFailed'));
+      } finally {
+        if (pollSession === pollSessionRef.current) {
+          pollInFlightRef.current = false;
+        }
       }
     }, POLL_INTERVAL);
   }, [clearActiveJob, clearPolling, persistActiveJob, syncTransientStage, t]);
@@ -213,6 +231,9 @@ export function useGeneration(): UseGenerationReturn {
     initialStage: ProcessingStage,
     fallbackMessage: string,
   ) => {
+    clearPolling();
+    pollSessionRef.current += 1;
+    pollInFlightRef.current = false;
     setStatus('processing');
     setError(null);
     setResult(null);
@@ -245,7 +266,7 @@ export function useGeneration(): UseGenerationReturn {
       setSubmittedAt(null);
       setError(err instanceof Error ? err.message : fallbackMessage);
     }
-  }, [clearActiveJob, locale, startPolling, t]);
+  }, [clearActiveJob, clearPolling, locale, startPolling, t]);
 
   const generate = useCallback(async (request: GenerateRequest) => {
     await submitGeneration(
@@ -276,6 +297,8 @@ export function useGeneration(): UseGenerationReturn {
 
   const reset = useCallback(() => {
     clearPolling();
+    pollSessionRef.current += 1;
+    pollInFlightRef.current = false;
     abortControllerRef.current?.abort();
     clearActiveJob();
     setStatus('idle');
@@ -296,6 +319,8 @@ export function useGeneration(): UseGenerationReturn {
     }
 
     clearPolling();
+    pollSessionRef.current += 1;
+    pollInFlightRef.current = false;
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     setStatus('cancelling');

@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { createLogger } from './logger'
 import {
   registerManimProcess,
+  terminateManimProcess,
   unregisterManimProcess,
   wasManimProcessCancelled
 } from './manim-process-registry'
@@ -17,6 +18,7 @@ import {
 } from './manim-executor-runtime'
 
 const logger = createLogger('ManimExecutor')
+const FATAL_MANIM_ERROR_PATTERN = /(?:MemoryError:|Unable to allocate[^\r\n]*array|Fatal Python error:)/i
 
 export interface ManimExecutionResult {
   success: boolean
@@ -59,6 +61,7 @@ export function executeManimCommand(
     const memoryMonitor = startMemoryMonitor(proc, normalizedOptions, state)
     let timeoutTimer: NodeJS.Timeout | null = null
     let settled = false
+    let fatalErrorDetected = false
 
     const settle = (result: ManimExecutionResult): void => {
       if (settled) {
@@ -80,6 +83,15 @@ export function executeManimCommand(
 
     proc.stderr.on('data', (data) => {
       handleStderrData(state, normalizedOptions.jobId, data.toString())
+      if (!fatalErrorDetected && FATAL_MANIM_ERROR_PATTERN.test(state.stderr.slice(-16_000))) {
+        fatalErrorDetected = true
+        logger.error(`Job ${normalizedOptions.jobId}: fatal Manim runtime error, terminating process tree`, {
+          peakMemoryMB: state.peakMemoryMB,
+          stderrPreview: state.stderr.slice(-1000),
+        })
+        terminateManimProcess(normalizedOptions.jobId)
+        settle(buildResult(false, state))
+      }
     })
 
     timeoutTimer = setTimeout(() => {
@@ -89,7 +101,7 @@ export function executeManimCommand(
         peakMemoryMB: state.peakMemoryMB
       })
 
-      proc.kill('SIGKILL')
+      terminateManimProcess(normalizedOptions.jobId)
 
       settle(
         buildResult(

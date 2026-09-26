@@ -3,9 +3,25 @@
  * Manim 子进程管理
  */
 
-import type { ChildProcess } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
 
 const activeProcesses = new Map<string, { proc: ChildProcess; cancelled: boolean }>()
+
+function killProcessTree(proc: ChildProcess): boolean {
+  try {
+    if (process.platform === 'win32' && proc.pid) {
+      const killer = spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      })
+      killer.unref()
+      return true
+    }
+    return proc.kill('SIGKILL')
+  } catch {
+    return false
+  }
+}
 
 export function registerManimProcess(jobId: string, proc: ChildProcess): void {
   activeProcesses.set(jobId, { proc, cancelled: false })
@@ -23,13 +39,7 @@ export function cancelManimProcess(jobId: string): boolean {
 
   entry.cancelled = true
 
-  try {
-    entry.proc.kill('SIGKILL')
-  } catch {
-    return false
-  }
-
-  return true
+  return killProcessTree(entry.proc)
 }
 
 export function terminateManimProcess(jobId: string): boolean {
@@ -38,13 +48,7 @@ export function terminateManimProcess(jobId: string): boolean {
     return false
   }
 
-  try {
-    entry.proc.kill('SIGKILL')
-  } catch {
-    return false
-  }
-
-  return true
+  return killProcessTree(entry.proc)
 }
 
 export function wasManimProcessCancelled(jobId: string): boolean {

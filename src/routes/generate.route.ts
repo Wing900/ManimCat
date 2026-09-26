@@ -13,7 +13,7 @@
 import express from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { videoQueue } from '../config/bull'
-import { storeJobStage } from '../services/job-store'
+import { deleteJobStage, storeJobStage } from '../services/job-store'
 import { recordUsageSubmission } from '../services/usage-metrics'
 import { createLogger } from '../utils/logger'
 import { ValidationError } from '../utils/errors'
@@ -31,7 +31,7 @@ import {
 } from '../workflow/generation/request-preparation'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
-import { storeJobAccess } from '../services/job-access-store'
+import { deleteJobAccess, storeJobAccess } from '../services/job-access-store'
 import { buildClassicRenderCacheKey } from '../utils/render-cache-workspace'
 
 const router = express.Router()
@@ -118,35 +118,42 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     submittedAt
   })
 
-  // 添加任务到 Bull 队列
-  await videoQueue.add(
-    {
-      jobId,
-      concept: queuedConcept,
-      problemPlan,
-      outputMode,
-      quality,
-      referenceImages: sanitizedReferenceImages,
-      preGeneratedCode: code,
-      customApiConfig: effectiveCustomApiConfig,
-      promptOverrides,
-      videoConfig,
-      clientId,
-      renderCacheKey: stableRenderCacheKey,
-      timestamp: submittedAt
-    },
-    {
-      jobId,
-      timeout: resolveJobTimeoutMs(videoConfig as any)
+  try {
+    if (authenticatedManimcatApiKey) {
+      await storeJobAccess({
+        jobId,
+        apiKey: authenticatedManimcatApiKey,
+        clientId,
+      })
     }
-  )
 
-  if (authenticatedManimcatApiKey) {
-    await storeJobAccess({
-      jobId,
-      apiKey: authenticatedManimcatApiKey,
-      clientId,
-    })
+    await videoQueue.add(
+      {
+        jobId,
+        concept: queuedConcept,
+        problemPlan,
+        outputMode,
+        quality,
+        referenceImages: sanitizedReferenceImages,
+        preGeneratedCode: code,
+        customApiConfig: effectiveCustomApiConfig,
+        promptOverrides,
+        videoConfig,
+        clientId,
+        renderCacheKey: stableRenderCacheKey,
+        timestamp: submittedAt
+      },
+      {
+        jobId,
+        timeout: resolveJobTimeoutMs(videoConfig as any)
+      }
+    )
+  } catch (error) {
+    await Promise.allSettled([
+      deleteJobStage(jobId),
+      authenticatedManimcatApiKey ? deleteJobAccess(jobId) : Promise.resolve(),
+    ])
+    throw error
   }
 
   await recordUsageSubmission('generate', outputMode)
