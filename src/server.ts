@@ -12,6 +12,7 @@ import { createLogger } from './utils/logger'
 import { startMediaCleanupScheduler } from './services/media-cleanup'
 import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
+import { studioEventRuntime } from './studio-agent/runtime/runtime-service'
 
 // 导入队列处理器以启动 worker
 import './queues/processors/video.processor'
@@ -29,6 +30,9 @@ async function cleanupResources(): Promise<void> {
       stopMediaCleanupScheduler = null
     }
 
+    // Close the Studio event subscriber before the shared Redis client, so shutdown does not
+    // produce reconnect noise from a connection this process already owns. Idempotent.
+    await studioEventRuntime.close()
     await closeQueue()
     await redisClient.quit()
     appLogger.info('Graceful shutdown completed')
@@ -40,6 +44,10 @@ async function cleanupResources(): Promise<void> {
 
 async function startServer(): Promise<void> {
   try {
+    // Subscribe to the Studio event transport before HTTP/SSE traffic is accepted, so no
+    // client attaches to a replica that is not yet receiving cross-instance events. A
+    // configured Redis subscription failure rejects here and aborts startup.
+    await studioEventRuntime.start()
     await initializeExpressApp(app, appLogger)
 
     if (!stopMediaCleanupScheduler) {
@@ -60,6 +68,12 @@ async function startServer(): Promise<void> {
     // when production summary-only logging filters non-summary entries.
     console.error('[StartupFatal]', error)
     appLogger.error('Failed to start server', { error })
+    // Release resources created before the failure (owned subscriber included) before exiting.
+    try {
+      await studioEventRuntime.close()
+    } catch (closeError) {
+      appLogger.warn('Failed to close the Studio event transport during startup failure', { error: closeError })
+    }
     process.exit(1)
   }
 }

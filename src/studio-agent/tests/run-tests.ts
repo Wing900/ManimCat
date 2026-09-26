@@ -8,6 +8,7 @@ import { runKnowledgeTests } from './run-tests/knowledge.test'
 import { runMatplotlibKnowledgeTests } from './run-tests/matplotlib-knowledge.test'
 import { runStaticCheckTests } from './run-tests/static-check.test'
 import { runTokenUsageTests } from './run-tests/token-usage.test'
+import { runDistributedEventTests } from './run-tests/distributed-events.test'
 import { runPersistenceTests } from './run-tests/persistence.test'
 
 async function main() {
@@ -21,6 +22,7 @@ async function main() {
   await runMatplotlibKnowledgeTests()
   await runStaticCheckTests()
   await runTokenUsageTests()
+  await runDistributedEventTests()
   await runPersistenceTests()
   console.log('All studio-agent tests passed')
 }

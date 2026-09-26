@@ -29,9 +29,17 @@ services:
       args:
         - NODE_ENV=production
     image: manimcat:latest
-    container_name: manimcat
+    # No fixed container_name: keeping it would prevent `docker compose up --scale manimcat=N`.
+    #
+    # Host port binding. One replica keeps stable access:
+    #   MANIMCAT_PUBLISHED_PORT=3000
+    # Multi-replica smoke run on one host lets Docker assign host ports:
+    #   MANIMCAT_PUBLISHED_PORT=0 docker compose up --scale manimcat=2
+    #   docker compose port manimcat 3000   # prints the assigned host port
+    # Production traffic across replicas still requires a reverse proxy, load balancer or
+    # orchestrator ingress: this project ships cross-replica event fan-out, not an HTTP LB.
     ports:
-      - "${PORT:-3000}:3000"
+      - "${MANIMCAT_PUBLISHED_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -46,6 +54,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=${REDIS_DB:-0}
+      # Cross-replica Studio event delivery (Redis Pub/Sub); memory only for single-instance setups
+      - STUDIO_EVENT_TRANSPORT=${STUDIO_EVENT_TRANSPORT:-redis}
+      # Optional: keep deployments that share one Redis on separate channels
+      - STUDIO_EVENT_REDIS_CHANNEL=${STUDIO_EVENT_REDIS_CHANNEL:-}
       # Upstream routing (required for server-side generation unless frontend passes customApiConfig)
       - MANIMCAT_ROUTE_KEYS=${MANIMCAT_ROUTE_KEYS:-}
       - MANIMCAT_ROUTE_API_URLS=${MANIMCAT_ROUTE_API_URLS:-}

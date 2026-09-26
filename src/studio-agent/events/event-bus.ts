@@ -6,8 +6,7 @@ export class InMemoryStudioEventBus implements StudioEventBus {
   private readonly listenersBySession = new Map<string, Set<StudioEventListener>>()
 
   publish(event: StudioAgentEvent): void {
-    const sessionId = getEventSessionId(event)
-    for (const listener of this.listenersBySession.get(sessionId) ?? []) {
+    for (const listener of this.listenersBySession.get(event.sessionId) ?? []) {
       listener(event)
     }
   }
@@ -23,11 +22,4 @@ export class InMemoryStudioEventBus implements StudioEventBus {
       }
     }
   }
-}
-
-function getEventSessionId(event: StudioAgentEvent): string {
-  if (event.type === 'run_updated') {
-    return event.sessionId
-  }
-  return event.sessionId
 }
