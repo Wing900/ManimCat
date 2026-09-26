@@ -7,6 +7,7 @@ export type StudioApiErrorCode =
   | 'WORK_CONFLICT'
   | 'UNSUPPORTED_TOOL'
   | 'SESSION_SYNC_FAILED'
+  | 'SERVICE_UNAVAILABLE'
   | 'INTERNAL_ERROR'
 
 export interface StudioApiSuccess<T> {

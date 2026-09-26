@@ -7,6 +7,11 @@ import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioKnowledgeProvider } from '../knowledge/studio-knowledge-types'
 import type { StudioStaticCheckPort } from '../static-check/studio-static-check-types'
+import { createInMemoryStudioRunCoordinator } from '../run-coordination/in-memory-studio-run-coordinator'
+import {
+  StudioRunCoordinationService,
+  type StudioRunCoordinationServicePort
+} from '../run-coordination/studio-run-coordination-service'
 import { configureStudioToolRegistry } from './studio-tool-registry'
 import { createStudioSessionService, type StudioSessionService } from './session-service'
 import {
@@ -23,6 +28,12 @@ interface CreateStudioRuntimeServiceInput {
   plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
   knowledgeProvider?: StudioKnowledgeProvider
   staticCheckPort?: StudioStaticCheckPort
+  /**
+   * Run coordination (session leases + cancellation). Defaults to an in-memory coordinator so
+   * single-instance and test runtimes behave exactly as before; production injects the
+   * Redis-backed service from the composition root.
+   */
+  runCoordination?: StudioRunCoordinationServicePort
 }
 
 export interface StudioRuntimeService extends StudioSessionService, StudioRunService {
@@ -55,6 +66,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     persistence: input.persistence,
     runtime,
     eventBus,
+    coordination: input.runCoordination ?? new StudioRunCoordinationService({
+      coordinator: createInMemoryStudioRunCoordinator(),
+      runStore: input.persistence.runStore,
+      eventBus,
+    }),
   })
 
   return {

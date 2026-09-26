@@ -488,19 +488,22 @@ export async function runDistributedEventTests(): Promise<void> {
   // 17. Server lifecycle ordering, asserted from source without starting a server.
   await run('server lifecycle orders transport start before listen and close before Redis', async () => {
     const serverSource = readRepoSource('src/server.ts')
-    const startIndex = indexOfOrFail(serverSource, 'await studioEventRuntime.start()', 'transport start')
+    // Task 08 replaced the direct event-runtime calls with one aggregate Studio infrastructure
+    // lifecycle (Run coordination, then the event transport); the ordering guarantees below
+    // are unchanged, and the aggregate is idempotent for repeated start/close.
+    const startIndex = indexOfOrFail(serverSource, 'await studioInfrastructureRuntime.start()', 'infrastructure start')
     const listenIndex = indexOfOrFail(serverSource, 'await tryListen(', 'tryListen call')
-    assert.ok(startIndex < listenIndex, 'Studio event transport must start before the HTTP listener')
+    assert.ok(startIndex < listenIndex, 'Studio infrastructure must start before the HTTP listener')
 
-    const closeIndex = indexOfOrFail(serverSource, 'await studioEventRuntime.close()', 'transport close')
+    const closeIndex = indexOfOrFail(serverSource, 'await studioInfrastructureRuntime.close()', 'infrastructure close')
     const queueIndex = indexOfOrFail(serverSource, 'await closeQueue()', 'closeQueue call')
     const redisIndex = indexOfOrFail(serverSource, 'await redisClient.quit()', 'redisClient.quit call')
-    assert.ok(closeIndex < queueIndex, 'Studio event subscriber must close before the queue')
+    assert.ok(closeIndex < queueIndex, 'Studio infrastructure must close before the queue')
     assert.ok(queueIndex < redisIndex, 'The queue must close before the shared Redis client quits')
 
-    // Startup failure releases the owned subscriber before exiting.
+    // Startup failure releases the owned resources before exiting.
     const fatalIndex = indexOfOrFail(serverSource, '[StartupFatal]', 'startup failure handler')
-    assert.ok(serverSource.indexOf('await studioEventRuntime.close()', fatalIndex) > fatalIndex)
+    assert.ok(serverSource.indexOf('await studioInfrastructureRuntime.close()', fatalIndex) > fatalIndex)
 
     const runtimeSource = readRepoSource('src/studio-agent/runtime/runtime-service.ts')
     assert.equal(runtimeSource.includes('createDefaultStudioEventBus'), true)

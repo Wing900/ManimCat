@@ -15,6 +15,7 @@ import type {
 } from '../domain/types'
 import type { StudioPersistence } from './studio-persistence'
 import { readStudioTokenUsage } from '../runs/token-usage'
+import { canTransitionStudioRunStatus } from '../runs/run-status-transitions'
 
 const TABLES = {
   sessions: 'studio_sessions',
@@ -273,6 +274,29 @@ function createSupabaseStudioRunStore(client: SupabaseClient): StudioRunStore {
         .maybeSingle()
       if (error) throw new Error(`[StudioDB] Failed to update run: ${error.message}`)
       return data ? fromRunRow(data as StudioRunRow) : null
+    },
+    async transitionStatus(input) {
+      // The expected status lives in the write itself (`status=in.(...)`), so two replicas
+      // racing a completion and a cancellation cannot both win: the loser updates 0 rows.
+      if (!canTransitionStudioRunStatus(input.from, input.patch.status)) {
+        const current = await this.getById(input.ownerId, input.runId)
+        return { applied: false, run: current }
+      }
+      const payload = toRunPatch(input.patch)
+      const { data, error } = await client
+        .from(TABLES.runs)
+        .update(payload)
+        .eq('id', input.runId)
+        .eq('owner_id', input.ownerId)
+        .in('status', [...input.from])
+        .select('*')
+        .maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to transition run status: ${error.message}`)
+      if (data) {
+        return { applied: true, run: fromRunRow(data as StudioRunRow) }
+      }
+      // Lost the race: report the Run that actually won so callers publish real state.
+      return { applied: false, run: await this.getById(input.ownerId, input.runId) }
     },
     async listBySessionId(ownerId, sessionId) {
       const { data, error } = await client

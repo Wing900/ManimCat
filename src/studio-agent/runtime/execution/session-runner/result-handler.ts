@@ -1,5 +1,9 @@
 import { InMemoryStudioEventBus } from '../../../events/event-bus'
 import { extractLatestAssistantText, cancelRunState, failRunState, finalizeRunState } from '../session-runner-helpers'
+import {
+  STUDIO_RUN_ACTIVE_STATUSES,
+  StudioRunFinalizationError
+} from '../../../runs/run-status-transitions'
 import type {
   StudioAssistantMessage,
   StudioEventBus,
@@ -17,13 +21,7 @@ export async function handleCancelledRun(
     reason: string
   },
 ): Promise<never> {
-  const cancelledRun = cancelRunState(input.run, input.reason)
-  await deps.runStore?.update(input.run.ownerId, input.run.id, cancelledRun)
-  ;(deps.sharedEventBus ?? new InMemoryStudioEventBus()).publish({
-    type: 'run_updated',
-    sessionId: input.session.id,
-    run: cancelledRun
-  })
+  await applyTerminalRunState(deps, input.run, cancelRunState(input.run, input.reason))
 
   throw new Error(input.reason)
 }
@@ -38,13 +36,12 @@ export async function finalizeSuccessfulRun(
     eventBus: StudioEventBus
   },
 ): Promise<StudioRunExecutionResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }> {
-  const finishedRun = finalizeRunState({ run: input.run, outcome: input.outcome })
-  await deps.runStore?.update(input.run.ownerId, input.run.id, finishedRun)
-  input.eventBus.publish({
-    type: 'run_updated',
-    sessionId: input.session.id,
-    run: finishedRun
-  })
+  const finishedRun = await applyTerminalRunState(
+    deps,
+    input.run,
+    finalizeRunState({ run: input.run, outcome: input.outcome }),
+    input.eventBus
+  )
 
   const finalAssistantMessage = await findLatestAssistantMessage(
     deps,
@@ -68,15 +65,76 @@ export async function handleFailedRun(
   },
 ): Promise<never> {
   const message = input.error instanceof Error ? input.error.message : String(input.error)
-  const failedRun = failRunState(input.run, message)
-  await deps.runStore?.update(input.run.ownerId, input.run.id, failedRun)
-  ;(deps.sharedEventBus ?? new InMemoryStudioEventBus()).publish({
-    type: 'run_updated',
-    sessionId: input.session.id,
-    run: failedRun
-  })
+  try {
+    await applyTerminalRunState(deps, input.run, failRunState(input.run, message))
+  } catch (transitionError) {
+    // Error propagation rule for this path: the execution failure is what the operator must
+    // see, so it stays the thrown error, with the finalization problem attached as its cause
+    // when the error object allows it. Success and cancellation have no earlier error to
+    // preserve, so they propagate the finalization failure itself.
+    attachErrorCause(input.error, transitionError)
+  }
 
   throw input.error
+}
+
+/** Best-effort `cause` attachment: a frozen error object is not worth failing over. */
+function attachErrorCause(error: unknown, cause: unknown): void {
+  if (!(error instanceof Error)) {
+    return
+  }
+  try {
+    Object.defineProperty(error, 'cause', { value: cause, configurable: true, writable: true })
+  } catch {
+    // Ignored by design: the original error is still thrown with its own message.
+  }
+}
+
+/**
+ * Single finalization path for success, failure and cancellation.
+ *
+ * The write is a conditional transition (`pending`/`running` -> terminal), so a Run cancelled
+ * by another replica cannot be overwritten by a late `completed` or `failed` write from this
+ * one. When the transition loses the race the persisted winner is what gets published, and
+ * that winner is also what callers receive.
+ *
+ * A transition that yields no persisted Run at all (`{ applied: false, run: null }`) is a
+ * persistence consistency failure: nothing was stored, so nothing may be published, and no
+ * local candidate is ever returned as if it were terminal.
+ */
+async function applyTerminalRunState(
+  deps: StudioSessionRunnerDependencies,
+  run: StudioRun,
+  next: StudioRun,
+  eventBus?: StudioEventBus
+): Promise<StudioRun> {
+  const bus = eventBus ?? deps.sharedEventBus ?? new InMemoryStudioEventBus()
+  const store = deps.runStore
+
+  if (!store) {
+    // No persistence in this configuration: the local state is the only state there is.
+    bus.publish({ type: 'run_updated', sessionId: run.sessionId, run: next })
+    return next
+  }
+
+  const result = await store.transitionStatus({
+    ownerId: run.ownerId,
+    runId: run.id,
+    from: STUDIO_RUN_ACTIVE_STATUSES,
+    patch: next
+  })
+  if (!result.run) {
+    throw new StudioRunFinalizationError()
+  }
+  const persisted = result.run
+
+  bus.publish({
+    type: 'run_updated',
+    sessionId: run.sessionId,
+    run: persisted
+  })
+
+  return persisted
 }
 
 async function findLatestAssistantMessage(

@@ -58,6 +58,15 @@ services:
       - STUDIO_EVENT_TRANSPORT=${STUDIO_EVENT_TRANSPORT:-redis}
       # Optional: keep deployments that share one Redis on separate channels
       - STUDIO_EVENT_REDIS_CHANNEL=${STUDIO_EVENT_REDIS_CHANNEL:-}
+      # Cross-replica Run coordination: one session lease per Studio session, plus durable
+      # cancellation markers. Renewal must stay below half the lease TTL (validated at boot).
+      - STUDIO_RUN_COORDINATION=${STUDIO_RUN_COORDINATION:-redis}
+      - STUDIO_RUN_LEASE_TTL_MS=${STUDIO_RUN_LEASE_TTL_MS:-60000}
+      - STUDIO_RUN_LEASE_RENEW_MS=${STUDIO_RUN_LEASE_RENEW_MS:-15000}
+      - STUDIO_RUN_CANCEL_TTL_MS=${STUDIO_RUN_CANCEL_TTL_MS:-3600000}
+      # Optional: keep deployments that share one Redis on separate prefixes/channels
+      - STUDIO_RUN_REDIS_PREFIX=${STUDIO_RUN_REDIS_PREFIX:-}
+      - STUDIO_RUN_CONTROL_CHANNEL=${STUDIO_RUN_CONTROL_CHANNEL:-}
       # Upstream routing (required for server-side generation unless frontend passes customApiConfig)
       - MANIMCAT_ROUTE_KEYS=${MANIMCAT_ROUTE_KEYS:-}
       - MANIMCAT_ROUTE_API_URLS=${MANIMCAT_ROUTE_API_URLS:-}

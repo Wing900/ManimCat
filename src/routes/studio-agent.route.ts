@@ -159,7 +159,16 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     toolChoice: parsed.toolChoice
   })
 
-  if (!started) {
+  if (started.status === 'coordination_unavailable') {
+    // Distinct from a conflict: the coordination layer could not answer, so retrying later is
+    // the right client action instead of giving up on the session.
+    logger.warn('工作室运行被拒绝：Run 协调层不可用', {
+      sessionId,
+    })
+    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', started.message)
+  }
+
+  if (started.status === 'conflict') {
     logger.warn('工作室运行被拒绝：当前 session 已有运行中的任务', {
       sessionId,
     })
@@ -227,6 +236,13 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
     })
   }
 
+  if (continued.status === 'coordination_unavailable') {
+    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', continued.message, {
+      runId: req.params.runId,
+      sessionId: continued.session?.id
+    })
+  }
+
   if (continued.status !== 'started') {
     return sendStudioError(res, 500, 'INTERNAL_ERROR', 'Unexpected studio continuation state', {
       runId: req.params.runId,
@@ -268,6 +284,11 @@ router.post('/studio-agent/runs/:runId/cancel', authMiddleware, asyncHandler(asy
       status: cancelled.run?.status ?? 'completed',
       message: 'Run already finished',
     })
+  }
+
+  if (cancelled.status === 'coordination_unavailable') {
+    // The durable cancellation could not be recorded, so remote cancellation is not claimed.
+    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', cancelled.message, { runId: req.params.runId })
   }
 
   sendStudioSuccess(res, {
