@@ -15,7 +15,10 @@ COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
 
 # 2. 【关键】安装 Redis 和中文字体，并刷新字体缓存
 # 使用阿里云源加速
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+RUN sed -i \
+    -e 's/deb.debian.org/mirrors.aliyun.com/g' \
+    -e 's|http://mirrors.aliyun.com|https://mirrors.aliyun.com|g' \
+    /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
     apt-get install -y redis-server fontconfig \
     fonts-noto-cjk fonts-noto-cjk-extra \

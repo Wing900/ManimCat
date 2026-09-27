@@ -1,8 +1,6 @@
 # Docker Compose for ManimCat
 # Production-ready with Redis for task queue and state management
 
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -29,6 +27,9 @@ services:
       args:
         - NODE_ENV=production
     image: manimcat:latest
+    # Compose provides the shared Redis service. Bypass the image's Hugging Face
+    # single-container launcher, which owns an embedded localhost Redis instance.
+    command: ["npm", "run", "start"]
     # No fixed container_name: keeping it would prevent `docker compose up --scale manimcat=N`.
     #
     # Host port binding. One replica keeps stable access:
@@ -67,6 +68,10 @@ services:
       # Optional: keep deployments that share one Redis on separate prefixes/channels
       - STUDIO_RUN_REDIS_PREFIX=${STUDIO_RUN_REDIS_PREFIX:-}
       - STUDIO_RUN_CONTROL_CHANNEL=${STUDIO_RUN_CONTROL_CHANNEL:-}
+      # Shared Studio persistence is required when requests can reach multiple replicas.
+      - ENABLE_STUDIO_DB=${ENABLE_STUDIO_DB:-false}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
       # Upstream routing (required for server-side generation unless frontend passes customApiConfig)
       - MANIMCAT_ROUTE_KEYS=${MANIMCAT_ROUTE_KEYS:-}
       - MANIMCAT_ROUTE_API_URLS=${MANIMCAT_ROUTE_API_URLS:-}
@@ -123,4 +128,3 @@ volumes:
     driver: local
   video-storage:
     driver: local
-
