@@ -29,10 +29,10 @@ import {
 } from './recovery-ownership'
 import { RecoveryWindowSlot, bufferRecoveryEvent, takeBufferedRecoveryEvents } from './recovery-window'
 import { MutationLane } from './mutation-lane'
+import { RenderRefreshScheduler } from './render-refresh'
 import { selectSceneState, studioCinemaReducer, type StudioCinemaAction } from './scene-state'
 import {
   readStudioCinemaActiveRun,
-  readStudioCinemaRenderWaitTarget,
   readStudioCinemaSceneEligibility,
   type StudioCinemaSubmitBlockReason,
 } from './scene-selectors'
@@ -40,12 +40,6 @@ import {
   buildStudioCinemaSceneKey,
   createInitialStudioCinemaState,
   isSameStudioCinemaScene,
-  STUDIO_CINEMA_RENDER_REFRESH_BACKOFF_MAX_MS,
-  STUDIO_CINEMA_RENDER_REFRESH_INTERVAL_MS,
-  STUDIO_CINEMA_RENDER_REFRESH_MAX_CONSECUTIVE_FAILURES,
-  STUDIO_CINEMA_RENDER_REFRESH_MAX_COUNT,
-  type StudioCinemaRenderRefreshPauseReason,
-  type StudioCinemaRenderRefreshState,
   isStudioCinemaTerminalRenderStatus,
   isStudioCinemaTerminalRunStatus,
   isStudioCinemaTextDeltaEvent,
@@ -262,32 +256,7 @@ interface ActiveStream {
   connected: boolean
 }
 
-/**
- * One render refresh cycle of the selected Scene: the ownership record that makes ticks
- * non-overlapping. `token` is unique forever, so it also separates a revisit of the same Scene
- * (`A -> B -> A`) from the visit it repeats. `target` is the wait set this cycle's budget belongs to.
- * `timer` and `running` together are the single slot the cycle owns: never a timer while a tick runs,
- * and never two ticks.
- */
-interface RenderRefreshCycle {
-  readonly token: number
-  readonly identity: StudioCinemaSceneIdentity
-  readonly generation: number
-  readonly target: string
-  timer: { cancel: () => void } | null
-  running: boolean
-}
-
 const STALE_RESULT = 'stale' as const
-
-/** Interval of a healthy loop, or a capped exponential backoff while it is failing. */
-function readStudioCinemaRenderRefreshDelay(refresh: StudioCinemaRenderRefreshState): number {
-  if (refresh.consecutiveFailures <= 0) {
-    return STUDIO_CINEMA_RENDER_REFRESH_INTERVAL_MS
-  }
-  const backoff = STUDIO_CINEMA_RENDER_REFRESH_INTERVAL_MS * 2 ** refresh.consecutiveFailures
-  return Math.min(backoff, STUDIO_CINEMA_RENDER_REFRESH_BACKOFF_MAX_MS)
-}
 
 /**
  * A workflow slot whose identity is visible to concurrent callers *before* its work begins (P1).
@@ -329,13 +298,11 @@ export class StudioCinemaController {
    */
   private readonly sceneReads = new Map<string, Promise<StudioCinemaSnapshotOutcome>>()
   /**
-   * The render refresh cycle of the selected Scene, or null when none is armed. A cycle owns exactly
-   * one slot — a pending timer or a running tick — so ticks can never overlap, and its token makes a
-   * response of a replaced cycle unable to write into the cycle that replaced it.
+   * The render refresh loop of the selected Scene. The scheduler owns the cycle, the token and the
+   * budget; this controller supplies the snapshot read and the session context through the host
+   * interface.
    */
-  private renderRefreshCycle: RenderRefreshCycle | null = null
-  /** Monotonic cycle token; never reused, so `A -> B -> A` cannot be mistaken for the first `A`. */
-  private renderRefreshToken = 0
+  private renderRefresh: RenderRefreshScheduler
   /**
    * Assistant deltas applied outside a recovery window, per Scene. A read compares this counter with
    * the value it started from: text that arrived while the read was in flight is not covered by the
@@ -348,6 +315,32 @@ export class StudioCinemaController {
 
   constructor(deps: StudioCinemaControllerDependencies) {
     this.deps = deps
+    this.renderRefresh = new RenderRefreshScheduler(
+      {
+        isInactive: () => this.isInactive(),
+        isCycleCurrent: (cycle) =>
+          !this.disposed &&
+          !this.isStaleGeneration(cycle.generation) &&
+          this.state.session.id === cycle.identity.sessionId &&
+          this.state.selectedSceneId === cycle.identity.sceneId,
+        selectedScene: () => {
+          const sceneId = this.state.selectedSceneId
+          if (!sceneId) {
+            return null
+          }
+          const identity = this.resolveIdentity(sceneId)
+          if (!identity) {
+            return null
+          }
+          const scene = selectSceneState(this.state, identity)
+          return scene ? { identity, scene, generation: this.generation } : null
+        },
+        sceneState: (identity) => selectSceneState(this.state, identity),
+        dispatch: (action) => this.dispatch(action),
+        requestSceneSnapshot: (identity, kind) => this.requestSceneSnapshot(identity, kind),
+      },
+      deps.scheduler,
+    )
   }
 
   getState(): StudioCinemaState {
@@ -462,7 +455,7 @@ export class StudioCinemaController {
     this.stopSceneStream()
     this.dispatch({ type: 'scene/selected', generation: this.generation, sceneId })
     this.startSceneSession(identity)
-    this.maybeScheduleRenderRefresh()
+    this.renderRefresh.schedule()
   }
 
   /**
@@ -774,14 +767,14 @@ export class StudioCinemaController {
 
     // Ending the cycle first is what makes the resume authoritative: a tick that is still in flight
     // for the paused cycle loses its ownership and can never write into the resumed one.
-    this.endRenderRefreshCycle()
+    this.renderRefresh.end()
     this.dispatch({
       type: 'scene/render-refresh',
       identity,
       patch: { status: 'idle', pauseReason: null, refreshes: 0, consecutiveFailures: 0 },
     })
     if (this.state.selectedSceneId === target) {
-      this.maybeScheduleRenderRefresh()
+      this.renderRefresh.schedule()
     }
     return true
   }
@@ -1284,7 +1277,7 @@ export class StudioCinemaController {
       this.appliedLiveTextDeltas.set(key, (this.appliedLiveTextDeltas.get(key) ?? 0) + 1)
     }
     this.maybeScheduleConvergenceRead(identity, event)
-    this.maybeScheduleRenderRefresh()
+    this.renderRefresh.schedule()
   }
 
   /** One pending convergence, as disclosed to the user and to the next checkpoint read. */
@@ -1339,235 +1332,6 @@ export class StudioCinemaController {
       .catch(() => undefined)
   }
 
-  // --------------------------------------------------------------- render refresh loop
-
-  /**
-   * Keeps one bounded, non-overlapping refresh alive while the selected Scene still has Manim
-   * renders that have not finished.
-   *
-   * The Agent Run and the render are independent lifecycles, so a Run reaching a terminal state is
-   * not a reason to stop: the loop follows the render. It refreshes only the *selected* Scene, and
-   * only while that Scene has an unfinished Manim render — never one timer per render and never a
-   * background poll of every Scene.
-   *
-   * Non-overlap is a property of the *cycle*, not of the network call. A cycle owns exactly one
-   * slot: either a pending timer or a running tick, never both and never two ticks. A read another
-   * caller already started (recovery, a manual reconcile, a convergence checkpoint) is joined, and a
-   * join is one tick outcome — the shared promise de-duplicates the request, the cycle token
-   * de-duplicates the accounting.
-   *
-   * The cycle is bound to a wait target (the ids of this Scene's unfinished Manim renders, see
-   * `readStudioCinemaRenderWaitTarget`) and to a token that separates a revisit of the same Scene
-   * from the visit it repeats. A new render, another Scene, another Session or a detached binding
-   * replaces the cycle, which is what gives a new render its own budget instead of inheriting the
-   * previous counter, backoff or pause.
-   *
-   * When a bound is reached the loop stops and says so (`paused` with a reason); only an explicit
-   * `resumeSceneRenderRefresh` starts it again. It never converts a failure into a render status and
-   * never claims that a render finished.
-   */
-  private maybeScheduleRenderRefresh(): void {
-    if (this.isInactive()) {
-      this.endRenderRefreshCycle()
-      return
-    }
-
-    const identity = this.selectedSceneIdentity()
-    const opened = identity ? selectSceneState(this.state, identity) : null
-    if (!identity || !opened) {
-      this.endRenderRefreshCycle()
-      return
-    }
-
-    const target = readStudioCinemaRenderWaitTarget(opened)
-    if (!target) {
-      // Nothing left to wait for: end the cycle and report idle. A finished wait says nothing about
-      // the next render, so the counter, the backoff and a stale pause are all reset here.
-      this.endRenderRefreshCycle()
-      this.resetRenderRefreshState(identity, { status: 'idle' })
-      return
-    }
-
-    const previous = this.renderRefreshCycle
-    const replaced =
-      previous !== null &&
-      (!isSameStudioCinemaScene(previous.identity, identity) ||
-        previous.generation !== this.generation ||
-        previous.target !== target)
-    if (replaced) {
-      // A different wait: another render set, another Scene visit or another Session. The old cycle
-      // keeps its token, so a tick of it still in flight can never write into the new cycle.
-      this.endRenderRefreshCycle()
-    }
-    if (!this.renderRefreshCycle) {
-      this.renderRefreshCycle = {
-        token: ++this.renderRefreshToken,
-        identity,
-        generation: this.generation,
-        target,
-        timer: null,
-        running: false,
-      }
-      if (replaced) {
-        // Only a *different* wait gets a fresh budget: a remount or a detach/attach round trip of the
-        // same wait keeps its counter and its pause, so re-mounting cannot be used to poll forever.
-        this.resetRenderRefreshState(identity, { status: 'active' })
-      }
-    }
-
-    const cycle = this.renderRefreshCycle
-    const scene = selectSceneState(this.state, identity) ?? opened
-    // One slot per cycle: a pending timer or a running tick is its single occupant, so the loop can
-    // neither overlap itself nor count one joined read twice.
-    if (cycle.running || cycle.timer) {
-      return
-    }
-    if (scene.renderRefresh.status === 'paused') {
-      // Paused for this wait target; only an explicit resume re-arms this cycle.
-      return
-    }
-
-    const delay = readStudioCinemaRenderRefreshDelay(scene.renderRefresh)
-    cycle.timer = {
-      cancel: this.deps.scheduler.schedule(delay, () => {
-        cycle.timer = null
-        cycle.running = true
-        void this.runRenderRefreshTick(cycle)
-      }),
-    }
-    if (scene.renderRefresh.status !== 'active') {
-      this.dispatch({ type: 'scene/render-refresh', identity, patch: { status: 'active' } })
-    }
-  }
-
-  /**
-   * One tick of one cycle. Ownership is re-read after every await, so a response that belongs to a
-   * replaced cycle, another Scene visit or another Session is dropped without touching a counter.
-   */
-  private async runRenderRefreshTick(cycle: RenderRefreshCycle): Promise<void> {
-    const identity = cycle.identity
-    if (!this.ownsRenderRefreshCycle(cycle)) {
-      return
-    }
-    const scheduled = selectSceneState(this.state, identity)
-    if (!scheduled || !readStudioCinemaRenderWaitTarget(scheduled)) {
-      this.maybeScheduleRenderRefresh()
-      return
-    }
-
-    let outcome: StudioCinemaSnapshotOutcome = 'failed'
-    try {
-      outcome = await this.requestSceneSnapshot(identity, 'refresh')
-    } finally {
-      cycle.running = false
-    }
-    if (!this.ownsRenderRefreshCycle(cycle)) {
-      return
-    }
-
-    const scene = selectSceneState(this.state, identity)
-    if (!scene) {
-      return
-    }
-    if (readStudioCinemaRenderWaitTarget(scene) !== cycle.target) {
-      // The wait set changed while the read was in flight (a render finished, or another appeared).
-      // This outcome belongs to a wait nobody is waiting for any more: it consumes no budget, and the
-      // new target decides for itself. An emptied set lands in the idle branch of the scheduler.
-      this.maybeScheduleRenderRefresh()
-      return
-    }
-    if (outcome !== 'ok' && outcome !== 'failed') {
-      // Superseded or stale: a later authoritative read already owns the truth. That is neither a
-      // success nor a failure for this wait, so nothing is counted and the budget is untouched.
-      this.maybeScheduleRenderRefresh()
-      return
-    }
-
-    const refreshes = scene.renderRefresh.refreshes + (outcome === 'ok' ? 1 : 0)
-    const consecutiveFailures =
-      outcome === 'failed' ? scene.renderRefresh.consecutiveFailures + 1 : 0
-    const pauseReason: StudioCinemaRenderRefreshPauseReason | null =
-      outcome === 'failed'
-        ? consecutiveFailures >= STUDIO_CINEMA_RENDER_REFRESH_MAX_CONSECUTIVE_FAILURES
-          ? 'failures'
-          : null
-        : refreshes >= STUDIO_CINEMA_RENDER_REFRESH_MAX_COUNT
-          ? 'budget'
-          : null
-
-    this.dispatch({
-      type: 'scene/render-refresh',
-      identity,
-      patch: {
-        status: pauseReason ? 'paused' : 'active',
-        pauseReason,
-        refreshes,
-        consecutiveFailures,
-      },
-    })
-
-    if (pauseReason) {
-      this.endRenderRefreshCycle()
-      return
-    }
-    this.maybeScheduleRenderRefresh()
-  }
-
-  /** True while this cycle is still the one the selected Scene's current wait belongs to. */
-  private ownsRenderRefreshCycle(cycle: RenderRefreshCycle): boolean {
-    return (
-      this.renderRefreshCycle === cycle &&
-      !this.disposed &&
-      !this.isStaleGeneration(cycle.generation) &&
-      this.state.session.id === cycle.identity.sessionId &&
-      this.state.selectedSceneId === cycle.identity.sceneId
-    )
-  }
-
-  /**
-   * Ends the current cycle. Its token stays unique forever, so a tick still in flight when the cycle
-   * ends can never write into whatever replaces it. Ending a cycle never rewrites a render.
-   */
-  private endRenderRefreshCycle(): void {
-    const cycle = this.renderRefreshCycle
-    if (!cycle) {
-      return
-    }
-    this.renderRefreshCycle = null
-    cycle.timer?.cancel()
-    cycle.timer = null
-  }
-
-  /** Resets the loop counters of a Scene: a new wait starts with a full budget and no pause. */
-  private resetRenderRefreshState(
-    identity: StudioCinemaSceneIdentity,
-    patch: { status: 'idle' | 'active' },
-  ): void {
-    const scene = selectSceneState(this.state, identity)
-    if (!scene) {
-      return
-    }
-    const refresh = scene.renderRefresh
-    if (
-      refresh.status === patch.status &&
-      refresh.pauseReason === null &&
-      refresh.refreshes === 0 &&
-      refresh.consecutiveFailures === 0
-    ) {
-      return
-    }
-    this.dispatch({
-      type: 'scene/render-refresh',
-      identity,
-      patch: { status: patch.status, pauseReason: null, refreshes: 0, consecutiveFailures: 0 },
-    })
-  }
-
-  private selectedSceneIdentity(): StudioCinemaSceneIdentity | null {
-    const sceneId = this.state.selectedSceneId
-    return sceneId ? this.resolveIdentity(sceneId) : null
-  }
-
   /**
    * One authoritative Scene read and the single apply gate. The ownership verdict is read
    * immediately before the dispatch, so a response whose stream, epoch, Session generation or
@@ -1596,7 +1360,7 @@ export class StudioCinemaController {
         return 'failed'
       }
       this.dispatch({ type: 'scene/snapshot', identity, snapshot })
-      this.maybeScheduleRenderRefresh()
+      this.renderRefresh.schedule()
       return 'ok'
     } catch (error) {
       const verdict = this.readSnapshotOwnershipVerdict(ownership)
@@ -1711,7 +1475,7 @@ export class StudioCinemaController {
     // The refresh loop belongs to the selected Scene: nothing may keep ticking for a Scene the
     // binding no longer watches. Ending the cycle also orphans a tick that is still in flight, so its
     // late response cannot write into the next visit.
-    this.endRenderRefreshCycle()
+    this.renderRefresh.end()
     const stream = this.activeStream
     this.activeStream = null
     this.recoverySlot.clear()
