@@ -1,57 +1,57 @@
 import { describe, expect, it } from 'vitest'
-import { readStudioCinemaCatFeedback, readStudioCinemaCatTransition } from './cat-feedback'
+import {
+  CAT_REPLY_SNIPPET_MAX_CHARS,
+  readStudioCinemaCatFeedback,
+  readStudioCinemaCatReplySnippet,
+} from './cat-feedback'
 
-describe('readStudioCinemaCatFeedback', () => {
-  it('maps every working state to a short transient bubble', () => {
-    expect(readStudioCinemaCatFeedback('studio.cinema.catSubmitting').bubbleKey).toBe('studio.cinema.catBubbleStart')
-    expect(readStudioCinemaCatFeedback('studio.cinema.catWorking').bubbleKey).toBe('studio.cinema.catBubbleWorking')
-    expect(readStudioCinemaCatFeedback('studio.cinema.catSubmitting').kind).toBe('transient')
+describe('readStudioCinemaCatReplySnippet', () => {
+  it('repeats the opening of a real reply and marks it as unfinished', () => {
+    expect(readStudioCinemaCatReplySnippet('A circle rolling along a line')).toBe('A circle rolling along a…')
   })
 
-  it('maps every failure or recovery state to a persistent bubble with a recover entry', () => {
+  it('keeps a short reply whole, still ending on an ellipsis', () => {
+    expect(readStudioCinemaCatReplySnippet('Done')).toBe('Done…')
+  })
+
+  it('flattens markdown and line breaks so the bubble reads as speech', () => {
+    expect(readStudioCinemaCatReplySnippet('## First\n\n**Draw** a   circle')).toBe('First Draw a circle…')
+  })
+
+  it('never exceeds the bubble budget', () => {
+    const snippet = readStudioCinemaCatReplySnippet('x'.repeat(200))
+    expect(Array.from(snippet)).toHaveLength(CAT_REPLY_SNIPPET_MAX_CHARS + 1)
+  })
+
+  it('stays empty when there is nothing to repeat (caller stays quiet, never an empty bubble)', () => {
+    expect(readStudioCinemaCatReplySnippet('   \n\n')).toBe('')
+    expect(readStudioCinemaCatReplySnippet('###')).toBe('')
+  })
+})
+
+describe('readStudioCinemaCatFeedback', () => {
+  it('reports nothing for the states a real reply already carries', () => {
+    expect(readStudioCinemaCatFeedback('studio.cinema.catIdle')).toBeNull()
+    expect(readStudioCinemaCatFeedback('studio.cinema.catSubmitting')).toBeNull()
+    expect(readStudioCinemaCatFeedback('studio.cinema.catWorking')).toBeNull()
+  })
+
+  it('reports states the assistant cannot state itself, with a recover entry', () => {
     const failed = readStudioCinemaCatFeedback('studio.cinema.catFailed')
-    expect(failed.kind).toBe('persistent')
-    expect(failed.hasRecoverEntry).toBe(true)
-    expect(readStudioCinemaCatFeedback('studio.cinema.catNeedsCheck').hasRecoverEntry).toBe(true)
-    expect(readStudioCinemaCatFeedback('studio.cinema.catUnreachable').hasRecoverEntry).toBe(true)
-    expect(readStudioCinemaCatFeedback('studio.cinema.catRefreshPaused').hasRecoverEntry).toBe(true)
+    expect(failed?.kind).toBe('persistent')
+    expect(failed?.hasRecoverEntry).toBe(true)
+    expect(readStudioCinemaCatFeedback('studio.cinema.catNeedsCheck')?.hasRecoverEntry).toBe(true)
+    expect(readStudioCinemaCatFeedback('studio.cinema.catUnreachable')?.hasRecoverEntry).toBe(true)
+    expect(readStudioCinemaCatFeedback('studio.cinema.catRefreshPaused')?.hasRecoverEntry).toBe(true)
   })
 
   it('keeps a reconnect as persistent but without a recover entry (the cat is handling it)', () => {
     const reconnect = readStudioCinemaCatFeedback('studio.cinema.catReconnecting')
-    expect(reconnect.kind).toBe('persistent')
-    expect(reconnect.hasRecoverEntry).toBe(false)
+    expect(reconnect?.kind).toBe('persistent')
+    expect(reconnect?.hasRecoverEntry).toBe(false)
   })
 
-  it('rests on idle with a faint, fast-fading bubble', () => {
-    expect(readStudioCinemaCatFeedback('studio.cinema.catIdle').kind).toBe('resting')
-  })
-})
-
-describe('readStudioCinemaCatTransition', () => {
-  it('announces done only on a working → idle transition with no failed outcome', () => {
-    expect(readStudioCinemaCatTransition('studio.cinema.catWorking', 'studio.cinema.catIdle', false)?.bubbleKey).toBe(
-      'studio.cinema.catBubbleDone',
-    )
-    expect(readStudioCinemaCatTransition('studio.cinema.catSubmitting', 'studio.cinema.catIdle', false)?.bubbleKey).toBe(
-      'studio.cinema.catBubbleDone',
-    )
-  })
-
-  it('never announces done when the outcome failed', () => {
-    expect(readStudioCinemaCatTransition('studio.cinema.catWorking', 'studio.cinema.catIdle', true)).toBeNull()
-  })
-
-  it('never announces done from a non-working previous state', () => {
-    expect(readStudioCinemaCatTransition('studio.cinema.catIdle', 'studio.cinema.catIdle', false)).toBeNull()
-    expect(readStudioCinemaCatTransition(null, 'studio.cinema.catIdle', false)).toBeNull()
-  })
-
-  it('announces stopped on a working → cancelled transition, not failed', () => {
-    expect(
-      readStudioCinemaCatTransition('studio.cinema.catWorking', 'studio.cinema.catFailed', true, true)?.bubbleKey,
-    ).toBe('studio.cinema.catBubbleStopped')
-    // A real failure (not a cancel) does not get the stopped bubble.
-    expect(readStudioCinemaCatTransition('studio.cinema.catWorking', 'studio.cinema.catFailed', true, false)).toBeNull()
+  it('never invents a sentence for an unknown status', () => {
+    expect(readStudioCinemaCatFeedback('studio.cinema.catNotAState' as never)).toBeNull()
   })
 })

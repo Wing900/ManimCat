@@ -15,8 +15,9 @@ import { useStudioCinemaCatFeedback } from './use-cat-feedback'
  * history is a user action only: sending, completing or failing never expands the panel.
  *
  * Pose drives `data-pose` on the character; CSS does the idle blink / busy lean and turns them off
- * under `prefers-reduced-motion` (doc §7.3). The bubble is the hook's one short sentence, deduped and
- * scene-isolated; a failure offers "view details", which opens the history where the failure lives.
+ * under `prefers-reduced-motion` (doc §7.3). The bubble repeats the opening of the cat's own reply for
+ * this Scene, deduped and scene-isolated; a failure offers "view details", which opens the history
+ * where the failure lives.
  */
 
 export interface CatAssistantProps {
@@ -25,8 +26,9 @@ export interface CatAssistantProps {
   tone: 'idle' | 'busy' | 'warning' | 'error'
   sessionId: string
   sceneId: string
-  hasFailedOutcome: boolean
   latestRunStatus: string | null
+  /** The newest assistant message of this Scene: what the bubble repeats. */
+  reply: { id: string; text: string } | null
   historyOpen: boolean
   historyPanelId: string
   buttonRef?: Ref<HTMLButtonElement>
@@ -46,8 +48,8 @@ export function CatAssistant({
   tone,
   sessionId,
   sceneId,
-  hasFailedOutcome,
   latestRunStatus,
+  reply,
   historyOpen,
   historyPanelId,
   buttonRef,
@@ -59,8 +61,8 @@ export function CatAssistant({
     statusParams,
     sessionId,
     sceneId,
-    hasFailedOutcome,
     latestRunStatus,
+    reply,
   })
 
   const pose = TONE_TO_POSE[tone]
@@ -69,6 +71,7 @@ export function CatAssistant({
     <div className="flex flex-col items-end gap-2">
       {bubble ? (
         <CatSpeechBubble
+          text={bubble.text}
           bubbleKey={bubble.bubbleKey}
           params={bubble.params}
           visible={visible}
@@ -86,7 +89,7 @@ export function CatAssistant({
         type="button"
         tabIndex={historyOpen ? -1 : 0}
         aria-hidden={historyOpen || undefined}
-        className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:h-24 sm:w-24 ${
+        className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 lg:h-24 lg:w-24 ${
           historyOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
         aria-label={t('studio.cinema.catEntryLabel')}
@@ -95,7 +98,7 @@ export function CatAssistant({
         onClick={onToggleHistory}
         data-tone={tone}
       >
-        <CatCharacter pose={pose} className="cinema-cat-character h-12 w-12 sm:h-20 sm:w-20" />
+        <CatCharacter pose={pose} className="cinema-cat-character h-12 w-12 lg:h-20 lg:w-20" />
         <span className="sr-only">
           {historyOpen ? t('studio.cinema.catHistoryHide') : t('studio.cinema.catHistoryShow')}
         </span>

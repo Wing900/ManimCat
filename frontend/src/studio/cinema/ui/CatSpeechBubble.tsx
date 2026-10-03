@@ -3,16 +3,19 @@ import type { TranslationKey } from '../../../i18n/messages'
 import type { CatFeedbackKind } from './cat-feedback'
 
 /**
- * CatSpeechBubble (doc §7.2): one short sentence the cat says.
+ * CatSpeechBubble (doc §7.2): the one short thing the cat says.
  *
- * The bubble shows at most one sentence (≤24 chars / two lines), never a full model reply, a tool
- * parameter, an internal path or a stack. It fades in/out (120–180ms) and hides when not visible.
- * Hover or focus pauses the fade (delegated to the hook); the failure kind exposes a recover entry
- * the caller can wire to the existing retry/reconcile actions.
+ * Its content is either the verbatim opening of the cat's own reply (`text`) or a state report
+ * resolved through i18n (`bubbleKey`) — never a full model reply, a tool parameter, an internal path
+ * or a stack. It fades in/out (120–180ms) and hides when not visible. Hover or focus pauses the fade
+ * (delegated to the hook); a state with a recover entry exposes a button the caller wires to the
+ * existing retry/reconcile actions.
  */
 
 export interface CatSpeechBubbleProps {
-  bubbleKey: TranslationKey
+  /** Verbatim reply opening; wins over `bubbleKey` when both are set. */
+  text?: string
+  bubbleKey?: TranslationKey
   params?: Record<string, number | string>
   visible: boolean
   kind: CatFeedbackKind
@@ -25,6 +28,7 @@ export interface CatSpeechBubbleProps {
 }
 
 export function CatSpeechBubble({
+  text,
   bubbleKey,
   params,
   visible,
@@ -50,7 +54,9 @@ export function CatSpeechBubble({
       onBlur={onHoverEnd}
       data-testid="cinema-cat-bubble"
     >
-      <p className="whitespace-pre-wrap break-words leading-snug">{t(bubbleKey, params)}</p>
+      <p className="whitespace-pre-wrap break-words leading-snug">
+        {text ?? (bubbleKey ? t(bubbleKey, params) : '')}
+      </p>
       {hasRecoverEntry && onRecover && recoverLabelKey ? (
         <button
           type="button"

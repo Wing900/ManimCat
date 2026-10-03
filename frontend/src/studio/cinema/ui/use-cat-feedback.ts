@@ -2,32 +2,35 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { TranslationKey } from '../../../i18n/messages'
 import {
   readStudioCinemaCatFeedback,
-  readStudioCinemaCatTransition,
+  readStudioCinemaCatReplySnippet,
   type CatFeedbackKind,
 } from './cat-feedback'
 
 /**
- * Cat feedback timing and isolation (doc §7.1, §7.2).
+ * Cat bubble content, timing and isolation (doc §7.1, §7.2).
  *
+ * - the bubble repeats the opening of the cat's own reply (the newest assistant message of this
+ *   Scene); a state report appears only for a state the assistant cannot state itself;
+ * - a Scene's existing reply is history, not news: only a reply that arrives while the Scene is open
+ *   pops the bubble, so opening a Scene with history never replays it;
+ * - the same reply id does not re-pop the bubble while its text streams in;
  * - scene/session switch clears the bubble immediately, so a delayed event from another Scene never
  *   lands here;
- * - a transient bubble fades after a few seconds; a persistent one (failure, reconnect, needs-check)
- *   stays until the state changes; a resting one fades fast;
- * - hover or focus pauses the fade;
- * - the same status does not re-pop the same bubble (dedup by identity + status key);
- * - a reliable working → idle transition shows "done" once, and the initial load (previous = null)
- *   never announces "done".
+ * - a transient bubble fades after a few seconds, a persistent state report stays until it clears;
+ * - hover or focus pauses the fade.
  *
  * All ref bookkeeping and state mutation happen in a `useLayoutEffect` (the same pattern
  * `SceneHistoryPanel` uses for its reading-position bookkeeping), so the render stays pure.
  */
 
 const TRANSIENT_FADE_MS = 5000
-const RESTING_FADE_MS = 3000
 
 export interface CatBubble {
-  bubbleKey: TranslationKey
-  params: Record<string, number | string> | undefined
+  /** The reply's own opening, shown verbatim. */
+  text?: string
+  /** Or a state report resolved through i18n. Exactly one of `text` / `bubbleKey` is set. */
+  bubbleKey?: TranslationKey
+  params?: Record<string, number | string>
   hasRecoverEntry: boolean
   kind: CatFeedbackKind
 }
@@ -37,9 +40,10 @@ export interface UseStudioCinemaCatFeedbackArgs {
   statusParams?: Record<string, number | string>
   sessionId: string
   sceneId: string
-  hasFailedOutcome: boolean
-  /** Status of the latest Run, to distinguish a cancel from a failure (doc §7.2). */
+  /** Status of the latest Run: a cancelled Run is not a failure, so it reports nothing. */
   latestRunStatus: string | null
+  /** The newest assistant message of this Scene. The only thing the cat is allowed to say. */
+  reply: { id: string; text: string } | null
 }
 
 export interface UseStudioCinemaCatFeedbackResult {
@@ -55,92 +59,54 @@ export function useStudioCinemaCatFeedback({
   statusParams,
   sessionId,
   sceneId,
-  hasFailedOutcome,
   latestRunStatus,
+  reply,
 }: UseStudioCinemaCatFeedbackArgs): UseStudioCinemaCatFeedbackResult {
   const [bubble, setBubble] = useState<CatBubble | null>(null)
   const [visible, setVisible] = useState(false)
 
   const identityRef = useRef(`${sessionId}\u0000${sceneId}`)
-  const prevStatusRef = useRef<TranslationKey | null>(null)
+  const seenReplyRef = useRef<string | null>(null)
   const lastEmittedRef = useRef<string>('')
+  const sourceRef = useRef<'report' | 'reply' | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pausedRef = useRef(false)
 
   const identity = `${sessionId}\u0000${sceneId}`
+  const replyId = reply?.id ?? null
+  const snippet = reply ? readStudioCinemaCatReplySnippet(reply.text) : ''
+  // A cancel lands on the same status key as a failure but is not one: it reports nothing.
+  const report =
+    latestRunStatus === 'cancelled' && statusKey === 'studio.cinema.catFailed'
+      ? null
+      : readStudioCinemaCatFeedback(statusKey)
+  const reportKey = report?.bubbleKey ?? null
+  const reportKind = report?.kind ?? null
+  const reportHasRecoverEntry = report?.hasRecoverEntry ?? false
 
   useLayoutEffect(() => {
     const sceneChanged = identity !== identityRef.current
     if (sceneChanged) {
-      // A fresh Scene starts clean: no inherited previous, no fade timer. The bubble itself is
-      // re-emitted below for the new Scene's current status, so no separate reset is needed.
       identityRef.current = identity
-      prevStatusRef.current = null
+      // A fresh Scene starts clean: the reply it already carries is history, not news.
+      seenReplyRef.current = replyId
       lastEmittedRef.current = ''
+      sourceRef.current = null
       if (timerRef.current) {
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+      setVisible(false)
     }
 
-    const previous = prevStatusRef.current
-    prevStatusRef.current = statusKey
-
-    // A reliable working → idle transition shows "done" once. The initial load (previous === null)
-    // never announces done, so opening a Scene with history does not replay it.
-    const transition = readStudioCinemaCatTransition(
-      previous,
-      statusKey,
-      hasFailedOutcome,
-      latestRunStatus === 'cancelled',
-    )
-    if (transition) {
-      const emitKey = `${identity}\u0000${transition.bubbleKey}`
-      if (emitKey !== lastEmittedRef.current) {
-        lastEmittedRef.current = emitKey
-        setBubble({
-          bubbleKey: transition.bubbleKey,
-          params: statusParams,
-          hasRecoverEntry: false,
-          kind: transition.kind,
-        })
-        setVisible(true)
-        if (timerRef.current) {
-          clearTimeout(timerRef.current)
-          timerRef.current = null
-        }
-        const delay = TRANSIENT_FADE_MS
-        timerRef.current = setTimeout(() => {
-          timerRef.current = null
-          if (!pausedRef.current) {
-            setVisible(false)
-          }
-        }, delay)
+    const scheduleFade = (delay: number | null) => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      if (delay === null) {
         return
       }
-    }
-
-    const feedback = readStudioCinemaCatFeedback(statusKey)
-    const emitKey = `${identity}\u0000${statusKey}`
-    // Dedup: the same status for the same identity does not re-pop the same bubble.
-    if (emitKey === lastEmittedRef.current) {
-      return
-    }
-    lastEmittedRef.current = emitKey
-    setBubble({
-      bubbleKey: feedback.bubbleKey,
-      params: statusParams,
-      hasRecoverEntry: feedback.hasRecoverEntry,
-      kind: feedback.kind,
-    })
-    setVisible(true)
-    // Inline fade scheduling so ref mutation stays inside the effect that owns the timer.
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-    if (feedback.kind !== 'persistent') {
-      const delay = feedback.kind === 'resting' ? RESTING_FADE_MS : TRANSIENT_FADE_MS
       timerRef.current = setTimeout(() => {
         timerRef.current = null
         if (!pausedRef.current) {
@@ -148,7 +114,51 @@ export function useStudioCinemaCatFeedback({
         }
       }, delay)
     }
-  }, [identity, statusKey, statusParams, hasFailedOutcome, latestRunStatus])
+
+    // 1) A state the assistant cannot state itself (failure, reconnect, unreadable status).
+    if (reportKey && reportKind) {
+      const emitKey = `${identity}\u0000${reportKey}`
+      if (emitKey !== lastEmittedRef.current) {
+        lastEmittedRef.current = emitKey
+        sourceRef.current = 'report'
+        setBubble({
+          bubbleKey: reportKey,
+          params: statusParams,
+          hasRecoverEntry: reportHasRecoverEntry,
+          kind: reportKind,
+        })
+        setVisible(true)
+        scheduleFade(reportKind === 'persistent' ? null : TRANSIENT_FADE_MS)
+      }
+      return
+    }
+
+    // 2) A report that has cleared never lingers: the state it described is gone.
+    if (sourceRef.current === 'report') {
+      sourceRef.current = null
+      lastEmittedRef.current = ''
+      setVisible(false)
+    }
+
+    // 3) The cat repeats the opening of a reply it has not shown yet.
+    if (replyId !== null && snippet !== '' && replyId !== seenReplyRef.current) {
+      seenReplyRef.current = replyId
+      sourceRef.current = 'reply'
+      lastEmittedRef.current = `${identity}\u0000reply\u0000${replyId}`
+      setBubble({ text: snippet, hasRecoverEntry: false, kind: 'transient' })
+      setVisible(true)
+      scheduleFade(TRANSIENT_FADE_MS)
+    }
+  }, [
+    identity,
+    statusKey,
+    statusParams,
+    reportKey,
+    reportKind,
+    reportHasRecoverEntry,
+    replyId,
+    snippet,
+  ])
 
   useEffect(() => {
     return () => {

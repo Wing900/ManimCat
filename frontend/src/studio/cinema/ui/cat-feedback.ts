@@ -1,75 +1,70 @@
 import type { TranslationKey } from '../../../i18n/messages'
 
 /**
- * Cat feedback (doc §7): a pure map from the Scene's cat status to the one short sentence the cat
- * says, plus the dedup kind that drives how long it stays.
+ * Cat feedback (doc §7): what the cat says, and how long it stays.
  *
- * The long-form `studio.cinema.cat*` keys (locked by `cinema-labels.test.ts`) stay the source of
- * state; this layer only narrows them into the ≤24-char bubble of doc §7.2. No second status
- * reducer, no event subscription, no clock: it is a pure function of the status key.
+ * The cat never invents a sentence. Its bubble repeats the opening of its own reply — the first few
+ * characters of the newest assistant message for this Scene, then an ellipsis — so what the user reads
+ * in the bubble is really what the cat said. A canned state report survives only for states the
+ * assistant cannot describe itself: a failure, a reconnect, an unreadable status, a paused refresh.
+ * Those carry the one recover entry the user can click.
  */
 
-export type CatFeedbackKind = 'resting' | 'transient' | 'persistent'
+export type CatFeedbackKind = 'transient' | 'persistent'
 
 export interface CatFeedback {
-  /** Short bubble sentence (≤24 chars / two lines). */
+  /** The state report to show (only used for states the assistant cannot state itself). */
   bubbleKey: TranslationKey
-  /** How the bubble times out: resting fades fast, transient fades after a few seconds, persistent stays. */
+  /** How the bubble times out: transient fades after a few seconds, persistent stays until it clears. */
   kind: CatFeedbackKind
-  /** Whether the failure has a stable recover entry the user can click (doc §7.2). */
+  /** Whether the state has a stable recover entry the user can click (doc §7.2). */
   hasRecoverEntry: boolean
 }
 
-/** Map a cat status key to its short bubble. Pure; no state, no clock, no side effect. */
-export function readStudioCinemaCatFeedback(statusKey: TranslationKey): CatFeedback {
+/** How many characters of the reply the bubble repeats before the ellipsis. */
+export const CAT_REPLY_SNIPPET_MAX_CHARS = 24
+
+/**
+ * The opening of a real reply, flattened to one line: markdown markers and runs of whitespace collapse
+ * so the bubble reads as speech rather than markup, and the snippet ends on an ellipsis because it is
+ * only the beginning of what the cat said.
+ *
+ * Returns an empty string when there is nothing to repeat, so the caller stays quiet instead of
+ * showing an empty bubble.
+ */
+export function readStudioCinemaCatReplySnippet(text: string, max = CAT_REPLY_SNIPPET_MAX_CHARS): string {
+  const flat = text
+    .replace(/\s+/g, ' ')
+    .replace(/^[#>*`\-–—\s]+/, '')
+    .replace(/[*`~]/g, '')
+    .trim()
+  const chars = Array.from(flat)
+  if (chars.length === 0) {
+    return ''
+  }
+  return `${chars.length > max ? chars.slice(0, max).join('') : flat}…`
+}
+
+/**
+ * Map a cat status key to the state report the assistant cannot give itself. Pure; no state, no clock.
+ *
+ * `catIdle`, `catSubmitting` and `catWorking` return `null` on purpose: those moments are carried by
+ * the reply's own opening, and an unknown status never invents a sentence either.
+ */
+export function readStudioCinemaCatFeedback(statusKey: TranslationKey): CatFeedback | null {
   switch (statusKey) {
-    case 'studio.cinema.catSubmitting':
-      return { bubbleKey: 'studio.cinema.catBubbleStart', kind: 'transient', hasRecoverEntry: false }
-    case 'studio.cinema.catWorking':
-      return { bubbleKey: 'studio.cinema.catBubbleWorking', kind: 'transient', hasRecoverEntry: false }
     case 'studio.cinema.catFailed':
       return { bubbleKey: 'studio.cinema.catBubbleFailed', kind: 'persistent', hasRecoverEntry: true }
     case 'studio.cinema.catNeedsCheck':
       return { bubbleKey: 'studio.cinema.catBubbleCheck', kind: 'persistent', hasRecoverEntry: true }
-    case 'studio.cinema.catReconnecting':
-      return { bubbleKey: 'studio.cinema.catBubbleReconnect', kind: 'persistent', hasRecoverEntry: false }
     case 'studio.cinema.catUnreachable':
       return { bubbleKey: 'studio.cinema.catBubbleUnreachable', kind: 'persistent', hasRecoverEntry: true }
     case 'studio.cinema.catRefreshPaused':
       return { bubbleKey: 'studio.cinema.catBubbleRefresh', kind: 'persistent', hasRecoverEntry: true }
-    case 'studio.cinema.catIdle':
-      return { bubbleKey: 'studio.cinema.catBubbleIdle', kind: 'resting', hasRecoverEntry: false }
+    case 'studio.cinema.catReconnecting':
+      // The cat is handling the reconnect itself, so there is nothing for the user to click.
+      return { bubbleKey: 'studio.cinema.catBubbleReconnect', kind: 'persistent', hasRecoverEntry: false }
     default:
-      // An unknown status never invents a sentence: the cat stays quiet rather than guessing.
-      return { bubbleKey: 'studio.cinema.catBubbleIdle', kind: 'resting', hasRecoverEntry: false }
+      return null
   }
-}
-
-/**
- * Completion (doc §7.2 "做好了") and cancellation ("已经停下来了") are transitions, not states: the
- * controller returns to `catIdle` once a Run finishes. This pure helper reads the previous and the
- * current status key and returns the one-shot transition bubble, or null when there is none.
- *
- * It only fires on a reliable working → idle transition (no failed outcome in between), so a stream
- * reconnect or a snapshot reload never re-announces "done".
- */
-export function readStudioCinemaCatTransition(
-  previous: TranslationKey | null,
-  current: TranslationKey,
-  currentFailed: boolean,
-  currentCancelled = false,
-): { bubbleKey: TranslationKey; kind: 'transient' } | null {
-  const wasWorking = previous === 'studio.cinema.catWorking' || previous === 'studio.cinema.catSubmitting'
-  if (!wasWorking) {
-    return null
-  }
-  if (current === 'studio.cinema.catIdle' && !currentFailed) {
-    return { bubbleKey: 'studio.cinema.catBubbleDone', kind: 'transient' }
-  }
-  // A cancel reaches catFailed (cancelled is a failed outcome) but is not a failure: announce the
-  // distinct "stopped" sentence once (doc §7.2).
-  if (current === 'studio.cinema.catFailed' && currentCancelled) {
-    return { bubbleKey: 'studio.cinema.catBubbleStopped', kind: 'transient' }
-  }
-  return null
 }

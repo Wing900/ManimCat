@@ -12,8 +12,7 @@ import { SendIcon, StopIcon } from './CinemaIcons'
  * Layout: one soft surface (no border) holds the textarea and the single trailing action, so the
  * composer reads as one input centred under the stage. The trailing slot is the primary action of the
  * moment: Stop while this Scene's Run can be cancelled, Send otherwise. Keeping one slot is what puts
- * the stop control on the right, at full size, instead of a small muted square beside Send. The line
- * under the box reports the task state (进行中 / 空闲) rather than the keyboard contract.
+ * the stop control on the right, at full size, instead of a small muted square beside Send.
  */
 
 export interface SceneComposerProps {
@@ -115,22 +114,6 @@ export function SceneComposer({
             </button>
           )}
         </div>
-
-        <p
-          className={`flex items-center justify-center gap-1.5 text-xs ${
-            showStop ? 'text-text-secondary/80' : 'text-text-secondary/55'
-          }`}
-        >
-          {/* 呼吸灯: the dot breathes — quicker while a task runs, slower when the studio is standing by. */}
-          <span
-            aria-hidden="true"
-            data-state={showStop ? 'running' : 'idle'}
-            className={`cinema-status-dot h-1.5 w-1.5 shrink-0 rounded-full ${
-              showStop ? 'bg-accent/80' : 'bg-text-tertiary/50'
-            }`}
-          />
-          {showStop ? t('studio.cinema.taskRunning') : t('studio.cinema.taskIdle')}
-        </p>
       </div>
     </form>
   )

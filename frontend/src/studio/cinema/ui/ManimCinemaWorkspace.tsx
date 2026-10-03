@@ -199,6 +199,18 @@ export function ManimCinemaWorkspace({
     [view],
   )
 
+  // The only thing the cat is allowed to say: the newest assistant message of this Scene. The bubble
+  // repeats its opening; when there is none the cat stays quiet instead of reciting a written line.
+  const latestReply = useMemo(() => {
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+      const row = rows[index]
+      if (row.kind === 'assistant-text') {
+        return { id: row.id, text: row.text }
+      }
+    }
+    return null
+  }, [rows])
+
   // Correction R3: the scroll follow must see content growth, not only a new row count — a streaming
   // assistant part keeps the row count and changes only its text.
   const conversationRevision = useMemo(
@@ -398,33 +410,34 @@ export function ManimCinemaWorkspace({
               )}
             </div>
             </div>
-
-            {view !== null ? (
-              <div
-                className={`pointer-events-none absolute bottom-2 right-3 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:right-5 lg:right-8 ${
-                  historyOpen
-                    ? 'translate-x-12 -translate-y-6 opacity-0'
-                    : 'opacity-100'
-                }`}
-              >
-                <CatAssistant
-                  statusKey={catStatus?.key ?? 'studio.cinema.catIdle'}
-                  statusParams={catStatus?.params}
-                  tone={catStatus?.tone ?? 'idle'}
-                  sessionId={sessionId ?? ''}
-                  sceneId={selectedSceneId ?? ''}
-                  hasFailedOutcome={view?.userStatus.kind === 'failed'}
-                  latestRunStatus={view?.latestRun?.status ?? null}
-                  historyOpen={historyOpen}
-                  historyPanelId={HISTORY_PANEL_ID}
-                  buttonRef={catButtonRef}
-                  onToggleHistory={toggleHistory}
-                />
-              </div>
-            ) : null}
           </div>
 
-          <div className="px-3 pb-4 sm:px-20 lg:px-32">
+          <div className="relative px-3 pb-16 sm:px-20 sm:pb-4 lg:px-32">
+          {/* The cat stands at the bottom-right, under the video — never at its left or right flank. From sm
+              up the wrapper's padding already clears the input box; on phones (full-width input) the band
+              reserves bottom room so the cat drops below the input instead of sitting on it. */}
+          {view !== null ? (
+            <div
+              className={`pointer-events-none absolute bottom-1 right-3 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:bottom-2 sm:right-4 lg:right-6 ${
+                historyOpen ? 'translate-x-12 -translate-y-6 opacity-0' : 'opacity-100'
+              }`}
+            >
+              <CatAssistant
+                statusKey={catStatus?.key ?? 'studio.cinema.catIdle'}
+                statusParams={catStatus?.params}
+                tone={catStatus?.tone ?? 'idle'}
+                sessionId={sessionId ?? ''}
+                sceneId={selectedSceneId ?? ''}
+                latestRunStatus={view?.latestRun?.status ?? null}
+                reply={latestReply}
+                historyOpen={historyOpen}
+                historyPanelId={HISTORY_PANEL_ID}
+                buttonRef={catButtonRef}
+                onToggleHistory={toggleHistory}
+              />
+            </div>
+          ) : null}
+
           <SceneComposer
             draft={view?.draft ?? ''}
             submitting={view?.submitting ?? false}

@@ -683,10 +683,10 @@ describe('cinema workspace', () => {
     await flush()
 
     // While this Scene's Run can be cancelled the trailing slot is Stop, so the Send is simply not
-    // offered, and the composer's status line is what reports the running task.
+    // offered — the Stop control itself is the only running indicator (no status caption).
     expect(screen.queryByLabelText('Send')).toBeNull()
     expect(screen.getByLabelText('Stop')).toBeEnabled()
-    expect(screen.getByText('Task in progress…')).toBeInTheDocument()
+    expect(screen.queryByText('Task in progress…')).toBeNull()
 
     fireEvent.click(screen.getByRole('tab', { name: /Scene 2/ }))
     await flush()
@@ -1141,9 +1141,15 @@ describe('cinema workspace', () => {
     expect(sidebar.className).toContain('lg:static')
     expect(screen.getByLabelText('Close session list')).toBeInTheDocument()
 
-    const status = screen.getByText('Task in progress…')
-    expect(status.closest('.shrink-0')).toBeNull()
-    expect(status.closest('form')).not.toBeNull()
+    // The running state is not narrated and the "stop it first" reason is not repeated inside the input
+    // row: the composer holds the draft box and its two controls, nothing else.
+    expect(screen.queryByText('Task in progress…')).toBeNull()
+    const composerForm = screen.getByLabelText('Stop').closest('form')
+    expect(composerForm).not.toBeNull()
+    expect(composerForm?.contains(composer())).toBe(true)
+    expect(
+      screen.queryByText('This Scene already has a running task; stop it first.'),
+    ).toBeNull()
     expect(composer().className).toContain('min-w-0')
     expect(composer().className).toContain('flex-1')
   })
