@@ -319,7 +319,7 @@ export function ManimCinemaWorkspace({
             }}
           />
 
-          <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
+          <div className="relative flex min-h-0 flex-1 flex-col px-3 pb-2 sm:pr-28 lg:px-32">
             <div
               className="relative flex min-h-0 flex-1 items-center justify-center"
               role="tabpanel"
@@ -391,19 +391,24 @@ export function ManimCinemaWorkspace({
                 </>
               )}
             </div>
-          </div>
 
-          {view !== null ? (
-            <CatAssistant
-              statusKey={catStatus?.key ?? 'studio.cinema.catIdle'}
-              statusParams={catStatus?.params}
-              tone={catStatus?.tone ?? 'idle'}
-              historyOpen={historyOpen}
-              historyPanelId={HISTORY_PANEL_ID}
-              buttonRef={catButtonRef}
-              onToggleHistory={toggleHistory}
-            />
-          ) : null}
+            {view !== null ? (
+              <div className="pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 sm:right-5 lg:right-8">
+                <CatAssistant
+                  statusKey={catStatus?.key ?? 'studio.cinema.catIdle'}
+                  statusParams={catStatus?.params}
+                  tone={catStatus?.tone ?? 'idle'}
+                  sessionId={sessionId ?? ''}
+                  sceneId={selectedSceneId ?? ''}
+                  hasFailedOutcome={view?.userStatus.kind === 'failed'}
+                  historyOpen={historyOpen}
+                  historyPanelId={HISTORY_PANEL_ID}
+                  buttonRef={catButtonRef}
+                  onToggleHistory={toggleHistory}
+                />
+              </div>
+            ) : null}
+          </div>
 
           <SceneComposer
             draft={view?.draft ?? ''}

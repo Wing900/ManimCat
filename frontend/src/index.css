@@ -517,3 +517,34 @@ select option:checked {
       transparent 142px
     );
 }
+
+/* Cat character animations (doc §7.3). Low-frequency, CSS-only; turned off under reduced motion. */
+@keyframes cat-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+@keyframes cat-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+@keyframes cat-lean {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+.cinema-cat-character[data-pose="idle"] {
+  animation: cat-breathe 4s ease-in-out infinite;
+}
+.cinema-cat-character[data-pose="idle"] [data-part="eye"] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cat-blink 5s ease-in-out infinite;
+}
+.cinema-cat-character[data-pose="busy"] {
+  animation: cat-lean 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinema-cat-character,
+  .cinema-cat-character [data-part="eye"] {
+    animation: none !important;
+  }
+}
