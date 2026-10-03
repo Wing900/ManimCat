@@ -9,6 +9,7 @@ import {
   readLastStudioSessionId,
   readRecentStudioSessionIds,
   rememberStudioSessionId,
+  writeLastStudioSessionId,
 } from '../../session-history/session-storage'
 import {
   StudioCinemaSessionGateway,
@@ -72,6 +73,7 @@ export function createDefaultStudioCinemaSessionStorage(): StudioCinemaSessionGa
     readLastSessionId: (studioKind) => readLastStudioSessionId(studioKind),
     readRecentSessionIds: (studioKind) => readRecentStudioSessionIds(studioKind),
     rememberSessionId: (studioKind, sessionId) => rememberStudioSessionId(studioKind, sessionId),
+    markLastSessionId: (studioKind, sessionId) => writeLastStudioSessionId(studioKind, sessionId),
     forgetSessionId: (studioKind, sessionId) => forgetStudioSessionId(studioKind, sessionId),
   }
 }

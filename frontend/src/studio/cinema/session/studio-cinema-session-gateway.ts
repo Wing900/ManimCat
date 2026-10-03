@@ -18,6 +18,8 @@ import type {
  *
  * Rules this layer encodes:
  *
+ * - the recent list keeps its order when the user picks an entry, so a click is always visible where it
+ *   happened; only creating or auto-restoring a Session moves it to the front;
  * - the local recent-id list is the only history the client has, so it is never silently discarded:
  *   a transport failure keeps it and asks the user, and only a definite `NOT_FOUND` answer (the
  *   Session is gone for this owner) removes one entry;
@@ -37,6 +39,12 @@ export interface StudioCinemaSessionGatewayStorage {
   readLastSessionId: (studioKind: string) => string | null
   readRecentSessionIds: (studioKind: string) => string[]
   rememberSessionId: (studioKind: string, sessionId: string) => void
+  /**
+   * Records a Session as the last used one *without* touching the recent order. Picking an entry in the
+   * list must not reshuffle it: the list is the only map the user has, and reordering moves the clicked
+   * entry out from under the pointer, which reads as "the click did nothing".
+   */
+  markLastSessionId: (studioKind: string, sessionId: string) => void
   forgetSessionId: (studioKind: string, sessionId: string) => void
 }
 
@@ -233,7 +241,9 @@ export class StudioCinemaSessionGateway {
         if (!this.isOwned()) {
           return { status: 'stale' }
         }
-        this.deps.storage.rememberSessionId(studioKind, explicitSessionId)
+        // The explicit pick moves the last-used pointer only: the recent list keeps its order, so the
+        // entry the user just clicked stays exactly where they clicked it.
+        this.deps.storage.markLastSessionId(studioKind, explicitSessionId)
         return { status: 'ready', origin: 'restored', session: read.session }
       }
       if (read.status === 'missing') {

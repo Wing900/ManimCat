@@ -87,6 +87,8 @@ interface WorkspaceHarness {
   subscriptions: FakeSubscription[]
   scheduler: { pendingCount: () => number; fire: () => Promise<void> }
   storage: Map<string, string>
+  /** The recent Session list, in the order the sidebar renders it (newest first). */
+  history: string[]
   forgotten: string[]
   selectionStore: TestSceneSelectionStore
   /** Unresolved Session reads of the gateway, in arrival order (only while deferring). */
@@ -194,12 +196,22 @@ function createHarness(options?: {
       },
     },
     storage: {
-      readLastSessionId: () => history[0] ?? null,
+      // The real store keeps the last-used id in its own slot and the recent list in insertion order,
+      // newest first: a Session is only moved to the front when it is created or auto-restored.
+      readLastSessionId: () => storage.get('last') ?? history[0] ?? null,
       readRecentSessionIds: () => {
         sessionReadCounts.storage += 1
         return [...history]
       },
       rememberSessionId: (_studioKind, sessionId) => {
+        storage.set('last', sessionId)
+        const index = history.indexOf(sessionId)
+        if (index >= 0) {
+          history.splice(index, 1)
+        }
+        history.unshift(sessionId)
+      },
+      markLastSessionId: (_studioKind, sessionId) => {
         storage.set('last', sessionId)
       },
       forgetSessionId: (_studioKind, sessionId) => {
@@ -300,6 +312,7 @@ function createHarness(options?: {
     },
     subscriptions,
     storage,
+    history,
     forgotten,
     selectionStore,
     gatewayReads,
@@ -532,6 +545,27 @@ describe('cinema workspace', () => {
     fireEvent.change(composer(), { target: { value: 'draw a circle' } })
     await flush()
     expect(send).toBeEnabled()
+  })
+
+  // The bug the user reports as "switching does not work": picking an entry used to reshuffle the list,
+  // so the highlighted row stayed first and every entry kept the same positional name. The marker must
+  // land on the row that was clicked, and the rows must stay where they were.
+  it('marks the picked Session as current without moving it to the front of the list', async () => {
+    const harness = createHarness({ history: [SESSION_A, SESSION_B] })
+    await renderWorkspace(harness)
+    await flush()
+
+    const entries = () => screen.getAllByRole('button', { name: /^Session \d+$/ })
+    expect(entries().map((entry) => entry.textContent)).toEqual(['Session 1', 'Session 2'])
+    expect(entries()[0]?.getAttribute('aria-current')).toBe('true')
+
+    fireEvent.click(entries()[1]!)
+    await flush()
+
+    expect(harness.history).toEqual([SESSION_A, SESSION_B])
+    expect(entries().map((entry) => entry.textContent)).toEqual(['Session 1', 'Session 2'])
+    expect(entries()[1]?.getAttribute('aria-current')).toBe('true')
+    expect(entries()[0]?.getAttribute('aria-current')).toBeNull()
   })
 
   it('opens and closes the conversation only through the cat', async () => {

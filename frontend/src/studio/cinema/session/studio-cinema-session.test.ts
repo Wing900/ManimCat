@@ -90,10 +90,17 @@ function createHarness(options?: {
       readLastSessionId: () => recent[0] ?? null,
       readRecentSessionIds: () => [...recent],
       rememberSessionId: (_studioKind, sessionId) => {
+        // Matches the real store: remembering a Session moves it to the front of the recent list.
         storage.set('last', sessionId)
-        if (!recent.includes(sessionId)) {
-          recent.unshift(sessionId)
+        const index = recent.indexOf(sessionId)
+        if (index >= 0) {
+          recent.splice(index, 1)
         }
+        recent.unshift(sessionId)
+      },
+      markLastSessionId: (_studioKind, sessionId) => {
+        // Matches the real store: only the last-used pointer moves; the list keeps its order.
+        storage.set('last', sessionId)
       },
       forgetSessionId: (_studioKind, sessionId) => {
         const index = recent.indexOf(sessionId)
@@ -127,6 +134,7 @@ describe('cinema session gateway', () => {
         readLastSessionId: () => 'session_b',
         readRecentSessionIds: () => ['session_a', 'session_b', 'session_c'],
         rememberSessionId: () => undefined,
+        markLastSessionId: () => undefined,
         forgetSessionId: () => undefined,
       },
       'manim',
@@ -229,6 +237,20 @@ describe('cinema session gateway', () => {
     expect(outcome).toEqual({ status: 'unavailable', reason: 'restore_missing', sessionId: 'session_gone' })
     expect(harness.recent).toEqual([])
     expect(harness.created).toEqual([])
+  })
+
+  // Picking an entry out of the middle of the list must be visible where the user clicked: the entry
+  // stays put and only the last-used pointer follows it. A reorder would move the clicked row to the
+  // top, which is indistinguishable from "nothing happened" in a list of identically named Sessions.
+  it('keeps the recent order when one entry is picked explicitly', async () => {
+    const harness = createHarness()
+    harness.recent.push('session_newest', 'session_middle', 'session_oldest')
+
+    const outcome = await harness.gateway.restore('manim', 'session_middle')
+
+    expect(outcome).toEqual(expect.objectContaining({ status: 'ready', origin: 'restored' }))
+    expect(harness.recent).toEqual(['session_newest', 'session_middle', 'session_oldest'])
+    expect(harness.storage.get('last')).toBe('session_middle')
   })
 
   it('drops a restore response that a newer intent already superseded', async () => {
