@@ -303,6 +303,22 @@ export function ManimCinemaWorkspace({
             </div>
           ) : null}
 
+          <SceneStrip
+            entries={index}
+            mutationPending={state.sceneMutationPending || !identityReady}
+            panelId={SCENE_PANEL_ID}
+            onSelect={(sceneId) => {
+              if (sceneId !== state.selectedSceneId) {
+                controller.selectScene(sceneId)
+              }
+            }}
+            onAppend={() => {
+              if (identityReady) {
+                void controller.appendScene()
+              }
+            }}
+          />
+
           <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
             <div
               className="relative flex min-h-0 flex-1 items-center justify-center"
@@ -423,23 +439,6 @@ export function ManimCinemaWorkspace({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <div className="min-w-0 flex-1">
-          <SceneStrip
-            entries={index}
-            mutationPending={state.sceneMutationPending || !identityReady}
-            panelId={SCENE_PANEL_ID}
-            onSelect={(sceneId) => {
-              if (sceneId !== state.selectedSceneId) {
-                controller.selectScene(sceneId)
-              }
-            }}
-            onAppend={() => {
-              if (identityReady) {
-                void controller.appendScene()
-              }
-            }}
-          />
-        </div>
         <SceneActivity
           sceneIndex={Math.max(0, sceneIndex)}
           runStatusKey={view?.latestRun ? readStudioCinemaRunStatusKey(view.latestRun.status) : null}
