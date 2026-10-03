@@ -13,13 +13,11 @@ import {
   readStudioCinemaCatStatus,
   readStudioCinemaFeedbackKey,
   readStudioCinemaRenderStatusKey,
-  readStudioCinemaRunStatusKey,
   readStudioCinemaScreenState,
   readStudioCinemaStreamStateKey,
   readStudioCinemaSubmitBlockedKey,
   type StudioCinemaScreenState,
 } from './cinema-labels'
-import { SceneActivity } from './SceneActivity'
 import { SceneComposer } from './SceneComposer'
 import { SceneHistoryPanel } from './SceneHistoryPanel'
 import { SceneStrip } from './SceneStrip'
@@ -444,7 +442,6 @@ export function ManimCinemaWorkspace({
           revision={conversationRevision}
           title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
           rows={rows}
-          usage={view?.tokenUsage ?? null}
           loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
           onClose={closeHistory}
           catPose={
@@ -454,15 +451,6 @@ export function ManimCinemaWorkspace({
                 ? 'busy'
                 : 'idle'
           }
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <SceneActivity
-          sceneIndex={Math.max(0, sceneIndex)}
-          runStatusKey={view?.latestRun ? readStudioCinemaRunStatusKey(view.latestRun.status) : null}
-          activeRunStartedAt={view?.activeRun?.createdAt ?? null}
-          usage={view?.tokenUsage ?? null}
         />
       </div>
     </div>

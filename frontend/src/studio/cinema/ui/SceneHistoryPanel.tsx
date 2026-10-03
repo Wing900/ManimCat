@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../i18n'
-import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { StudioMarkdown } from '../../components/StudioMarkdown'
 import {
   readStudioCinemaToolStatusKey,
@@ -35,8 +34,6 @@ export interface SceneHistoryPanelProps {
   revision: string
   title: string
   rows: readonly StudioCinemaConversationRow[]
-  /** Measured token usage of this Scene's latest Run, or null when nothing was measured. */
-  usage: StudioTokenUsage | null
   loading: boolean
   onClose: () => void
   /** Pose of the cat that moved into the header (doc §3.2). */
