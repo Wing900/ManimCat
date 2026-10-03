@@ -683,10 +683,10 @@ describe('cinema workspace', () => {
     await flush()
 
     // While this Scene's Run can be cancelled the trailing slot is Stop, so the Send is simply not
-    // offered — the blocked sentence still explains why.
+    // offered, and the composer's status line is what reports the running task.
     expect(screen.queryByLabelText('Send')).toBeNull()
     expect(screen.getByLabelText('Stop')).toBeEnabled()
-    expect(screen.getByText('This Scene already has a running task; stop it first.')).toBeInTheDocument()
+    expect(screen.getByText('Task in progress…')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Scene 2/ }))
     await flush()
@@ -1141,9 +1141,9 @@ describe('cinema workspace', () => {
     expect(sidebar.className).toContain('lg:static')
     expect(screen.getByLabelText('Close session list')).toBeInTheDocument()
 
-    const reason = screen.getByText('This Scene already has a running task; stop it first.')
-    expect(reason.closest('.shrink-0')).toBeNull()
-    expect(reason.closest('form')).not.toBeNull()
+    const status = screen.getByText('Task in progress…')
+    expect(status.closest('.shrink-0')).toBeNull()
+    expect(status.closest('form')).not.toBeNull()
     expect(composer().className).toContain('min-w-0')
     expect(composer().className).toContain('flex-1')
   })

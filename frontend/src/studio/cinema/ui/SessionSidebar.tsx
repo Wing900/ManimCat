@@ -65,7 +65,7 @@ export function SessionSidebar({
         <ManimCatLogo className="h-9 w-9 rounded-full" />
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
           aria-expanded={false}
           aria-label={t('studio.cinema.sidebarExpand')}
           title={t('studio.cinema.sidebarExpand')}
@@ -76,7 +76,7 @@ export function SessionSidebar({
         {/* Back to the home screen, bottom-left, mirroring the expanded column. */}
         <button
           type="button"
-          className="mt-auto flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+          className="mt-auto flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
           aria-label={t('studio.cinema.exit')}
           title={t('studio.cinema.exit')}
           onClick={onExit}
@@ -107,7 +107,7 @@ export function SessionSidebar({
         </p>
         <button
           type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
           aria-expanded
           aria-label={t('studio.cinema.sidebarCollapse')}
           title={t('studio.cinema.sidebarCollapse')}
@@ -119,7 +119,7 @@ export function SessionSidebar({
 
       <button
         type="button"
-        className="flex min-h-[44px] items-center gap-2 rounded-xl px-3 text-base text-text-primary/85 transition-colors hover:bg-bg-tertiary/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+        className="flex min-h-[44px] items-center gap-2 rounded-xl px-3 text-base text-text-primary/85 transition-colors hover:bg-bg-tertiary/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         onClick={onCreate}
       >
         <PlusIcon />
@@ -154,7 +154,7 @@ export function SessionSidebar({
               <li key={sessionId}>
                 <button
                   type="button"
-                  className={`flex min-h-[44px] w-full items-center truncate rounded-xl px-3 py-1.5 text-left text-sm transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
+                  className={`flex min-h-[44px] w-full items-center truncate rounded-xl px-3 py-1.5 text-left text-sm transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                     isCurrent ? 'bg-bg-tertiary/60 text-text-primary' : 'text-text-secondary/70'
                   }`}
                   aria-current={isCurrent ? 'true' : undefined}
@@ -176,7 +176,7 @@ export function SessionSidebar({
       {/* Back to the home screen: bottom-left corner, icon only, in the home screen's icon style. */}
       <button
         type="button"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         aria-label={t('studio.cinema.exit')}
         title={t('studio.cinema.exit')}
         onClick={onExit}

@@ -12,8 +12,8 @@ import { SendIcon, StopIcon } from './CinemaIcons'
  * Layout: one soft surface (no border) holds the textarea and the single trailing action, so the
  * composer reads as one input centred under the stage. The trailing slot is the primary action of the
  * moment: Stop while this Scene's Run can be cancelled, Send otherwise. Keeping one slot is what puts
- * the stop control on the right, at full size, instead of a small muted square beside Send. A hint line
- * spells out the keyboard contract (Enter sends, Shift+Enter breaks the line).
+ * the stop control on the right, at full size, instead of a small muted square beside Send. The line
+ * under the box reports the task state (进行中 / 空闲) rather than the keyboard contract.
  */
 
 export interface SceneComposerProps {
@@ -59,7 +59,7 @@ export function SceneComposer({
 
   return (
     <form
-      className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-8 pt-6 dark:border-white/10"
+      className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-5 pt-6 dark:border-white/10"
       onSubmit={(event) => {
         event.preventDefault()
         if (canSubmit) {
@@ -95,7 +95,7 @@ export function SceneComposer({
           {showStop ? (
             <button
               type="button"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-tertiary/60 text-text-primary/80 transition-all hover:bg-bg-tertiary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-tertiary/60 text-text-primary/80 transition-all hover:bg-bg-tertiary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
               onClick={onCancel}
               disabled={!canCancel}
               aria-label={t('studio.cinema.stop')}
@@ -106,7 +106,7 @@ export function SceneComposer({
           ) : (
             <button
               type="submit"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-rgb/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 disabled:opacity-30"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-30"
               disabled={!canSubmit}
               aria-label={t('studio.cinema.send')}
               title={submitting ? t('studio.cinema.sending') : t('studio.cinema.send')}
@@ -116,7 +116,21 @@ export function SceneComposer({
           )}
         </div>
 
-        <p className="text-center text-xs text-text-secondary/50">{t('studio.cinema.composerHint')}</p>
+        <p
+          className={`flex items-center justify-center gap-1.5 text-xs ${
+            showStop ? 'text-text-secondary/80' : 'text-text-secondary/55'
+          }`}
+        >
+          {/* 呼吸灯: the dot breathes — quicker while a task runs, slower when the studio is standing by. */}
+          <span
+            aria-hidden="true"
+            data-state={showStop ? 'running' : 'idle'}
+            className={`cinema-status-dot h-1.5 w-1.5 shrink-0 rounded-full ${
+              showStop ? 'bg-accent/80' : 'bg-text-tertiary/50'
+            }`}
+          />
+          {showStop ? t('studio.cinema.taskRunning') : t('studio.cinema.taskIdle')}
+        </p>
       </div>
     </form>
   )

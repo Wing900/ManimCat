@@ -54,7 +54,7 @@ export function CatSpeechBubble({
       {hasRecoverEntry && onRecover && recoverLabelKey ? (
         <button
           type="button"
-          className="mt-1.5 inline-flex min-h-[36px] items-center rounded-md border border-black/10 px-2.5 text-sm text-text-secondary transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+          className="mt-1.5 inline-flex min-h-[36px] items-center rounded-md border border-black/10 px-2.5 text-sm text-text-secondary transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
           onClick={onRecover}
         >
           {t(recoverLabelKey)}

@@ -61,7 +61,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
           <h2 className="text-base font-medium text-text-primary/85">{t('studio.cinema.scenePickerLabel')}</h2>
           <button
             type="button"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
             aria-label={t('studio.cinema.scenePickerClose')}
             onClick={onClose}
           >
@@ -77,7 +77,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
                 <button
                   type="button"
                   ref={index === 0 ? firstRef : undefined}
-                  className={`flex h-full w-full flex-col items-stretch gap-2 rounded-2xl p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
+                  className={`flex h-full w-full flex-col items-stretch gap-2 rounded-2xl p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                     entry.isSelected
                       ? 'bg-bg-tertiary/60 dark:bg-white/10'
                       : 'bg-bg-secondary/60 hover:bg-bg-secondary dark:bg-white/5 dark:hover:bg-white/10'
@@ -90,7 +90,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
                       entry.hasFailedOutcome
                         ? 'bg-red-500/10 text-red-500/70'
                         : entry.isBusy
-                          ? 'bg-accent-rgb/10 text-accent-rgb/70'
+                          ? 'bg-accent/10 text-accent/70'
                           : 'bg-black/5 text-text-secondary/40 dark:bg-white/10'
                     }`}
                     aria-hidden="true"
@@ -101,7 +101,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
                     <span className="truncate text-base font-medium text-text-primary/85">{label}</span>
                     <span
                       className={`h-2 w-2 shrink-0 rounded-full ${
-                        entry.isBusy ? 'bg-accent-rgb' : entry.hasFailedOutcome ? 'bg-red-500/70' : 'bg-text-secondary/30'
+                        entry.isBusy ? 'bg-accent' : entry.hasFailedOutcome ? 'bg-red-500/70' : 'bg-text-secondary/30'
                       }`}
                       aria-hidden="true"
                     />

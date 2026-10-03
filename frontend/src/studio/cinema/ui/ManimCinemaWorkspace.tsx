@@ -424,7 +424,7 @@ export function ManimCinemaWorkspace({
             ) : null}
           </div>
 
-          <div className="px-3 pb-10 sm:px-20 lg:px-32">
+          <div className="px-3 pb-4 sm:px-20 lg:px-32">
           <SceneComposer
             draft={view?.draft ?? ''}
             submitting={view?.submitting ?? false}
@@ -435,7 +435,11 @@ export function ManimCinemaWorkspace({
                 ? session.status === 'loading'
                   ? 'studio.cinema.submitBlockedSessionSwitching'
                   : null
-                : view?.submitBlockReason && view.submitBlockReason !== 'empty_draft'
+                : view?.submitBlockReason &&
+                    view.submitBlockReason !== 'empty_draft' &&
+                    // A running task is reported by the composer's own status line (`任务进行中…`), so
+                    // the extra "you can stop it" sentence is gone.
+                    view.submitBlockReason !== 'active_run'
                   ? readStudioCinemaSubmitBlockedKey(view.submitBlockReason)
                   : null
             }

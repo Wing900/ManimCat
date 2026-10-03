@@ -114,7 +114,7 @@ export function LogoUsagePopover({ usage, sentRounds, sceneLabel }: LogoUsagePop
     >
       <button
         type="button"
-        className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40"
+        className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         aria-label={t('studio.cinema.logoUsageLabel')}
         aria-haspopup="dialog"
         aria-expanded={open}

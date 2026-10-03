@@ -585,3 +585,21 @@ select option:checked {
   .cinema-row-enter { animation: none; }
   .cinema-thinking-dot { animation: none; opacity: 0.6; }
 }
+
+/* Composer task status (呼吸灯): the dot breathes while the studio is standing by or busy. */
+@keyframes cinema-status-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+.cinema-status-dot {
+  animation: cinema-status-breathe 1.8s ease-in-out infinite;
+}
+.cinema-status-dot[data-state="idle"] {
+  animation-duration: 3s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinema-status-dot {
+    animation: none;
+    opacity: 0.85;
+  }
+}

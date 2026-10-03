@@ -57,7 +57,7 @@ function SceneToolActivity({ row }: { row: StudioCinemaToolRow }) {
     <div className="rounded-lg border border-black/10 bg-white/50 dark:border-white/10 dark:bg-white/5">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         aria-expanded={expanded}
         disabled={!row.hasDetail}
         onClick={() => setExpanded((value) => !value)}
@@ -278,7 +278,7 @@ export function SceneHistoryPanel({
           <h2 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">{title}</h2>
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             onClick={onClose}
             aria-label={t('studio.cinema.historyClose')}
             title={t('studio.cinema.historyClose')}
@@ -321,7 +321,7 @@ export function SceneHistoryPanel({
         {showJumpToLatest ? (
           <button
             type="button"
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-black/10 bg-bg-primary/95 px-3 py-1.5 text-sm text-text-secondary shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-black/10 bg-bg-primary/95 px-3 py-1.5 text-sm text-text-secondary shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
             onClick={jumpToLatest}
           >
             {t('studio.cinema.jumpToLatest')}

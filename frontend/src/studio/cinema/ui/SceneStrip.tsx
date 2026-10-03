@@ -127,7 +127,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
       {compact ? (
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
           aria-label={t('studio.cinema.scenePrev')}
           disabled={previousEntry === null}
           onClick={() => {
@@ -156,7 +156,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
               aria-selected={entry.isSelected}
               aria-controls={panelId}
               tabIndex={entry.isSelected ? 0 : -1}
-              className={`flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
+              className={`flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                 entry.isSelected
                   ? 'bg-bg-tertiary/60 text-text-primary dark:bg-white/10'
                   : 'text-text-secondary/70 hover:bg-bg-tertiary/35'
@@ -172,7 +172,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
         {compact ? (
           <button
             type="button"
-            className="flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+            className="flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             onClick={() => setPickerOpen(true)}
           >
             {t('studio.cinema.scenePickerAll', { count: entries.length })}
@@ -183,7 +183,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
       {compact ? (
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
           aria-label={t('studio.cinema.sceneNext')}
           disabled={nextEntry === null}
           onClick={() => {
@@ -198,7 +198,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
 
       <button
         type="button"
-        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40"
+        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
         aria-label={t('studio.cinema.sceneAppend')}
         disabled={mutationPending}
         onClick={onAppend}
