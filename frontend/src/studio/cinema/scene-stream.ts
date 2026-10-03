@@ -7,7 +7,7 @@
  * through the host callbacks so the stream never reads the controller's state shape directly.
  */
 import { isSameStudioCinemaScene, type StudioCinemaSceneEvent, type StudioCinemaSceneIdentity } from './types'
-import type { StudioCinemaAction } from './scene-state'
+import type { StudioCinemaAction } from './scene-reducer'
 import { bufferRecoveryEvent, type RecoveryWindowSlot } from './recovery-window'
 import { decodeStudioCinemaSceneEvent } from './scene-events'
 import { readStudioCinemaRequestError } from './request-error'

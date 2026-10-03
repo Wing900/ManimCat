@@ -26,7 +26,8 @@ import { RecoveryWindowSlot, takeBufferedRecoveryEvents } from './recovery-windo
 import { MutationLane } from './mutation-lane'
 import { RenderRefreshScheduler } from './render-refresh'
 import { SceneStream } from './scene-stream'
-import { selectSceneState, studioCinemaReducer, type StudioCinemaAction } from './scene-state'
+import { selectSceneState } from './scene-state'
+import { studioCinemaReducer, type StudioCinemaAction } from './scene-reducer'
 import {
   readStudioCinemaActiveRun,
   readStudioCinemaSceneEligibility,

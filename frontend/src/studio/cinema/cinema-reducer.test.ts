@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { StudioScene } from '../protocol/studio-agent-types'
-import { selectSceneState, studioCinemaReducer, type StudioCinemaAction } from './scene-state'
+import { selectSceneState } from './scene-state'
+import { studioCinemaReducer, type StudioCinemaAction } from './scene-reducer'
 import { readStudioCinemaActiveRun } from './scene-selectors'
 import { createInitialStudioCinemaState, type StudioCinemaState } from './types'
 import {

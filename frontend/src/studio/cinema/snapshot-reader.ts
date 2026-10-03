@@ -6,7 +6,7 @@
  * state shape directly.
  */
 import { buildStudioCinemaSceneKey, type StudioCinemaSceneIdentity } from './types'
-import type { StudioCinemaAction } from './scene-state'
+import type { StudioCinemaAction } from './scene-reducer'
 import {
   readStudioCinemaSnapshotOwnershipVerdict,
   type StudioCinemaSnapshotOwnership,

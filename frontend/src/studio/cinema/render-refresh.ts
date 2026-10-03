@@ -19,7 +19,7 @@ import {
   type StudioCinemaSceneState,
 } from './types'
 import { readStudioCinemaRenderWaitTarget } from './scene-selectors'
-import type { StudioCinemaAction } from './scene-state'
+import type { StudioCinemaAction } from './scene-reducer'
 import type { StudioCinemaScheduler } from './cinema-controller'
 import type { StudioCinemaSnapshotOutcome } from './request-error'
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudioScene, StudioSceneAttachment, StudioSceneRun, StudioTokenUsage } from '../protocol/studio-agent-types'
-import { studioCinemaReducer, type StudioCinemaAction } from './scene-state'
+import { studioCinemaReducer, type StudioCinemaAction } from './scene-reducer'
 import {
   readStudioCinemaActiveRender,
   readStudioCinemaActiveRenderIds,
