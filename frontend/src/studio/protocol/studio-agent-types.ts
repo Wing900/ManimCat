@@ -38,6 +38,8 @@ export interface StudioTokenUsage {
 export interface StudioRun {
   id: string
   sessionId: string
+  /** Optional Scene scope; absent means a legacy Session-scoped Run. */
+  sceneId?: string
   status: StudioRunStatus
   inputText: string
   activeAgent: StudioAgentType
@@ -52,6 +54,8 @@ export interface StudioRender {
   id: string
   ownerId?: string
   sessionId: string
+  /** Optional Scene scope; absent means a legacy Session-scoped render. */
+  sceneId?: string
   runId?: string
   kind: StudioKind
   title: string
@@ -79,6 +83,8 @@ export interface StudioMessageBase {
   id: string
   renderId?: string
   sessionId: string
+  /** Optional Scene scope, inherited by every Part through this Message. */
+  sceneId?: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   createdAt: string
   updatedAt: string
@@ -196,7 +202,133 @@ export interface StudioSessionSnapshot {
   messages: StudioMessage[]
   runs: StudioRun[]
   renders: StudioRender[]
+  /** Ordered Scenes; absent on responses produced before Scene support. */
+  scenes?: StudioScene[]
 }
+
+/** One ordered Scene beneath a Session, in its public (sanitized) shape. */
+export interface StudioScene {
+  id: string
+  sessionId: string
+  position: number
+  createdAt: string
+  updatedAt: string
+}
+
+/** One Scene with only its own records, in the Scene public projection. */
+export interface StudioSceneSnapshot {
+  scene: StudioScene
+  messages: StudioSceneMessage[]
+  runs: StudioSceneRun[]
+  renders: StudioSceneRender[]
+}
+
+/**
+ * Scene public projection, mirroring the backend whitelist exactly: no internal error text, no
+ * private source path, no arbitrary Tool metadata and no model-supplied Tool input. The legacy
+ * Session snapshot keeps its wider `StudioRun`/`StudioRender`, so this narrows the Scene response
+ * only and a Scene consumer must not cast a wider record into these types.
+ */
+export interface StudioSceneAttachment {
+  kind: 'file'
+  path: string
+  name?: string
+  mimeType?: string
+}
+
+export interface StudioSceneRun {
+  id: string
+  sessionId: string
+  sceneId?: string
+  status: StudioRunStatus
+  inputText: string
+  activeAgent: StudioAgentType
+  createdAt: string
+  completedAt?: string
+  tokenUsage?: StudioTokenUsage
+}
+
+export interface StudioSceneRender {
+  id: string
+  sessionId: string
+  sceneId?: string
+  runId?: string
+  kind: StudioKind
+  title: string
+  status: StudioRenderStatus
+  concept: string
+  outputMode: 'video' | 'image'
+  quality?: 'low' | 'medium' | 'high'
+  jobId?: string
+  attachments?: StudioSceneAttachment[]
+  metadata?: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StudioSceneToolState {
+  status: 'pending' | 'running' | 'completed' | 'error'
+  title?: string
+  output?: string
+  time?: StudioPartTimeRange
+  attachments?: StudioSceneAttachment[]
+  metadata?: Record<string, unknown>
+}
+
+export interface StudioSceneTextPart {
+  id: string
+  messageId: string
+  sessionId: string
+  type: 'text'
+  text: string
+  time?: StudioPartTimeRange
+}
+
+export interface StudioSceneReasoningPart {
+  id: string
+  messageId: string
+  sessionId: string
+  type: 'reasoning'
+  text: string
+  time?: StudioPartTimeRange
+}
+
+export interface StudioSceneToolPart {
+  id: string
+  messageId: string
+  sessionId: string
+  type: 'tool'
+  tool: string
+  callId: string
+  state: StudioSceneToolState
+  metadata?: Record<string, unknown>
+}
+
+export type StudioScenePart = StudioSceneTextPart | StudioSceneReasoningPart | StudioSceneToolPart
+
+export interface StudioSceneUserMessage {
+  id: string
+  sessionId: string
+  sceneId?: string
+  role: 'user'
+  text: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StudioSceneAssistantMessage {
+  id: string
+  sessionId: string
+  sceneId?: string
+  role: 'assistant'
+  agent: StudioAgentType
+  parts: StudioScenePart[]
+  summary?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type StudioSceneMessage = StudioSceneUserMessage | StudioSceneAssistantMessage
 
 export interface StudioCreateSessionInput {
   projectId: string
@@ -212,4 +344,20 @@ export interface StudioCreateRunInput {
   inputText: string
   projectId?: string
   customApiConfig?: CustomApiConfig
+}
+
+/**
+ * Scene Run body. Session and Scene identity come from the URL, so the body carries no identity
+ * field at all: the backend parser is strict and rejects an attempted override.
+ */
+export interface StudioCreateSceneRunInput {
+  inputText: string
+  projectId?: string
+  customApiConfig?: CustomApiConfig
+  toolChoice?: 'auto' | 'required' | 'none'
+}
+
+/** Accepted Scene Run response: the selected Scene's own records plus the accepted Run. */
+export interface StudioCreateSceneRunResponse extends StudioSceneSnapshot {
+  run: StudioSceneRun
 }

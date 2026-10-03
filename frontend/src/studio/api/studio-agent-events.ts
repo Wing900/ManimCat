@@ -9,15 +9,48 @@ export interface StudioEventConnectionStatus {
   error?: string
 }
 
-interface StudioEventSubscriptionOptions {
-  sessionId: string
+/**
+ * Stream scope. `session` keeps the existing Session stream endpoint byte-for-byte; `scene`
+ * selects the nested Scene stream, which the backend already filters to that exact Scene.
+ */
+export type StudioEventStreamScope =
+  | { kind: 'session'; sessionId: string }
+  | { kind: 'scene'; sessionId: string; sceneId: string }
+
+interface StudioEventSubscriptionBase {
   signal: AbortSignal
   onEvent: (event: StudioExternalEvent) => void
   onStatusChange?: (status: StudioEventConnectionStatus) => void
 }
 
+/**
+ * Subscription options. Identity comes from exactly one place: either the legacy `sessionId` or a
+ * structured `scope`, so a Session id and a Scene scope can never disagree.
+ */
+export type StudioEventSubscriptionOptions = StudioEventSubscriptionBase &
+  ({ sessionId: string; scope?: undefined } | { scope: StudioEventStreamScope })
+
+/** Resolves the one scope a subscription talks to. */
+export function resolveStudioEventStreamScope(
+  options: StudioEventSubscriptionOptions,
+): StudioEventStreamScope {
+  return options.scope ?? { kind: 'session', sessionId: options.sessionId }
+}
+
+/**
+ * Stream URL for one scope. The Session form is exactly the pre-Scene URL; the Scene form nests
+ * under the same Session endpoint and encodes both identifiers.
+ */
+export function buildStudioEventStreamUrl(scope: StudioEventStreamScope): string {
+  const sessionPath = `${getStudioApiBase()}/sessions/${encodeURIComponent(scope.sessionId)}`
+  return scope.kind === 'scene'
+    ? `${sessionPath}/scenes/${encodeURIComponent(scope.sceneId)}/events`
+    : `${sessionPath}/events`
+}
+
 export async function subscribeStudioEvents(options: StudioEventSubscriptionOptions): Promise<void> {
   let attempt = 0
+  const scope = resolveStudioEventStreamScope(options)
 
   while (!options.signal.aborted) {
     options.onStatusChange?.({
@@ -26,7 +59,7 @@ export async function subscribeStudioEvents(options: StudioEventSubscriptionOpti
     })
 
     try {
-      await consumeStudioEventStream(options)
+      await consumeStudioEventStream(options, scope)
       if (!options.signal.aborted) {
         attempt += 1
       }
@@ -48,8 +81,11 @@ export async function subscribeStudioEvents(options: StudioEventSubscriptionOpti
   }
 }
 
-async function consumeStudioEventStream(options: StudioEventSubscriptionOptions): Promise<void> {
-  const response = await fetch(`${getStudioApiBase()}/sessions/${encodeURIComponent(options.sessionId)}/events`, {
+async function consumeStudioEventStream(
+  options: StudioEventSubscriptionBase,
+  scope: StudioEventStreamScope,
+): Promise<void> {
+  const response = await fetch(buildStudioEventStreamUrl(scope), {
     headers: {
       Accept: 'text/event-stream',
       ...getStudioAuthHeaders(),
