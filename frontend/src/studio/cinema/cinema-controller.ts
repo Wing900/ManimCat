@@ -20,12 +20,8 @@ import {
 import { subscribeStudioEvents } from '../api/studio-agent-events'
 import { resolveStudioProviderConfig } from '../api/studio-provider-config'
 import type { CustomApiConfig } from '../../types/api'
-import {
-  readStudioCinemaSnapshotOwnershipVerdict,
-  type StudioCinemaSnapshotOwnership,
-  type StudioCinemaSnapshotOwnershipVerdict,
-} from './recovery-ownership'
-import { readStudioCinemaRequestError, type StudioCinemaSnapshotOutcome } from './request-error'
+import { readStudioCinemaRequestError, STALE_RESULT, type StudioCinemaSnapshotOutcome } from './request-error'
+import { SceneSnapshotReader } from './snapshot-reader'
 import { RecoveryWindowSlot, takeBufferedRecoveryEvents } from './recovery-window'
 import { MutationLane } from './mutation-lane'
 import { RenderRefreshScheduler } from './render-refresh'
@@ -80,7 +76,6 @@ import {
   isStudioCinemaAcceptedRunResponseForIdentity,
   readStudioCinemaCancelRunVerdict,
   isStudioCinemaSceneRunForIdentity,
-  isStudioCinemaSceneSnapshotForIdentity,
 } from './scene-response-identity'
 
 /** Result of an explicit index read; `failed` is a definite answer, `stale` means nobody should act. */
@@ -168,8 +163,6 @@ export type StudioCinemaCancelOutcome =
   | { status: 'no_session' }
   | { status: 'stale' }
 
-const STALE_RESULT = 'stale' as const
-
 /**
  * A workflow slot whose identity is visible to concurrent callers *before* its work begins (P1).
  * The create path reaches its first ownership check synchronously, so a slot registered only after
@@ -200,14 +193,13 @@ export class StudioCinemaController {
   private initialization: { id: number; promise: Promise<StudioCinemaInitializationOutcome> } | null = null
   private workflowCounter = 0
   private indexRead: Promise<StudioCinemaIndexOutcome> | null = null
-  private readonly snapshotRevisions = new Map<string, number>()
   private readonly convergenceReads = new Set<string>()
   /**
-   * In-flight authoritative reads per Scene. Recovery, convergence, refresh and a manual reconcile
-   * all arbitrate through this map, so two of them can never supersede each other in a loop: the
-   * second caller joins the read that is already running.
+   * The authoritative Scene snapshot reader. Owns the snapshot revision counter and the per-Scene
+   * read de-duplication; the controller supplies the session context, the dispatch and the render
+   * refresh scheduling through the reader's host interface.
    */
-  private readonly sceneReads = new Map<string, Promise<StudioCinemaSnapshotOutcome>>()
+  private snapshotReader: SceneSnapshotReader
   /**
    * The render refresh loop of the selected Scene. The scheduler owns the cycle, the token and the
    * budget; this controller supplies the snapshot read and the session context through the host
@@ -248,7 +240,7 @@ export class StudioCinemaController {
         },
         sceneState: (identity) => selectSceneState(this.state, identity),
         dispatch: (action) => this.dispatch(action),
-        requestSceneSnapshot: (identity, kind) => this.requestSceneSnapshot(identity, kind),
+        requestSceneSnapshot: (identity, kind) => this.snapshotReader.requestSceneSnapshot(identity, kind),
       },
       deps.scheduler,
     )
@@ -266,6 +258,20 @@ export class StudioCinemaController {
       this.recoverySlot,
       deps.events,
       deps.createAbortController,
+    )
+    this.snapshotReader = new SceneSnapshotReader(
+      {
+        isInactive: () => this.isInactive(),
+        generation: () => this.generation,
+        sessionId: () => this.state.session.id,
+        dispatch: (action) => this.dispatch(action),
+        renderRefreshSchedule: () => this.renderRefresh.schedule(),
+        sessionSignal: () => this.sessionSignal(),
+        getSceneSnapshot: (sessionId, sceneId, options) =>
+          this.deps.api.getSceneSnapshot(sessionId, sceneId, options),
+      },
+      this.sceneStream,
+      this.recoverySlot,
     )
   }
 
@@ -336,7 +342,7 @@ export class StudioCinemaController {
     if (!sameSession) {
       this.initialization = null
       this.indexRead = null
-      this.snapshotRevisions.clear()
+      this.snapshotReader.clearRevisions()
       this.convergenceReads.clear()
       this.appliedLiveTextDeltas.clear()
       // A new Session starts a fresh ordering; a still queued task is allowed to drain first.
@@ -669,7 +675,7 @@ export class StudioCinemaController {
       return 'stale'
     }
 
-    return this.requestSceneSnapshot(identity, 'manual-reconcile')
+    return this.snapshotReader.requestSceneSnapshot(identity, 'manual-reconcile')
   }
 
   /**
@@ -961,11 +967,11 @@ export class StudioCinemaController {
     subscriptionId: number,
     epoch: number,
   ): Promise<void> {
-    const first = await this.startRecoverySceneSnapshot({
+    const first = await this.snapshotReader.startRecoverySceneSnapshot({
       kind: 'stream-recovery',
       generation,
       identity,
-      revision: this.bumpSnapshotRevision(identity),
+      revision: this.snapshotReader.bumpSnapshotRevision(identity),
       subscriptionId,
       epoch,
     })
@@ -1014,11 +1020,11 @@ export class StudioCinemaController {
     window.overflowed = false
     window.recordEvents = []
     window.buffering = true
-    const second = await this.startRecoverySceneSnapshot({
+    const second = await this.snapshotReader.startRecoverySceneSnapshot({
       kind: 'stream-recovery',
       generation,
       identity,
-      revision: this.bumpSnapshotRevision(identity),
+      revision: this.snapshotReader.bumpSnapshotRevision(identity),
       subscriptionId,
       epoch,
     })
@@ -1094,7 +1100,7 @@ export class StudioCinemaController {
 
     this.convergenceReads.add(key)
     const liveTextAtStart = this.appliedLiveTextDeltas.get(key) ?? 0
-    void this.requestSceneSnapshot(identity, 'convergence')
+    void this.snapshotReader.requestSceneSnapshot(identity, 'convergence')
       .then((outcome) => {
         if (outcome !== 'ok') {
           return
@@ -1109,127 +1115,6 @@ export class StudioCinemaController {
         this.convergenceReads.delete(key)
       })
       .catch(() => undefined)
-  }
-
-  /**
-   * One authoritative Scene read and the single apply gate. The ownership verdict is read
-   * immediately before the dispatch, so a response whose stream, epoch, Session generation or
-   * revision moved on is dropped before it can write anything into a Scene.
-   */
-  private async readSceneSnapshot(
-    ownership: StudioCinemaSnapshotOwnership,
-  ): Promise<StudioCinemaSnapshotOutcome> {
-    const identity = ownership.identity
-
-    try {
-      const snapshot = await this.deps.api.getSceneSnapshot(identity.sessionId, identity.sceneId, {
-        signal: this.sessionSignal(),
-      })
-      const verdict = this.readSnapshotOwnershipVerdict(ownership)
-      if (verdict === 'stale') {
-        return STALE_RESULT
-      }
-      if (verdict === 'superseded') {
-        return 'superseded'
-      }
-      if (!isStudioCinemaSceneSnapshotForIdentity(identity, snapshot)) {
-        // 11C7-A: a payload that names another Scene is refused, and the read still ends so the Scene
-        // is never left in `loading`; nothing from the foreign payload is written.
-        this.dispatch({ type: 'scene/snapshot-failed', identity, code: 'snapshot_failed' })
-        return 'failed'
-      }
-      this.dispatch({ type: 'scene/snapshot', identity, snapshot })
-      this.renderRefresh.schedule()
-      return 'ok'
-    } catch (error) {
-      const verdict = this.readSnapshotOwnershipVerdict(ownership)
-      if (verdict === 'stale') {
-        return STALE_RESULT
-      }
-      if (verdict === 'superseded') {
-        return 'superseded'
-      }
-      const mapped = readStudioCinemaRequestError('snapshot', error)
-      this.dispatch({ type: 'scene/snapshot-failed', identity, code: mapped.code })
-      return 'failed'
-    }
-  }
-
-  /** The current facts one ownership is judged against; nothing is cached between reads. */
-  private readSnapshotOwnershipVerdict(
-    ownership: StudioCinemaSnapshotOwnership,
-  ): StudioCinemaSnapshotOwnershipVerdict {
-    const stream = this.sceneStream.peek()
-    const window = this.recoverySlot.peek()
-    return readStudioCinemaSnapshotOwnershipVerdict(ownership, {
-      inactive: this.isInactive(),
-      generation: this.generation,
-      sessionId: this.state.session.id,
-      revision: this.snapshotRevisions.get(buildStudioCinemaSceneKey(ownership.identity)) ?? 0,
-      stream: stream
-        ? { subscriptionId: stream.subscriptionId, epoch: stream.epoch, connected: stream.connected }
-        : null,
-      recoveryWindow: window
-        ? { subscriptionId: window.subscriptionId, epoch: window.epoch }
-        : null,
-    })
-  }
-
-  /**
-   * One authoritative read per Scene at a time, shared by convergence, manual reconciliation and the
-   * render refresh loop. A caller that finds a read already running joins it instead of starting a
-   * newer one, so two of them can never bump each other's revision in a loop; the outcome they get
-   * back is the same record, and `superseded` simply means a newer read (a recovery, or a user
-   * action) already answered for this Scene.
-   */
-  private requestSceneSnapshot(
-    identity: StudioCinemaSceneIdentity,
-    kind: 'convergence' | 'manual-reconcile' | 'refresh',
-  ): Promise<StudioCinemaSnapshotOutcome> {
-    const key = buildStudioCinemaSceneKey(identity)
-    const existing = this.sceneReads.get(key)
-    if (existing) {
-      return existing
-    }
-
-    const generation = this.generation
-    const ownership: StudioCinemaSnapshotOwnership =
-      kind === 'manual-reconcile'
-        ? { kind, generation, identity, revision: this.bumpSnapshotRevision(identity) }
-        : { kind: 'convergence', generation, identity, revision: this.bumpSnapshotRevision(identity) }
-
-    return this.trackSceneRead(key, this.readSceneSnapshot(ownership))
-  }
-
-  /**
-   * A recovery read is the newest view of its Scene and never joins: it starts its own read (so it
-   * owns the revision its window will verify) while converging readers join it.
-   */
-  private startRecoverySceneSnapshot(
-    ownership: StudioCinemaSnapshotOwnership,
-  ): Promise<StudioCinemaSnapshotOutcome> {
-    const key = buildStudioCinemaSceneKey(ownership.identity)
-    return this.trackSceneRead(key, this.readSceneSnapshot(ownership))
-  }
-
-  private trackSceneRead(
-    key: string,
-    read: Promise<StudioCinemaSnapshotOutcome>,
-  ): Promise<StudioCinemaSnapshotOutcome> {
-    const tracked = read.finally(() => {
-      if (this.sceneReads.get(key) === tracked) {
-        this.sceneReads.delete(key)
-      }
-    })
-    this.sceneReads.set(key, tracked)
-    return tracked
-  }
-
-  private bumpSnapshotRevision(identity: StudioCinemaSceneIdentity): number {
-    const key = buildStudioCinemaSceneKey(identity)
-    const next = (this.snapshotRevisions.get(key) ?? 0) + 1
-    this.snapshotRevisions.set(key, next)
-    return next
   }
 
   /**

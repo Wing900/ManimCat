@@ -19,6 +19,9 @@ export type StudioCinemaRequestKind =
 /** Result of one Scene snapshot read; `superseded` means a newer read of the same Scene owns it. */
 export type StudioCinemaSnapshotOutcome = 'ok' | 'failed' | 'stale' | 'superseded'
 
+/** The `stale` sentinel of the snapshot and index outcome unions, as a shared constant. */
+export const STALE_RESULT = 'stale' as const
+
 export interface StudioCinemaRequestError {
   code: StudioCinemaFeedbackCode
   /** True when the server may still have applied the request: reconcile, never blindly retry. */
