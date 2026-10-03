@@ -27,6 +27,7 @@ import {
   type StudioCinemaSnapshotOwnership,
   type StudioCinemaSnapshotOwnershipVerdict,
 } from './recovery-ownership'
+import { RecoveryWindowSlot, bufferRecoveryEvent, takeBufferedRecoveryEvents } from './recovery-window'
 import { selectSceneState, studioCinemaReducer, type StudioCinemaAction } from './scene-state'
 import {
   readStudioCinemaActiveRun,
@@ -48,7 +49,6 @@ import {
   isStudioCinemaTerminalRunStatus,
   isStudioCinemaTextDeltaEvent,
   STUDIO_CINEMA_DEFAULT_SCENE_COUNT,
-  STUDIO_CINEMA_RECOVERY_BUFFER_LIMIT,
   type StudioCinemaFeedbackCode,
   type StudioCinemaSceneEvent,
   type StudioCinemaSceneIdentity,
@@ -266,22 +266,6 @@ interface ActiveStream {
  * the snapshot), record events are kept because they are idempotent upserts, and the counters decide
  * whether the window may be called complete.
  */
-interface RecoveryWindow {
-  subscriptionId: number
-  epoch: number
-  identity: StudioCinemaSceneIdentity
-  buffering: boolean
-  recordEvents: StudioCinemaSceneEvent[]
-  discardedTextCount: number
-  overflowed: boolean
-  /**
-   * An earlier read of this same window already lost events and no successful read has covered them
-   * yet. It survives the counter reset of the bounded second read, so a failed second read cannot
-   * make the window look complete again.
-   */
-  unprovenCarried: boolean
-}
-
 interface MutationLane {
   tail: Promise<unknown>
   /** Every task that is queued or running; the lane is idle only at zero. */
@@ -341,7 +325,7 @@ export class StudioCinemaController {
   private generation = 0
   private subscriptionCounter = 0
   private activeStream: ActiveStream | null = null
-  private recovery: RecoveryWindow | null = null
+  private recoverySlot = new RecoveryWindowSlot()
   private lane: MutationLane = { tail: Promise.resolve(), pending: 0 }
   private initialization: { id: number; promise: Promise<StudioCinemaInitializationOutcome> } | null = null
   private workflowCounter = 0
@@ -1092,7 +1076,7 @@ export class StudioCinemaController {
     this.subscriptionCounter = subscriptionId
     const controller = this.deps.createAbortController()
     this.activeStream = { subscriptionId, identity, controller, epoch: 0, connected: false }
-    this.recovery = null
+    this.recoverySlot.clear()
 
     this.dispatch({ type: 'scene/loading', identity })
     const generation = this.generation
@@ -1123,7 +1107,7 @@ export class StudioCinemaController {
             needsReconciliation: false,
           },
         })
-        this.stopRecoveryWindow(subscriptionId)
+        this.recoverySlot.stop(subscriptionId)
       })
   }
 
@@ -1156,9 +1140,9 @@ export class StudioCinemaController {
       return
     }
 
-    const window = this.currentRecoveryWindow(subscriptionId)
+    const window = this.recoverySlot.current(subscriptionId)
     if (window && window.buffering) {
-      this.bufferRecoveryEvent(window, decoded.event)
+      bufferRecoveryEvent(window, decoded.event)
       return
     }
 
@@ -1192,7 +1176,7 @@ export class StudioCinemaController {
         // The next connection is a new epoch with its own recovery window.
         stream.connected = false
       }
-      this.stopRecoveryWindow(subscriptionId)
+      this.recoverySlot.stop(subscriptionId)
       if (status.state === 'disconnected') {
         this.dispatch({
           type: 'scene/feedback',
@@ -1221,7 +1205,7 @@ export class StudioCinemaController {
     stream.epoch += 1
     const epoch = stream.epoch
     this.dispatch({ type: 'scene/recovery-started', identity })
-    this.recovery = {
+    this.recoverySlot.open({
       subscriptionId,
       epoch,
       identity,
@@ -1230,26 +1214,8 @@ export class StudioCinemaController {
       discardedTextCount: 0,
       overflowed: false,
       unprovenCarried: false,
-    }
+    })
     void this.recoverScene(identity, this.generation, subscriptionId, epoch)
-  }
-
-  /**
-   * Assistant text is discarded inside a window because the protocol has no cursor: the delta may or
-   * may not already be inside the snapshot, and merging it would duplicate content that the client
-   * cannot deduplicate by text. Record events are idempotent upserts and are kept.
-   */
-  private bufferRecoveryEvent(window: RecoveryWindow, event: StudioCinemaSceneEvent): void {
-    if (isStudioCinemaTextDeltaEvent(event)) {
-      window.discardedTextCount += 1
-      return
-    }
-    if (window.recordEvents.length >= STUDIO_CINEMA_RECOVERY_BUFFER_LIMIT) {
-      window.overflowed = true
-      window.recordEvents = []
-      return
-    }
-    window.recordEvents.push(event)
   }
 
   private async recoverScene(
@@ -1266,15 +1232,15 @@ export class StudioCinemaController {
       subscriptionId,
       epoch,
     })
-    if (!this.isCurrentRecoveryWindow(subscriptionId, epoch)) {
+    if (!this.recoverySlot.isCurrent(subscriptionId, epoch, !this.isInactive())) {
       return
     }
-    const window = this.recovery
+    const window = this.recoverySlot.current(subscriptionId)
     if (!window) {
       return
     }
 
-    const firstReplay = this.takeBufferedRecoveryEvents(window, true)
+    const firstReplay = takeBufferedRecoveryEvents(window, true)
     if (first !== 'ok') {
       // No read proved this window: the events it lost are still unproven, and a recovery that did
       // not answer must never read as in sync. A superseded window is owned by a newer read of the
@@ -1287,7 +1253,7 @@ export class StudioCinemaController {
         // the failed window keeps its checkpoint instead of being dropped with the window.
         this.replayRecoveryEvents(identity, firstReplay.events)
       }
-      this.finishRecoveryWindow(subscriptionId)
+      this.recoverySlot.finish(subscriptionId)
       return
     }
 
@@ -1299,7 +1265,7 @@ export class StudioCinemaController {
     this.replayRecoveryEvents(identity, firstReplay.events)
 
     if (!firstReplay.overflowed) {
-      this.finishRecoveryWindow(subscriptionId)
+      this.recoverySlot.finish(subscriptionId)
       return
     }
 
@@ -1319,10 +1285,10 @@ export class StudioCinemaController {
       subscriptionId,
       epoch,
     })
-    if (!this.isCurrentRecoveryWindow(subscriptionId, epoch)) {
+    if (!this.recoverySlot.isCurrent(subscriptionId, epoch, !this.isInactive())) {
       return
     }
-    const secondReplay = this.takeBufferedRecoveryEvents(window, true)
+    const secondReplay = takeBufferedRecoveryEvents(window, true)
     // A read covers everything received before it started, so the second read converges the first
     // one's losses; it cannot cover its own window, and a failed second read leaves the first
     // window's losses unproven. Both stay pending instead of claiming a complete state.
@@ -1330,29 +1296,7 @@ export class StudioCinemaController {
       this.markConvergencePending(identity)
     }
     this.replayRecoveryEvents(identity, secondReplay.events)
-    this.finishRecoveryWindow(subscriptionId)
-  }
-
-  /**
-   * Closes one buffering period and hands the record events back for replay. The counters are read
-   * before they are reset, so nothing that was lost disappears silently, and `overflowed` reports
-   * whether this period needs the bounded second read.
-   */
-  private takeBufferedRecoveryEvents(
-    window: RecoveryWindow,
-    stopBuffering: boolean,
-  ): { events: StudioCinemaSceneEvent[]; incomplete: boolean; overflowed: boolean } {
-    const events = window.recordEvents
-    const result = {
-      events,
-      incomplete: window.discardedTextCount > 0 || window.overflowed,
-      overflowed: window.overflowed,
-    }
-    window.recordEvents = []
-    if (stopBuffering) {
-      window.buffering = false
-    }
-    return result
+    this.recoverySlot.finish(subscriptionId)
   }
 
   /** Replays buffered record events through the one rule every applied record event uses. */
@@ -1708,7 +1652,7 @@ export class StudioCinemaController {
     ownership: StudioCinemaSnapshotOwnership,
   ): StudioCinemaSnapshotOwnershipVerdict {
     const stream = this.activeStream
-    const window = this.recovery
+    const window = this.recoverySlot.peek()
     return readStudioCinemaSnapshotOwnershipVerdict(ownership, {
       inactive: this.isInactive(),
       generation: this.generation,
@@ -1798,38 +1742,6 @@ export class StudioCinemaController {
     return { ...existing, status }
   }
 
-  private currentRecoveryWindow(subscriptionId: number): RecoveryWindow | null {
-    const window = this.recovery
-    return window && window.subscriptionId === subscriptionId ? window : null
-  }
-
-  private isCurrentRecoveryWindow(subscriptionId: number, epoch: number): boolean {
-    const window = this.recovery
-    return (
-      !this.isInactive() &&
-      window !== null &&
-      window.subscriptionId === subscriptionId &&
-      window.epoch === epoch
-    )
-  }
-
-  private finishRecoveryWindow(subscriptionId: number): void {
-    const window = this.currentRecoveryWindow(subscriptionId)
-    if (window) {
-      window.buffering = false
-      window.recordEvents = []
-    }
-  }
-
-  private stopRecoveryWindow(subscriptionId: number): void {
-    const window = this.currentRecoveryWindow(subscriptionId)
-    if (window) {
-      window.buffering = false
-      window.recordEvents = []
-      this.recovery = null
-    }
-  }
-
   private stopSceneStream(): void {
     // The refresh loop belongs to the selected Scene: nothing may keep ticking for a Scene the
     // binding no longer watches. Ending the cycle also orphans a tick that is still in flight, so its
@@ -1837,7 +1749,7 @@ export class StudioCinemaController {
     this.endRenderRefreshCycle()
     const stream = this.activeStream
     this.activeStream = null
-    this.recovery = null
+    this.recoverySlot.clear()
     if (stream) {
       stream.controller.abort()
     }
