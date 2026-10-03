@@ -20,7 +20,8 @@ import {
 } from './types'
 import { readStudioCinemaRenderWaitTarget } from './scene-selectors'
 import type { StudioCinemaAction } from './scene-state'
-import type { StudioCinemaScheduler, StudioCinemaSnapshotOutcome } from './cinema-controller'
+import type { StudioCinemaScheduler } from './cinema-controller'
+import type { StudioCinemaSnapshotOutcome } from './request-error'
 
 export interface RenderRefreshCycle {
   readonly token: number

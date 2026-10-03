@@ -10,7 +10,8 @@ import { isSameStudioCinemaScene, type StudioCinemaSceneEvent, type StudioCinema
 import type { StudioCinemaAction } from './scene-state'
 import { bufferRecoveryEvent, type RecoveryWindowSlot } from './recovery-window'
 import { decodeStudioCinemaSceneEvent } from './scene-events'
-import { readStudioCinemaRequestError, type StudioCinemaEventSourcePort } from './cinema-controller'
+import { readStudioCinemaRequestError } from './request-error'
+import type { StudioCinemaEventSourcePort } from './cinema-controller'
 import type { StudioEventConnectionStatus } from '../api/studio-agent-events'
 
 export interface ActiveStream {
