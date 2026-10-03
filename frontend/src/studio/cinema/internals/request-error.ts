@@ -6,8 +6,8 @@
  * blindly retrying. A server envelope error is a definite answer. The snapshot outcome union lives
  * here too because the snapshot read and its error mapping are one concern.
  */
-import type { StudioCinemaFeedbackCode } from './types'
-import { StudioApiRequestError } from '../api/client'
+import type { StudioCinemaFeedbackCode } from '../types'
+import { StudioApiRequestError } from '../../api/client'
 
 export type StudioCinemaRequestKind =
   | 'scene_create'

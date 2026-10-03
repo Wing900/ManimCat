@@ -6,13 +6,13 @@
  * controller owns the event-applier (the state write) and the recovery orchestration, reached
  * through the host callbacks so the stream never reads the controller's state shape directly.
  */
-import { isSameStudioCinemaScene, type StudioCinemaSceneEvent, type StudioCinemaSceneIdentity } from './types'
-import type { StudioCinemaAction } from './scene-reducer'
+import { isSameStudioCinemaScene, type StudioCinemaSceneEvent, type StudioCinemaSceneIdentity } from '../types'
+import type { StudioCinemaAction } from '../scene-reducer'
 import { bufferRecoveryEvent, type RecoveryWindowSlot } from './recovery-window'
-import { decodeStudioCinemaSceneEvent } from './scene-events'
+import { decodeStudioCinemaSceneEvent } from '../scene-events'
 import { readStudioCinemaRequestError } from './request-error'
-import type { StudioCinemaEventSourcePort } from './cinema-controller'
-import type { StudioEventConnectionStatus } from '../api/studio-agent-events'
+import type { StudioCinemaEventSourcePort } from '../cinema-controller'
+import type { StudioEventConnectionStatus } from '../../api/studio-agent-events'
 
 export interface ActiveStream {
   subscriptionId: number

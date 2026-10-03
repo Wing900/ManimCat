@@ -11,7 +11,7 @@ import {
   STUDIO_CINEMA_RECOVERY_BUFFER_LIMIT,
   type StudioCinemaSceneEvent,
   type StudioCinemaSceneIdentity,
-} from './types'
+} from '../types'
 
 export interface RecoveryWindow {
   subscriptionId: number

@@ -5,19 +5,19 @@
  * refresh scheduling, reached through the host interface so the reader never reads the controller's
  * state shape directly.
  */
-import { buildStudioCinemaSceneKey, type StudioCinemaSceneIdentity } from './types'
-import type { StudioCinemaAction } from './scene-reducer'
+import { buildStudioCinemaSceneKey, type StudioCinemaSceneIdentity } from '../types'
+import type { StudioCinemaAction } from '../scene-reducer'
 import {
   readStudioCinemaSnapshotOwnershipVerdict,
   type StudioCinemaSnapshotOwnership,
   type StudioCinemaSnapshotOwnershipVerdict,
-} from './recovery-ownership'
-import { isStudioCinemaSceneSnapshotForIdentity } from './scene-response-identity'
+} from '../recovery-ownership'
+import { isStudioCinemaSceneSnapshotForIdentity } from '../scene-response-identity'
 import { STALE_RESULT, readStudioCinemaRequestError, type StudioCinemaSnapshotOutcome } from './request-error'
 import type { ActiveStream, SceneStream } from './scene-stream'
 import type { RecoveryWindow, RecoveryWindowSlot } from './recovery-window'
-import type { StudioSceneSnapshot } from '../protocol/studio-agent-types'
-import type { StudioRequestOptions } from '../api/studio-agent-api'
+import type { StudioSceneSnapshot } from '../../protocol/studio-agent-types'
+import type { StudioRequestOptions } from '../../api/studio-agent-api'
 
 export interface SnapshotReaderHost {
   isInactive(): boolean

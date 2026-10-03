@@ -15,15 +15,15 @@
  * The controller supplies the session context (state, generation, dispatch), the mutation lane, the
  * API port, the session abort signal, the Scene stream lifecycle hooks and the Scene selection.
  */
-import type { StudioScene } from '../protocol/studio-agent-types'
-import { STUDIO_CINEMA_DEFAULT_SCENE_COUNT, type StudioCinemaFeedbackCode, type StudioCinemaState } from './types'
-import type { StudioCinemaAction } from './scene-reducer'
+import type { StudioScene } from '../../protocol/studio-agent-types'
+import { STUDIO_CINEMA_DEFAULT_SCENE_COUNT, type StudioCinemaFeedbackCode, type StudioCinemaState } from '../types'
+import type { StudioCinemaAction } from '../scene-reducer'
 import { STALE_RESULT, readStudioCinemaRequestError } from './request-error'
 import type {
   StudioCinemaApiPort,
   StudioCinemaIndexOutcome,
   StudioCinemaInitializationOutcome,
-} from './cinema-controller'
+} from '../cinema-controller'
 
 export type StudioCinemaAppendSceneOutcome =
   | { status: 'created'; scene: StudioScene }
