@@ -7,7 +7,7 @@ import {
 
 describe('readStudioCinemaCatReplySnippet', () => {
   it('repeats the opening of a real reply and marks it as unfinished', () => {
-    expect(readStudioCinemaCatReplySnippet('A circle rolling along a line')).toBe('A circle rolling along a…')
+    expect(readStudioCinemaCatReplySnippet('A circle rolling along a line')).toBe('A circle rollin…')
   })
 
   it('keeps a short reply whole, still ending on an ellipsis', () => {
@@ -15,7 +15,7 @@ describe('readStudioCinemaCatReplySnippet', () => {
   })
 
   it('flattens markdown and line breaks so the bubble reads as speech', () => {
-    expect(readStudioCinemaCatReplySnippet('## First\n\n**Draw** a   circle')).toBe('First Draw a circle…')
+    expect(readStudioCinemaCatReplySnippet('## Draw\n\n**a** line')).toBe('Draw a line…')
   })
 
   it('never exceeds the bubble budget', () => {

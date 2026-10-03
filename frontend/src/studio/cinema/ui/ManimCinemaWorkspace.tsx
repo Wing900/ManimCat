@@ -211,6 +211,22 @@ export function ManimCinemaWorkspace({
     return null
   }, [rows])
 
+  // While a Run is in flight and this Scene has not answered for it yet, the cat types. The marker is
+  // structural — the newest row is a user message with no assistant message after it — so a reply that
+  // already belongs to this Run keeps its own bubble instead of being masked by a typing indicator.
+  const pendingReply = useMemo(() => {
+    if (!view) {
+      return false
+    }
+    const runStatus = view.latestRun?.status ?? null
+    const runInFlight = view.submitting || runStatus === 'pending' || runStatus === 'running'
+    if (!runInFlight) {
+      return false
+    }
+    const kinds = rows.map((row) => row.kind)
+    return kinds.lastIndexOf('user') > kinds.lastIndexOf('assistant-text')
+  }, [rows, view])
+
   // Correction R3: the scroll follow must see content growth, not only a new row count — a streaming
   // assistant part keeps the row count and changes only its text.
   const conversationRevision = useMemo(
@@ -430,6 +446,7 @@ export function ManimCinemaWorkspace({
                 sceneId={selectedSceneId ?? ''}
                 latestRunStatus={view?.latestRun?.status ?? null}
                 reply={latestReply}
+                pendingReply={pendingReply}
                 historyOpen={historyOpen}
                 historyPanelId={HISTORY_PANEL_ID}
                 buttonRef={catButtonRef}

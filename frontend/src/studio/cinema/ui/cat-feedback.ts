@@ -22,7 +22,7 @@ export interface CatFeedback {
 }
 
 /** How many characters of the reply the bubble repeats before the ellipsis. */
-export const CAT_REPLY_SNIPPET_MAX_CHARS = 24
+export const CAT_REPLY_SNIPPET_MAX_CHARS = 15
 
 /**
  * The opening of a real reply, flattened to one line: markdown markers and runs of whitespace collapse

@@ -11,6 +11,8 @@ import {
  *
  * - the bubble repeats the opening of the cat's own reply (the newest assistant message of this
  *   Scene); a state report appears only for a state the assistant cannot state itself;
+ * - while a run is in flight and this Scene has not answered for it yet, the cat types (three dots)
+ *   instead of replaying the previous reply — the stale "instant answer" is never shown;
  * - a Scene's existing reply is history, not news: only a reply that arrives while the Scene is open
  *   pops the bubble, so opening a Scene with history never replays it;
  * - the same reply id does not re-pop the bubble while its text streams in;
@@ -31,6 +33,8 @@ export interface CatBubble {
   /** Or a state report resolved through i18n. Exactly one of `text` / `bubbleKey` is set. */
   bubbleKey?: TranslationKey
   params?: Record<string, number | string>
+  /** True while a run is still producing this Scene's reply: the bubble shows a typing indicator. */
+  typing?: boolean
   hasRecoverEntry: boolean
   kind: CatFeedbackKind
 }
@@ -44,6 +48,8 @@ export interface UseStudioCinemaCatFeedbackArgs {
   latestRunStatus: string | null
   /** The newest assistant message of this Scene. The only thing the cat is allowed to say. */
   reply: { id: string; text: string } | null
+  /** A run is in flight and no reply for it has arrived: the cat types instead of repeating itself. */
+  pendingReply: boolean
 }
 
 export interface UseStudioCinemaCatFeedbackResult {
@@ -61,6 +67,7 @@ export function useStudioCinemaCatFeedback({
   sceneId,
   latestRunStatus,
   reply,
+  pendingReply,
 }: UseStudioCinemaCatFeedbackArgs): UseStudioCinemaCatFeedbackResult {
   const [bubble, setBubble] = useState<CatBubble | null>(null)
   const [visible, setVisible] = useState(false)
@@ -68,7 +75,7 @@ export function useStudioCinemaCatFeedback({
   const identityRef = useRef(`${sessionId}\u0000${sceneId}`)
   const seenReplyRef = useRef<string | null>(null)
   const lastEmittedRef = useRef<string>('')
-  const sourceRef = useRef<'report' | 'reply' | null>(null)
+  const sourceRef = useRef<'report' | 'reply' | 'typing' | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pausedRef = useRef(false)
 
@@ -115,6 +122,21 @@ export function useStudioCinemaCatFeedback({
       }, delay)
     }
 
+    // 0) A run is in flight and this Scene has not answered for it yet: the cat types. Repeating the
+    //    previous reply here would be the stale "instant answer", so it never does.
+    if (pendingReply) {
+      const typingKey = `${identity}\u0000typing\u0000${replyId ?? ''}`
+      if (typingKey !== lastEmittedRef.current) {
+        lastEmittedRef.current = typingKey
+        sourceRef.current = 'typing'
+        setBubble({ typing: true, hasRecoverEntry: false, kind: 'transient' })
+        setVisible(true)
+        // A task can run for a while: the typing bubble does not fade on a timer.
+        scheduleFade(null)
+      }
+      return
+    }
+
     // 1) A state the assistant cannot state itself (failure, reconnect, unreadable status).
     if (reportKey && reportKind) {
       const emitKey = `${identity}\u0000${reportKey}`
@@ -133,8 +155,9 @@ export function useStudioCinemaCatFeedback({
       return
     }
 
-    // 2) A report that has cleared never lingers: the state it described is gone.
-    if (sourceRef.current === 'report') {
+    // 2) A report that has cleared never lingers: the state it described is gone. The same holds for
+    //    the typing indicator once the run stopped producing this reply.
+    if (sourceRef.current === 'report' || sourceRef.current === 'typing') {
       sourceRef.current = null
       lastEmittedRef.current = ''
       setVisible(false)
@@ -158,6 +181,7 @@ export function useStudioCinemaCatFeedback({
     reportHasRecoverEntry,
     replyId,
     snippet,
+    pendingReply,
   ])
 
   useEffect(() => {

@@ -695,6 +695,67 @@ describe('cinema workspace', () => {
     expect(screen.getByLabelText('Send')).toBeEnabled()
   })
 
+  // The cat must never answer a new request with the previous answer. While the Run is in flight it
+  // types; only a reply that arrives *after* the user message replaces the dots (doc §7.2).
+  it('types while the run is in flight and shows the reply that arrives afterwards', async () => {
+    const harness = createHarness({
+      history: [CINEMA_TEST_SESSION_ID],
+      sceneSnapshots: {
+        [CINEMA_TEST_SCENE_A]: () =>
+          Promise.resolve(
+            createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, {
+              messages: [
+                {
+                  id: 'message_1',
+                  sessionId: CINEMA_TEST_SESSION_ID,
+                  sceneId: CINEMA_TEST_SCENE_A,
+                  role: 'assistant',
+                  agent: 'builder',
+                  createdAt: ISO,
+                  updatedAt: ISO,
+                  parts: [
+                    {
+                      id: 'part_1',
+                      messageId: 'message_1',
+                      sessionId: CINEMA_TEST_SESSION_ID,
+                      type: 'text',
+                      text: 'An older answer about circles.',
+                    },
+                  ],
+                },
+                userMessage(CINEMA_TEST_SCENE_A, 'now make it spin'),
+              ],
+              runs: [createTestRun(CINEMA_TEST_SCENE_A, 'run_live', 'running')],
+            }),
+          ),
+      },
+    })
+    await renderWorkspace(harness)
+    await flush()
+
+    const typingBubble = screen.getByTestId('cinema-cat-bubble')
+    expect(within(typingBubble).getByTestId('cinema-cat-typing')).toBeInTheDocument()
+    expect(within(typingBubble).queryByText('An older answer…')).toBeNull()
+    const subscription = harness.subscriptions[0]
+    await act(async () => {
+      subscription?.options.onEvent({
+        type: 'assistant.text',
+        properties: {
+          sessionId: CINEMA_TEST_SESSION_ID,
+          sceneId: CINEMA_TEST_SCENE_A,
+          runId: 'run_live',
+          messageId: 'message_live',
+          text: 'Spin the circle now, gently.',
+        },
+      } as never)
+      await Promise.resolve()
+    })
+
+    const replyBubble = screen.getByTestId('cinema-cat-bubble')
+    expect(within(replyBubble).queryByTestId('cinema-cat-typing')).toBeNull()
+    expect(within(replyBubble).getByText('Spin the circle…')).toBeInTheDocument()
+  })
+
   // Fixture correction 11C5-H3: the folded body is rendered from `output`, so a fixture that reuses the
   // row title as the body text makes the query ambiguous by construction. The result body is distinct
   // here and is still required to appear, and the internal error is still required to be absent.

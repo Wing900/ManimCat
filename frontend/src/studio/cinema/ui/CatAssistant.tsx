@@ -29,6 +29,8 @@ export interface CatAssistantProps {
   latestRunStatus: string | null
   /** The newest assistant message of this Scene: what the bubble repeats. */
   reply: { id: string; text: string } | null
+  /** A run is in flight and no reply for it has arrived: the cat types instead of repeating itself. */
+  pendingReply: boolean
   historyOpen: boolean
   historyPanelId: string
   buttonRef?: Ref<HTMLButtonElement>
@@ -50,6 +52,7 @@ export function CatAssistant({
   sceneId,
   latestRunStatus,
   reply,
+  pendingReply,
   historyOpen,
   historyPanelId,
   buttonRef,
@@ -63,6 +66,7 @@ export function CatAssistant({
     sceneId,
     latestRunStatus,
     reply,
+    pendingReply,
   })
 
   const pose = TONE_TO_POSE[tone]
@@ -72,6 +76,7 @@ export function CatAssistant({
       {bubble ? (
         <CatSpeechBubble
           text={bubble.text}
+          typing={bubble.typing}
           bubbleKey={bubble.bubbleKey}
           params={bubble.params}
           visible={visible}
