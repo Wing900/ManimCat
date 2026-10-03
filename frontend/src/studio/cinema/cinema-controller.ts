@@ -28,6 +28,7 @@ import {
   type StudioCinemaSnapshotOwnershipVerdict,
 } from './recovery-ownership'
 import { RecoveryWindowSlot, bufferRecoveryEvent, takeBufferedRecoveryEvents } from './recovery-window'
+import { MutationLane } from './mutation-lane'
 import { selectSceneState, studioCinemaReducer, type StudioCinemaAction } from './scene-state'
 import {
   readStudioCinemaActiveRun,
@@ -262,17 +263,6 @@ interface ActiveStream {
 }
 
 /**
- * One recovery window. Assistant text is never buffered (it cannot be proven non-overlapping with
- * the snapshot), record events are kept because they are idempotent upserts, and the counters decide
- * whether the window may be called complete.
- */
-interface MutationLane {
-  tail: Promise<unknown>
-  /** Every task that is queued or running; the lane is idle only at zero. */
-  pending: number
-}
-
-/**
  * One render refresh cycle of the selected Scene: the ownership record that makes ticks
  * non-overlapping. `token` is unique forever, so it also separates a revisit of the same Scene
  * (`A -> B -> A`) from the visit it repeats. `target` is the wait set this cycle's budget belongs to.
@@ -326,7 +316,7 @@ export class StudioCinemaController {
   private subscriptionCounter = 0
   private activeStream: ActiveStream | null = null
   private recoverySlot = new RecoveryWindowSlot()
-  private lane: MutationLane = { tail: Promise.resolve(), pending: 0 }
+  private lane = new MutationLane((pending) => this.publishMutationPending(pending))
   private initialization: { id: number; promise: Promise<StudioCinemaInitializationOutcome> } | null = null
   private workflowCounter = 0
   private indexRead: Promise<StudioCinemaIndexOutcome> | null = null
@@ -430,10 +420,8 @@ export class StudioCinemaController {
       this.snapshotRevisions.clear()
       this.convergenceReads.clear()
       this.appliedLiveTextDeltas.clear()
-      if (this.lane.pending === 0) {
-        // A new Session starts a fresh ordering; a still queued task is allowed to drain first.
-        this.lane.tail = Promise.resolve()
-      }
+      // A new Session starts a fresh ordering; a still queued task is allowed to drain first.
+      this.lane.resetWhenIdle()
     }
 
     this.dispatch({
@@ -443,7 +431,7 @@ export class StudioCinemaController {
       title: input.title ?? null,
       projectId: input.projectId ?? null,
     })
-    this.publishMutationPending()
+    this.publishMutationPending(this.lane.pending)
   }
 
   closeSession(): void {
@@ -936,7 +924,7 @@ export class StudioCinemaController {
     }
 
     const generation = this.generation
-    return this.runInLane(async () => {
+    return this.lane.run(async () => {
       if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
         return STALE_RESULT
       }
@@ -978,7 +966,7 @@ export class StudioCinemaController {
     | { status: 'satisfied' }
     | { status: 'stale' }
   > {
-    return this.runInLane(async () => {
+    return this.lane.run(async () => {
       // Re-checked inside the lane, right before the request leaves: a queued task must not act for
       // a Session, generation or target that changed while it waited.
       if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
@@ -1036,38 +1024,15 @@ export class StudioCinemaController {
    * that needs another lane operation must call the private, already-in-lane implementation rather
    * than a public entry, so reentrancy is declared by structure and never inferred from a flag.
    */
-  private runInLane<T>(task: () => Promise<T>): Promise<T> {
-    this.lane.pending += 1
-    this.publishMutationPending()
-    const run = this.lane.tail.then(
-      () => this.runLaneTask(task),
-      () => this.runLaneTask(task),
-    )
-    this.lane.tail = run.then(
-      () => undefined,
-      () => undefined,
-    )
-    return run
-  }
-
-  private runLaneTask<T>(task: () => Promise<T>): Promise<T> {
-    return Promise.resolve()
-      .then(task)
-      .finally(() => {
-        this.lane.pending = Math.max(0, this.lane.pending - 1)
-        this.publishMutationPending()
-      })
-  }
-
   /**
    * The pending flag is a fact about the lane, not about a Session generation, so it is published
    * against the generation the state currently holds (a detach bumps the counter without a state).
    */
-  private publishMutationPending(): void {
+  private publishMutationPending(pending: boolean): void {
     this.dispatch({
       type: 'session/mutation-pending',
       generation: this.state.session.generation,
-      pending: this.lane.pending > 0,
+      pending,
     })
   }
 
