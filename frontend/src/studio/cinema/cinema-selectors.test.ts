@@ -4,22 +4,24 @@ import { studioCinemaReducer, type StudioCinemaAction } from './scene-state'
 import {
   readStudioCinemaActiveRender,
   readStudioCinemaActiveRenderIds,
-  readStudioCinemaDataUri,
-  readStudioCinemaHttpMediaUrl,
-  readStudioCinemaMediaKind,
-  readStudioCinemaMediaLocator,
-  readStudioCinemaPlayableMedia,
   readStudioCinemaRenderWaitTarget,
-  readStudioCinemaSameOriginMediaLocator,
   readStudioCinemaSceneEligibility,
   selectStudioCinemaDisplayRender,
   selectStudioCinemaSceneCumulativeTokenUsage,
   selectStudioCinemaSceneIndex,
   selectStudioCinemaSceneView,
   selectStudioCinemaUserStatus,
+} from './scene-selectors'
+import {
+  readStudioCinemaDataUri,
+  readStudioCinemaHttpMediaUrl,
+  readStudioCinemaMediaKind,
+  readStudioCinemaMediaLocator,
+  readStudioCinemaPlayableMedia,
+  readStudioCinemaSameOriginMediaLocator,
   STUDIO_CINEMA_MEDIA_DATA_URI_MAX_LENGTH,
   STUDIO_CINEMA_MEDIA_URL_MAX_LENGTH,
-} from './scene-selectors'
+} from './media-locators'
 import { buildStudioCinemaSceneKey, createInitialStudioCinemaState, type StudioCinemaState } from './types'
 import {
   CINEMA_TEST_SCENE_A,
