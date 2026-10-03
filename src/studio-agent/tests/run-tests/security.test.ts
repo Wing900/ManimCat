@@ -3,6 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import {
+  createLegacyRunExecutionScope,
   createStudioPrincipal,
   createStudioRun,
   createStudioRender,
@@ -88,6 +89,7 @@ export async function runSecurityTests(): Promise<void> {
       messages: [],
       runs: [],
       renders: [render],
+      scenes: [],
     })
 
     assert.equal('directory' in publicSession, false)
@@ -133,7 +135,12 @@ export async function runSecurityTests(): Promise<void> {
       /Path escapes workspace/
     )
     await assert.rejects(
-      () => writeWorkspaceFile(workspace, 'linked/outside/new.py', 'blocked'),
+      () => writeWorkspaceFile({
+        baseDirectory: workspace,
+        targetPath: 'linked/outside/new.py',
+        content: 'blocked',
+        access: createLegacyRunExecutionScope({ rootDirectory: workspace }).workspaceAccess
+      }),
       /Path escapes workspace/
     )
     assert.equal(await readFile(path.join(outside, 'secret.py'), 'utf8'), 'secret')

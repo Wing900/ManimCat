@@ -37,7 +37,14 @@ export function createAgentLoopExecution(
       eventBus: input.prepared.eventBus,
       renderStore: deps.renderStore,
       renderContext: input.prepared.renderContext,
-      createAssistantMessage: () => deps.createAssistantMessage(input.prepared.input.session, input.prepared.run.id),
+      executionScope: input.prepared.executionScope,
+      // The Run scope is copied explicitly: a later message created inside the loop (compaction,
+      // new step) must never fall back to the Legacy whole-Session scope.
+      createAssistantMessage: () => deps.createAssistantMessage(
+        input.prepared.input.session,
+        input.prepared.run.id,
+        input.prepared.run.sceneId
+      ),
       setToolMetadata: (assistantMessage, callId, metadata) => {
         void deps.processor.applyToolMetadata({
           assistantMessage,

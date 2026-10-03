@@ -6,9 +6,12 @@ import type { StudioSessionRunnerDependencies } from './dependency-center'
 export async function createAssistantMessage(
   deps: Pick<StudioSessionRunnerDependencies, 'messageStore'>,
   session: StudioSession,
-  runId?: string,
+  /** Scene scope of the owning Run; absent for a Legacy Run. */
+  sceneId?: string,
 ): Promise<StudioAssistantMessage> {
-  const message = buildDraftAssistantMessage(session, runId)
+  // The `runId` slot of the draft helper stays untouched: this path has never propagated it and
+  // Task 11B2A must not change message metadata behavior.
+  const message = buildDraftAssistantMessage(session, undefined, sceneId)
   return deps.messageStore.createAssistantMessage(message)
 }
 
@@ -16,8 +19,9 @@ export function createRun(
   session: StudioSession,
   inputText: string,
   metadata?: Record<string, unknown>,
+  sceneId?: string,
 ): StudioRun {
-  return buildDraftRun(session, inputText, metadata)
+  return buildDraftRun(session, inputText, metadata, sceneId)
 }
 
 export function hasUsableCustomApiConfig(config?: CustomApiConfig): config is CustomApiConfig {

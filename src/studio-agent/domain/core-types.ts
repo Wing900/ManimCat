@@ -16,6 +16,11 @@ export interface StudioRender {
   id: string
   ownerId: string
   sessionId: string
+  /**
+   * Optional Scene scope. `sessionId` stays mandatory: the Scene supplements the Session
+   * relation and never replaces it. Absent means a legacy Session-scoped render.
+   */
+  sceneId?: string
   runId?: string
   kind: StudioKind
   title: string
@@ -48,6 +53,21 @@ export interface StudioSession {
 }
 
 /**
+ * One ordered Scene beneath a Session. `id` is an import-safe Python module stem, `position`
+ * is the displayed order within its Session, and `sourcePath` is server-private: it never
+ * crosses the public DTO boundary.
+ */
+export interface StudioScene {
+  id: string
+  ownerId: string
+  sessionId: string
+  position: number
+  sourcePath: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
  * Cumulative, provider-neutral Studio token accounting. One value per Studio run.
  *
  * A call is measured when the provider response carried at least one usable token
@@ -67,6 +87,8 @@ export interface StudioRun {
   id: string
   ownerId: string
   sessionId: string
+  /** Optional Scene scope; `sessionId` remains the mandatory relation. */
+  sceneId?: string
   status: StudioRunStatus
   inputText: string
   activeAgent: StudioAgentType

@@ -2,6 +2,7 @@ import type { StudioAssistantMessage } from '../../domain/types'
 import { createOpenAICompatibleStudioModelAdapter } from '../../model/studio-model-port'
 import { logTimeline } from '../../observability/plot-studio-timing'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
+import { listStudioMessagesForRun } from '../../runs/message-selection'
 import type { StudioTokenUsageTracker } from '../../runs/studio-token-usage-tracker'
 import { buildStudioAgentSystemPrompt } from '../studio-agent-prompt'
 import { buildStudioConversationMessages } from '../studio-message-history'
@@ -26,7 +27,12 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
   }
 
   const tools = buildStudioChatTools(input.registry, input.session.agentType, input.session.studioKind)
-  const storedMessages = await input.messageStore.listBySessionId(input.session.id)
+  // Scope-selected conversation: this is the only conversation read in the model request path,
+  // so a Scene Run can never see a sibling or Legacy history.
+  const storedMessages = await listStudioMessagesForRun({
+    messageStore: input.messageStore,
+    run: input.run
+  })
 
   return {
     modelPort: input.modelPort ?? createOpenAICompatibleStudioModelAdapter(input.customApiConfig!),
@@ -35,7 +41,8 @@ export async function createStudioLoopRuntime(input: StudioOpenAIToolLoopInput):
     conversation: buildStudioConversationMessages({ messages: storedMessages }),
     systemPrompt: buildStudioAgentSystemPrompt({
       session: input.session,
-      renderContext: input.renderContext
+      renderContext: input.renderContext,
+      executionScope: input.executionScope
     }),
     maxSteps: input.maxSteps ?? readStudioRunAutonomyMetadata(input.run.metadata).maxSteps ?? DEFAULT_MAX_STEPS,
     toolChoice: input.toolChoice ?? 'auto',

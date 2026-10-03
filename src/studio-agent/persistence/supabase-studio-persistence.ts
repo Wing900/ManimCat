@@ -9,6 +9,8 @@ import type {
   StudioRunStore,
   StudioRender,
   StudioRenderStore,
+  StudioScene,
+  StudioSceneStore,
   StudioSession,
   StudioSessionStore,
   StudioUserMessage,
@@ -16,6 +18,11 @@ import type {
 import type { StudioPersistence } from './studio-persistence'
 import { readStudioTokenUsage } from '../runs/token-usage'
 import { canTransitionStudioRunStatus } from '../runs/run-status-transitions'
+import { canTransitionStudioRenderStatus } from '../render/render-status-transitions'
+import {
+  StudioSceneOrderRejectedError,
+  type StudioSceneOrderRejection,
+} from '../scenes/studio-scene-order-error'
 
 const TABLES = {
   sessions: 'studio_sessions',
@@ -23,6 +30,7 @@ const TABLES = {
   parts: 'studio_message_parts',
   runs: 'studio_runs',
   renders: 'studio_renders',
+  scenes: 'studio_scenes',
 } as const
 
 type JsonRecord = Record<string, unknown>
@@ -46,6 +54,7 @@ type StudioSessionRow = {
 type StudioMessageRow = {
   id: string
   session_id: string
+  scene_id: string | null
   role: StudioMessage['role']
   agent: StudioAssistantMessage['agent'] | null
   text: string | null
@@ -74,6 +83,7 @@ type StudioRunRow = {
   id: string
   owner_id: string
   session_id: string
+  scene_id: string | null
   status: StudioRun['status']
   input_text: string
   active_agent: StudioRun['activeAgent']
@@ -89,6 +99,7 @@ type StudioRenderRow = {
   id: string
   owner_id: string
   session_id: string
+  scene_id: string | null
   run_id: string | null
   kind: StudioRender['kind']
   title: string
@@ -105,6 +116,16 @@ type StudioRenderRow = {
   updated_at: string
 }
 
+type StudioSceneRow = {
+  id: string
+  owner_id: string
+  session_id: string
+  position: number
+  source_path: string
+  created_at: string
+  updated_at: string
+}
+
 export function createSupabaseStudioPersistence(client: SupabaseClient): StudioPersistence {
   const partStore = createSupabaseStudioPartStore(client)
 
@@ -114,6 +135,7 @@ export function createSupabaseStudioPersistence(client: SupabaseClient): StudioP
     partStore,
     runStore: createSupabaseStudioRunStore(client),
     renderStore: createSupabaseStudioRenderStore(client),
+    sceneStore: createSupabaseStudioSceneStore(client),
   }
 }
 
@@ -189,6 +211,18 @@ function createSupabaseStudioMessageStore(client: SupabaseClient): StudioMessage
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true })
       if (error) throw new Error(`[StudioDB] Failed to list messages: ${error.message}`)
+      const rows = (data ?? []) as StudioMessageRow[]
+      return Promise.all(rows.map((row) => fromMessageRow(client, row)))
+    },
+    async listBySceneId(sceneId) {
+      // Exact Scene matches only: `.eq` can never return a legacy row whose `scene_id` is NULL.
+      const { data, error } = await client
+        .from(TABLES.messages)
+        .select('*')
+        .eq('scene_id', sceneId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+      if (error) throw new Error(`[StudioDB] Failed to list scene messages: ${error.message}`)
       const rows = (data ?? []) as StudioMessageRow[]
       return Promise.all(rows.map((row) => fromMessageRow(client, row)))
     },
@@ -308,6 +342,18 @@ function createSupabaseStudioRunStore(client: SupabaseClient): StudioRunStore {
       if (error) throw new Error(`[StudioDB] Failed to list runs: ${error.message}`)
       return (data ?? []).map((row) => fromRunRow(row as StudioRunRow))
     },
+    async listBySceneId(ownerId, sceneId) {
+      // The table carries owner identity, so the Scene query filters on it as well.
+      const { data, error } = await client
+        .from(TABLES.runs)
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('scene_id', sceneId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+      if (error) throw new Error(`[StudioDB] Failed to list scene runs: ${error.message}`)
+      return (data ?? []).map((row) => fromRunRow(row as StudioRunRow))
+    },
   }
 }
 
@@ -343,6 +389,31 @@ function createSupabaseStudioRenderStore(client: SupabaseClient): StudioRenderSt
       if (error) throw new Error(`[StudioDB] Failed to update render: ${error.message}`)
       return data ? fromRenderRow(data as StudioRenderRow) : null
     },
+    async transitionStatus(input) {
+      // The expected statuses (and the expected job id) live in the write itself, so two replicas
+      // racing a completion, or a late `running` observation arriving after a completion, cannot
+      // both win: the loser updates 0 rows and reads back the record that actually won.
+      if (!canTransitionStudioRenderStatus(input.from, input.patch.status)) {
+        return { applied: false, render: await this.getById(input.ownerId, input.renderId) }
+      }
+      const payload = toRenderPatch(input.patch)
+      let query = client
+        .from(TABLES.renders)
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('owner_id', input.ownerId)
+        .eq('id', input.renderId)
+        .in('status', [...input.from])
+      if (input.expectedJobId !== undefined) {
+        query = query.eq('job_id', input.expectedJobId)
+      }
+      const { data, error } = await query.select('*').maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to transition render status: ${error.message}`)
+      if (data) {
+        return { applied: true, render: fromRenderRow(data as StudioRenderRow) }
+      }
+      // Lost the race: report the Render that actually won so callers publish real state.
+      return { applied: false, render: await this.getById(input.ownerId, input.renderId) }
+    },
     async listBySessionId(ownerId, sessionId) {
       const { data, error } = await client
         .from(TABLES.renders)
@@ -353,7 +424,95 @@ function createSupabaseStudioRenderStore(client: SupabaseClient): StudioRenderSt
       if (error) throw new Error(`[StudioDB] Failed to list renders: ${error.message}`)
       return (data ?? []).map((row) => fromRenderRow(row as StudioRenderRow))
     },
+    async listBySceneId(ownerId, sceneId) {
+      // The table carries owner identity, so the Scene query filters on it as well.
+      const { data, error } = await client
+        .from(TABLES.renders)
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('scene_id', sceneId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+      if (error) throw new Error(`[StudioDB] Failed to list scene renders: ${error.message}`)
+      return (data ?? []).map((row) => fromRenderRow(row as StudioRenderRow))
+    },
   }
+}
+
+function createSupabaseStudioSceneStore(client: SupabaseClient): StudioSceneStore {
+  return {
+    async create(scene) {
+      const { data, error } = await client.from(TABLES.scenes).insert(toSceneRow(scene)).select('*').single()
+      if (error) throw new Error(`[StudioDB] Failed to create scene: ${error.message}`)
+      return fromSceneRow(data as StudioSceneRow)
+    },
+    async append(scene) {
+      // One round trip: the function takes a per-Session advisory lock, picks the next position
+      // and inserts, so two concurrent creators can never persist the same position.
+      const { data, error } = await client.rpc('studio_scene_append', {
+        p_id: scene.id,
+        p_owner_id: scene.ownerId,
+        p_session_id: scene.sessionId,
+        p_source_path: scene.sourcePath,
+        p_created_at: scene.createdAt,
+        p_updated_at: scene.updatedAt,
+      })
+      if (error) throw new Error(`[StudioDB] Failed to append scene: ${error.message}`)
+      const stored = ((data ?? []) as StudioSceneRow[])[0]
+      if (!stored) throw new Error('[StudioDB] Failed to append scene: no row returned')
+      return fromSceneRow(stored)
+    },
+    async getById(ownerId, sceneId) {
+      const { data, error } = await client
+        .from(TABLES.scenes)
+        .select('*')
+        .eq('id', sceneId)
+        .eq('owner_id', ownerId)
+        .maybeSingle()
+      if (error) throw new Error(`[StudioDB] Failed to get scene: ${error.message}`)
+      return data ? fromSceneRow(data as StudioSceneRow) : null
+    },
+    async listBySessionId(ownerId, sessionId) {
+      const { data, error } = await client
+        .from(TABLES.scenes)
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('session_id', sessionId)
+        .order('position', { ascending: true })
+        .order('id', { ascending: true })
+      if (error) throw new Error(`[StudioDB] Failed to list scenes: ${error.message}`)
+      return (data ?? []).map((row) => fromSceneRow(row as StudioSceneRow))
+    },
+    async replaceOrder(ownerId, sessionId, orderedSceneIds) {
+      const { data, error } = await client.rpc('studio_scene_replace_order', {
+        p_owner_id: ownerId,
+        p_session_id: sessionId,
+        p_scene_ids: [...orderedSceneIds],
+      })
+      if (error) {
+        const rejection = readStudioSceneOrderRejection(error)
+        if (rejection) {
+          throw new StudioSceneOrderRejectedError(rejection)
+        }
+        throw new Error(`[StudioDB] Failed to replace scene order: ${error.message}`)
+      }
+      return ((data ?? []) as StudioSceneRow[]).map((row) => fromSceneRow(row))
+    },
+  }
+}
+
+/**
+ * `studio_scene_replace_order` raises SQLSTATE `P0003`/`P0004` for a rejected order; everything
+ * else is an infrastructure failure and must not be reported as a caller mistake.
+ */
+function readStudioSceneOrderRejection(error: { code?: string }): StudioSceneOrderRejection | null {
+  if (error.code === 'P0003') {
+    return 'empty_order'
+  }
+  if (error.code === 'P0004') {
+    return 'incomplete_set'
+  }
+  return null
 }
 
 function createCrudStore<T extends { id: string }, R extends { id: string }>(config: {
@@ -409,6 +568,7 @@ async function fromMessageRow(client: SupabaseClient, row: StudioMessageRow): Pr
     return {
       id: row.id,
       sessionId: row.session_id,
+      sceneId: readStudioSceneId(row.scene_id, TABLES.messages, row.id),
       role: 'assistant',
       agent: row.agent ?? 'builder',
       parts: (data ?? []).map((part) => fromPartRow(part as StudioPartRow)),
@@ -422,6 +582,7 @@ async function fromMessageRow(client: SupabaseClient, row: StudioMessageRow): Pr
   return {
     id: row.id,
     sessionId: row.session_id,
+    sceneId: readStudioSceneId(row.scene_id, TABLES.messages, row.id),
     role: 'user',
     text: row.text ?? '',
     createdAt: row.created_at,
@@ -486,6 +647,7 @@ function fromRunRow(row: StudioRunRow): StudioRun {
     id: row.id,
     ownerId: row.owner_id,
     sessionId: row.session_id,
+    sceneId: readStudioSceneId(row.scene_id, TABLES.runs, row.id),
     status: row.status,
     inputText: row.input_text,
     activeAgent: row.active_agent,
@@ -503,6 +665,7 @@ function fromRenderRow(row: StudioRenderRow): StudioRender {
     id: row.id,
     ownerId: row.owner_id,
     sessionId: row.session_id,
+    sceneId: readStudioSceneId(row.scene_id, TABLES.renders, row.id),
     runId: asOptional(row.run_id),
     kind: row.kind,
     title: row.title,
@@ -543,6 +706,7 @@ function toAssistantMessageRow(message: StudioAssistantMessage): StudioMessageRo
   return {
     id: message.id,
     session_id: message.sessionId,
+    scene_id: asNullable(message.sceneId),
     role: 'assistant',
     agent: message.agent,
     text: null,
@@ -557,6 +721,7 @@ function toUserMessageRow(message: StudioUserMessage): StudioMessageRow {
   return {
     id: message.id,
     session_id: message.sessionId,
+    scene_id: asNullable(message.sceneId),
     role: 'user',
     agent: null,
     text: message.text,
@@ -607,6 +772,7 @@ function toRunRow(run: StudioRun): StudioRunRow {
     id: run.id,
     owner_id: run.ownerId,
     session_id: run.sessionId,
+    scene_id: asNullable(run.sceneId),
     status: run.status,
     input_text: run.inputText,
     active_agent: run.activeAgent,
@@ -623,6 +789,7 @@ function toRenderRow(render: StudioRender): StudioRenderRow {
     id: render.id,
     owner_id: render.ownerId,
     session_id: render.sessionId,
+    scene_id: asNullable(render.sceneId),
     run_id: asNullable(render.runId),
     kind: render.kind,
     title: render.title,
@@ -637,6 +804,30 @@ function toRenderRow(render: StudioRender): StudioRenderRow {
     metadata: asNullable(render.metadata),
     created_at: render.createdAt,
     updated_at: render.updatedAt,
+  }
+}
+
+function toSceneRow(scene: StudioScene): StudioSceneRow {
+  return {
+    id: scene.id,
+    owner_id: scene.ownerId,
+    session_id: scene.sessionId,
+    position: scene.position,
+    source_path: scene.sourcePath,
+    created_at: scene.createdAt,
+    updated_at: scene.updatedAt,
+  }
+}
+
+function fromSceneRow(row: StudioSceneRow): StudioScene {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    sessionId: row.session_id,
+    position: row.position,
+    sourcePath: row.source_path,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
@@ -751,4 +942,19 @@ function asAttachments(value: JsonRecord[] | null): StudioRender['attachments'] 
 function readStudioKindFromMetadata(metadata: JsonRecord | null): StudioSession['studioKind'] | undefined {
   const value = metadata?.studioKind
   return value === 'plot' || value === 'manim' ? value : undefined
+}
+
+/**
+ * Defensive read of a nullable Scene column. `NULL`/absent is the legacy Session-scoped record;
+ * any other value that is not a non-empty string is malformed storage and fails closed instead
+ * of silently degrading the row into a legacy record.
+ */
+function readStudioSceneId(value: unknown, table: string, id: string): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined
+  }
+  if (typeof value === 'string' && value.length > 0) {
+    return value
+  }
+  throw new Error(`[StudioDB] Malformed scene_id in ${table} row ${id}`)
 }

@@ -6,6 +6,7 @@ import {
   createStudioSession,
   InMemoryStudioEventBus,
   StudioToolRegistry,
+  createLegacyRunExecutionScope,
 } from '../../index'
 import { createStudioOpenAIToolLoop } from '../../orchestration/openai-tool-loop/controller'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
@@ -56,6 +57,7 @@ export async function runAgentLoopTests(): Promise<void> {
       session,
       run: runRecord,
       assistantMessage,
+      executionScope: createLegacyRunExecutionScope({ rootDirectory: session.directory }),
       inputText: runRecord.inputText,
       messageStore: persistence.messageStore,
       registry,

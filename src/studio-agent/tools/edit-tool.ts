@@ -33,7 +33,8 @@ async function executeEditTool(input: EditToolInput, context: StudioRuntimeBacke
     targetPath: target,
     search: input.search,
     replace: input.replace,
-    replaceAll: input.replaceAll
+    replaceAll: input.replaceAll,
+    access: context.executionScope.workspaceAccess
   })
 
   const relativePath = toWorkspaceRelativePath(context.session.directory, result.absolutePath).replace(/\\/g, '/')

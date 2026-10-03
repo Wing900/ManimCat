@@ -16,9 +16,12 @@ import {
   StudioRunCoordinationService,
   assertStudioRunCancellationMarkerWritten,
   canTransitionStudioRunStatus,
+  canonicalStudioRunScopeKey,
   createDefaultStudioRunCoordination,
   createInMemoryStudioPersistence,
   createInMemoryStudioRunCoordinator,
+  createLegacyStudioRunScope,
+  createSceneStudioRunScope,
   createStudioAssistantMessage,
   createStudioRun,
   createStudioRunCancellationCommand,
@@ -41,6 +44,7 @@ import {
   type StudioRun,
   type StudioRunCancellationCommand,
   type StudioRunCancellationListener,
+  type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunCoordinationLogger,
   type StudioRunLease,
@@ -223,16 +227,39 @@ function createSharedBackendStudioRunCoordinator(
   let listener: StudioRunCancellationListener | null = null
   let closed = false
 
-  function readLiveLease(sessionId: string): StudioRunLease | null {
-    const lease = backend.leases.get(sessionId)
+  function readLiveLease(scope: StudioRunCoordinationScope): StudioRunLease | null {
+    const key = canonicalStudioRunScopeKey(scope)
+    const lease = backend.leases.get(key)
     if (!lease) {
       return null
     }
     if (lease.expiresAt <= backend.now()) {
-      backend.leases.delete(sessionId)
+      backend.leases.delete(key)
       return null
     }
     return lease
+  }
+
+  /**
+   * Scans the Session's canonical keys, so the hierarchy is decided in one place: any live holder
+   * of that Session (Legacy or Scene) is a conflict unless it is the caller's own scope.
+   */
+  function sessionHoldsLiveHolder(sessionId: string, exceptKey?: string): boolean {
+    const legacyKey = canonicalStudioRunScopeKey(createLegacyStudioRunScope(sessionId))
+    const scenePrefix = `scene:${encodeStudioRunKeySegment(sessionId)}:`
+    for (const [key, lease] of [...backend.leases]) {
+      if (lease.expiresAt <= backend.now()) {
+        backend.leases.delete(key)
+        continue
+      }
+      if (key === exceptKey) {
+        continue
+      }
+      if (key === legacyKey || key.startsWith(scenePrefix)) {
+        return true
+      }
+    }
+    return false
   }
 
   function notify(command: StudioRunCancellationCommand): void {
@@ -258,39 +285,46 @@ function createSharedBackendStudioRunCoordinator(
       backend.listeners.add(onCancellation)
     },
 
-    async tryAcquireSession(sessionId: string): Promise<StudioRunLease | null> {
+    async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {
       if (closed || !listener) {
         throw new Error('Studio Run coordinator is not started')
       }
-      if (readLiveLease(sessionId)) {
+      const ownKey = canonicalStudioRunScopeKey(scope)
+      // Legacy excludes the whole Session; a Scene conflicts with a Legacy holder and with a live
+      // holder of its own Scene, and never with a sibling Scene.
+      if (scope.kind === 'legacy-session') {
+        if (sessionHoldsLiveHolder(scope.sessionId)) {
+          return null
+        }
+      } else if (sessionHoldsLiveHolder(scope.sessionId, ownKey) || readLiveLease(scope)) {
         return null
       }
       const lease: StudioRunLease = {
-        sessionId,
+        scope,
         leaseId: backend.createId(),
         ownerInstanceId: options.ownerInstanceId,
         expiresAt: backend.now() + backend.leaseTtlMs
       }
-      backend.leases.set(sessionId, lease)
+      backend.leases.set(ownKey, lease)
       return lease
     },
 
-    async renewSession(lease: StudioRunLease): Promise<StudioRunLease | null> {
-      const current = readLiveLease(lease.sessionId)
+    async renew(lease: StudioRunLease): Promise<StudioRunLease | null> {
+      const current = readLiveLease(lease.scope)
       if (!current || current.leaseId !== lease.leaseId || current.ownerInstanceId !== lease.ownerInstanceId) {
         return null
       }
       const renewed: StudioRunLease = { ...current, expiresAt: backend.now() + backend.leaseTtlMs }
-      backend.leases.set(lease.sessionId, renewed)
+      backend.leases.set(canonicalStudioRunScopeKey(lease.scope), renewed)
       return renewed
     },
 
-    async releaseSession(lease: StudioRunLease): Promise<boolean> {
-      const current = readLiveLease(lease.sessionId)
+    async release(lease: StudioRunLease): Promise<boolean> {
+      const current = readLiveLease(lease.scope)
       if (!current || current.leaseId !== lease.leaseId || current.ownerInstanceId !== lease.ownerInstanceId) {
         return false
       }
-      backend.leases.delete(lease.sessionId)
+      backend.leases.delete(canonicalStudioRunScopeKey(lease.scope))
       return true
     },
 
@@ -342,10 +376,11 @@ function createSharedBackendStudioRunCoordinator(
  * here, in the spec file, because `tests/support/**` is outside this correction's allowed scope.
  */
 class ScriptedOwnershipCoordinator implements StudioRunCoordinatorPort {
-  readonly acquiredSessions: string[] = []
+  readonly acquiredScopes: StudioRunCoordinationScope[] = []
   readonly renewedLeases: StudioRunLease[] = []
   readonly releasedLeases: StudioRunLease[] = []
-  readonly liveLeaseIds = new Set<string>()
+  /** leaseId -> scope: the single source of truth for what this double still owns. */
+  readonly liveLeases = new Map<string, StudioRunCoordinationScope>()
 
   private readonly leaseIds: string[]
   private readonly ownerInstanceId: string
@@ -376,31 +411,40 @@ class ScriptedOwnershipCoordinator implements StudioRunCoordinatorPort {
 
   /** Models the lease key being lost in Redis and taken by another owner. */
   revoke(leaseId: string): void {
-    this.liveLeaseIds.delete(leaseId)
+    this.liveLeases.delete(leaseId)
   }
 
   isHeld(leaseId: string): boolean {
-    return this.liveLeaseIds.has(leaseId)
+    return this.liveLeases.has(leaseId)
   }
 
   async start(onCancellation: StudioRunCancellationListener): Promise<void> {
     this.listener = onCancellation
   }
 
-  async tryAcquireSession(sessionId: string): Promise<StudioRunLease | null> {
-    this.acquiredSessions.push(sessionId)
-    if (this.liveLeaseIds.size > 0) {
-      return null
+  async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {
+    this.acquiredScopes.push(scope)
+    const ownKey = canonicalStudioRunScopeKey(scope)
+    for (const heldScope of this.liveLeases.values()) {
+      if (heldScope.sessionId !== scope.sessionId) {
+        continue
+      }
+      if (heldScope.kind === 'legacy-session' || scope.kind === 'legacy-session') {
+        return null
+      }
+      if (canonicalStudioRunScopeKey(heldScope) === ownKey) {
+        return null
+      }
     }
-    const leaseId = this.leaseIds[this.acquiredSessions.length - 1]
+    const leaseId = this.leaseIds[this.acquiredScopes.length - 1]
     if (!leaseId) {
       return null
     }
-    this.liveLeaseIds.add(leaseId)
-    return { sessionId, leaseId, ownerInstanceId: this.ownerInstanceId, expiresAt: 1_000_000 }
+    this.liveLeases.set(leaseId, scope)
+    return { scope, leaseId, ownerInstanceId: this.ownerInstanceId, expiresAt: 1_000_000 }
   }
 
-  async renewSession(lease: StudioRunLease): Promise<StudioRunLease | null> {
+  async renew(lease: StudioRunLease): Promise<StudioRunLease | null> {
     this.renewCalls += 1
     this.renewedLeases.push(lease)
     const scripted = this.renewReply
@@ -411,18 +455,18 @@ class ScriptedOwnershipCoordinator implements StudioRunCoordinatorPort {
     if (this.failingRenewCalls.has(this.renewCalls)) {
       throw new Error('scheduler renewal failed')
     }
-    if (!this.liveLeaseIds.has(lease.leaseId)) {
+    if (!this.liveLeases.has(lease.leaseId)) {
       return null
     }
     return { ...lease, expiresAt: lease.expiresAt + 60_000 }
   }
 
-  async releaseSession(lease: StudioRunLease): Promise<boolean> {
+  async release(lease: StudioRunLease): Promise<boolean> {
     this.releasedLeases.push(lease)
-    if (!this.liveLeaseIds.has(lease.leaseId)) {
+    if (!this.liveLeases.has(lease.leaseId)) {
       return false
     }
-    this.liveLeaseIds.delete(lease.leaseId)
+    this.liveLeases.delete(lease.leaseId)
     return true
   }
 
@@ -454,6 +498,7 @@ function createDeferredListRunStore(deferred: Deferred<StudioRun[]>): StudioRunS
     getById: (ownerId, runId) => base.runStore.getById(ownerId, runId),
     update: (ownerId, runId, patch) => base.runStore.update(ownerId, runId, patch),
     transitionStatus: (input) => base.runStore.transitionStatus(input),
+    listBySceneId: (ownerId, sceneId) => base.runStore.listBySceneId(ownerId, sceneId),
     listBySessionId: () => deferred.promise
   }
 }
@@ -585,12 +630,12 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     await first.start(() => {})
     await second.start(() => {})
 
-    const lease = await first.tryAcquireSession('session-1')
+    const lease = await first.tryAcquire(createLegacyStudioRunScope('session-1'))
     assert.ok(lease, 'the first instance must acquire the session')
-    assert.equal(lease.sessionId, 'session-1')
+    assert.equal(lease.scope.sessionId, 'session-1')
     assert.ok(lease.leaseId.length > 0)
 
-    assert.equal(await second.tryAcquireSession('session-1'), null)
+    assert.equal(await second.tryAcquire(createLegacyStudioRunScope('session-1')), null)
   })
 
   // 2.
@@ -601,12 +646,12 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     await first.start(() => {})
     await second.start(() => {})
 
-    const leaseA = await first.tryAcquireSession('session-1')
-    const leaseB = await second.tryAcquireSession('session-2')
+    const leaseA = await first.tryAcquire(createLegacyStudioRunScope('session-1'))
+    const leaseB = await second.tryAcquire(createLegacyStudioRunScope('session-2'))
 
     assert.ok(leaseA && leaseB)
     assert.notEqual(leaseA.leaseId, leaseB.leaseId)
-    assert.equal((await first.tryAcquireSession('session-2')), null, 'the other session is still owned')
+    assert.equal((await first.tryAcquire(createLegacyStudioRunScope('session-2'))), null, 'the other session is still owned')
   })
 
   // 3.
@@ -620,33 +665,36 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     // The adapter contract rejects use before start, so every primitive spec starts first.
     await coordinator.start(() => {})
 
-    const lease = await coordinator.tryAcquireSession('session-1')
+    const lease = await coordinator.tryAcquire(createLegacyStudioRunScope('session-1'))
     assert.ok(lease)
     clock += 4_000
 
-    const renewed = await coordinator.renewSession(lease)
+    const renewed = await coordinator.renew(lease)
     assert.ok(renewed, 'the matching token must renew')
     assert.equal(renewed.expiresAt, clock + 10_000)
     assert.ok(renewed.expiresAt > lease.expiresAt)
 
-    assert.equal(await coordinator.renewSession({ ...lease, leaseId: 'other-lease' }), null)
-    assert.equal(await coordinator.renewSession({ ...lease, ownerInstanceId: 'owner-b' }), null)
+    assert.equal(await coordinator.renew({ ...lease, leaseId: 'other-lease' }), null)
+    assert.equal(await coordinator.renew({ ...lease, ownerInstanceId: 'owner-b' }), null)
   })
 
   // 4.
   await run('session lease: release needs the matching token and is idempotent', async () => {
     const coordinator = createInMemoryStudioRunCoordinator({ ownerInstanceId: 'owner-a' })
     await coordinator.start(() => {})
-    const lease = await coordinator.tryAcquireSession('session-1')
+    const lease = await coordinator.tryAcquire(createLegacyStudioRunScope('session-1'))
     assert.ok(lease)
 
-    assert.equal(await coordinator.releaseSession({ ...lease, leaseId: 'other-lease' }), false)
-    assert.equal(await coordinator.releaseSession(lease), true)
-    assert.equal(await coordinator.releaseSession(lease), false, 'a released lease cannot be released twice')
+    assert.equal(await coordinator.release({ ...lease, leaseId: 'other-lease' }), false)
+    assert.equal(await coordinator.release(lease), true)
+    assert.equal(await coordinator.release(lease), false, 'a released lease cannot be released twice')
 
     // Releasing the wrong token must not free the session.
-    await coordinator.tryAcquireSession('session-2')
-    assert.equal(await coordinator.releaseSession({ ...lease, sessionId: 'session-2' }), false)
+    await coordinator.tryAcquire(createLegacyStudioRunScope('session-2'))
+    assert.equal(
+      await coordinator.release({ ...lease, scope: createLegacyStudioRunScope('session-2') }),
+      false
+    )
   })
 
   // 5.
@@ -659,15 +707,15 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     await first.start(() => {})
     await second.start(() => {})
 
-    const expired = await first.tryAcquireSession('session-1')
+    const expired = await first.tryAcquire(createLegacyStudioRunScope('session-1'))
     assert.ok(expired)
 
     clock += 1_001
-    const taken = await second.tryAcquireSession('session-1')
+    const taken = await second.tryAcquire(createLegacyStudioRunScope('session-1'))
     assert.ok(taken, 'an expired lease must not block a new owner')
     assert.notEqual(taken.leaseId, expired.leaseId)
     assert.equal(taken.ownerInstanceId, 'owner-b')
-    assert.equal(await first.renewSession(expired), null, 'the old owner cannot renew an expired lease')
+    assert.equal(await first.renew(expired), null, 'the old owner cannot renew an expired lease')
   })
 
   // ---------------------------------------------------------------------------------------
@@ -723,7 +771,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const harnessReady = createMemoryCoordinationService()
     const session = createSession()
     const stub = createStubRunRuntime({
-      leaseProbe: () => harnessReady.service.getSessionLease(session.id) !== null
+      leaseProbe: () => harnessReady.service.getScopeLease(createLegacyStudioRunScope(session.id)) !== null
     })
     const persistence = createInMemoryStudioPersistence()
     const service = createStudioRunService({
@@ -736,7 +784,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const started = await service.startRun(runInput(session))
     assert.equal(started.status, 'started')
     assert.deepEqual(stub.leaseHeld, [true], 'the lease must already be held when the Run starts')
-    assert.ok(harnessReady.service.getSessionLease(session.id))
+    assert.ok(harnessReady.service.getScopeLease(createLegacyStudioRunScope(session.id)))
   })
 
   // 8.
@@ -750,7 +798,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
 
     assert.equal(coordinator.releasedLeases.length, 1)
     assert.equal(coordination.getActiveRunIds().length, 0)
-    assert.equal(coordinator.acquiredSessions.length, 1)
+    assert.equal(coordinator.acquiredScopes.length, 1)
   })
 
   // 9.
@@ -852,7 +900,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     assert.equal(scheduler.scheduleCount, 1, 'leases must share one renewal scheduler')
     assert.equal(scheduler.intervalMs, 5_000)
 
-    const before = service.getSessionLease(sessionA.id)
+    const before = service.getScopeLease(createLegacyStudioRunScope(sessionA.id))
     assert.ok(before)
 
     // Admission itself proves ownership with one conditional renew per session, so only the
@@ -862,7 +910,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     scheduler.runTick()
     await service.whenIdle()
 
-    const after = service.getSessionLease(sessionA.id)
+    const after = service.getScopeLease(createLegacyStudioRunScope(sessionA.id))
     assert.ok(after)
     assert.ok(after.expiresAt > before.expiresAt, 'the local expiration must move forward')
     assert.equal(
@@ -932,7 +980,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
 
     assert.ok(logger.messages('warn').includes('Studio Run lease release failed'))
     assert.equal(coordinator.releasedLeases.length, 1)
-    assert.equal(service.getSessionLease(session.id), null)
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope(session.id)), null)
   })
 
   // ---------------------------------------------------------------------------------------
@@ -986,7 +1034,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const coordinator = new FakeStudioRunCoordinator()
     const service = createMemoryCoordinationService({ coordinator }).service
 
-    const admission = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admission = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     assert.equal(admission.status, 'reserved')
     if (admission.status !== 'reserved') {
       return
@@ -1014,7 +1062,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const service = createMemoryCoordinationService({ coordinator, scheduler }).service
     const aborts: string[] = []
 
-    const admission = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admission = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     assert.equal(admission.status, 'reserved')
     if (admission.status !== 'reserved') {
       return
@@ -1090,7 +1138,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const service = createMemoryCoordinationService({ coordinator }).service
     const aborts: string[] = []
 
-    const admission = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admission = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     if (admission.status !== 'reserved') {
       throw new Error('expected a reservation')
     }
@@ -1482,6 +1530,9 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       getById: (ownerId, runId) => persistence.runStore.getById(ownerId, runId),
       update: (ownerId, runId, patch) => persistence.runStore.update(ownerId, runId, patch),
       transitionStatus: (input) => persistence.runStore.transitionStatus(input),
+      listBySceneId: async () => {
+        throw new Error('database unavailable')
+      },
       listBySessionId: async () => {
         throw new Error('database unavailable')
       }
@@ -1588,7 +1639,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     assert.equal(coordinator.startCount, 1)
 
     // A reservation is what installs the renewal loop, so the stop path is observable.
-    const admission = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admission = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     assert.equal(admission.status, 'reserved')
 
     await service.close()
@@ -1868,6 +1919,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       create: (run) => base.runStore.create(run),
       getById: (ownerId, runId) => base.runStore.getById(ownerId, runId),
       update: (ownerId, runId, patch) => base.runStore.update(ownerId, runId, patch),
+      listBySceneId: (ownerId, sceneId) => base.runStore.listBySceneId(ownerId, sceneId),
       listBySessionId: (ownerId, sessionId) => base.runStore.listBySessionId(ownerId, sessionId),
       transitionStatus: async () => ({ applied: false, run: null })
     }
@@ -1909,6 +1961,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       create: (value) => persistence.runStore.create(value),
       getById: async () => seeded,
       update: (ownerId, runId, patch) => persistence.runStore.update(ownerId, runId, patch),
+      listBySceneId: (ownerId, sceneId) => persistence.runStore.listBySceneId(ownerId, sceneId),
       listBySessionId: (ownerId, sessionId) => persistence.runStore.listBySessionId(ownerId, sessionId),
       transitionStatus: async () => ({ applied: false, run: null })
     }
@@ -1940,19 +1993,20 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       getById: (ownerId, runId) => base.runStore.getById(ownerId, runId),
       update: (ownerId, runId, patch) => base.runStore.update(ownerId, runId, patch),
       transitionStatus: (input) => base.runStore.transitionStatus(input),
+      listBySceneId: (ownerId, sceneId) => base.runStore.listBySceneId(ownerId, sceneId),
       listBySessionId: () => deferred.promise
     }
     const service = createMemoryCoordinationService({ coordinator, scheduler, runStore: store }).service
 
     let admissionSettled = false
     const admissionPromise = service
-      .reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+      .reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
       .then((result) => {
         admissionSettled = true
         return result
       })
 
-    await waitFor(() => coordinator.acquiredSessions.length === 1 && scheduler.scheduleCount === 1)
+    await waitFor(() => coordinator.acquiredScopes.length === 1 && scheduler.scheduleCount === 1)
     assert.equal(admissionSettled, false, 'the reservation must not be exposed during reconciliation')
     assert.equal(coordinator.renewedLeases.length, 0, 'the ownership proof has not run yet')
 
@@ -1980,12 +2034,13 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       getById: (ownerId, runId) => base.runStore.getById(ownerId, runId),
       update: (ownerId, runId, patch) => base.runStore.update(ownerId, runId, patch),
       transitionStatus: (input) => base.runStore.transitionStatus(input),
+      listBySceneId: (ownerId, sceneId) => base.runStore.listBySceneId(ownerId, sceneId),
       listBySessionId: () => deferred.promise
     }
     const service = createMemoryCoordinationService({ coordinator, scheduler, runStore: store }).service
 
-    const admissionPromise = service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
-    await waitFor(() => coordinator.acquiredSessions.length === 1 && scheduler.scheduleCount === 1)
+    const admissionPromise = service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
+    await waitFor(() => coordinator.acquiredScopes.length === 1 && scheduler.scheduleCount === 1)
 
     // Another replica took the session while reconciliation was pending.
     coordinator.renewResult = null
@@ -1995,7 +2050,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     deferred.resolve([])
     const admission = await admissionPromise
     assert.equal(admission.status, 'coordination_unavailable')
-    assert.equal(service.getSessionLease('session-1'), null, 'no provisional ownership may remain')
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1')), null, 'no provisional ownership may remain')
     assert.equal(coordinator.releasedLeases.length, 1, 'the provisional lease must be handed back')
   })
 
@@ -2010,6 +2065,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       getById: (ownerId, runId) => base.runStore.getById(ownerId, runId),
       update: (ownerId, runId, patch) => base.runStore.update(ownerId, runId, patch),
       transitionStatus: (input) => base.runStore.transitionStatus(input),
+      listBySceneId: async () => [],
       listBySessionId: async () => {
         listCalls += 1
         return []
@@ -2026,9 +2082,9 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       }
     })
 
-    const admission = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admission = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     assert.equal(admission.status, 'coordination_unavailable', 'a reservation without renewal is unsafe')
-    assert.equal(service.getSessionLease('session-1'), null)
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1')), null)
     assert.equal(coordinator.releasedLeases.length, 1)
     assert.equal(listCalls, 0, 'reconciliation must not start without a renewal mechanism')
     assert.ok(logger.messages('error').includes('Studio Run lease renewal could not be scheduled'))
@@ -2042,7 +2098,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const service = createMemoryCoordinationService({ coordinator, scheduler, logger }).service
     const aborts: string[] = []
 
-    const admission = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admission = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     if (admission.status !== 'reserved') {
       throw new Error('expected a reservation')
     }
@@ -2133,6 +2189,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       getById: (ownerId, runId) => base.runStore.getById(ownerId, runId),
       update: (ownerId, runId, patch) => base.runStore.update(ownerId, runId, patch),
       transitionStatus: (input) => base.runStore.transitionStatus(input),
+      listBySceneId: async () => [],
       listBySessionId: () => {
         listCalls += 1
         // Only admission A is suspended; admission B reconciles immediately.
@@ -2142,20 +2199,20 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const service = new StudioRunCoordinationService({ coordinator, runStore: store, scheduler })
 
     // 1. Admission A is suspended in reconciliation and holds `lease-a`.
-    const admissionA = service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admissionA = service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     await waitFor(() => listCalls === 1 && scheduler.scheduleCount === 1)
-    assert.equal(service.getSessionLease('session-1')?.leaseId, 'lease-a')
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1'))?.leaseId, 'lease-a')
 
     // 2. A loses its lease: the key expired in Redis and another owner took the session.
     coordinator.revoke('lease-a')
 
     // 3. A newer local entry B for the same session is installed and attaches its Run.
-    const admissionB = await service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admissionB = await service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     assert.equal(admissionB.status, 'reserved')
     if (admissionB.status !== 'reserved') {
       return
     }
-    assert.equal(service.getSessionLease('session-1')?.leaseId, 'lease-b')
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1'))?.leaseId, 'lease-b')
     await service.attachRun({ reservation: admissionB.reservation, runId: 'run-b', abort: () => {} })
     assert.deepEqual(service.getActiveRunIds(), ['run-b'])
 
@@ -2165,11 +2222,11 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     assert.equal(admissionAResult.status, 'coordination_unavailable')
 
     // 5. B is still registered, still owns its Run mapping and is still renewable.
-    assert.equal(service.getSessionLease('session-1')?.leaseId, 'lease-b', 'a stale rollback must not remove B')
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1'))?.leaseId, 'lease-b', 'a stale rollback must not remove B')
     assert.deepEqual(service.getActiveRunIds(), ['run-b'], 'a stale rollback must not drop a newer Run mapping')
     scheduler.runTick()
     await service.whenIdle()
-    assert.equal(service.getSessionLease('session-1')?.leaseId, 'lease-b')
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1'))?.leaseId, 'lease-b')
     const lastRenewed = coordinator.renewedLeases[coordinator.renewedLeases.length - 1]
     assert.equal(lastRenewed.leaseId, 'lease-b', 'B must still be renewable after A rolled back')
 
@@ -2192,7 +2249,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     })
     coordinator.failRenewCall(1)
 
-    const admissionPromise = service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admissionPromise = service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     await waitFor(() => scheduler.scheduleCount === 1 && coordinator.renewCallCount === 0)
 
     // The scheduler fails first and declares the entry unsafe while admission is still awaiting
@@ -2209,7 +2266,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       1,
       'the proof must not overtake the failed scheduler renewal and renew anyway'
     )
-    assert.equal(service.getSessionLease('session-1'), null)
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1')), null)
     assert.equal(coordinator.releasedLeases.length, 1)
     assert.ok(logger.messages('error').includes('Studio Run lease renewal failed'))
   })
@@ -2227,7 +2284,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     })
     coordinator.useRenewReply(() => proofRenewal.promise)
 
-    const admissionPromise = service.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-1' })
+    const admissionPromise = service.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-1') })
     await waitFor(() => scheduler.scheduleCount === 1)
 
     // The proof reaches the coordinator and suspends there.
@@ -2248,7 +2305,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     // The queued tick resumes once the proof settles and renews the still-registered provisional
     // entry before the rollback runs; the release stays token-checked, so no ownership leaks.
     assert.equal(coordinator.renewCallCount, 2)
-    assert.equal(service.getSessionLease('session-1'), null)
+    assert.equal(service.getScopeLease(createLegacyStudioRunScope('session-1')), null)
     assert.equal(coordinator.releasedLeases.length, 1)
   })
 

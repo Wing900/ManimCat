@@ -16,6 +16,19 @@ const studioCreateRunRequestSchema = studioRunControlRequestSchema.extend({
   inputText: z.string(),
 })
 
+/**
+ * Scene Run body. Identity (Session and Scene) comes from the URL only, so an unknown key —
+ * including an attempted `sessionId` or `sceneId` override — is rejected instead of ignored.
+ */
+const studioCreateSceneRunRequestSchema = z
+  .object({
+    projectId: z.string().trim().min(1).optional(),
+    inputText: z.string(),
+    customApiConfig: customApiConfigSchema.optional(),
+    toolChoice: studioToolChoiceSchema.optional(),
+  })
+  .strict()
+
 const studioContinueRunRequestSchema = studioRunControlRequestSchema
 
 export const studioCreateSessionRequestSchema = z.object({
@@ -28,11 +41,16 @@ export const studioCreateSessionRequestSchema = z.object({
 }).strict()
 
 export type StudioCreateRunRequest = z.infer<typeof studioCreateRunRequestSchema>
+export type StudioCreateSceneRunRequest = z.infer<typeof studioCreateSceneRunRequestSchema>
 export type StudioContinueRunRequest = z.infer<typeof studioContinueRunRequestSchema>
 export type StudioCreateSessionRequest = z.infer<typeof studioCreateSessionRequestSchema>
 
 export function parseStudioCreateRunRequest(input: unknown): StudioCreateRunRequest {
   return studioCreateRunRequestSchema.parse(input)
+}
+
+export function parseStudioCreateSceneRunRequest(input: unknown): StudioCreateSceneRunRequest {
+  return studioCreateSceneRunRequestSchema.parse(input ?? {})
 }
 
 export function parseStudioContinueRunRequest(input: unknown): StudioContinueRunRequest {

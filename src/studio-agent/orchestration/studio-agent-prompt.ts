@@ -1,10 +1,21 @@
 import { getStudioAgentSystemPrompt } from '../prompts/agent-prompt-loader'
 import type { StudioKind, StudioRenderContext, StudioSession } from '../domain/types'
+import {
+  isSceneRunExecutionScope,
+  truncateSceneDirectory,
+  type StudioRunExecutionScope,
+  type StudioSceneRunExecutionScope
+} from '../domain/run-execution-scope'
 import { getStudioModeDefinition } from '../modes/studio-mode'
 
 interface BuildStudioAgentSystemPromptInput {
   session: StudioSession
   renderContext?: StudioRenderContext
+  /**
+   * Scope of the Run. A Scene scope adds the bounded `<studio_scene_scope>` block; a Legacy scope
+   * adds nothing, so its prompt stays byte-for-byte unchanged.
+   */
+  executionScope?: StudioRunExecutionScope
 }
 
 /**
@@ -16,6 +27,11 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
     getStudioAgentSystemPrompt(input.session.agentType, studioKind),
     formatStudioScene(input.session, studioKind),
   ]
+
+  const scopeText = formatStudioSceneScope(input.executionScope)
+  if (scopeText) {
+    sections.push('', '<studio_scene_scope>', scopeText, '</studio_scene_scope>')
+  }
 
   const renderContextText = formatRenderContext(input.renderContext)
   if (renderContextText) {
@@ -45,6 +61,36 @@ function formatStudioScene(session: StudioSession, studioKind: StudioKind): stri
     `automatic_render_after: ${automaticRenderAfter}`,
     '</studio_scene>',
   ].join('\n')
+}
+
+/**
+ * Bounded, privacy-safe description of the Scene write/read boundary. Relative paths only: no
+ * owner identifier, no absolute filesystem path, and never source content. A capped directory is
+ * marked explicitly so the model can tell truncation from a complete list.
+ */
+function formatStudioSceneScope(executionScope?: StudioRunExecutionScope): string {
+  if (!executionScope || !isSceneRunExecutionScope(executionScope)) {
+    return ''
+  }
+
+  const scope: StudioSceneRunExecutionScope = executionScope
+  const directory = truncateSceneDirectory(scope.scenes)
+  const lines: string[] = [
+    `current_scene_id: ${scope.sceneId}`,
+    `current_source: ${scope.currentSourceRelativePath}`,
+    'write_scope: current_source_only',
+    'read_scope: session_workspace',
+    'scene_directory:',
+    ...directory.entries.map((entry) =>
+      `- position: ${entry.position}; id: ${entry.id}; source: ${entry.sourceRelativePath}; current: ${entry.isCurrent}`
+    ),
+  ]
+
+  if (directory.truncated) {
+    lines.push(`scene_directory_truncated: true; omitted_count: ${directory.omittedCount}`)
+  }
+
+  return lines.join('\n')
 }
 
 function formatRenderContext(renderContext?: StudioRenderContext): string {

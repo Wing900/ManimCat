@@ -2,6 +2,7 @@ import { InMemoryStudioEventBus } from '../../../events/event-bus'
 import { createStudioUserMessage } from '../../../domain/factories'
 import { logPlotStudioTiming, readElapsedMs } from '../../../observability/plot-studio-timing'
 import { buildStudioRenderContext } from '../render-context'
+import { loadStudioRunExecutionScope } from '../run-execution-scope-loader'
 import type { StudioRenderContext, StudioSession } from '../../../domain/types'
 import type {
   StudioPreparedRunContext,
@@ -12,11 +13,12 @@ import { hasUsableCustomApiConfig } from './factory'
 
 export async function buildRenderContext(
   deps: Pick<StudioSessionRunnerDependencies, 'renderStore'>,
-  input: { session: StudioSession },
+  input: { session: StudioSession; sceneId?: string },
 ): Promise<StudioRenderContext> {
   return buildStudioRenderContext({
     ownerId: input.session.ownerId,
     sessionId: input.session.id,
+    sceneId: input.sceneId,
     agent: input.session.agentType,
     renderStore: deps.renderStore
   })
@@ -27,14 +29,25 @@ export async function prepareRun(
   input: StudioRunRequestInput,
 ): Promise<StudioPreparedRunContext> {
   const prepareStartedAt = Date.now()
-  const renderContext = await deps.buildRenderContext({ session: input.session })
-  const run = deps.createRun(input.session, input.inputText, input.runMetadata)
+  // Scope first: a Scene Run whose Scene is missing, foreign or carries an unusable source path
+  // must fail closed before any render lookup, record or provider call. The scope is then used by
+  // the render context, both initial messages and every Tool call of this Run.
+  const executionScope = await loadStudioRunExecutionScope({
+    session: input.session,
+    sceneId: input.sceneId,
+    sceneStore: deps.sceneStore,
+  })
+  const renderContext = await deps.buildRenderContext({ session: input.session, sceneId: input.sceneId })
+  // One explicit scope for the Run and both initial messages: the scope is an argument here,
+  // never a metadata convention, and every record is persisted before execution proceeds.
+  const run = deps.createRun(input.session, input.inputText, input.runMetadata, input.sceneId)
   const persistedRun = deps.runStore ? await deps.runStore.create(run) : run
   await deps.messageStore.createUserMessage(createStudioUserMessage({
     sessionId: input.session.id,
+    sceneId: input.sceneId,
     text: input.inputText
   }))
-  const assistantMessage = await deps.createAssistantMessage(input.session, persistedRun.id)
+  const assistantMessage = await deps.createAssistantMessage(input.session, persistedRun.id, input.sceneId)
   const eventBus = deps.sharedEventBus ?? new InMemoryStudioEventBus()
 
   logPlotStudioTiming(input.session.studioKind, 'run.started', {
@@ -57,6 +70,7 @@ export async function prepareRun(
 
   return {
     input,
+    executionScope,
     renderContext,
     run: runningRun,
     assistantMessage,

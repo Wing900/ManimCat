@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  createLegacyRunExecutionScope,
   buildStudioAgentSystemPrompt,
   createDefaultStudioKnowledgeProvider,
   createInMemoryStudioPersistence,
@@ -471,7 +472,8 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
       sessionId: session.id,
       agent: 'builder'
     }),
-    eventBus: new InMemoryStudioEventBus()
+    eventBus: new InMemoryStudioEventBus(),
+    executionScope: createLegacyRunExecutionScope({ rootDirectory: session.directory })
   }
 }
 

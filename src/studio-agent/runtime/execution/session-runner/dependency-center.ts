@@ -9,11 +9,13 @@ import type {
   StudioProcessorStreamEvent,
   StudioRun,
   StudioRunStore,
+  StudioSceneStore,
   StudioSession,
   StudioToolChoice,
   StudioRenderContext,
   StudioRenderStore,
 } from '../../../domain/types'
+import type { StudioRunExecutionScope } from '../../../domain/run-execution-scope'
 import type { StudioToolRegistry } from '../../../tools/registry'
 import type { StudioModelPort } from '../../../model/studio-model-port'
 
@@ -23,12 +25,19 @@ export interface StudioSessionRunnerOptions {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   renderStore?: StudioRenderStore
+  /**
+   * Scene records. Required for a Scene Run, where the execution scope is loaded from it; a
+   * Legacy Run works without it.
+   */
+  sceneStore?: StudioSceneStore
   eventBus?: StudioEventBus
 }
 
 export interface StudioRunRequestInput {
   projectId: string
   session: StudioSession
+  /** Scene scope of this Run; absent means the Legacy whole-Session Run. */
+  sceneId?: string
   inputText: string
   customApiConfig?: CustomApiConfig
   modelPort?: StudioModelPort
@@ -38,6 +47,11 @@ export interface StudioRunRequestInput {
 
 export interface StudioPreparedRunContext {
   input: StudioRunRequestInput
+  /**
+   * Immutable scope of this Run, assembled once before the model is invoked. Tools and prompt
+   * facts read the write policy from here; nothing infers scope from metadata or model text.
+   */
+  executionScope: StudioRunExecutionScope
   renderContext: StudioRenderContext
   run: StudioRun
   assistantMessage: StudioAssistantMessage
@@ -66,10 +80,20 @@ export interface StudioSessionRunnerDependencies {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   renderStore?: StudioRenderStore
+  sceneStore?: StudioSceneStore
   sharedEventBus?: StudioEventBus
-  createRun: (session: StudioSession, inputText: string, metadata?: Record<string, unknown>) => StudioRun
-  createAssistantMessage: (session: StudioSession, runId?: string) => Promise<StudioAssistantMessage>
-  buildRenderContext: (input: { session: StudioSession }) => Promise<StudioRenderContext>
+  createRun: (
+    session: StudioSession,
+    inputText: string,
+    metadata?: Record<string, unknown>,
+    sceneId?: string
+  ) => StudioRun
+  createAssistantMessage: (
+    session: StudioSession,
+    runId?: string,
+    sceneId?: string
+  ) => Promise<StudioAssistantMessage>
+  buildRenderContext: (input: { session: StudioSession; sceneId?: string }) => Promise<StudioRenderContext>
 }
 
 export function createDependencyCenter(
@@ -88,6 +112,7 @@ export function createDependencyCenter(
     partStore: options.partStore,
     runStore: options.runStore,
     renderStore: options.renderStore,
+    sceneStore: options.sceneStore,
     sharedEventBus: options.eventBus,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,

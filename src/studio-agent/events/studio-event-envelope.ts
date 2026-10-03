@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { isStudioEventScopeIdentifier } from '../domain/event-scope'
 import type {
   StudioAgentEvent,
   StudioFileAttachment,
@@ -159,7 +160,18 @@ function readStudioAgentEvent(value: unknown, envelopeSessionId: string): Studio
       if (!runId || !messageId || typeof value.text !== 'string') {
         return undefined
       }
-      return { type: 'assistant_text', sessionId, runId, messageId, text: value.text }
+      const sceneId = readOptionalSceneId(value.sceneId)
+      if (sceneId === null) {
+        return undefined
+      }
+      return {
+        type: 'assistant_text',
+        sessionId,
+        runId,
+        messageId,
+        text: value.text,
+        ...(sceneId === undefined ? {} : { sceneId })
+      }
     }
 
     case 'tool_input_start': {
@@ -173,6 +185,10 @@ function readStudioAgentEvent(value: unknown, envelopeSessionId: string): Studio
       if (value.raw !== undefined && typeof value.raw !== 'string') {
         return undefined
       }
+      const sceneId = readOptionalSceneId(value.sceneId)
+      if (sceneId === null) {
+        return undefined
+      }
       return {
         type: 'tool_input_start',
         sessionId,
@@ -180,7 +196,8 @@ function readStudioAgentEvent(value: unknown, envelopeSessionId: string): Studio
         messageId,
         toolName,
         callId,
-        ...(typeof value.raw === 'string' ? { raw: value.raw } : {})
+        ...(typeof value.raw === 'string' ? { raw: value.raw } : {}),
+        ...(sceneId === undefined ? {} : { sceneId })
       }
     }
 
@@ -196,7 +213,20 @@ function readStudioAgentEvent(value: unknown, envelopeSessionId: string): Studio
       if (!Object.prototype.hasOwnProperty.call(value, 'input')) {
         return undefined
       }
-      return { type: 'tool_call', sessionId, runId, messageId, toolName, callId, input: value.input }
+      const sceneId = readOptionalSceneId(value.sceneId)
+      if (sceneId === null) {
+        return undefined
+      }
+      return {
+        type: 'tool_call',
+        sessionId,
+        runId,
+        messageId,
+        toolName,
+        callId,
+        input: value.input,
+        ...(sceneId === undefined ? {} : { sceneId })
+      }
     }
 
     case 'tool_result': {
@@ -212,7 +242,20 @@ function readStudioAgentEvent(value: unknown, envelopeSessionId: string): Studio
         return undefined
       }
 
-      const event: StudioToolResultEvent = { type: 'tool_result', sessionId, runId, messageId, toolName, callId, status }
+      const sceneId = readOptionalSceneId(value.sceneId)
+      if (sceneId === null) {
+        return undefined
+      }
+      const event: StudioToolResultEvent = {
+        type: 'tool_result',
+        sessionId,
+        runId,
+        messageId,
+        toolName,
+        callId,
+        status,
+        ...(sceneId === undefined ? {} : { sceneId })
+      }
       const title = value.title
       const output = value.output
       const error = value.error
@@ -279,5 +322,24 @@ function readSessionScopedRecord(value: unknown, sessionId: string): Record<stri
   if (!readIdentifier(value.id)) {
     return undefined
   }
-  return readIdentifier(value.sessionId) === sessionId ? value : undefined
+  if (readIdentifier(value.sessionId) !== sessionId) {
+    return undefined
+  }
+  // The Scene scope of a record payload is authoritative, so a malformed one fails the decode
+  // instead of being carried into the routing boundary.
+  if (value.sceneId !== undefined && !isStudioEventScopeIdentifier(value.sceneId)) {
+    return undefined
+  }
+  return value
+}
+
+/**
+ * Optional Scene scope of a streaming event: `undefined` when absent, a validated id when present,
+ * and `null` when present but malformed (the caller rejects the event).
+ */
+function readOptionalSceneId(value: unknown): string | undefined | null {
+  if (value === undefined) {
+    return undefined
+  }
+  return isStudioEventScopeIdentifier(value) ? value : null
 }

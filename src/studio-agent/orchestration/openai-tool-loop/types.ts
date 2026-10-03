@@ -7,6 +7,7 @@ import type {
   StudioRenderContext,
   StudioRenderStore,
 } from '../../domain/types'
+import type { StudioRunExecutionScope } from '../../domain/run-execution-scope'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type {
   StudioRuntimeBackedToolContext
@@ -33,6 +34,8 @@ export interface StudioOpenAIToolLoopInput {
   eventBus: StudioRuntimeBackedToolContext['eventBus']
   renderStore?: StudioRenderStore
   renderContext?: StudioRenderContext
+  /** Immutable scope of this Run: conversation selection, render context and Tool write policy. */
+  executionScope: StudioRunExecutionScope
   createAssistantMessage: () => Promise<StudioAssistantMessage>
   setToolMetadata: (assistantMessage: StudioAssistantMessage, callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   customApiConfig?: CustomApiConfig

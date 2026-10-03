@@ -22,6 +22,7 @@ import {
   type StudioToolDefinition
 } from '../../index'
 import { toPublicStudioEvent, toPublicStudioRun } from '../../http/public-dto'
+import { createLegacyRunExecutionScope } from '../../domain/run-execution-scope'
 import { createStudioOpenAIToolLoop } from '../../orchestration/openai-tool-loop/controller'
 import type { StudioModelPort, StudioModelResponse } from '../../model/studio-model-port'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
@@ -446,6 +447,7 @@ export async function runTokenUsageTests(): Promise<void> {
       session: fixture.session,
       run: fixture.runRecord,
       assistantMessage: fixture.assistantMessage,
+      executionScope: createLegacyRunExecutionScope({ rootDirectory: fixture.session.directory }),
       inputText: fixture.runRecord.inputText,
       messageStore: fixture.persistence.messageStore,
       registry: fixture.registry,
@@ -524,6 +526,7 @@ export async function runTokenUsageTests(): Promise<void> {
       session: fixture.session,
       run: fixture.runRecord,
       assistantMessage: fixture.assistantMessage,
+      executionScope: createLegacyRunExecutionScope({ rootDirectory: fixture.session.directory }),
       inputText: fixture.runRecord.inputText,
       messageStore: fixture.persistence.messageStore,
       registry: fixture.registry,

@@ -71,13 +71,14 @@ export function createStudioSessionService(input: {
       return null
     }
 
-    const [messages, runs, renders] = await Promise.all([
+    const [messages, runs, renders, scenes] = await Promise.all([
       input.persistence.messageStore.listBySessionId(session.id),
       input.persistence.runStore.listBySessionId(ownerId, session.id),
       input.persistence.renderStore.listBySessionId(ownerId, session.id),
+      input.persistence.sceneStore.listBySessionId(ownerId, session.id),
     ])
 
-    return { session, messages, runs, renders }
+    return { session, messages, runs, renders, scenes }
   }
 
   return {

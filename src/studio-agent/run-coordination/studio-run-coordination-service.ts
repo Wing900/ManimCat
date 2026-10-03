@@ -8,15 +8,21 @@ import {
   STUDIO_RUN_COORDINATION_SHUTDOWN_REASON,
   STUDIO_RUN_LEASE_LOST_REASON,
   STUDIO_RUN_STALE_OWNER_MESSAGE,
+  canonicalStudioRunScopeKey,
   type StudioRunCancellationCommand,
   type StudioRunCoordinationLogger,
+  type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunLease
 } from './studio-run-coordinator'
 
-/** Opaque to callers: everything about the lease stays inside this service. */
+/**
+ * Opaque to callers: everything about the lease and the scope stays inside this service. One
+ * reservation covers exactly one scope, so two Scene reservations of one Session can coexist
+ * locally while a Legacy reservation excludes every Scene of that Session.
+ */
 export interface StudioRunReservation {
-  sessionId: string
+  scope: StudioRunCoordinationScope
   leaseId: string
 }
 
@@ -36,7 +42,10 @@ export type StudioRunCancellationOutcome =
 
 /** What `StudioRunService` consumes. Locking, timers and transport stay behind this port. */
 export interface StudioRunCoordinationServicePort {
-  reserveSession: (input: { ownerId: string; sessionId: string }) => Promise<StudioRunAdmission>
+  reserveScope: (input: {
+    ownerId: string
+    scope: StudioRunCoordinationScope
+  }) => Promise<StudioRunAdmission>
   attachRun: (input: {
     reservation: StudioRunReservation
     runId: string
@@ -75,6 +84,7 @@ export interface StudioRunCoordinationServiceOptions {
 export const STUDIO_RUN_COORDINATION_UNAVAILABLE_MESSAGE = 'Studio Run coordination is unavailable'
 
 interface LocalRunEntry {
+  scope: StudioRunCoordinationScope
   lease: StudioRunLease
   runId: string | null
   abort: ((reason?: string) => void) | null
@@ -91,13 +101,14 @@ const NOOP_LOGGER: StudioRunCoordinationLogger = {
 const DEFAULT_LEASE_RENEW_MS = 15_000
 
 /**
- * Application-level Run coordination: it owns the local handle registry, one lease renewal
- * scheduler, cancellation dispatch and stale Run reconciliation, and it is the only place
- * that decides what happens when ownership is lost.
+ * Application-level Run coordination: it owns the local handle registry (keyed by canonical
+ * scope, so one Session may hold a Legacy entry and several Scene entries at once), one lease
+ * renewal scheduler, cancellation dispatch and stale Run reconciliation, and it is the only
+ * place that decides what happens when ownership is lost.
  *
  * Behavior on ownership loss is deliberately fail-closed: a Lease Lost or an unprovable
  * renewal aborts the local Run once, because continuing to generate would let two replicas
- * write to one session.
+ * write to one scope.
  */
 export class StudioRunCoordinationService implements StudioRunCoordinationServicePort {
   private readonly coordinator: StudioRunCoordinatorPort
@@ -108,8 +119,9 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
   private readonly renewMs: number
   private readonly now: () => number
 
+  /** Keyed by canonical scope key: one entry per held scope, never per Session. */
   private readonly entries = new Map<string, LocalRunEntry>()
-  private readonly sessionByRunId = new Map<string, string>()
+  private readonly scopeKeyByRunId = new Map<string, string>()
   private stopScheduler: (() => void) | null = null
   private startPromise: Promise<void> | null = null
   private closePromise: Promise<void> | null = null
@@ -138,10 +150,22 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
     return this.startPromise
   }
 
-  async reserveSession(input: { ownerId: string; sessionId: string }): Promise<StudioRunAdmission> {
+  async reserveScope(input: {
+    ownerId: string
+    scope: StudioRunCoordinationScope
+  }): Promise<StudioRunAdmission> {
     if (this.closed) {
       return unavailable()
     }
+    // Canonical key first: a malformed scope must never reach a transport.
+    let scopeKey: string
+    try {
+      scopeKey = canonicalStudioRunScopeKey(input.scope)
+    } catch (error) {
+      this.log.error('Studio Run admission scope was rejected', messageOf(error))
+      return unavailable()
+    }
+
     try {
       await this.start()
     } catch (error) {
@@ -151,7 +175,7 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
     let lease: StudioRunLease | null
     try {
-      lease = await this.coordinator.tryAcquireSession(input.sessionId)
+      lease = await this.coordinator.tryAcquire(input.scope)
     } catch (error) {
       // A thrown acquisition is "coordination unavailable", never a silent conflict.
       this.log.error('Studio Run lease acquisition failed', messageOf(error))
@@ -163,37 +187,37 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
     // Provisional local ownership, registered *before* reconciliation so the shared renewal
     // scheduler already protects the lease while (possibly slow) reconciliation runs. Without
-    // this ordering a long query could outlive the TTL and let another replica take the session.
-    const entry: LocalRunEntry = { lease, runId: null, abort: null, aborted: false }
-    this.entries.set(input.sessionId, entry)
+    // this ordering a long query could outlive the TTL and let another replica take the scope.
+    const entry: LocalRunEntry = { scope: input.scope, lease, runId: null, abort: null, aborted: false }
+    this.entries.set(scopeKey, entry)
 
     // No renewal mechanism means no safe ownership: refuse before doing any work.
     if (!this.ensureScheduler()) {
-      await this.rollbackProvisionalEntry(entry)
+      await this.rollbackProvisionalEntry(scopeKey, entry)
       return unavailable()
     }
 
     if (!(await this.reconcileStaleRuns(input))) {
-      await this.rollbackProvisionalEntry(entry)
+      await this.rollbackProvisionalEntry(scopeKey, entry)
       return unavailable()
     }
 
     // Final ownership proof: reconciliation may have outlived the lease, in which case another
-    // replica could already hold the session and this reservation must never be exposed.
-    if (!(await this.confirmProvisionalOwnership(entry))) {
-      await this.rollbackProvisionalEntry(entry)
+    // replica could already hold the scope and this reservation must never be exposed.
+    if (!(await this.confirmProvisionalOwnership(scopeKey, entry))) {
+      await this.rollbackProvisionalEntry(scopeKey, entry)
       return unavailable()
     }
 
     // Last check before exposure: a newer local admission may have replaced this entry while the
     // proof was awaited. The rollback is identity-safe, so it cannot remove the newer entry.
-    if (this.entries.get(input.sessionId) !== entry || entry.aborted) {
+    if (this.entries.get(scopeKey) !== entry || entry.aborted) {
       this.log.warn('Studio Run admission was superseded before it was exposed')
-      await this.rollbackProvisionalEntry(entry)
+      await this.rollbackProvisionalEntry(scopeKey, entry)
       return unavailable()
     }
 
-    return { status: 'reserved', reservation: { sessionId: input.sessionId, leaseId: entry.lease.leaseId } }
+    return { status: 'reserved', reservation: { scope: input.scope, leaseId: entry.lease.leaseId } }
   }
 
   async attachRun(input: {
@@ -201,7 +225,8 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
     runId: string
     abort: (reason?: string) => void
   }): Promise<StudioRunAttachment> {
-    const entry = this.entries.get(input.reservation.sessionId)
+    const scopeKey = canonicalStudioRunScopeKey(input.reservation.scope)
+    const entry = this.entries.get(scopeKey)
     if (!entry || entry.lease.leaseId !== input.reservation.leaseId) {
       // Ownership disappeared while the Run was being created: never keep producing.
       input.abort(STUDIO_RUN_LEASE_LOST_REASON)
@@ -211,7 +236,7 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
     // Register before reading the marker so a concurrent command can abort this handle.
     entry.runId = input.runId
     entry.abort = input.abort
-    this.sessionByRunId.set(input.runId, input.reservation.sessionId)
+    this.scopeKeyByRunId.set(input.runId, scopeKey)
 
     // Recovery for a cancellation that arrived before attachment (missed or in-flight).
     const marker = await this.readCancellationMarker(input.runId)
@@ -226,14 +251,15 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
   }
 
   async finishRun(input: { reservation: StudioRunReservation; runId?: string }): Promise<void> {
-    const entry = this.entries.get(input.reservation.sessionId)
+    const scopeKey = canonicalStudioRunScopeKey(input.reservation.scope)
+    const entry = this.entries.get(scopeKey)
     if (!entry || entry.lease.leaseId !== input.reservation.leaseId) {
       return
     }
     if (input.runId && entry.runId && entry.runId !== input.runId) {
       return
     }
-    this.removeLocalEntry(entry)
+    this.removeLocalEntry(scopeKey, entry)
     await this.releaseLease(entry.lease)
   }
 
@@ -257,14 +283,19 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
     return { status: 'signalled', command }
   }
 
-  /** Test hook: the local expiration this replica currently believes it holds. */
-  getSessionLease(sessionId: string): StudioRunLease | null {
-    return this.entries.get(sessionId)?.lease ?? null
+  /** Test hook: the local expiration this replica currently holds for one scope. */
+  getScopeLease(scope: StudioRunCoordinationScope): StudioRunLease | null {
+    return this.entries.get(canonicalStudioRunScopeKey(scope))?.lease ?? null
+  }
+
+  /** Test hook: how many scopes this replica currently holds. */
+  getHeldScopeCount(): number {
+    return this.entries.size
   }
 
   /** Test hook: Runs this replica currently owns locally. */
   getActiveRunIds(): string[] {
-    return [...this.sessionByRunId.keys()]
+    return [...this.scopeKeyByRunId.keys()]
   }
 
   /** Deterministic drain hook for tests; production never awaits a renewal tick. */
@@ -284,10 +315,10 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
       this.stopScheduler = null
     }
 
-    const entries = [...this.entries.values()]
+    const entries = [...this.entries.entries()]
     this.entries.clear()
-    this.sessionByRunId.clear()
-    for (const entry of entries) {
+    this.scopeKeyByRunId.clear()
+    for (const [, entry] of entries) {
       if (!entry.aborted) {
         this.abortEntry(entry, STUDIO_RUN_COORDINATION_SHUTDOWN_REASON)
       }
@@ -302,12 +333,18 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
   }
 
   /**
-   * Runs only after the session lease is held, which proves no live owner is left behind.
+   * Runs only after the scope lease is held, which proves no live owner is left behind *in that
+   * scope*. A Legacy holder reconciles its whole Session (ruling 3); a Scene holder lists and
+   * reconciles that Scene only, so a sibling Scene's live Run is never touched.
+   *
    * A terminal Run is never touched again. Anything else that leaves an unresolved active Run
    * (a store that cannot identify the row, a store that ignores the conditional transition, a
    * thrown query) refuses admission rather than creating a new Run beside a stale one.
    */
-  private async reconcileStaleRuns(input: { ownerId: string; sessionId: string }): Promise<boolean> {
+  private async reconcileStaleRuns(input: {
+    ownerId: string
+    scope: StudioRunCoordinationScope
+  }): Promise<boolean> {
     const store = this.runStore
     if (!store) {
       return true
@@ -315,9 +352,12 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
     let runs: StudioRun[]
     try {
-      runs = await store.listBySessionId(input.ownerId, input.sessionId)
+      runs =
+        input.scope.kind === 'legacy-session'
+          ? await store.listBySessionId(input.ownerId, input.scope.sessionId)
+          : await store.listBySceneId(input.ownerId, input.scope.sceneId)
     } catch (error) {
-      this.log.error('Studio Run reconciliation could not list session runs', messageOf(error))
+      this.log.error('Studio Run reconciliation could not list scope runs', messageOf(error))
       return false
     }
 
@@ -364,20 +404,22 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
   /**
    * Conditional renew used as the ownership proof after reconciliation: a lost token or an
-   * unprovable renewal both mean this replica may no longer admit a Run for the session.
+   * unprovable renewal both mean this replica may no longer admit a Run for the scope.
    *
    * The renewal is queued in the same lane as the scheduled renewal, so a failed scheduler tick
    * cannot be overtaken by this proof; that is why the abort state is re-read *after* the await,
    * together with the entry identity and the renewed lease identity.
    */
-  private async confirmProvisionalOwnership(entry: LocalRunEntry): Promise<StudioRunLease | null> {
+  private async confirmProvisionalOwnership(
+    scopeKey: string,
+    entry: LocalRunEntry
+  ): Promise<StudioRunLease | null> {
     if (entry.aborted) {
       return null
     }
-    const sessionId = entry.lease.sessionId
     let renewed: StudioRunLease | null
     try {
-      renewed = await this.serializeRenewal(() => this.coordinator.renewSession(entry.lease))
+      renewed = await this.serializeRenewal(() => this.coordinator.renew(entry.lease))
     } catch (error) {
       this.log.error('Studio Run lease renewal failed', messageOf(error))
       return null
@@ -385,7 +427,7 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
     if (!renewed) {
       return null
     }
-    if (this.entries.get(sessionId) !== entry || entry.aborted) {
+    if (this.entries.get(scopeKey) !== entry || entry.aborted) {
       // The entry was replaced by a newer local admission, or declared unsafe, while we awaited.
       this.log.warn('Studio Run admission lost its provisional ownership while proving it')
       return null
@@ -401,16 +443,15 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
   /**
    * Identity-safe local removal: only the exact entry may be removed, and only its own Run mapping
    * may be dropped. A stale rollback must never remove or orphan state that belongs to a newer
-   * entry for the same session; the lease release itself stays token-checked at the coordinator.
+   * entry for the same scope; the lease release itself stays token-checked at the coordinator.
    */
-  private removeLocalEntry(entry: LocalRunEntry): boolean {
-    const sessionId = entry.lease.sessionId
-    if (this.entries.get(sessionId) !== entry) {
+  private removeLocalEntry(scopeKey: string, entry: LocalRunEntry): boolean {
+    if (this.entries.get(scopeKey) !== entry) {
       return false
     }
-    this.entries.delete(sessionId)
-    if (entry.runId && this.sessionByRunId.get(entry.runId) === sessionId) {
-      this.sessionByRunId.delete(entry.runId)
+    this.entries.delete(scopeKey)
+    if (entry.runId && this.scopeKeyByRunId.get(entry.runId) === scopeKey) {
+      this.scopeKeyByRunId.delete(entry.runId)
     }
     return true
   }
@@ -419,8 +460,8 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
    * Drops provisional local state (identity-safe) and hands the matching lease back; a lease that
    * is no longer ours is left alone by the coordinator's token check, and TTL is the fallback.
    */
-  private async rollbackProvisionalEntry(entry: LocalRunEntry): Promise<void> {
-    this.removeLocalEntry(entry)
+  private async rollbackProvisionalEntry(scopeKey: string, entry: LocalRunEntry): Promise<void> {
+    this.removeLocalEntry(scopeKey, entry)
     await this.releaseLease(entry.lease)
   }
 
@@ -482,7 +523,7 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
         let renewed: StudioRunLease | null
         try {
-          renewed = await this.coordinator.renewSession(entry.lease)
+          renewed = await this.coordinator.renew(entry.lease)
         } catch (error) {
           // Ownership can no longer be proven: fail closed rather than keep running.
           this.log.error('Studio Run lease renewal failed', messageOf(error))
@@ -501,12 +542,12 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
   }
 
   private dispatchCancellation(command: StudioRunCancellationCommand): void {
-    const sessionId = this.sessionByRunId.get(command.runId)
-    if (!sessionId) {
+    const scopeKey = this.scopeKeyByRunId.get(command.runId)
+    if (!scopeKey) {
       // Another replica owns this Run: the durable marker is its recovery path.
       return
     }
-    const entry = this.entries.get(sessionId)
+    const entry = this.entries.get(scopeKey)
     if (!entry) {
       return
     }
@@ -546,7 +587,7 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
   private async releaseLease(lease: StudioRunLease): Promise<void> {
     try {
-      await this.coordinator.releaseSession(lease)
+      await this.coordinator.release(lease)
     } catch (error) {
       // Local state is already gone; lease TTL is the recovery mechanism.
       this.log.warn('Studio Run lease release failed', messageOf(error))

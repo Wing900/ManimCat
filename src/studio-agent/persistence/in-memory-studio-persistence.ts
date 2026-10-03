@@ -4,6 +4,7 @@ import { InMemoryStudioMessageStore } from '../sessions/memory-message-store'
 import { InMemoryStudioPartStore } from '../sessions/memory-part-store'
 import { InMemoryStudioSessionStore } from '../sessions/memory-session-store'
 import { InMemoryStudioRenderStore } from '../render/memory-render-store'
+import { InMemoryStudioSceneStore } from '../scenes/memory-studio-scene-store'
 
 export function createInMemoryStudioPersistence(): StudioPersistence {
   return {
@@ -12,5 +13,6 @@ export function createInMemoryStudioPersistence(): StudioPersistence {
     partStore: new InMemoryStudioPartStore(),
     runStore: new InMemoryStudioRunStore(),
     renderStore: new InMemoryStudioRenderStore(),
+    sceneStore: new InMemoryStudioSceneStore(),
   }
 }

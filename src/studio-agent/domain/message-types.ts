@@ -3,6 +3,11 @@ import type { StudioAgentType } from './core-types'
 export interface StudioMessageBase {
   id: string
   sessionId: string
+  /**
+   * Optional Scene scope of the message. Parts inherit this through their owning Message, so
+   * `StudioMessagePart` deliberately carries no `sceneId`.
+   */
+  sceneId?: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   createdAt: string
   updatedAt: string

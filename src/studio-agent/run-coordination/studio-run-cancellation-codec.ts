@@ -152,13 +152,9 @@ export function decodeStudioRunCancellationCommand(raw: unknown): StudioRunCance
  * key-safe (a crafted id must not be able to address `lease:` vs `cancel:` namespaces), so
  * everything outside an explicit allow-list is percent-encoded.
  */
-export function encodeStudioRunKeySegment(value: string): string {
-  const trimmed = value.trim()
-  if (!trimmed || trimmed.length > STUDIO_RUN_MAX_NAME_LENGTH) {
-    throw new Error(`Studio Run coordination identifiers must be 1-${STUDIO_RUN_MAX_NAME_LENGTH} characters`)
-  }
-  return trimmed.replace(/[^A-Za-z0-9_-]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`)
-}
+// Implemented once in `./studio-run-scope`; re-exported so every existing caller keeps one
+// canonical encoder and the key scheme cannot diverge.
+export { encodeStudioRunKeySegment } from './studio-run-scope'
 
 function readBoundedString(value: unknown, maxLength: number): string | null {
   if (typeof value !== 'string') {

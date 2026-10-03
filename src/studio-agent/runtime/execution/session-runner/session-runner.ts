@@ -28,8 +28,10 @@ export class StudioSessionRunner {
     })
     this.deps = createDependencyCenter(options, {
       processor,
-      createRun: (session, inputText, metadata) => createRun(session, inputText, metadata),
-      createAssistantMessage: (session) => createAssistantMessage({ messageStore: options.messageStore }, session),
+      createRun: (session, inputText, metadata, sceneId) => createRun(session, inputText, metadata, sceneId),
+      // The second parameter stays unused, exactly as before; only the Scene scope is added.
+      createAssistantMessage: (session, _runId, sceneId) =>
+        createAssistantMessage({ messageStore: options.messageStore }, session, sceneId),
       buildRenderContext: (input) => buildRenderContext({
         renderStore: options.renderStore
       }, input)

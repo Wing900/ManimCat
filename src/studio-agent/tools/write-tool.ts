@@ -26,7 +26,12 @@ async function executeWriteTool(input: WriteToolInput, context: StudioRuntimeBac
     throw new Error('Write tool requires "path" or "file"')
   }
 
-  const result = await writeWorkspaceFile(context.session.directory, target, input.content ?? '')
+  const result = await writeWorkspaceFile({
+    baseDirectory: context.session.directory,
+    targetPath: target,
+    content: input.content ?? '',
+    access: context.executionScope.workspaceAccess
+  })
   const relativePath = toWorkspaceRelativePath(context.session.directory, result.absolutePath).replace(/\\/g, '/')
 
   return {

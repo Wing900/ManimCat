@@ -8,20 +8,24 @@ import type {
 export function buildDraftRun(
   session: StudioSession,
   inputText: string,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
+  /** Scene scope of the Run; absent for a Legacy Run, never inferred from `metadata`. */
+  sceneId?: string
 ): StudioRun {
   return createStudioRun({
     ownerId: session.ownerId,
     sessionId: session.id,
+    sceneId,
     inputText,
     activeAgent: session.agentType,
     metadata
   })
 }
 
-export function buildDraftAssistantMessage(session: StudioSession, runId?: string) {
+export function buildDraftAssistantMessage(session: StudioSession, runId?: string, sceneId?: string) {
   return createStudioAssistantMessage({
     sessionId: session.id,
+    sceneId,
     agent: session.agentType,
     metadata: runId ? { runId } : undefined
   })

@@ -2,6 +2,7 @@ import {
   type StudioRunCancellationCommand,
   type StudioRunCancellationListener,
   type StudioRunCoordinationLogger,
+  type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunLease
 } from '../../run-coordination/studio-run-coordinator'
@@ -39,7 +40,7 @@ export class RecordingStudioRunCoordinationLogger implements StudioRunCoordinati
  * transport failure mode is injectable so the fail-closed paths can be exercised directly.
  */
 export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
-  readonly acquiredSessions: string[] = []
+  readonly acquiredScopes: StudioRunCoordinationScope[] = []
   readonly renewedLeases: StudioRunLease[] = []
   readonly releasedLeases: StudioRunLease[] = []
   readonly requestedRunIds: string[] = []
@@ -55,6 +56,8 @@ export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
   readCancellationError: Error | null = null
   /** `true` forces a conflict; `false`/unset lets acquisition succeed. */
   acquireConflict = false
+  /** When set, acquisition reports this error instead of returning a lease. */
+  acquireReply: unknown = undefined
   /** When set, renewal reports lost ownership. */
   renewResult: StudioRunLease | null | undefined = undefined
   releaseResult = true
@@ -76,24 +79,28 @@ export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
     this.listeners.add(onCancellation)
   }
 
-  async tryAcquireSession(sessionId: string): Promise<StudioRunLease | null> {
-    this.acquiredSessions.push(sessionId)
+  async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {
+    this.acquiredScopes.push(scope)
     if (this.acquireError) {
       throw this.acquireError
+    }
+    // Models an unexpected transport reply: the caller must fail closed, never admit.
+    if (this.acquireReply !== undefined) {
+      throw new Error('unexpected acquisition reply')
     }
     if (this.acquireConflict) {
       return null
     }
     this.leaseCounter += 1
     return {
-      sessionId,
+      scope,
       leaseId: `lease-${this.leaseCounter}`,
       ownerInstanceId: this.ownerInstanceId,
       expiresAt: 1_000_000 + this.leaseCounter * 1_000
     }
   }
 
-  async renewSession(lease: StudioRunLease): Promise<StudioRunLease | null> {
+  async renew(lease: StudioRunLease): Promise<StudioRunLease | null> {
     this.renewedLeases.push(lease)
     if (this.renewError) {
       throw this.renewError
@@ -104,7 +111,7 @@ export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
     return { ...lease, expiresAt: lease.expiresAt + 60_000 }
   }
 
-  async releaseSession(lease: StudioRunLease): Promise<boolean> {
+  async release(lease: StudioRunLease): Promise<boolean> {
     this.releasedLeases.push(lease)
     if (this.releaseError) {
       throw this.releaseError

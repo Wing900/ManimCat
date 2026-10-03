@@ -32,7 +32,8 @@ async function executeApplyPatchTool(
   const result = await applyWorkspacePatch({
     baseDirectory: context.session.directory,
     targetPath: target,
-    patches: input.patches
+    patches: input.patches,
+    access: context.executionScope.workspaceAccess
   })
 
   const relativePath = toWorkspaceRelativePath(context.session.directory, result.absolutePath).replace(/\\/g, '/')

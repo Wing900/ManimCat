@@ -1,10 +1,12 @@
 import {
   STUDIO_RUN_DEFAULT_CANCEL_TTL_MS,
   STUDIO_RUN_DEFAULT_LEASE_TTL_MS,
+  canonicalStudioRunScopeKey,
   createStudioRunOwnerInstanceId,
   type StudioRunCancellationCommand,
   type StudioRunCancellationListener,
   type StudioRunCoordinationLogger,
+  type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunLease
 } from './studio-run-coordinator'
@@ -25,6 +27,15 @@ interface StoredCancellation {
   expiresAt: number
 }
 
+/**
+ * Admission state of one Session: at most one Session-exclusive Legacy holder and at most one
+ * holder per Scene. Both live in one object so the conflict matrix is decided in one place.
+ */
+interface SessionHolderState {
+  legacy: StudioRunLease | null
+  scenes: Map<string, StudioRunLease>
+}
+
 const NOOP_LOGGER: StudioRunCoordinationLogger = {
   info() {},
   warn() {},
@@ -32,10 +43,14 @@ const NOOP_LOGGER: StudioRunCoordinationLogger = {
 }
 
 /**
- * Single-instance coordinator with the same semantics as the Redis adapter: exclusive
- * session leases, token-checked renew/release, expiry, and durable cancellation markers
+ * Single-instance coordinator with the same semantics as the Redis adapter: hierarchical
+ * admission, token-checked renew/release, expiry pruning, and durable cancellation markers
  * retained for their TTL. This is a real implementation, not a test stub — memory mode and
  * the specs both run against it.
+ *
+ * Several service objects sharing one coordinator observe the same holder state (a single
+ * process modelling more than one replica, as the specs do); two separate coordinators are
+ * two separate processes and prove nothing about distribution.
  */
 export function createInMemoryStudioRunCoordinator(
   options: CreateInMemoryStudioRunCoordinatorOptions = {}
@@ -47,7 +62,7 @@ export function createInMemoryStudioRunCoordinator(
   const createId = options.createId ?? (() => globalThis.crypto.randomUUID())
   const logger = options.logger ?? NOOP_LOGGER
 
-  const leases = new Map<string, StudioRunLease>()
+  const holders = new Map<string, SessionHolderState>()
   const cancellations = new Map<string, StoredCancellation>()
   // Several services can share one in-process coordinator (a single process modelling more
   // than one replica, as the specs do); a Redis channel notifies every subscriber too.
@@ -59,16 +74,58 @@ export function createInMemoryStudioRunCoordinator(
     return lease.expiresAt <= now()
   }
 
-  function readLiveLease(sessionId: string): StudioRunLease | null {
-    const lease = leases.get(sessionId)
-    if (!lease) {
+  /** Drops every expired holder first, so an expired lease can never be observed as live. */
+  function pruneExpiredHolders(): void {
+    for (const [sessionId, state] of holders) {
+      if (state.legacy && isExpired(state.legacy)) {
+        state.legacy = null
+      }
+      for (const [sceneKey, lease] of state.scenes) {
+        if (isExpired(lease)) {
+          state.scenes.delete(sceneKey)
+        }
+      }
+      if (!state.legacy && state.scenes.size === 0) {
+        holders.delete(sessionId)
+      }
+    }
+  }
+
+  function readHolder(state: SessionHolderState | undefined, scope: StudioRunCoordinationScope): StudioRunLease | null {
+    if (!state) {
       return null
     }
-    if (isExpired(lease)) {
-      leases.delete(sessionId)
-      return null
+    return scope.kind === 'legacy-session' ? state.legacy : state.scenes.get(canonicalStudioRunScopeKey(scope)) ?? null
+  }
+
+  function writeHolder(state: SessionHolderState, lease: StudioRunLease): void {
+    if (lease.scope.kind === 'legacy-session') {
+      state.legacy = lease
+      return
     }
-    return lease
+    state.scenes.set(canonicalStudioRunScopeKey(lease.scope), lease)
+  }
+
+  function removeHolder(state: SessionHolderState, scope: StudioRunCoordinationScope): void {
+    if (scope.kind === 'legacy-session') {
+      state.legacy = null
+    } else {
+      state.scenes.delete(canonicalStudioRunScopeKey(scope))
+    }
+    if (!state.legacy && state.scenes.size === 0) {
+      holders.delete(scope.sessionId)
+    }
+  }
+
+  /** The conflict matrix, in one place: a Legacy holder excludes everything in its Session. */
+  function conflicts(state: SessionHolderState | undefined, scope: StudioRunCoordinationScope): boolean {
+    if (!state) {
+      return false
+    }
+    if (scope.kind === 'legacy-session') {
+      return state.legacy !== null || state.scenes.size > 0
+    }
+    return state.legacy !== null || state.scenes.has(canonicalStudioRunScopeKey(scope))
   }
 
   function readLiveCancellation(runId: string): StudioRunCancellationCommand | null {
@@ -95,40 +152,49 @@ export function createInMemoryStudioRunCoordinator(
       started = true
     },
 
-    async tryAcquireSession(sessionId: string): Promise<StudioRunLease | null> {
+    async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {
       if (closed || !started) {
         throw new Error('Studio Run coordinator is not started')
       }
-      if (readLiveLease(sessionId)) {
-        // A live holder exists: this is a conflict, not an error.
+      pruneExpiredHolders()
+      const state = holders.get(scope.sessionId)
+      if (conflicts(state, scope)) {
+        // A live holder in this scope (or a Legacy holder anywhere in the Session) is a
+        // conflict, not an error.
         return null
       }
       const lease: StudioRunLease = {
-        sessionId,
+        scope,
         leaseId: createId(),
         ownerInstanceId,
         expiresAt: now() + leaseTtlMs
       }
-      leases.set(sessionId, lease)
+      const target = state ?? { legacy: null, scenes: new Map<string, StudioRunLease>() }
+      writeHolder(target, lease)
+      holders.set(scope.sessionId, target)
       return lease
     },
 
-    async renewSession(lease: StudioRunLease): Promise<StudioRunLease | null> {
-      const current = readLiveLease(lease.sessionId)
+    async renew(lease: StudioRunLease): Promise<StudioRunLease | null> {
+      pruneExpiredHolders()
+      const state = holders.get(lease.scope.sessionId)
+      const current = readHolder(state, lease.scope)
       if (!current || current.leaseId !== lease.leaseId || current.ownerInstanceId !== lease.ownerInstanceId) {
         return null
       }
       const renewed: StudioRunLease = { ...current, expiresAt: now() + leaseTtlMs }
-      leases.set(lease.sessionId, renewed)
+      writeHolder(state as SessionHolderState, renewed)
       return renewed
     },
 
-    async releaseSession(lease: StudioRunLease): Promise<boolean> {
-      const current = readLiveLease(lease.sessionId)
-      if (!current || current.leaseId !== lease.leaseId || current.ownerInstanceId !== lease.ownerInstanceId) {
+    async release(lease: StudioRunLease): Promise<boolean> {
+      pruneExpiredHolders()
+      const state = holders.get(lease.scope.sessionId)
+      const current = readHolder(state, lease.scope)
+      if (!state || !current || current.leaseId !== lease.leaseId || current.ownerInstanceId !== lease.ownerInstanceId) {
         return false
       }
-      leases.delete(lease.sessionId)
+      removeHolder(state, lease.scope)
       return true
     },
 
@@ -155,7 +221,7 @@ export function createInMemoryStudioRunCoordinator(
       closed = true
       started = false
       listeners.clear()
-      leases.clear()
+      holders.clear()
       cancellations.clear()
     }
   }

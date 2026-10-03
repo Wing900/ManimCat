@@ -8,9 +8,11 @@ import type {
 import path from 'node:path'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
+import type { StudioRunExecutionScope } from '../../domain/run-execution-scope'
 import { buildStudioPreToolCommentary } from './pre-tool-commentary'
 import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
 import { WorkspacePathError } from '../../tools/workspace-paths'
+import { StudioWorkspaceWriteDeniedError } from '../../tools/workspace-access-policy'
 
 export interface StudioToolCallExecutionOptions {
   projectId: string
@@ -23,6 +25,8 @@ export interface StudioToolCallExecutionOptions {
   registry: StudioToolRegistry
   eventBus: StudioRuntimeBackedToolContext['eventBus']
   renderStore?: StudioRuntimeBackedToolContext['renderStore']
+  /** Immutable scope of the owning Run, propagated into the Tool execution context. Required. */
+  executionScope: StudioRunExecutionScope
   setToolMetadata: (callId: string, metadata: { title?: string; metadata?: Record<string, unknown> }) => void
   commentary?: string | null
   abortSignal?: AbortSignal
@@ -122,6 +126,7 @@ async function executeTool(input: {
     assistantMessage: input.options.assistantMessage,
     eventBus: input.options.eventBus,
     renderStore: input.options.renderStore,
+    executionScope: input.options.executionScope,
     setToolMetadata: (metadata: { title?: string; metadata?: Record<string, unknown> }) => {
       input.options.setToolMetadata(input.options.toolCallId, metadata)
     }
@@ -156,6 +161,7 @@ function logDetectedToolFailure(
     workspaceRoot?: string
     allowedRoots?: string[]
     allowedRootCount?: number
+    denialReason?: string
   }
 ): void {
   logPlotStudioTiming(input.session.studioKind, 'tool.failure.detected', {
@@ -174,6 +180,7 @@ function logDetectedToolFailure(
     workspaceRoot: details.workspaceRoot,
     allowedRoots: details.allowedRoots,
     allowedRootCount: details.allowedRootCount,
+    denialReason: details.denialReason,
     inputSummary: summarizeToolInput(input.toolInput),
     runElapsedMs: readRunElapsedMs(input.run),
   }, 'warn')
@@ -181,7 +188,21 @@ function logDetectedToolFailure(
 
 function toWorkspacePathFailureDetails(error: unknown): {
   targetPath?: string
+  resolvedPath?: string
+  workspaceRoot?: string
+  allowedRoots?: string[]
+  allowedRootCount?: number
+  denialReason?: string
 } {
+  if (error instanceof StudioWorkspaceWriteDeniedError) {
+    // Sanitized by construction: only the model-supplied relative target and the stable policy
+    // reason travel; the absolute server path stays out of the error, the event and this log.
+    return {
+      targetPath: error.targetPath,
+      denialReason: error.reason
+    }
+  }
+
   if (!(error instanceof WorkspacePathError)) {
     return {}
   }

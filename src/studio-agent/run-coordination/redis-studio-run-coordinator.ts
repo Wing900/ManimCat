@@ -3,14 +3,19 @@ import { randomUUID } from 'node:crypto'
 import { redisClient } from '../../config/redis'
 import { createLogger } from '../../utils/logger'
 import {
+  STUDIO_RUN_ADMISSION_NAMESPACE,
+  canonicalStudioRunScopeKey,
   createStudioRunOwnerInstanceId,
   resolveStudioRunCancellationTtlMs,
   resolveStudioRunControlChannel,
   resolveStudioRunLeaseTtlMs,
   resolveStudioRunRedisPrefix,
+  serializeStudioRunLeaseToken,
+  studioRunScopeAdmissionField,
   type StudioRunCancellationCommand,
   type StudioRunCancellationListener,
   type StudioRunCoordinationLogger,
+  type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunLease
 } from './studio-run-coordinator'
@@ -22,20 +27,82 @@ import {
   encodeStudioRunKeySegment
 } from './studio-run-cancellation-codec'
 
-/** Compare-and-expire: another replica's lease is never extended. */
-const RENEW_LEASE_SCRIPT = `
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  return redis.call('PEXPIRE', KEYS[1], ARGV[2])
+/**
+ * One Session's admission state lives in two keys that share a Redis Cluster hash tag, so every
+ * holder of that Session is decided in a single slot by a single script.
+ *
+ *   <prefix>:admission:v2:{<encoded-session>}:leases   HASH  field -> complete token
+ *   <prefix>:admission:v2:{<encoded-session>}:expiry   ZSET  field -> absolute expiry (ms)
+ *
+ * The container keys carry a bounded cleanup TTL so an abandoned Session state cannot leak.
+ */
+const PRUNE_EXPIRED_HOLDERS = `
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local fields = redis.call('HGETALL', KEYS[1])
+for index = 1, #fields, 2 do
+  local field = fields[index]
+  local score = redis.call('ZSCORE', KEYS[2], field)
+  if not score or tonumber(score) <= now then
+    redis.call('HDEL', KEYS[1], field)
+    redis.call('ZREM', KEYS[2], field)
+  end
 end
-return 0
 `
 
-/** Compare-and-delete: another replica's lease is never released. */
-const RELEASE_LEASE_SCRIPT = `
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  return redis.call('DEL', KEYS[1])
+/**
+ * Hierarchical acquisition. Expired holders are pruned first (server time only), then:
+ * a Legacy scope needs an empty holder set, a Scene scope needs the absent `legacy` field and
+ * its own field absent. Returns 1 when acquired and 0 on a genuine conflict.
+ */
+const ACQUIRE_ADMISSION_SCRIPT = `${PRUNE_EXPIRED_HOLDERS}
+if ARGV[4] == '1' then
+  if redis.call('HLEN', KEYS[1]) > 0 then
+    return 0
+  end
+else
+  if redis.call('HEXISTS', KEYS[1], 'legacy') == 1 then
+    return 0
+  end
+  if redis.call('HEXISTS', KEYS[1], ARGV[1]) == 1 then
+    return 0
+  end
 end
-return 0
+redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
+redis.call('ZADD', KEYS[2], now + tonumber(ARGV[3]), ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[5])
+redis.call('PEXPIRE', KEYS[2], ARGV[5])
+return 1
+`
+
+/** Compare-and-extend: only the complete token may move the expiry of its own field. */
+const RENEW_ADMISSION_SCRIPT = `
+if redis.call('HGET', KEYS[1], ARGV[1]) ~= ARGV[2] then
+  return 0
+end
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+redis.call('ZADD', KEYS[2], now + tonumber(ARGV[3]), ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[4])
+redis.call('PEXPIRE', KEYS[2], ARGV[4])
+return 1
+`
+
+/** Compare-and-remove: another replica's holder is never released. */
+const RELEASE_ADMISSION_SCRIPT = `
+if redis.call('HGET', KEYS[1], ARGV[1]) ~= ARGV[2] then
+  return 0
+end
+redis.call('HDEL', KEYS[1], ARGV[1])
+redis.call('ZREM', KEYS[2], ARGV[1])
+if redis.call('HLEN', KEYS[1]) == 0 then
+  redis.call('DEL', KEYS[1])
+  redis.call('DEL', KEYS[2])
+else
+  redis.call('PEXPIRE', KEYS[1], ARGV[3])
+  redis.call('PEXPIRE', KEYS[2], ARGV[3])
+end
+return 1
 `
 
 export interface CreateRedisStudioRunCoordinatorOptions {
@@ -75,17 +142,27 @@ export function createRedisStudioRunCoordinator(
   let started = false
   let closePromise: Promise<void> | null = null
 
-  function leaseKey(sessionId: string): string {
-    return `${prefix}:lease:${encodeStudioRunKeySegment(sessionId)}`
+  function admissionKeys(sessionId: string): { hash: string; expiry: string } {
+    // The hash tag is the encoded Session, so both keys are guaranteed to share one slot.
+    const tag = `{${encodeStudioRunKeySegment(sessionId)}}`
+    return {
+      hash: `${prefix}:${STUDIO_RUN_ADMISSION_NAMESPACE}:${tag}:leases`,
+      expiry: `${prefix}:${STUDIO_RUN_ADMISSION_NAMESPACE}:${tag}:expiry`
+    }
   }
 
   function cancellationKey(runId: string): string {
     return `${prefix}:cancel:${encodeStudioRunKeySegment(runId)}`
   }
 
-  function serializeLeaseValue(lease: StudioRunLease): string {
-    // Ordered array so the token comparison never depends on object key ordering.
-    return JSON.stringify([lease.ownerInstanceId, lease.leaseId])
+  /** Bounded cleanup TTL for the container keys: several lease lifetimes, never unbounded. */
+  function containerTtlMs(): number {
+    return Math.max(leaseTtlMs * 4, leaseTtlMs + 60_000)
+  }
+
+  /** Local bookkeeping only: ownership decisions always come from Redis TIME inside the scripts. */
+  function leaseExpiryFromLocalClock(): number {
+    return Date.now() + leaseTtlMs
   }
 
   function ensureSubscriber(): Redis {
@@ -154,45 +231,69 @@ export function createRedisStudioRunCoordinator(
       logger.info('Studio Run coordinator subscribed', { channel: controlChannel })
     },
 
-    async tryAcquireSession(sessionId: string): Promise<StudioRunLease | null> {
+    async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {
       if (closePromise) {
         throw new Error('Studio Run coordinator is closed')
       }
+      const keys = admissionKeys(scope.sessionId)
       const lease: StudioRunLease = {
-        sessionId,
+        scope,
         leaseId: randomUUID(),
         ownerInstanceId,
-        expiresAt: Date.now() + leaseTtlMs
+        expiresAt: leaseExpiryFromLocalClock()
       }
-      const reply = await publisher.set(leaseKey(sessionId), serializeLeaseValue(lease), 'PX', leaseTtlMs, 'NX')
-      // `null` means another replica holds the session; anything else is not a conflict, so
-      // it is treated as a coordination failure rather than a silent admission.
-      if (reply === null) {
+      const reply = await publisher.eval(
+        ACQUIRE_ADMISSION_SCRIPT,
+        2,
+        keys.hash,
+        keys.expiry,
+        studioRunScopeAdmissionField(scope),
+        serializeStudioRunLeaseToken(lease),
+        String(leaseTtlMs),
+        scope.kind === 'legacy-session' ? '1' : '0',
+        String(containerTtlMs())
+      )
+      // 0 is a genuine conflict; anything else is not a conflict, so it is treated as a
+      // coordination failure rather than a silent admission.
+      if (Number(reply) === 0) {
         return null
       }
-      if (reply !== 'OK') {
-        throw new Error('Studio Run lease acquisition returned an unexpected reply')
+      if (Number(reply) !== 1) {
+        throw new Error('Studio Run admission returned an unexpected reply')
       }
       return lease
     },
 
-    async renewSession(lease: StudioRunLease): Promise<StudioRunLease | null> {
-      const result = await publisher.eval(
-        RENEW_LEASE_SCRIPT,
-        1,
-        leaseKey(lease.sessionId),
-        serializeLeaseValue(lease),
-        String(leaseTtlMs)
+    async renew(lease: StudioRunLease): Promise<StudioRunLease | null> {
+      const keys = admissionKeys(lease.scope.sessionId)
+      const reply = await publisher.eval(
+        RENEW_ADMISSION_SCRIPT,
+        2,
+        keys.hash,
+        keys.expiry,
+        studioRunScopeAdmissionField(lease.scope),
+        serializeStudioRunLeaseToken(lease),
+        String(leaseTtlMs),
+        String(containerTtlMs())
       )
-      if (Number(result) !== 1) {
+      if (Number(reply) !== 1) {
         return null
       }
-      return { ...lease, expiresAt: Date.now() + leaseTtlMs }
+      return { ...lease, expiresAt: leaseExpiryFromLocalClock() }
     },
 
-    async releaseSession(lease: StudioRunLease): Promise<boolean> {
-      const result = await publisher.eval(RELEASE_LEASE_SCRIPT, 1, leaseKey(lease.sessionId), serializeLeaseValue(lease))
-      return Number(result) === 1
+    async release(lease: StudioRunLease): Promise<boolean> {
+      const keys = admissionKeys(lease.scope.sessionId)
+      const reply = await publisher.eval(
+        RELEASE_ADMISSION_SCRIPT,
+        2,
+        keys.hash,
+        keys.expiry,
+        studioRunScopeAdmissionField(lease.scope),
+        serializeStudioRunLeaseToken(lease),
+        String(containerTtlMs())
+      )
+      return Number(reply) === 1
     },
 
     async requestCancellation(runId: string, reason: string): Promise<StudioRunCancellationCommand> {

@@ -46,6 +46,8 @@ async function executePlotRenderTool(
     ownerId: context.session.ownerId,
     sessionId: context.session.id,
     runId: context.run.id,
+    // The Run is the authoritative scope source; a Legacy Run leaves the key absent.
+    sceneId: context.run.sceneId,
     kind: 'plot',
     title,
     concept: input.concept,

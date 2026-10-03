@@ -12,6 +12,17 @@ import {
   parseStudioCreateRunRequest,
   parseStudioCreateSessionRequest
 } from './helpers/studio-agent-run-request'
+import { openStudioAgentEventStream } from './helpers/studio-agent-sse'
+import {
+  handleStudioSceneEventStreamRequest,
+  handleStudioSceneRunRequest,
+  type StudioSceneRouteDependencies
+} from './helpers/studio-agent-scene-handlers'
+import { parseStudioScenePathParams } from './helpers/studio-agent-scene-params'
+import {
+  studioCreateSceneRequestSchema,
+  studioSceneOrderRequestSchema
+} from './helpers/studio-agent-scene-request'
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
 import { requireStudioPrincipal } from '../studio-agent/auth/principal'
 import { createLogger } from '../utils/logger'
@@ -21,12 +32,29 @@ import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
 import {
   toPublicStudioEvent,
   toPublicStudioRun,
+  toPublicStudioScene,
+  toPublicStudioSceneSnapshot,
   toPublicStudioSession,
   toPublicStudioSnapshot,
 } from '../studio-agent/http/public-dto'
 
 const router = express.Router()
 const logger = createLogger('StudioAgentRoute')
+
+/**
+ * Wired dependencies of the Scene endpoints. The route authenticates and validates the path
+ * segments; every store read, admission call and transport write goes through this bag, so the
+ * handlers can be described by a specification with fakes.
+ */
+const studioSceneRouteDependencies: StudioSceneRouteDependencies = {
+  getScene: (ownerId, sceneId) => studioRuntime.getScene(ownerId, sceneId),
+  getSession: (ownerId, sessionId) => studioRuntime.getSession(ownerId, sessionId),
+  getSceneSnapshot: (ownerId, sessionId, sceneId) => studioRuntime.getSceneSnapshot(ownerId, sessionId, sceneId),
+  startRun: (input) => studioRuntime.startRun(input),
+  subscribeExternalEvents: studioRuntime.subscribeExternalEvents,
+  openEventStream: openStudioAgentEventStream,
+  resolveEffectiveCustomApiConfig: resolveStudioEffectiveCustomApiConfig,
+}
 
 router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioCreateSessionRequest(req.body)
@@ -65,6 +93,102 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
   sendStudioSuccess(res, toPublicStudioSnapshot(snapshot))
 }))
 
+router.post('/studio-agent/sessions/:sessionId/scenes', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  if (!studioCreateSceneRequestSchema.safeParse(req.body ?? {}).success) {
+    return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid scene creation request')
+  }
+
+  const outcome = await studioRuntime.createScene({
+    ownerId: principal.ownerId,
+    sessionId: req.params.sessionId
+  })
+
+  if (outcome.status === 'session_not_found') {
+    // An absent and a foreign Session share one public shape.
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
+  }
+
+  if (outcome.status === 'source_conflict') {
+    return sendStudioError(res, 409, 'WORK_CONFLICT', 'A scene source already exists for this scene')
+  }
+
+  if (outcome.status === 'source_rejected') {
+    return sendStudioError(res, 409, 'WORK_CONFLICT', 'A scene source cannot be created for this session')
+  }
+
+  if (outcome.status === 'persistence_failed') {
+    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', 'Scene persistence is unavailable')
+  }
+
+  sendStudioSuccess(res, { scene: toPublicStudioScene(outcome.scene) }, 201)
+}))
+
+router.put('/studio-agent/sessions/:sessionId/scenes/order', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  const parsed = studioSceneOrderRequestSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid scene order request')
+  }
+
+  const outcome = await studioRuntime.reorderScenes({
+    ownerId: principal.ownerId,
+    sessionId: req.params.sessionId,
+    sceneIds: parsed.data.sceneIds
+  })
+
+  if (outcome.status === 'session_not_found') {
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
+  }
+
+  if (outcome.status === 'invalid_order') {
+    // Well-formed payload whose ids do not match the persisted Scene set. The reason stays
+    // server-side: it would otherwise disclose ownership facts.
+    return sendStudioError(res, 409, 'WORK_CONFLICT', 'Scene order does not match the session scenes')
+  }
+
+  if (outcome.status === 'persistence_failed') {
+    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', 'Scene persistence is unavailable')
+  }
+
+  sendStudioSuccess(res, { scenes: outcome.scenes.map(toPublicStudioScene) })
+}))
+
+router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  const params = parseStudioScenePathParams(req.params)
+  if (!params) {
+    return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid session or scene identifier')
+  }
+
+  let snapshot: Awaited<ReturnType<typeof studioRuntime.getSceneSnapshot>>
+  try {
+    snapshot = await studioRuntime.getSceneSnapshot(
+      principal.ownerId,
+      params.sessionId,
+      params.sceneId
+    )
+  } catch (error) {
+    logger.error('Studio scene snapshot failed', {
+      sessionId: params.sessionId,
+      sceneId: params.sceneId,
+      reason: error instanceof Error ? error.message : String(error),
+    })
+    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', 'Scene persistence is unavailable')
+  }
+
+  if (!snapshot) {
+    // An absent Session, an absent Scene, a foreign owner and a Scene of another Session all
+    // collapse into this one shape; the body discloses no ownership distinction.
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Scene not found', {
+      sessionId: params.sessionId,
+      sceneId: params.sceneId
+    })
+  }
+
+  sendStudioSuccess(res, toPublicStudioSceneSnapshot(snapshot))
+}))
+
 router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const run = await studioRuntime.getRun(principal.ownerId, req.params.runId)
@@ -83,37 +207,60 @@ router.get('/studio-agent/sessions/:sessionId/events', authMiddleware, asyncHand
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
   }
 
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache, no-transform')
-  res.setHeader('Connection', 'keep-alive')
-  res.flushHeaders?.()
-
-  logPlotStudioTiming('plot', 'events.client.connected', {
-    sessionId: sessionId ?? null,
+  openStudioAgentEventStream({
+    req,
+    res,
+    sessionId,
+    subscribeExternalEvents: studioRuntime.subscribeExternalEvents,
+    serializeEvent: toPublicStudioEvent,
   })
-  logTimeline('plot', 'sse.connected')
+}))
 
-  const heartbeat = setInterval(() => {
-    res.write('event: studio.heartbeat\n')
-    res.write(`data: ${JSON.stringify({ type: 'studio.heartbeat', properties: { timestamp: Date.now() } })}\n\n`)
-  }, 15000)
+/**
+ * One Scene's event stream. Authorization and the 404 shape are decided before any SSE header is
+ * written, so a rejected request is plain JSON; the filter then drops sibling Scene events and
+ * Legacy Session events while the Event Bus stays Session-keyed.
+ */
+router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/events', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  const params = parseStudioScenePathParams(req.params)
+  if (!params) {
+    return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid session or scene identifier')
+  }
 
-  const unsubscribe = studioRuntime.subscribeExternalEvents(sessionId, (event) => {
-    res.write(`event: ${event.type}\n`)
-    res.write(`data: ${JSON.stringify(toPublicStudioEvent(event))}\n\n`)
+  await handleStudioSceneEventStreamRequest({
+    req,
+    res,
+    ownerId: principal.ownerId,
+    sessionId: params.sessionId,
+    sceneId: params.sceneId,
+    deps: studioSceneRouteDependencies,
   })
+}))
 
-  res.write('event: studio.connected\n')
-  res.write(`data: ${JSON.stringify({ type: 'studio.connected', properties: { timestamp: Date.now() } })}\n\n`)
+/**
+ * Create a Run for one Scene. The URL owns Session and Scene identity: the body parser is strict,
+ * so an attempted `sessionId`/`sceneId` override is rejected instead of ignored, and the Scene is
+ * proved to belong to the authenticated owner and to the URL Session before admission.
+ */
+router.post('/studio-agent/sessions/:sessionId/scenes/:sceneId/runs', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  const params = parseStudioScenePathParams(req.params)
+  if (!params) {
+    return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid session or scene identifier')
+  }
 
-  req.on('close', () => {
-    clearInterval(heartbeat)
-    unsubscribe()
-    logPlotStudioTiming('plot', 'events.client.disconnected', {
-      sessionId: sessionId ?? null,
-    })
-    logTimeline('plot', 'sse.disconnected')
-    res.end()
+  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
+  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
+
+  await handleStudioSceneRunRequest({
+    res,
+    ownerId: principal.ownerId,
+    sessionId: params.sessionId,
+    sceneId: params.sceneId,
+    body: req.body,
+    routedCustomApiConfig,
+    deps: studioSceneRouteDependencies,
   })
 }))
 
@@ -158,6 +305,12 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
     toolChoice: parsed.toolChoice
   })
+
+  if (started.status === 'not_found') {
+    // The Session stopped resolving between the lookup and admission; the client must not read the
+    // Run fields of a failed admission.
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
+  }
 
   if (started.status === 'coordination_unavailable') {
     // Distinct from a conflict: the coordination layer could not answer, so retrying later is

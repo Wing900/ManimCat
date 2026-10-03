@@ -1,8 +1,14 @@
 import type { StudioAgentEvent } from '../domain/types'
+import { isStudioEventScopeIdentifier } from '../domain/event-scope'
 
 export interface StudioExternalEvent {
   type: string
   properties: Record<string, unknown>
+}
+
+/** Optional Scene scope for the wire; an absent or malformed scope contributes no key at all. */
+function sceneScopeProperties(sceneId: string | undefined): { sceneId?: string } {
+  return isStudioEventScopeIdentifier(sceneId) ? { sceneId } : {}
 }
 
 export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent | null {
@@ -12,6 +18,7 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         type: 'tool.input-start',
         properties: {
           sessionId: event.sessionId,
+          ...sceneScopeProperties(event.sceneId),
           runId: event.runId,
           messageId: event.messageId,
           toolName: event.toolName,
@@ -25,6 +32,7 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         type: 'tool.call',
         properties: {
           sessionId: event.sessionId,
+          ...sceneScopeProperties(event.sceneId),
           runId: event.runId,
           messageId: event.messageId,
           toolName: event.toolName,
@@ -38,6 +46,7 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         type: 'tool.result',
         properties: {
           sessionId: event.sessionId,
+          ...sceneScopeProperties(event.sceneId),
           runId: event.runId,
           messageId: event.messageId,
           toolName: event.toolName,
@@ -75,6 +84,7 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
         type: 'assistant.text',
         properties: {
           sessionId: event.sessionId,
+          ...sceneScopeProperties(event.sceneId),
           runId: event.runId,
           messageId: event.messageId,
           text: event.text

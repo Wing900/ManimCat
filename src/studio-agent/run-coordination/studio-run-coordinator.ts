@@ -3,21 +3,21 @@ import { randomUUID } from 'node:crypto'
 /**
  * Transport-neutral Run coordination contract.
  *
- * A Studio session is owned by at most one replica at a time through a session lease. The
- * lease is the admission primitive: acquiring it before persisting a Run closes the window
- * where two replicas create Runs for the same session. Cancellation travels as a durable
- * command so it survives a replica that missed the fast Pub/Sub notification.
+ * Admission is hierarchical: a Legacy Run holds its whole Session exclusively, while Scene Runs
+ * hold one Scene each and share the Session with their siblings. The lease is the admission
+ * primitive: acquiring it before persisting a Run closes the window where two replicas create
+ * Runs for the same scope. Cancellation travels as a durable Run-scoped command so it survives a
+ * replica that missed the fast Pub/Sub notification.
  *
  * Nothing in this module knows about Redis, Pub/Sub or timers: adapters implement it.
  */
 
-export interface StudioRunLease {
-  sessionId: string
-  leaseId: string
-  ownerInstanceId: string
-  /** Absolute epoch milliseconds at which the lease stops being valid. */
-  expiresAt: number
-}
+// Scope identity, the lease shape, the admission namespace and the canonical key helpers live in
+// `./studio-run-scope`; re-exported here so the coordination surface stays one import for callers.
+// The local import is what the port and the env helpers below are typed against.
+import type { StudioRunCoordinationScope, StudioRunLease } from './studio-run-scope'
+import { STUDIO_RUN_MAX_NAME_LENGTH } from './studio-run-scope'
+export * from './studio-run-scope'
 
 export interface StudioRunCancellationCommand {
   version: 1
@@ -36,12 +36,15 @@ export interface StudioRunCoordinatorPort {
    * silently degrading to a replica that can neither be cancelled nor safely admitted.
    */
   start(onCancellation: StudioRunCancellationListener): Promise<void>
-  /** `null` is a genuine conflict; a thrown error means coordination is unavailable. */
-  tryAcquireSession(sessionId: string): Promise<StudioRunLease | null>
-  /** Returns a fresh expiration while ownership still matches, `null` once it is lost. */
-  renewSession(lease: StudioRunLease): Promise<StudioRunLease | null>
-  /** Deletes only the matching lease token; `false` means ownership already moved on. */
-  releaseSession(lease: StudioRunLease): Promise<boolean>
+  /**
+   * Atomic hierarchical admission for one scope. `null` is a genuine conflict; a thrown error
+   * means coordination is unavailable.
+   */
+  tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null>
+  /** Returns a fresh expiration while the whole scope and token still match, `null` once lost. */
+  renew(lease: StudioRunLease): Promise<StudioRunLease | null>
+  /** Deletes only the matching scope/token pair; `false` means ownership already moved on. */
+  release(lease: StudioRunLease): Promise<boolean>
   /** Durably records the cancellation and signals it quickly. Throws when unavailable. */
   requestCancellation(runId: string, reason: string): Promise<StudioRunCancellationCommand>
   /** Reads the durable marker; `null` when absent or malformed. Throws on transport failure. */
@@ -70,7 +73,6 @@ export const STUDIO_RUN_MAX_LEASE_TTL_MS = 1_800_000
 export const STUDIO_RUN_MIN_LEASE_RENEW_MS = 100
 export const STUDIO_RUN_MIN_CANCEL_TTL_MS = 1_000
 export const STUDIO_RUN_MAX_CANCEL_TTL_MS = 86_400_000
-export const STUDIO_RUN_MAX_NAME_LENGTH = 200
 
 /** Abort reason used when ownership can no longer be proven. */
 export const STUDIO_RUN_LEASE_LOST_REASON = 'Studio Run lease lost'

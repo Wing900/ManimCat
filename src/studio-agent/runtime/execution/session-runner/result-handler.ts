@@ -1,5 +1,6 @@
 import { InMemoryStudioEventBus } from '../../../events/event-bus'
 import { extractLatestAssistantText, cancelRunState, failRunState, finalizeRunState } from '../session-runner-helpers'
+import { selectStudioRunScopeRecords } from '../../../runs/message-selection'
 import {
   STUDIO_RUN_ACTIVE_STATUSES,
   StudioRunFinalizationError
@@ -45,7 +46,7 @@ export async function finalizeSuccessfulRun(
 
   const finalAssistantMessage = await findLatestAssistantMessage(
     deps,
-    input.session.id,
+    input.run,
     input.assistantMessage,
   )
 
@@ -137,12 +138,20 @@ async function applyTerminalRunState(
   return persisted
 }
 
+/**
+ * Latest assistant message of the Run's own scope. With sibling Scene concurrency a Session-wide
+ * lookup could return another Scene's message, so a Scene Run reads its Scene only and a Legacy
+ * Run keeps the Session-wide behavior. The supplied fallback is preserved.
+ */
 async function findLatestAssistantMessage(
   deps: StudioSessionRunnerDependencies,
-  sessionId: string,
+  run: StudioRun,
   fallback: StudioAssistantMessage,
 ): Promise<StudioAssistantMessage> {
-  const messages = await deps.messageStore.listBySessionId(sessionId)
+  const messages = await selectStudioRunScopeRecords(run, {
+    bySceneId: (sceneId) => deps.messageStore.listBySceneId(sceneId),
+    bySessionId: () => deps.messageStore.listBySessionId(run.sessionId)
+  })
   const latestAssistantMessage = [...messages]
     .reverse()
     .find((message): message is StudioAssistantMessage => message.role === 'assistant')

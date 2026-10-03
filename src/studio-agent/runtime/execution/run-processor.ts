@@ -70,6 +70,8 @@ export class StudioRunProcessor {
           input.eventBus?.publish({
             type: 'tool_input_start',
             sessionId: input.session.id,
+            // Scene scope has one authority: the Run executing this Tool loop.
+            ...runSceneScope(input.run),
             runId: input.run.id,
             messageId: currentAssistantMessage.id,
             toolName: event.toolName,
@@ -92,6 +94,7 @@ export class StudioRunProcessor {
           input.eventBus?.publish({
             type: 'tool_call',
             sessionId: input.session.id,
+            ...runSceneScope(input.run),
             runId: input.run.id,
             messageId: currentAssistantMessage.id,
             toolName: event.toolName,
@@ -167,6 +170,7 @@ export class StudioRunProcessor {
           input.eventBus?.publish({
             type: 'tool_result',
             sessionId: input.session.id,
+            ...runSceneScope(input.run),
             runId: input.run.id,
             messageId: currentAssistantMessage.id,
             toolName: toolCalls.get(event.toolCallId)?.tool ?? 'unknown',
@@ -188,6 +192,7 @@ export class StudioRunProcessor {
           input.eventBus?.publish({
             type: 'tool_result',
             sessionId: input.session.id,
+            ...runSceneScope(input.run),
             runId: input.run.id,
             messageId: currentAssistantMessage.id,
             toolName: toolCalls.get(event.toolCallId)?.tool ?? 'unknown',
@@ -229,6 +234,7 @@ export class StudioRunProcessor {
             input.eventBus?.publish({
               type: 'assistant_text',
               sessionId: input.session.id,
+              ...runSceneScope(input.run),
               runId: input.run.id,
               messageId: currentAssistantMessage.id,
               text
@@ -465,6 +471,14 @@ export class StudioRunProcessor {
       metadata: mergeToolMetadata(current, 'metadata' in state ? state.metadata : undefined)
     })
   }
+}
+
+/**
+ * Scene scope of the owning Run, spread into a published event. A Legacy Run contributes no key at
+ * all, so its event payload stays byte-identical to the pre-Scene shape.
+ */
+function runSceneScope(run: StudioRun): { sceneId?: string } {
+  return run.sceneId ? { sceneId: run.sceneId } : {}
 }
 
 function summarizeToolInput(input: Record<string, unknown>): string {

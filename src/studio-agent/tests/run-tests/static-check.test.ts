@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import {
+  createLegacyRunExecutionScope,
   createDefaultStudioStaticCheckPort,
   createStudioAssistantMessage,
   createStudioRun,
@@ -433,7 +434,8 @@ function createToolContext(directory: string, studioKind?: StudioKind): StudioRu
     run: runRecord,
     assistantMessage: createStudioAssistantMessage({ sessionId: session.id, agent: 'builder' }),
     eventBus: new InMemoryStudioEventBus(),
-    renderStore: new InMemoryStudioRenderStore()
+    renderStore: new InMemoryStudioRenderStore(),
+    executionScope: createLegacyRunExecutionScope({ rootDirectory: session.directory })
   }
 }
 

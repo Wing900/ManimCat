@@ -6,6 +6,7 @@ import type {
   StudioPartStore,
   StudioRun,
   StudioRunStore,
+  StudioSceneStore,
   StudioSession,
   StudioToolChoice,
   StudioRenderStore,
@@ -22,6 +23,7 @@ interface StudioBuilderRuntimeOptions {
   partStore: StudioPartStore
   runStore?: StudioRunStore
   renderStore?: StudioRenderStore
+  sceneStore?: StudioSceneStore
   eventBus?: StudioEventBus
 }
 
@@ -35,6 +37,7 @@ export class StudioBuilderRuntime {
       partStore: options.partStore,
       runStore: options.runStore,
       renderStore: options.renderStore,
+      sceneStore: options.sceneStore,
       eventBus: options.eventBus,
     })
   }
@@ -62,6 +65,8 @@ export class StudioBuilderRuntime {
   async startBackgroundRun(input: {
     projectId: string
     session: StudioSession
+    /** Scene scope of this Run; absent means the Legacy whole-Session Run. */
+    sceneId?: string
     inputText: string
     customApiConfig?: CustomApiConfig
     modelPort?: StudioModelPort

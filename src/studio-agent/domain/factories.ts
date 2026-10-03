@@ -9,6 +9,7 @@ import type {
   StudioRender,
   StudioRenderStatus,
   StudioRun,
+  StudioScene,
   StudioSession,
   StudioTextPart,
   StudioToolPart,
@@ -48,9 +49,38 @@ export function createStudioSession(input: {
   }
 }
 
+/**
+ * Stable, Python import-safe module stem for a Scene. The name never changes when the Scene is
+ * reordered, so later cross-Scene imports keep resolving.
+ */
+export function createStudioSceneId(): string {
+  return `scene_${randomUUID().replace(/-/g, '')}`
+}
+
+export function createStudioScene(input: {
+  ownerId: string
+  sessionId: string
+  position: number
+  sourcePath: string
+  id?: string
+}): StudioScene {
+  const timestamp = nowIso()
+  return {
+    id: input.id ?? createStudioSceneId(),
+    ownerId: input.ownerId,
+    sessionId: input.sessionId,
+    position: input.position,
+    sourcePath: input.sourcePath,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  }
+}
+
 export function createStudioRun(input: {
   ownerId: string
   sessionId: string
+  /** Optional Scene scope; never inferred from `metadata`, callers must state it. */
+  sceneId?: string
   inputText: string
   activeAgent: StudioAgentType
   metadata?: Record<string, unknown>
@@ -59,6 +89,8 @@ export function createStudioRun(input: {
     id: `run_${randomUUID()}`,
     ownerId: input.ownerId,
     sessionId: input.sessionId,
+    // A legacy call leaves the key absent instead of carrying `sceneId: undefined`.
+    ...(input.sceneId ? { sceneId: input.sceneId } : {}),
     status: 'pending',
     inputText: input.inputText,
     activeAgent: input.activeAgent,
@@ -70,6 +102,8 @@ export function createStudioRun(input: {
 export function createStudioRender(input: {
   ownerId: string
   sessionId: string
+  /** Optional Scene scope; never inferred from `metadata`, callers must state it. */
+  sceneId?: string
   runId?: string
   kind: StudioKind
   title: string
@@ -88,6 +122,7 @@ export function createStudioRender(input: {
     id: `render_${randomUUID()}`,
     ownerId: input.ownerId,
     sessionId: input.sessionId,
+    ...(input.sceneId ? { sceneId: input.sceneId } : {}),
     runId: input.runId,
     kind: input.kind,
     title: input.title,
@@ -107,6 +142,8 @@ export function createStudioRender(input: {
 
 export function createStudioAssistantMessage(input: {
   sessionId: string
+  /** Optional Scene scope; the owning Message owns the scope of all its Parts. */
+  sceneId?: string
   agent: StudioAgentType
   metadata?: Record<string, unknown>
 }): StudioAssistantMessage {
@@ -114,6 +151,7 @@ export function createStudioAssistantMessage(input: {
   return {
     id: `msg_${randomUUID()}`,
     sessionId: input.sessionId,
+    ...(input.sceneId ? { sceneId: input.sceneId } : {}),
     role: 'assistant',
     agent: input.agent,
     parts: [],
@@ -125,12 +163,15 @@ export function createStudioAssistantMessage(input: {
 
 export function createStudioUserMessage(input: {
   sessionId: string
+  /** Optional Scene scope; the owning Message owns the scope of all its Parts. */
+  sceneId?: string
   text: string
 }): StudioUserMessage {
   const timestamp = nowIso()
   return {
     id: `msg_${randomUUID()}`,
     sessionId: input.sessionId,
+    ...(input.sceneId ? { sceneId: input.sceneId } : {}),
     role: 'user',
     text: input.text,
     createdAt: timestamp,

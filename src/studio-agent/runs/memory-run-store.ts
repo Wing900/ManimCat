@@ -48,4 +48,19 @@ export class InMemoryStudioRunStore implements StudioRunStore {
   async listBySessionId(ownerId: string, sessionId: string): Promise<StudioRun[]> {
     return [...this.runs.values()].filter((run) => run.ownerId === ownerId && run.sessionId === sessionId)
   }
+
+  async listBySceneId(ownerId: string, sceneId: string): Promise<StudioRun[]> {
+    return [...this.runs.values()]
+      .filter((run) => run.ownerId === ownerId && run.sceneId === sceneId)
+      .sort(compareByCreatedAtThenId)
+  }
+}
+
+/** Deterministic order shared by every Scene-scoped query: creation time, then id. */
+function compareByCreatedAtThenId(
+  left: { createdAt: string; id: string },
+  right: { createdAt: string; id: string }
+): number {
+  const byCreatedAt = left.createdAt.localeCompare(right.createdAt)
+  return byCreatedAt !== 0 ? byCreatedAt : left.id.localeCompare(right.id)
 }

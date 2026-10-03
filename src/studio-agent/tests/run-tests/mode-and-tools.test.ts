@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  createLegacyRunExecutionScope,
   createStudioAssistantMessage,
   buildStudioRenderContext,
   createInMemoryStudioPersistence,
@@ -47,7 +48,8 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
       agent: 'builder'
     }),
     eventBus: new InMemoryStudioEventBus(),
-    renderStore: new InMemoryStudioRenderStore()
+    renderStore: new InMemoryStudioRenderStore(),
+    executionScope: createLegacyRunExecutionScope({ rootDirectory: session.directory })
   }
 }
 
@@ -197,8 +199,15 @@ export async function runModeAndToolTests(): Promise<void> {
         order.push(`update:${patch.status ?? 'unknown'}`)
         return renderStore.update(ownerId, renderId, patch)
       },
+      async transitionStatus(input) {
+        order.push(`transition:${input.patch.status}`)
+        return renderStore.transitionStatus(input)
+      },
       async listBySessionId(ownerId, sessionId) {
         return renderStore.listBySessionId(ownerId, sessionId)
+      },
+      async listBySceneId(ownerId, sceneId) {
+        return renderStore.listBySceneId(ownerId, sceneId)
       },
     }
     const tool = createStudioRenderTool({

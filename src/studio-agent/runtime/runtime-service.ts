@@ -2,6 +2,7 @@ import { createLogger } from '../../utils/logger'
 import { createDefaultStudioPersistence } from '../persistence/create-default-studio-persistence'
 import { createLocalStudioWorkspaceProvider } from '../workspace/local-studio-workspace-provider'
 import { createBullManimRenderPort } from '../manim/bull-manim-render-port'
+import { createJobStoreStudioRenderResultPort } from '../manim/job-store-render-result-port'
 import { createMatplotlibPlotRenderPort } from '../plot/matplotlib-plot-render-port'
 import { createDefaultStudioKnowledgeProvider } from '../knowledge/create-default-studio-knowledge-provider'
 import { createDefaultStudioStaticCheckPort } from '../static-check/create-default-studio-static-check-port'
@@ -55,4 +56,8 @@ export const studioRuntime = createStudioRuntimeService({
   staticCheckPort,
   eventBus: studioEventRuntime.eventBus,
   runCoordination: studioRunCoordinationRuntime.service,
+  // The Studio render of a Scene is completed by the Manim job in the existing queue, so the
+  // composition root is where the job store adapter is injected: the runtime and every test that
+  // imports it stay free of the shared Redis client.
+  renderResultPort: createJobStoreStudioRenderResultPort(),
 })

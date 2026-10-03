@@ -11,6 +11,12 @@ import { runTokenUsageTests } from './run-tests/token-usage.test'
 import { runDistributedEventTests } from './run-tests/distributed-events.test'
 import { runDistributedRunCoordinationTests } from './run-tests/distributed-run-coordination.test'
 import { runPersistenceTests } from './run-tests/persistence.test'
+import { runSceneFoundationTests } from './run-tests/scene-foundation.test'
+import { runSceneRecordTests } from './run-tests/scene-records.test'
+import { runSceneRunAdmissionTests } from './run-tests/scene-run-admission.test'
+import { runSceneExecutionBoundaryTests } from './run-tests/scene-execution-boundary.test'
+import { runSceneEventRoutingTests } from './run-tests/scene-event-routing.test'
+import { runRenderResultBridgeTests } from './run-tests/render-result-bridge.test'
 
 async function main() {
   await runPromptTests()
@@ -26,6 +32,12 @@ async function main() {
   await runDistributedEventTests()
   await runDistributedRunCoordinationTests()
   await runPersistenceTests()
+  await runSceneFoundationTests()
+  await runSceneRecordTests()
+  await runSceneRunAdmissionTests()
+  await runSceneExecutionBoundaryTests()
+  await runSceneEventRoutingTests()
+  await runRenderResultBridgeTests()
   console.log('All studio-agent tests passed')
 }
 

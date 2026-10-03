@@ -3,6 +3,7 @@ import type {
   StudioPartStore,
   StudioRunStore,
   StudioRenderStore,
+  StudioSceneStore,
   StudioSessionStore,
 } from '../domain/types'
 
@@ -12,4 +13,5 @@ export interface StudioPersistence {
   partStore: StudioPartStore
   runStore: StudioRunStore
   renderStore: StudioRenderStore
+  sceneStore: StudioSceneStore
 }

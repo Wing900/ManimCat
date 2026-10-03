@@ -4,6 +4,11 @@ import type { StudioFileAttachment } from './message-types'
 export interface StudioAssistantTextEvent {
   type: 'assistant_text'
   sessionId: string
+  /**
+   * Scene scope of the owning Run, stamped at the single dispatch boundary. Absent on every
+   * Legacy event and on events produced before Scene support.
+   */
+  sceneId?: string
   runId: string
   messageId: string
   text: string
@@ -12,6 +17,8 @@ export interface StudioAssistantTextEvent {
 export interface StudioToolInputStartEvent {
   type: 'tool_input_start'
   sessionId: string
+  /** Scene scope of the owning Run; absent for a Legacy Run. */
+  sceneId?: string
   runId: string
   messageId: string
   toolName: string
@@ -22,6 +29,8 @@ export interface StudioToolInputStartEvent {
 export interface StudioToolCallEvent {
   type: 'tool_call'
   sessionId: string
+  /** Scene scope of the owning Run; absent for a Legacy Run. */
+  sceneId?: string
   runId: string
   messageId: string
   toolName: string
@@ -32,6 +41,8 @@ export interface StudioToolCallEvent {
 export interface StudioToolResultEvent {
   type: 'tool_result'
   sessionId: string
+  /** Scene scope of the owning Run; absent for a Legacy Run. */
+  sceneId?: string
   runId: string
   messageId: string
   toolName: string

@@ -18,6 +18,11 @@ import type { StudioModelPort } from '../model/studio-model-port'
 import type {
   StudioRunCoordinationServicePort
 } from '../run-coordination/studio-run-coordination-service'
+import {
+  createLegacyStudioRunScope,
+  createSceneStudioRunScope,
+  type StudioRunCoordinationScope
+} from '../run-coordination/studio-run-coordinator'
 import type { StudioBuilderRuntime } from './builder-runtime'
 import { cancelRunState } from './execution/session-runner-helpers'
 
@@ -25,6 +30,11 @@ export interface StudioStartRunInput {
   ownerId: string
   projectId: string
   session: StudioSession
+  /**
+   * Scene scope of the Run. Absent means the Legacy whole-Session Run, which excludes every
+   * Scene of that Session; a supplied Scene must belong to `session` or admission fails.
+   */
+  sceneId?: string
   inputText: string
   customApiConfig?: CustomApiConfig
   modelPort?: StudioModelPort
@@ -48,6 +58,8 @@ export interface StudioContinueRunInput {
 export type StudioStartRunResult =
   | { status: 'started'; run: StudioRun; assistantMessage: StudioAssistantMessage }
   | { status: 'conflict' }
+  /** Unknown, foreign-owner or foreign-Session Scene: collapsed on purpose, never distinguished. */
+  | { status: 'not_found' }
   | { status: 'coordination_unavailable'; message: string }
 
 export type StudioContinueRunResult =
@@ -99,11 +111,22 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       return { status: 'conflict' }
     }
 
+    // Scene validation first: nothing is reserved and nothing is persisted when the caller
+    // names a Scene this Session does not own.
+    let scope: StudioRunCoordinationScope = createLegacyStudioRunScope(runInput.session.id)
+    if (runInput.sceneId) {
+      const scene = await input.persistence.sceneStore.getById(runInput.ownerId, runInput.sceneId)
+      if (!scene || scene.sessionId !== runInput.session.id) {
+        return { status: 'not_found' }
+      }
+      scope = createSceneStudioRunScope(runInput.session.id, scene.id)
+    }
+
     // Lease first: admission is decided before any Run is persisted, so two replicas cannot
-    // each create a Run for the same session.
-    const admission = await coordination.reserveSession({
+    // each create a Run for the same scope, and a Scene Run can never start beside a Legacy Run.
+    const admission = await coordination.reserveScope({
       ownerId: runInput.ownerId,
-      sessionId: runInput.session.id
+      scope
     })
     if (admission.status === 'conflict') {
       return { status: 'conflict' }
@@ -163,6 +186,9 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       ownerId: runInput.ownerId,
       projectId: runInput.projectId,
       session,
+      // A continuation can only inherit: the source Run's scope is copied verbatim, so callers
+      // cannot switch Scene, and a Legacy continuation stays Legacy.
+      sceneId: sourceRun.sceneId,
       inputText: runInput.inputText?.trim() || buildStudioContinueInputText(autonomy.stopReason),
       customApiConfig: runInput.customApiConfig,
       modelPort: runInput.modelPort,
@@ -175,6 +201,11 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
 
     if (started.status === 'conflict') {
       return { status: 'conflict' as const, session, run: sourceRun }
+    }
+    if (started.status === 'not_found') {
+      // The inherited Scene no longer resolves: a continuation must never silently widen back to
+      // the whole Session, so this is a not-found outcome like any other unresolvable source.
+      return { status: 'not_found' as const, run: sourceRun }
     }
     if (started.status === 'coordination_unavailable') {
       return {

@@ -28,9 +28,10 @@ import {
 } from '../../run-coordination/studio-run-cancellation-codec'
 import { createRedisStudioRunCoordinator } from '../../run-coordination/redis-studio-run-coordinator'
 import { createRedisStudioEventBroker } from '../../events/redis-studio-event-broker'
-import type {
-  StudioRunCoordinatorPort,
-  StudioRunLease
+import {
+  createLegacyStudioRunScope,
+  type StudioRunCoordinatorPort,
+  type StudioRunLease
 } from '../../run-coordination/studio-run-coordinator'
 
 const HOST = process.env.TASK09_REDIS_HOST ?? '127.0.0.1'
@@ -160,8 +161,8 @@ async function main(): Promise<void> {
     }
     await check('two instances contend for one Session and exactly one wins', async () => {
       const [first, second] = await Promise.all([
-        coordinatorA.tryAcquireSession('session-1'),
-        coordinatorB.tryAcquireSession('session-1')
+        coordinatorA.tryAcquire(createLegacyStudioRunScope('session-1')),
+        coordinatorB.tryAcquire(createLegacyStudioRunScope('session-1'))
       ])
       const winners = [first, second].filter((lease) => lease !== null)
       assert.equal(winners.length, 1, 'exactly one instance must hold the lease')
@@ -179,7 +180,7 @@ async function main(): Promise<void> {
 
     // 2. A matching token renews.
     await check('a matching lease token renews the lease', async () => {
-      const renewed = await heldClient.renewSession(held)
+      const renewed = await heldClient.renew(held)
       assert.ok(renewed, 'the owner must be able to renew')
       assert.equal(renewed?.leaseId, held.leaseId)
       assert.ok((renewed?.expiresAt ?? 0) >= held.expiresAt, 'renewal must extend the expiration')
@@ -188,17 +189,17 @@ async function main(): Promise<void> {
     // 3. A wrong token can neither renew nor release.
     await check('a wrong token can neither renew nor release', async () => {
       const impostor: StudioRunLease = { ...held, leaseId: `${held.leaseId}-impostor` }
-      assert.equal(await rival.renewSession(impostor), null, 'a foreign token must not renew')
-      assert.equal(await rival.releaseSession(impostor), false, 'a foreign token must not release')
-      assert.ok(await heldClient.renewSession(held), 'the real owner still holds the lease')
+      assert.equal(await rival.renew(impostor), null, 'a foreign token must not renew')
+      assert.equal(await rival.release(impostor), false, 'a foreign token must not release')
+      assert.ok(await heldClient.renew(held), 'the real owner still holds the lease')
     })
 
     // 4. Release lets another instance take over.
     await check('release allows another instance to take over', async () => {
-      assert.equal(await heldClient.releaseSession(held), true, 'the owner releases its own lease')
-      const taken = await rival.tryAcquireSession('session-1')
+      assert.equal(await heldClient.release(held), true, 'the owner releases its own lease')
+      const taken = await rival.tryAcquire(createLegacyStudioRunScope('session-1'))
       assert.ok(taken, 'the released session must be acquirable')
-      assert.equal(await rival.releaseSession(taken), true, 'cleanup: release the takeover lease')
+      assert.equal(await rival.release(taken), true, 'cleanup: release the takeover lease')
     })
 
     // 5. Expiry lets another instance take over (short, safe TTL).
@@ -220,19 +221,19 @@ async function main(): Promise<void> {
         leaseTtlMs: shortTtl,
         logger: silentLogger
       })
-      const expiring = await shortA.tryAcquireSession('session-expiry')
+      const expiring = await shortA.tryAcquire(createLegacyStudioRunScope('session-expiry'))
       assert.ok(expiring, 'the first instance acquires the session')
-      assert.equal(await shortB.tryAcquireSession('session-expiry'), null, 'it conflicts while live')
+      assert.equal(await shortB.tryAcquire(createLegacyStudioRunScope('session-expiry')), null, 'it conflicts while live')
       const deadline = Date.now() + 8_000
       let taken: StudioRunLease | null = null
       while (Date.now() < deadline && !taken) {
-        taken = await shortB.tryAcquireSession('session-expiry')
+        taken = await shortB.tryAcquire(createLegacyStudioRunScope('session-expiry'))
         if (!taken) {
           await delay(POLL_MS)
         }
       }
       assert.ok(taken, 'an expired lease must be acquirable by another instance')
-      await shortB.releaseSession(taken)
+      await shortB.release(taken)
     })
 
     // 6. The cancellation marker is durable and visible to the other instance.
@@ -256,7 +257,7 @@ async function main(): Promise<void> {
     services.push(owningService)
     await check('the owning service is aborted exactly once through Pub/Sub', async () => {
       await owningService.start()
-      const admission = await owningService.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-cancel' })
+      const admission = await owningService.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-cancel') })
       assert.equal(admission.status, 'reserved', `admission must succeed: ${JSON.stringify(admission)}`)
       if (admission.status !== 'reserved') {
         return
@@ -334,7 +335,7 @@ async function main(): Promise<void> {
       await delay(150)
 
       await survivingService.start()
-      const admission = await survivingService.reserveSession({ ownerId: OWNER_ID, sessionId: 'session-bad' })
+      const admission = await survivingService.reserveScope({ ownerId: OWNER_ID, scope: createLegacyStudioRunScope('session-bad') })
       assert.equal(admission.status, 'reserved', `the service must still admit: ${JSON.stringify(admission)}`)
       if (admission.status !== 'reserved') {
         return

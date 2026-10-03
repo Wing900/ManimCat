@@ -3,6 +3,11 @@ import type { StudioRenderContext, StudioRenderStore } from '../../domain/types'
 interface BuildStudioRenderContextInput {
   ownerId: string
   sessionId: string
+  /**
+   * Scene scope of the Run. When present, only this Scene's renders may be selected; when absent
+   * the Legacy whole-Session selection is kept exactly as before.
+   */
+  sceneId?: string
   agent: string
   renderStore?: StudioRenderStore
 }
@@ -14,7 +19,9 @@ export async function buildStudioRenderContext(input: BuildStudioRenderContextIn
   }
 
   if (input.renderStore) {
-    const renders = await input.renderStore.listBySessionId(input.ownerId, input.sessionId)
+    const renders = input.sceneId
+      ? await input.renderStore.listBySceneId(input.ownerId, input.sceneId)
+      : await input.renderStore.listBySessionId(input.ownerId, input.sessionId)
     const latestRender = [...renders].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0]
     if (latestRender) {
       context.latestRender = {

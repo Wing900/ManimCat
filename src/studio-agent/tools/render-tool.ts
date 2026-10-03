@@ -51,6 +51,8 @@ async function executeRenderTool(
     ownerId: context.session.ownerId,
     sessionId: context.session.id,
     runId: context.run.id,
+    // The Run is the authoritative scope source; a Legacy Run leaves the key absent.
+    sceneId: context.run.sceneId,
     kind: 'manim',
     title: `Render: ${input.concept.slice(0, 80)}`,
     concept: input.concept,
