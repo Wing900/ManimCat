@@ -45,9 +45,9 @@ export function CinemaScreen({
   }, [playableUrl])
 
   const placeholder = (titleKey: TranslationKey, hintKey: TranslationKey) => (
-    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-      <p className="text-sm text-text-primary/70">{t(titleKey)}</p>
-      <p className="max-w-sm text-xs text-text-secondary/60">{t(hintKey)}</p>
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+      <p className="text-base text-text-primary/80">{t(titleKey)}</p>
+      <p className="max-w-md text-sm text-text-secondary/70">{t(hintKey)}</p>
     </div>
   )
 
@@ -91,11 +91,11 @@ export function CinemaScreen({
       </div>
 
       {playbackFailed && state === 'playable' ? (
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-black/80 px-3 py-2">
-          <p className="flex-1 text-[11px] text-white/85">{t('studio.cinema.screenPlaybackFailed')}</p>
+        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-2 bg-black/80 px-3 py-2">
+          <p className="flex-1 text-sm text-white/90">{t('studio.cinema.screenPlaybackFailed')}</p>
           <button
             type="button"
-            className="rounded-md border border-white/25 px-2 py-0.5 text-[11px] text-white/90"
+            className="inline-flex min-h-[36px] items-center rounded-md border border-white/25 px-2.5 text-sm text-white/90"
             onClick={() => {
               setPlaybackFailed(false)
               setReloadToken((token) => token + 1)
@@ -105,7 +105,7 @@ export function CinemaScreen({
           </button>
           <button
             type="button"
-            className="rounded-md border border-white/25 px-2 py-0.5 text-[11px] text-white/90"
+            className="inline-flex min-h-[36px] items-center rounded-md border border-white/25 px-2.5 text-sm text-white/90"
             onClick={onReconcile}
           >
             {t('studio.cinema.reconcile')}
@@ -115,19 +115,19 @@ export function CinemaScreen({
 
       <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
         {hasNewerWorkBehindResult ? (
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-sm text-white/85">
             {t('studio.cinema.screenNewerWorkBehind')}
           </span>
         ) : null}
         {activeRenderStatusKey ? (
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-sm text-white/85">
             {t(activeRenderStatusKey)}
           </span>
         ) : null}
         {state === 'failed' || state === 'media_gap' ? (
           <button
             type="button"
-            className="rounded-full border border-white/25 px-2 py-0.5 text-[10px] text-white/85"
+            className="inline-flex min-h-[36px] items-center rounded-full border border-white/25 px-2.5 text-sm text-white/90"
             onClick={onReconcile}
           >
             {t('studio.cinema.reconcile')}
@@ -135,10 +135,10 @@ export function CinemaScreen({
         ) : null}
         {refreshPausedReasonKey ? (
           <>
-            <span className="text-[10px] text-white/70">{t(refreshPausedReasonKey)}</span>
+            <span className="text-sm text-white/80">{t(refreshPausedReasonKey)}</span>
             <button
               type="button"
-              className="rounded-full border border-white/25 px-2 py-0.5 text-[10px] text-white/85"
+              className="inline-flex min-h-[36px] items-center rounded-full border border-white/25 px-2.5 text-sm text-white/90"
               onClick={onResumeRefresh}
             >
               {t('studio.cinema.renderRefreshResume')}

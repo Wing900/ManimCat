@@ -239,25 +239,25 @@ export function ManimCinemaWorkspace({
 
         <main className="relative flex min-w-0 flex-1 flex-col">
           <header className="flex items-center gap-2 px-3 py-2">
-            <h1 className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary/85">
+            <h1 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">
               {t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
             </h1>
             {session.status === 'loading' && session.session !== null ? (
               <span
                 role="status"
-                className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300"
+                className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-sm text-amber-700 dark:text-amber-300"
               >
                 {t('studio.cinema.sessionSwitching')}
               </span>
             ) : null}
             {view && view.streamState !== 'connected' ? (
-              <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] text-text-secondary/70 dark:bg-white/10">
+              <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-sm text-text-secondary/70 dark:bg-white/10">
                 {t(readStudioCinemaStreamStateKey(view.streamState))}
               </span>
             ) : null}
             <button
               type="button"
-              className="rounded-md border border-black/10 px-2 py-1 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+              className="inline-flex min-h-[36px] items-center rounded-md border border-black/10 px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
               onClick={onExit}
               aria-label={t('studio.cinema.exit')}
             >
@@ -266,13 +266,13 @@ export function ManimCinemaWorkspace({
           </header>
 
           {selection.indexFailed ? (
-            <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
-              <p className="min-w-0 flex-1 text-[11px] text-amber-700 dark:text-amber-300">
+            <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+              <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
                 {t('studio.cinema.indexUnavailable')}
               </p>
               <button
                 type="button"
-                className="shrink-0 rounded-md border border-amber-500/40 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300"
+                className="inline-flex min-h-[36px] shrink-0 items-center rounded-md border border-amber-500/40 px-2.5 text-sm text-amber-700 dark:text-amber-300"
                 onClick={selection.retryIndex}
               >
                 {t('studio.cinema.indexRetry')}
@@ -281,8 +281,8 @@ export function ManimCinemaWorkspace({
           ) : null}
 
           {state.initialization.status === 'partial' || state.initialization.status === 'failed' ? (
-            <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
-              <p className="min-w-0 flex-1 text-[11px] text-amber-700 dark:text-amber-300">
+            <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+              <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
                 {t('studio.cinema.initializeProgress', {
                   created: state.initialization.createdCount,
                   target: state.initialization.targetCount,
@@ -290,7 +290,7 @@ export function ManimCinemaWorkspace({
               </p>
               <button
                 type="button"
-                className="shrink-0 rounded-md border border-amber-500/40 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300"
+                className="inline-flex min-h-[36px] shrink-0 items-center rounded-md border border-amber-500/40 px-2.5 text-sm text-amber-700 dark:text-amber-300"
                 disabled={!identityReady}
                 onClick={() => {
                   if (identityReady) {
@@ -303,68 +303,78 @@ export function ManimCinemaWorkspace({
             </div>
           ) : null}
 
-          <div className="relative flex min-h-0 flex-1 flex-col px-3 pb-1" role="tabpanel" id={SCENE_PANEL_ID}>
-            {index.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                <p className="text-sm text-text-primary/70">{t('studio.cinema.sceneEmptyTitle')}</p>
-                <button
-                  type="button"
-                  className="rounded-lg border border-black/10 px-3 py-1.5 text-xs disabled:opacity-40 dark:border-white/15"
-                  disabled={state.sceneMutationPending || !identityReady}
-                  onClick={() => {
-                    if (identityReady) {
-                      void controller.appendScene()
-                    }
-                  }}
-                >
-                  {t('studio.cinema.sceneCreateFirst')}
-                </button>
-              </div>
-            ) : (
-              <CinemaScreen
-                state={screenState}
-                sceneIndex={Math.max(0, sceneIndex)}
-                playableUrl={view?.display.playableUrl ?? null}
-                mediaKind={view?.display.mediaKind ?? null}
-                hasNewerWorkBehindResult={
-                  screenState === 'playable' &&
-                  (view?.activeRender !== null || view?.userStatus.kind === 'failed')
-                }
-                activeRenderStatusKey={
-                  view?.activeRender ? readStudioCinemaRenderStatusKey(view.activeRender.status) : null
-                }
-                refreshPausedReasonKey={
-                  view?.renderRefresh.pauseReason === 'failures'
-                    ? 'studio.cinema.renderRefreshPausedFailures'
-                    : view?.renderRefresh.pauseReason === 'budget'
-                      ? 'studio.cinema.renderRefreshPausedBudget'
-                      : null
-                }
-                onResumeRefresh={() => {
-                  if (view && identityReady) {
-                    controller.resumeSceneRenderRefresh(view.identity.sceneId)
-                  }
-                }}
-                onReconcile={() => {
-                  if (view && identityReady) {
-                    void controller.reconcileScene(view.identity.sceneId)
-                  }
-                }}
-              />
-            )}
+          <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
+            <div
+              className="relative flex min-h-0 flex-1 items-center justify-center"
+              role="tabpanel"
+              id={SCENE_PANEL_ID}
+            >
+              {index.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <p className="text-base text-text-primary/70">{t('studio.cinema.sceneEmptyTitle')}</p>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-[44px] items-center rounded-lg border border-black/10 px-3 text-sm disabled:opacity-40 dark:border-white/15"
+                    disabled={state.sceneMutationPending || !identityReady}
+                    onClick={() => {
+                      if (identityReady) {
+                        void controller.appendScene()
+                      }
+                    }}
+                  >
+                    {t('studio.cinema.sceneCreateFirst')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex h-full min-h-0 w-full max-w-[1040px] items-center justify-center">
+                    <CinemaScreen
+                      state={screenState}
+                      sceneIndex={Math.max(0, sceneIndex)}
+                      playableUrl={view?.display.playableUrl ?? null}
+                      mediaKind={view?.display.mediaKind ?? null}
+                      hasNewerWorkBehindResult={
+                        screenState === 'playable' &&
+                        (view?.activeRender !== null || view?.userStatus.kind === 'failed')
+                      }
+                      activeRenderStatusKey={
+                        view?.activeRender ? readStudioCinemaRenderStatusKey(view.activeRender.status) : null
+                      }
+                      refreshPausedReasonKey={
+                        view?.renderRefresh.pauseReason === 'failures'
+                          ? 'studio.cinema.renderRefreshPausedFailures'
+                          : view?.renderRefresh.pauseReason === 'budget'
+                            ? 'studio.cinema.renderRefreshPausedBudget'
+                            : null
+                      }
+                      onResumeRefresh={() => {
+                        if (view && identityReady) {
+                          controller.resumeSceneRenderRefresh(view.identity.sceneId)
+                        }
+                      }}
+                      onReconcile={() => {
+                        if (view && identityReady) {
+                          void controller.reconcileScene(view.identity.sceneId)
+                        }
+                      }}
+                    />
+                  </div>
 
-            <SceneHistoryPanel
-              id={HISTORY_PANEL_ID}
-              open={historyOpen && view !== null}
-              sessionId={sessionId ?? ''}
-              sceneId={selectedSceneId ?? ''}
-              revision={conversationRevision}
-              title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
-              rows={rows}
-              usage={view?.tokenUsage ?? null}
-              loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
-              onClose={closeHistory}
-            />
+                  <SceneHistoryPanel
+                    id={HISTORY_PANEL_ID}
+                    open={historyOpen && view !== null}
+                    sessionId={sessionId ?? ''}
+                    sceneId={selectedSceneId ?? ''}
+                    revision={conversationRevision}
+                    title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
+                    rows={rows}
+                    usage={view?.tokenUsage ?? null}
+                    loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
+                    onClose={closeHistory}
+                  />
+                </>
+              )}
+            </div>
           </div>
 
           {view !== null ? (
