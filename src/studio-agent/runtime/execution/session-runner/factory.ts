@@ -8,10 +8,12 @@ export async function createAssistantMessage(
   session: StudioSession,
   /** Scene scope of the owning Run; absent for a Legacy Run. */
   sceneId?: string,
+  /** ISO of the Run's user message; the assistant message is stamped strictly after it. */
+  notBefore?: string,
 ): Promise<StudioAssistantMessage> {
   // The `runId` slot of the draft helper stays untouched: this path has never propagated it and
   // Task 11B2A must not change message metadata behavior.
-  const message = buildDraftAssistantMessage(session, undefined, sceneId)
+  const message = buildDraftAssistantMessage(session, undefined, sceneId, notBefore)
   return deps.messageStore.createAssistantMessage(message)
 }
 

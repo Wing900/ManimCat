@@ -91,7 +91,9 @@ export interface StudioSessionRunnerDependencies {
   createAssistantMessage: (
     session: StudioSession,
     runId?: string,
-    sceneId?: string
+    sceneId?: string,
+    /** ISO of the Run's user message; forces this message strictly after it. */
+    notBefore?: string
   ) => Promise<StudioAssistantMessage>
   buildRenderContext: (input: { session: StudioSession; sceneId?: string }) => Promise<StudioRenderContext>
 }

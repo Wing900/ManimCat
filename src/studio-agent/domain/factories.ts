@@ -21,6 +21,17 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+/**
+ * ISO timestamp strictly greater than `iso` (by at least 1ms). Messages created back-to-back in the
+ * same millisecond (a Run's user message and its first assistant message) would otherwise tie, and a
+ * tie is broken by a random UUID `id` — which renders the conversation in a non-deterministic order.
+ */
+function strictlyAfter(iso: string): string {
+  const base = Date.parse(iso)
+  const candidate = Number.isFinite(base) ? base + 1 : Date.now()
+  return new Date(Math.max(Date.now(), candidate)).toISOString()
+}
+
 export function createStudioSession(input: {
   projectId: string
   ownerId: string
@@ -146,8 +157,10 @@ export function createStudioAssistantMessage(input: {
   sceneId?: string
   agent: StudioAgentType
   metadata?: Record<string, unknown>
+  /** When set, `createdAt` is forced strictly after this ISO timestamp, so it never ties. */
+  notBefore?: string
 }): StudioAssistantMessage {
-  const timestamp = nowIso()
+  const timestamp = input.notBefore ? strictlyAfter(input.notBefore) : nowIso()
   return {
     id: `msg_${randomUUID()}`,
     sessionId: input.sessionId,

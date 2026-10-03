@@ -30,8 +30,8 @@ export class StudioSessionRunner {
       processor,
       createRun: (session, inputText, metadata, sceneId) => createRun(session, inputText, metadata, sceneId),
       // The second parameter stays unused, exactly as before; only the Scene scope is added.
-      createAssistantMessage: (session, _runId, sceneId) =>
-        createAssistantMessage({ messageStore: options.messageStore }, session, sceneId),
+      createAssistantMessage: (session, _runId, sceneId, notBefore) =>
+        createAssistantMessage({ messageStore: options.messageStore }, session, sceneId, notBefore),
       buildRenderContext: (input) => buildRenderContext({
         renderStore: options.renderStore
       }, input)

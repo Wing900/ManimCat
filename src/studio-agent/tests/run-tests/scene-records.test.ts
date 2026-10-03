@@ -185,6 +185,25 @@ export async function runSceneRecordTests(): Promise<void> {
     assert.equal(render.sessionId, 'sess_1')
   })
 
+  await run('a run assistant message is stamped strictly after its user message (no created_at tie)', async () => {
+    // A Run creates its user message and its first assistant message back-to-back in the same
+    // millisecond. Without `notBefore` the two share `createdAt`, and the DB order (created_at, id)
+    // then falls back to a random UUID id — rendering the conversation out of order.
+    const user = createStudioUserMessage({ sessionId: 'sess_1', sceneId: 'scene_a', text: 'hi' })
+    const assistant = createStudioAssistantMessage({
+      sessionId: 'sess_1',
+      sceneId: 'scene_a',
+      agent: 'builder',
+      notBefore: user.createdAt,
+    })
+    assert.ok(assistant.createdAt > user.createdAt, 'assistant createdAt is strictly after the user message')
+    assert.ok(Number.isFinite(Date.parse(assistant.createdAt)))
+
+    // With no `notBefore` the factory still stamps the current time.
+    const plain = createStudioAssistantMessage({ sessionId: 'sess_1', agent: 'builder' })
+    assert.ok(Number.isFinite(Date.parse(plain.createdAt)))
+  })
+
   await run('legacy factory calls keep the scene scope absent', async () => {
     const message = createStudioUserMessage({ sessionId: 'sess_1', text: 'hi' })
     const assistant = createStudioAssistantMessage({ sessionId: 'sess_1', agent: 'builder' })

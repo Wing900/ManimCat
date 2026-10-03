@@ -42,12 +42,19 @@ export async function prepareRun(
   // never a metadata convention, and every record is persisted before execution proceeds.
   const run = deps.createRun(input.session, input.inputText, input.runMetadata, input.sceneId)
   const persistedRun = deps.runStore ? await deps.runStore.create(run) : run
-  await deps.messageStore.createUserMessage(createStudioUserMessage({
+  const userMessage = await deps.messageStore.createUserMessage(createStudioUserMessage({
     sessionId: input.session.id,
     sceneId: input.sceneId,
     text: input.inputText
   }))
-  const assistantMessage = await deps.createAssistantMessage(input.session, persistedRun.id, input.sceneId)
+  // The assistant message is stamped strictly after the user message, so the two never tie on
+  // `created_at` (a tie is broken by a random UUID id and renders the conversation out of order).
+  const assistantMessage = await deps.createAssistantMessage(
+    input.session,
+    persistedRun.id,
+    input.sceneId,
+    userMessage.createdAt
+  )
   const eventBus = deps.sharedEventBus ?? new InMemoryStudioEventBus()
 
   logPlotStudioTiming(input.session.studioKind, 'run.started', {

@@ -22,12 +22,19 @@ export function buildDraftRun(
   })
 }
 
-export function buildDraftAssistantMessage(session: StudioSession, runId?: string, sceneId?: string) {
+export function buildDraftAssistantMessage(
+  session: StudioSession,
+  runId?: string,
+  sceneId?: string,
+  /** Force `createdAt` strictly after this ISO, so it cannot tie the Run's user message. */
+  notBefore?: string
+) {
   return createStudioAssistantMessage({
     sessionId: session.id,
     sceneId,
     agent: session.agentType,
-    metadata: runId ? { runId } : undefined
+    metadata: runId ? { runId } : undefined,
+    notBefore
   })
 }
 
