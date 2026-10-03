@@ -12,10 +12,11 @@ import { CloseIcon } from './CinemaIcons'
 /**
  * The Scene conversation, opened only by the cat (task 11C2, doc §8).
  *
- * Desktop (lg+): an in-flow right sidebar at full height, non-modal — the stage and composer re-centre
- * in the remaining area (the workspace places this panel as a flex sibling). Narrow: a modal overlay
- * with a backdrop, focus constrained and background interaction blocked. The semantics match the
- * layout: the same `role="dialog"` carries both, with `aria-modal` only on the overlay.
+ * A floating right drawer at every width: the aside is `fixed` over the shell, so opening it never
+ * takes width away from the stage — the video keeps its size. On lg it is non-modal (no backdrop, no
+ * focus trap, background stays interactive, so the composer keeps working while it is open); below lg
+ * it is modal, with a backdrop, a focus trap and `aria-modal`, and the workspace marks the stage
+ * `inert`. The same `role="dialog"` carries both.
  *
  * It consumes the Scene public messages directly: no Legacy message store, no raw Tool input, no
  * internal error and no private path is rendered.
@@ -270,7 +271,7 @@ export function SceneHistoryPanel({
         role="dialog"
         aria-label={title}
         aria-modal={modal ? 'true' : undefined}
-        className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col overflow-hidden border-l border-black/10 bg-bg-primary shadow-2xl lg:static lg:z-auto lg:w-[400px] lg:max-w-none lg:border-l lg:border-black/10 lg:shadow-none dark:border-white/15"
+        className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col overflow-hidden border-l border-black/10 bg-bg-primary shadow-2xl dark:border-white/15"
       >
         <header className="flex items-center gap-2 border-b border-black/5 px-3 py-3 dark:border-white/10">
           <CatCharacter pose={catPose} className="cinema-cat-enter h-10 w-10 shrink-0" />

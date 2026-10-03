@@ -408,7 +408,7 @@ export function ManimCinemaWorkspace({
 
             {view !== null ? (
               <div
-                className={`pointer-events-none absolute right-3 top-1/2 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:right-5 lg:right-8 ${
+                className={`pointer-events-none absolute right-3 top-[62%] z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:right-5 lg:right-8 ${
                   historyOpen
                     ? 'translate-x-12 -translate-y-[85%] opacity-0'
                     : '-translate-y-1/2 opacity-100'
@@ -431,7 +431,7 @@ export function ManimCinemaWorkspace({
             ) : null}
           </div>
 
-          <div className="px-3 pb-3 sm:px-20 lg:px-32">
+          <div className="px-3 pb-10 sm:px-20 lg:px-32">
           <SceneComposer
             draft={view?.draft ?? ''}
             submitting={view?.submitting ?? false}
@@ -442,7 +442,7 @@ export function ManimCinemaWorkspace({
                 ? session.status === 'loading'
                   ? 'studio.cinema.submitBlockedSessionSwitching'
                   : null
-                : view?.submitBlockReason
+                : view?.submitBlockReason && view.submitBlockReason !== 'empty_draft'
                   ? readStudioCinemaSubmitBlockedKey(view.submitBlockReason)
                   : null
             }
