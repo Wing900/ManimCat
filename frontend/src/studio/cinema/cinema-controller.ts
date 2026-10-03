@@ -7,7 +7,7 @@ import type {
   StudioSessionSnapshot,
   StudioCreateSceneRunResponse,
 } from '../protocol/studio-agent-types'
-import type { StudioEventConnectionStatus, StudioEventSubscriptionOptions } from '../api/studio-agent-events'
+import type { StudioEventSubscriptionOptions } from '../api/studio-agent-events'
 import type { StudioRequestOptions } from '../api/studio-agent-api'
 import { StudioApiRequestError } from '../api/client'
 import {
@@ -21,15 +21,15 @@ import {
 import { subscribeStudioEvents } from '../api/studio-agent-events'
 import { resolveStudioProviderConfig } from '../api/studio-provider-config'
 import type { CustomApiConfig } from '../../types/api'
-import { decodeStudioCinemaSceneEvent } from './scene-events'
 import {
   readStudioCinemaSnapshotOwnershipVerdict,
   type StudioCinemaSnapshotOwnership,
   type StudioCinemaSnapshotOwnershipVerdict,
 } from './recovery-ownership'
-import { RecoveryWindowSlot, bufferRecoveryEvent, takeBufferedRecoveryEvents } from './recovery-window'
+import { RecoveryWindowSlot, takeBufferedRecoveryEvents } from './recovery-window'
 import { MutationLane } from './mutation-lane'
 import { RenderRefreshScheduler } from './render-refresh'
+import { SceneStream } from './scene-stream'
 import { selectSceneState, studioCinemaReducer, type StudioCinemaAction } from './scene-state'
 import {
   readStudioCinemaActiveRun,
@@ -39,7 +39,6 @@ import {
 import {
   buildStudioCinemaSceneKey,
   createInitialStudioCinemaState,
-  isSameStudioCinemaScene,
   isStudioCinemaTerminalRenderStatus,
   isStudioCinemaTerminalRunStatus,
   isStudioCinemaTextDeltaEvent,
@@ -247,15 +246,6 @@ export type StudioCinemaCancelOutcome =
   | { status: 'no_session' }
   | { status: 'stale' }
 
-interface ActiveStream {
-  subscriptionId: number
-  identity: StudioCinemaSceneIdentity
-  controller: AbortController
-  /** Bumped on every real connection; the recovery window of one epoch is one connection. */
-  epoch: number
-  connected: boolean
-}
-
 const STALE_RESULT = 'stale' as const
 
 /**
@@ -282,8 +272,7 @@ export class StudioCinemaController {
   private readonly listeners = new Set<() => void>()
   private state: StudioCinemaState = createInitialStudioCinemaState()
   private generation = 0
-  private subscriptionCounter = 0
-  private activeStream: ActiveStream | null = null
+  private sceneStream: SceneStream
   private recoverySlot = new RecoveryWindowSlot()
   private lane = new MutationLane((pending) => this.publishMutationPending(pending))
   private initialization: { id: number; promise: Promise<StudioCinemaInitializationOutcome> } | null = null
@@ -341,6 +330,21 @@ export class StudioCinemaController {
       },
       deps.scheduler,
     )
+    this.sceneStream = new SceneStream(
+      {
+        isStaleGeneration: (generation) => this.isStaleGeneration(generation),
+        isStreamActive: (identity) => !this.disposed && this.state.session.id === identity.sessionId,
+        generation: () => this.generation,
+        dispatch: (action) => this.dispatch(action),
+        onSceneRecordEvent: (identity, event) => this.handleSceneRecordEvent(identity, event),
+        onConnectionReady: (identity, generation, subscriptionId, epoch) =>
+          void this.recoverScene(identity, generation, subscriptionId, epoch),
+        renderRefreshEnd: () => this.renderRefresh.end(),
+      },
+      this.recoverySlot,
+      deps.events,
+      deps.createAbortController,
+    )
   }
 
   getState(): StudioCinemaState {
@@ -385,7 +389,7 @@ export class StudioCinemaController {
     this.attached = false
     this.generation += 1
     this.abortSessionRequests()
-    this.stopSceneStream()
+    this.sceneStream.stop()
     this.indexRead = null
     this.initialization = null
   }
@@ -405,7 +409,7 @@ export class StudioCinemaController {
 
     const sameSession = this.state.session.id === input.sessionId
     this.generation += 1
-    this.stopSceneStream()
+    this.sceneStream.stop()
     this.resetSessionRequests()
     if (!sameSession) {
       this.initialization = null
@@ -430,7 +434,7 @@ export class StudioCinemaController {
   closeSession(): void {
     this.generation += 1
     this.abortSessionRequests()
-    this.stopSceneStream()
+    this.sceneStream.stop()
     this.initialization = null
     this.indexRead = null
     this.dispatch({ type: 'session/closed', generation: this.generation })
@@ -442,7 +446,7 @@ export class StudioCinemaController {
       return
     }
     if (sceneId === null) {
-      this.stopSceneStream()
+      this.sceneStream.stop()
       this.dispatch({ type: 'scene/selected', generation: this.generation, sceneId: null })
       return
     }
@@ -452,9 +456,9 @@ export class StudioCinemaController {
       return
     }
 
-    this.stopSceneStream()
+    this.sceneStream.stop()
     this.dispatch({ type: 'scene/selected', generation: this.generation, sceneId })
-    this.startSceneSession(identity)
+    this.sceneStream.start(identity)
     this.renderRefresh.schedule()
   }
 
@@ -464,7 +468,7 @@ export class StudioCinemaController {
    * touching the Scene state or creating anything.
    */
   resumeSelectedScene(): void {
-    if (this.isInactive() || this.activeStream !== null) {
+    if (this.isInactive() || this.sceneStream.peek() !== null) {
       return
     }
     const sceneId = this.state.selectedSceneId
@@ -473,7 +477,7 @@ export class StudioCinemaController {
     }
     const identity = this.resolveIdentity(sceneId)
     if (identity) {
-      this.startSceneSession(identity)
+      this.sceneStream.start(identity)
     }
   }
 
@@ -928,9 +932,9 @@ export class StudioCinemaController {
           return STALE_RESULT
         }
         this.dispatch({ type: 'session/index', generation, scenes: snapshot.scenes ?? [] })
-        if (this.state.selectedSceneId === null && this.activeStream !== null) {
+        if (this.state.selectedSceneId === null && this.sceneStream.peek() !== null) {
           // The selected Scene is gone from the index: its stream must not outlive the selection.
-          this.stopSceneStream()
+          this.sceneStream.stop()
         }
         return 'ok'
       } catch (error) {
@@ -1027,153 +1031,6 @@ export class StudioCinemaController {
       generation: this.state.session.generation,
       pending,
     })
-  }
-
-  private startSceneSession(identity: StudioCinemaSceneIdentity): void {
-    const subscriptionId = this.subscriptionCounter + 1
-    this.subscriptionCounter = subscriptionId
-    const controller = this.deps.createAbortController()
-    this.activeStream = { subscriptionId, identity, controller, epoch: 0, connected: false }
-    this.recoverySlot.clear()
-
-    this.dispatch({ type: 'scene/loading', identity })
-    const generation = this.generation
-
-    void this.deps.events
-      .subscribe({
-        signal: controller.signal,
-        scope: { kind: 'scene', sessionId: identity.sessionId, sceneId: identity.sceneId },
-        onEvent: (event) => this.handleStreamFrame(subscriptionId, identity, event),
-        onStatusChange: (status) => this.handleStreamStatus(subscriptionId, identity, status),
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || this.isStaleGeneration(generation)) {
-          return
-        }
-        this.dispatch({
-          type: 'scene/stream-state',
-          identity,
-          state: 'disconnected',
-          attempt: 0,
-        })
-        const mapped = readStudioCinemaRequestError('snapshot', error)
-        this.dispatch({
-          type: 'scene/feedback',
-          identity,
-          feedback: {
-            code: mapped.unknownOutcome ? 'stream_disconnected' : mapped.code,
-            needsReconciliation: false,
-          },
-        })
-        this.recoverySlot.stop(subscriptionId)
-      })
-  }
-
-  private handleStreamFrame(
-    subscriptionId: number,
-    identity: StudioCinemaSceneIdentity,
-    frame: unknown,
-  ): void {
-    if (!this.isCurrentStream(subscriptionId, identity)) {
-      return
-    }
-
-    const decoded = decodeStudioCinemaSceneEvent(frame)
-    if (!decoded) {
-      // Unknown type or malformed frame: dropped, never applied to a Scene record.
-      return
-    }
-
-    if (!decoded.identity) {
-      if (decoded.event.kind === 'connection' && decoded.event.state === 'connected') {
-        // The backend's own connection frame and the transport's `connected` status describe the
-        // same connection, so the recovery window is opened once.
-        this.handleConnectionReady(subscriptionId, identity)
-      }
-      return
-    }
-
-    if (!isSameStudioCinemaScene(decoded.identity, identity)) {
-      // A sibling Scene, another Session or a Legacy frame: never merged into this Scene.
-      return
-    }
-
-    const window = this.recoverySlot.current(subscriptionId)
-    if (window && window.buffering) {
-      bufferRecoveryEvent(window, decoded.event)
-      return
-    }
-
-    this.handleSceneRecordEvent(identity, decoded.event)
-  }
-
-  private handleStreamStatus(
-    subscriptionId: number,
-    identity: StudioCinemaSceneIdentity,
-    status: StudioEventConnectionStatus,
-  ): void {
-    if (!this.isCurrentStream(subscriptionId, identity)) {
-      return
-    }
-
-    this.dispatch({
-      type: 'scene/stream-state',
-      identity,
-      state: status.state,
-      attempt: status.attempt,
-    })
-
-    if (status.state === 'connected') {
-      this.handleConnectionReady(subscriptionId, identity)
-      return
-    }
-
-    if (status.state === 'reconnecting' || status.state === 'disconnected') {
-      const stream = this.activeStream
-      if (stream && stream.subscriptionId === subscriptionId) {
-        // The next connection is a new epoch with its own recovery window.
-        stream.connected = false
-      }
-      this.recoverySlot.stop(subscriptionId)
-      if (status.state === 'disconnected') {
-        this.dispatch({
-          type: 'scene/feedback',
-          identity,
-          feedback: { code: 'stream_disconnected', needsReconciliation: false },
-        })
-      }
-    }
-  }
-
-  /**
-   * A real connection is the only thing that starts recovery: the snapshot is read after the
-   * transport reported `connected` (or after the backend's connection frame), never in parallel
-   * with an unproven connection. Every reconnection opens a fresh window.
-   */
-  private handleConnectionReady(subscriptionId: number, identity: StudioCinemaSceneIdentity): void {
-    if (!this.isCurrentStream(subscriptionId, identity)) {
-      return
-    }
-    const stream = this.activeStream
-    if (!stream || stream.connected) {
-      return
-    }
-
-    stream.connected = true
-    stream.epoch += 1
-    const epoch = stream.epoch
-    this.dispatch({ type: 'scene/recovery-started', identity })
-    this.recoverySlot.open({
-      subscriptionId,
-      epoch,
-      identity,
-      buffering: true,
-      recordEvents: [],
-      discardedTextCount: 0,
-      overflowed: false,
-      unprovenCarried: false,
-    })
-    void this.recoverScene(identity, this.generation, subscriptionId, epoch)
   }
 
   private async recoverScene(
@@ -1380,7 +1237,7 @@ export class StudioCinemaController {
   private readSnapshotOwnershipVerdict(
     ownership: StudioCinemaSnapshotOwnership,
   ): StudioCinemaSnapshotOwnershipVerdict {
-    const stream = this.activeStream
+    const stream = this.sceneStream.peek()
     const window = this.recoverySlot.peek()
     return readStudioCinemaSnapshotOwnershipVerdict(ownership, {
       inactive: this.isInactive(),
@@ -1469,30 +1326,6 @@ export class StudioCinemaController {
       return null
     }
     return { ...existing, status }
-  }
-
-  private stopSceneStream(): void {
-    // The refresh loop belongs to the selected Scene: nothing may keep ticking for a Scene the
-    // binding no longer watches. Ending the cycle also orphans a tick that is still in flight, so its
-    // late response cannot write into the next visit.
-    this.renderRefresh.end()
-    const stream = this.activeStream
-    this.activeStream = null
-    this.recoverySlot.clear()
-    if (stream) {
-      stream.controller.abort()
-    }
-  }
-
-  private isCurrentStream(subscriptionId: number, identity: StudioCinemaSceneIdentity): boolean {
-    const stream = this.activeStream
-    return (
-      !this.disposed &&
-      stream !== null &&
-      stream.subscriptionId === subscriptionId &&
-      isSameStudioCinemaScene(stream.identity, identity) &&
-      this.state.session.id === identity.sessionId
-    )
   }
 
   private sessionSignal(): AbortSignal {
