@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import { readStudioCinemaSceneStatusKey } from './cinema-labels'
@@ -8,17 +8,18 @@ import { ScenePicker } from './ScenePicker'
 /**
  * Scene strip (doc §5): the ordered Scenes of this Session, plus the append action.
  *
- * Moved from below the stage to above it (doc §3.1). Each Scene is a tab; a background Scene shows
- * its *last known* state, never a fake "live" marker, because only the selected Scene has an event
- * stream. Selecting a Scene never stops a background Run and never auto-plays media.
+ * Moved from below the stage to above it (doc §3.1), centred above the stage. Each Scene is a tab;
+ * a background Scene shows its *last known* state, never a fake "live" marker. Selecting a Scene
+ * never stops a background Run and never auto-plays media.
  *
- * Direct selection at any count: when there are six or fewer Scenes every one is inline; beyond six
- * the strip collapses to the current Scene plus the "all scenes" entry, which opens the `ScenePicker`
- * grid so any Scene is reachable without prev/next.
+ * Direct selection at any count: when there is room every Scene is inline; the strip collapses to the
+ * current Scene plus the "all scenes" entry when there are more than six Scenes OR the strip is too
+ * narrow for one tab per ~90px (a single ResizeObserver on the root, not a window listener). The
+ * "all scenes" entry opens the `ScenePicker` grid so any Scene is reachable without prev/next.
  *
- * Keyboard (doc §5): the tablist implements arrow-key, Home and End focus movement with automatic
- * activation — focus and selection move together — and `aria-selected` reflects the controller's
- * selection, never a local guess.
+ * The append button stays OUTSIDE the scroll area so it is always reachable, even when the tabs
+ * scroll. Keyboard (doc §5): in inline mode the tablist implements Arrow/Home/End with automatic
+ * activation; in compact mode those keys open the grid (the inline row has only the current Scene).
  */
 
 export interface SceneStripProps {
@@ -30,12 +31,29 @@ export interface SceneStripProps {
 }
 
 const INLINE_LIMIT = 6
+/** Below this many pixels per Scene the strip collapses even with ≤6 Scenes (narrow viewports). */
+const MIN_PX_PER_SCENE = 90
 
 export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppend }: SceneStripProps) {
   const { t } = useI18n()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [availableWidth, setAvailableWidth] = useState(Number.POSITIVE_INFINITY)
+  const rootRef = useRef<HTMLDivElement | null>(null)
 
-  const compact = entries.length > INLINE_LIMIT
+  // One ResizeObserver on the root (container width, not a window listener — doc §5). The width is
+  // stable: it does not depend on whether the strip is collapsed, so there is no oscillation.
+  useEffect(() => {
+    const element = rootRef.current
+    if (!element || typeof ResizeObserver === 'undefined') {
+      return
+    }
+    const observer = new ResizeObserver(() => setAvailableWidth(element.clientWidth))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const compact =
+    entries.length > INLINE_LIMIT || (entries.length > 1 && availableWidth / entries.length < MIN_PX_PER_SCENE)
   // In compact mode only the selected Scene stays inline; when none is selected (the brief moment
   // before the controller applies a choice) the first Scene stands in so the row is never empty.
   const inlineEntries = compact
@@ -49,8 +67,6 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
     if (ids.length === 0) {
       return
     }
-    // The current tab is the focused one (focus follows the arrows); fall back to the controller's
-    // selection, then to the first Scene, so the row is never stuck.
     const focusedId = (document.activeElement as HTMLElement | null)?.id?.replace('cinema-scene-tab-', '')
     const selectedId = entries.find((entry) => entry.isSelected)?.id
     const currentId = focusedId && ids.includes(focusedId) ? focusedId : (selectedId ?? ids[0])
@@ -64,30 +80,35 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
     if (nextId && nextId !== currentId) {
       onSelect(nextId)
     }
-    // Move DOM focus synchronously so the next keydown lands on the new tab; the node is stable
-    // (keyed by Scene id), so the React re-render keeps focus.
     const tab = nextId ? document.getElementById(`cinema-scene-tab-${nextId}`) : null
     tab?.focus()
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const arrowKeys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End']
+    if (!arrowKeys.includes(event.key)) {
+      return
+    }
+    event.preventDefault()
+    // In compact mode the inline row has only the current Scene; arrows open the grid where every
+    // Scene is reachable. Focusing a not-yet-mounted target tab would fail.
+    if (compact) {
+      setPickerOpen(true)
+      return
+    }
     switch (event.key) {
       case 'ArrowRight':
       case 'ArrowDown':
-        event.preventDefault()
         moveFocus('next')
         break
       case 'ArrowLeft':
       case 'ArrowUp':
-        event.preventDefault()
         moveFocus('prev')
         break
       case 'Home':
-        event.preventDefault()
         moveFocus('first')
         break
       case 'End':
-        event.preventDefault()
         moveFocus('last')
         break
       default:
@@ -96,9 +117,9 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2">
+    <div ref={rootRef} className="flex items-center justify-center gap-2 px-3 py-2">
       <div
-        className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+        className="flex min-w-0 max-w-full items-center justify-center gap-1.5 overflow-x-auto"
         role="tablist"
         aria-label={t('studio.cinema.sceneStripLabel')}
         onKeyDown={handleKeyDown}
@@ -142,17 +163,17 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
             {t('studio.cinema.scenePickerAll', { count: entries.length })}
           </button>
         ) : null}
-
-        <button
-          type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-black/10 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 disabled:opacity-40 dark:border-white/15"
-          aria-label={t('studio.cinema.sceneAppend')}
-          disabled={mutationPending}
-          onClick={onAppend}
-        >
-          {t('studio.cinema.sceneAppendShort')}
-        </button>
       </div>
+
+      <button
+        type="button"
+        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-black/10 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 disabled:opacity-40 dark:border-white/15"
+        aria-label={t('studio.cinema.sceneAppend')}
+        disabled={mutationPending}
+        onClick={onAppend}
+      >
+        {t('studio.cinema.sceneAppendShort')}
+      </button>
 
       {pickerOpen ? (
         <ScenePicker

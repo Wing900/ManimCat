@@ -237,7 +237,7 @@ export function selectStudioCinemaSceneView(
     needsReconciliation: record.needsReconciliation,
     latestRun,
     activeRun,
-    tokenUsage: latestRun?.tokenUsage ?? null,
+    tokenUsage: selectStudioCinemaSceneCumulativeTokenUsage(record),
     display,
     feedback: record.feedback,
     userStatus: selectStudioCinemaUserStatus(record),
@@ -294,6 +294,37 @@ export function selectStudioCinemaLatestRun(scene: StudioCinemaSceneState): Stud
     }
   }
   return latest
+}
+
+/**
+ * Cumulative token usage of one Scene: the sum of every Run's `tokenUsage` the server returned.
+ * This is a Scene-scoped aggregate of real server per-Run data (doc §4: "当前场景服务端提供的累计
+ * 输入量"), never a sum across Scenes dressed up as a session total. Runs without usage are skipped;
+ * a Scene whose Runs never carried usage answers `null` so the card shows the unmeasured hint instead
+ * of zero.
+ */
+export function selectStudioCinemaSceneCumulativeTokenUsage(scene: StudioCinemaSceneState): StudioTokenUsage | null {
+  let promptTokens = 0
+  let completionTokens = 0
+  let totalTokens = 0
+  let measuredCalls = 0
+  let unmeasuredCalls = 0
+  let seen = false
+  for (const run of scene.runs) {
+    if (!run.tokenUsage) {
+      continue
+    }
+    seen = true
+    promptTokens += run.tokenUsage.promptTokens
+    completionTokens += run.tokenUsage.completionTokens
+    totalTokens += run.tokenUsage.totalTokens
+    measuredCalls += run.tokenUsage.measuredCalls
+    unmeasuredCalls += run.tokenUsage.unmeasuredCalls
+  }
+  if (!seen) {
+    return null
+  }
+  return { promptTokens, completionTokens, totalTokens, measuredCalls, unmeasuredCalls }
 }
 
 /**

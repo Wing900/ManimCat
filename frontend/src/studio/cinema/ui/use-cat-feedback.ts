@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { TranslationKey } from '../../../i18n/messages'
 import {
   readStudioCinemaCatFeedback,
@@ -38,6 +38,8 @@ export interface UseStudioCinemaCatFeedbackArgs {
   sessionId: string
   sceneId: string
   hasFailedOutcome: boolean
+  /** Status of the latest Run, to distinguish a cancel from a failure (doc §7.2). */
+  latestRunStatus: string | null
 }
 
 export interface UseStudioCinemaCatFeedbackResult {
@@ -54,6 +56,7 @@ export function useStudioCinemaCatFeedback({
   sessionId,
   sceneId,
   hasFailedOutcome,
+  latestRunStatus,
 }: UseStudioCinemaCatFeedbackArgs): UseStudioCinemaCatFeedbackResult {
   const [bubble, setBubble] = useState<CatBubble | null>(null)
   const [visible, setVisible] = useState(false)
@@ -85,7 +88,12 @@ export function useStudioCinemaCatFeedback({
 
     // A reliable working → idle transition shows "done" once. The initial load (previous === null)
     // never announces done, so opening a Scene with history does not replay it.
-    const transition = readStudioCinemaCatTransition(previous, statusKey, hasFailedOutcome)
+    const transition = readStudioCinemaCatTransition(
+      previous,
+      statusKey,
+      hasFailedOutcome,
+      latestRunStatus === 'cancelled',
+    )
     if (transition) {
       const emitKey = `${identity}\u0000${transition.bubbleKey}`
       if (emitKey !== lastEmittedRef.current) {
@@ -103,6 +111,7 @@ export function useStudioCinemaCatFeedback({
         }
         const delay = TRANSIENT_FADE_MS
         timerRef.current = setTimeout(() => {
+          timerRef.current = null
           if (!pausedRef.current) {
             setVisible(false)
           }
@@ -133,12 +142,21 @@ export function useStudioCinemaCatFeedback({
     if (feedback.kind !== 'persistent') {
       const delay = feedback.kind === 'resting' ? RESTING_FADE_MS : TRANSIENT_FADE_MS
       timerRef.current = setTimeout(() => {
+        timerRef.current = null
         if (!pausedRef.current) {
           setVisible(false)
         }
       }, delay)
     }
-  }, [identity, statusKey, statusParams, hasFailedOutcome])
+  }, [identity, statusKey, statusParams, hasFailedOutcome, latestRunStatus])
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+    }
+  }, [])
 
   const onHoverStart = () => {
     pausedRef.current = true

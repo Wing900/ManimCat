@@ -77,4 +77,16 @@ describe('LogoUsagePopover', () => {
       vi.useRealTimers()
     }
   })
+
+  it('closes a pinned card on outside click (pinned only survives hover-out)', () => {
+    renderPopover()
+    const trigger = screen.getByLabelText('View current scene stats')
+    fireEvent.click(trigger) // pins + opens
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    act(() => {
+ fireEvent.pointerDown(document.body)
+    })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
 })

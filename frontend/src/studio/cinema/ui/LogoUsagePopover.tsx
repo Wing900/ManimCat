@@ -76,9 +76,9 @@ export function LogoUsagePopover({ usage, sentRounds, sceneLabel }: LogoUsagePop
     }
     const onPointerDown = (event: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        if (!pinned) {
-          setOpen(false)
-        }
+        // Outside click closes the card even when it was pinned (doc §4); pinned only survives hover-out.
+        setPinned(false)
+        setOpen(false)
       }
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -93,7 +93,7 @@ export function LogoUsagePopover({ usage, sentRounds, sceneLabel }: LogoUsagePop
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [open, pinned])
+  }, [open])
 
   useEffect(() => {
     return () => {

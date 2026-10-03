@@ -38,6 +38,8 @@ export interface SceneHistoryPanelProps {
   onClose: () => void
   /** Pose of the cat that moved into the header (doc §3.2). */
   catPose?: CatPose
+  /** True when the panel renders as a modal overlay (narrow screens); false when it is an in-flow desktop sidebar. */
+  modal?: boolean
 }
 
 const NEAR_BOTTOM_PX = 48
@@ -137,9 +139,11 @@ export function SceneHistoryPanel({
   loading,
   onClose,
   catPose = 'idle',
+  modal = false,
 }: SceneHistoryPanelProps) {
   const { t } = useI18n()
   const listRef = useRef<HTMLDivElement | null>(null)
+  const asideRef = useRef<HTMLElement | null>(null)
   const atBottomRef = useRef(true)
   const positionsRef = useRef(new Map<string, number>())
   /** Identity whose reading position is currently restored in the mounted list. */
@@ -196,6 +200,43 @@ export function SceneHistoryPanel({
     }
   }, [open, onClose])
 
+  // Focus trap (doc §8): in the modal overlay, Tab cycles within the dialog and never reaches the
+  // inert background. The desktop sidebar is non-modal, so it does not trap.
+  useEffect(() => {
+    if (!open || !modal) {
+      return
+    }
+    const onTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') {
+        return
+      }
+      const root = asideRef.current
+      if (!root) {
+        return
+      }
+      const focusable = Array.from(
+        root.querySelectorAll<HTMLElement>('button, [href], textarea, input, select, a[href], [tabindex]:not([tabindex="-1"])'),
+      ).filter((element) => !element.hasAttribute('disabled'))
+      if (focusable.length === 0) {
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement as HTMLElement | null
+      if (event.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (active === last || !root.contains(active)) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    window.addEventListener('keydown', onTab)
+    return () => window.removeEventListener('keydown', onTab)
+  }, [open, modal])
+
   if (!open) {
     return null
   }
@@ -220,14 +261,15 @@ export function SceneHistoryPanel({
         onClick={onClose}
       />
       <aside
+        ref={asideRef}
         id={id}
         role="dialog"
         aria-label={title}
-        aria-modal="true"
+        aria-modal={modal ? 'true' : undefined}
         className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col overflow-hidden border-l border-black/10 bg-bg-primary shadow-2xl lg:static lg:z-auto lg:w-[400px] lg:max-w-none lg:border-l lg:border-black/10 lg:shadow-none dark:border-white/15"
       >
         <header className="flex items-center gap-2 border-b border-black/5 px-3 py-3 dark:border-white/10">
-          <CatCharacter pose={catPose} className="h-10 w-10 shrink-0" />
+          <CatCharacter pose={catPose} className="cinema-cat-enter h-10 w-10 shrink-0" />
           <h2 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">{title}</h2>
           <button
             type="button"

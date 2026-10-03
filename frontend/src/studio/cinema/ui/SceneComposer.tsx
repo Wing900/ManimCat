@@ -54,7 +54,7 @@ export function SceneComposer({
 
   return (
     <form
-      className="flex min-w-0 flex-col gap-1.5 border-t border-black/5 bg-bg-primary/70 px-3 pb-3 pt-2 sm:pr-28 lg:px-32 dark:border-white/10"
+      className="flex min-w-0 flex-col gap-1.5 border-t border-black/5 bg-bg-primary/70 px-3 pb-3 pt-2 dark:border-white/10"
       onSubmit={(event) => {
         event.preventDefault()
         if (canSubmit) {

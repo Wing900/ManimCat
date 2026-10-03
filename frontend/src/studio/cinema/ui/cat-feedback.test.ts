@@ -46,4 +46,12 @@ describe('readStudioCinemaCatTransition', () => {
     expect(readStudioCinemaCatTransition('studio.cinema.catIdle', 'studio.cinema.catIdle', false)).toBeNull()
     expect(readStudioCinemaCatTransition(null, 'studio.cinema.catIdle', false)).toBeNull()
   })
+
+  it('announces stopped on a working → cancelled transition, not failed', () => {
+    expect(
+      readStudioCinemaCatTransition('studio.cinema.catWorking', 'studio.cinema.catFailed', true, true)?.bubbleKey,
+    ).toBe('studio.cinema.catBubbleStopped')
+    // A real failure (not a cancel) does not get the stopped bubble.
+    expect(readStudioCinemaCatTransition('studio.cinema.catWorking', 'studio.cinema.catFailed', true, false)).toBeNull()
+  })
 })

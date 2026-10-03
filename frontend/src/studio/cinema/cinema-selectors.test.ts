@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { StudioScene, StudioSceneAttachment } from '../protocol/studio-agent-types'
+import type { StudioScene, StudioSceneAttachment, StudioSceneRun, StudioTokenUsage } from '../protocol/studio-agent-types'
 import { studioCinemaReducer, type StudioCinemaAction } from './scene-state'
 import {
   readStudioCinemaActiveRender,
@@ -13,6 +13,7 @@ import {
   readStudioCinemaSameOriginMediaLocator,
   readStudioCinemaSceneEligibility,
   selectStudioCinemaDisplayRender,
+  selectStudioCinemaSceneCumulativeTokenUsage,
   selectStudioCinemaSceneIndex,
   selectStudioCinemaSceneView,
   selectStudioCinemaUserStatus,
@@ -606,5 +607,43 @@ describe('studio cinema scene selectors', () => {
       receivedAt: 4,
     })
     expect(readStudioCinemaRenderWaitTarget(sceneRecordOf(allFinished, CINEMA_TEST_SCENE_A))).toBe('')
+  })
+
+  it('sums every Run tokenUsage into a Scene-scoped cumulative total, not just the latest Run', () => {
+    const run = (id: string, usage: StudioTokenUsage | null): StudioSceneRun => ({
+      id,
+      sessionId: CINEMA_TEST_SESSION_ID,
+      sceneId: CINEMA_TEST_SCENE_A,
+      status: 'completed',
+      inputText: '',
+      activeAgent: 'builder',
+      createdAt: '2026-03-22T00:00:00.000Z',
+      completedAt: '2026-03-22T00:00:00.000Z',
+      ...(usage ? { tokenUsage: usage } : {}),
+    })
+    const scene = {
+      runs: [
+        run('run_1', { promptTokens: 100, completionTokens: 200, totalTokens: 300, measuredCalls: 1, unmeasuredCalls: 0 }),
+        run('run_2', null),
+        run('run_3', { promptTokens: 50, completionTokens: 70, totalTokens: 120, measuredCalls: 1, unmeasuredCalls: 2 }),
+      ],
+    } as unknown as Parameters<typeof selectStudioCinemaSceneCumulativeTokenUsage>[0]
+
+    expect(selectStudioCinemaSceneCumulativeTokenUsage(scene)).toEqual({
+      promptTokens: 150,
+      completionTokens: 270,
+      totalTokens: 420,
+      measuredCalls: 2,
+      unmeasuredCalls: 2,
+    })
+  })
+
+  it('returns null when no Run carried usage, so the card shows the unmeasured hint instead of zero', () => {
+    const scene = {
+      runs: [
+        { id: 'run_1', sessionId: CINEMA_TEST_SESSION_ID, sceneId: CINEMA_TEST_SCENE_A, status: 'completed', inputText: '', activeAgent: 'builder', createdAt: '2026-03-22T00:00:00.000Z', completedAt: '2026-03-22T00:00:00.000Z' },
+      ],
+    } as unknown as Parameters<typeof selectStudioCinemaSceneCumulativeTokenUsage>[0]
+    expect(selectStudioCinemaSceneCumulativeTokenUsage(scene)).toBeNull()
   })
 })

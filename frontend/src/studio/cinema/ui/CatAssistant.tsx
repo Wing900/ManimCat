@@ -26,6 +26,7 @@ export interface CatAssistantProps {
   sessionId: string
   sceneId: string
   hasFailedOutcome: boolean
+  latestRunStatus: string | null
   historyOpen: boolean
   historyPanelId: string
   buttonRef?: Ref<HTMLButtonElement>
@@ -46,6 +47,7 @@ export function CatAssistant({
   sessionId,
   sceneId,
   hasFailedOutcome,
+  latestRunStatus,
   historyOpen,
   historyPanelId,
   buttonRef,
@@ -58,6 +60,7 @@ export function CatAssistant({
     sessionId,
     sceneId,
     hasFailedOutcome,
+    latestRunStatus,
   })
 
   const pose = TONE_TO_POSE[tone]
@@ -81,7 +84,11 @@ export function CatAssistant({
       <button
         ref={buttonRef}
         type="button"
-        className="cinema-cat-button group flex h-16 w-16 items-center justify-center rounded-full border border-black/10 bg-bg-primary/80 transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 dark:border-white/15 sm:h-24 sm:w-24"
+        tabIndex={historyOpen ? -1 : 0}
+        aria-hidden={historyOpen || undefined}
+        className={`cinema-cat-button group flex h-16 w-16 items-center justify-center rounded-full border border-black/10 bg-bg-primary/80 transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 dark:border-white/15 sm:h-24 sm:w-24 ${
+          historyOpen ? 'pointer-events-none' : 'pointer-events-auto'
+        }`}
         aria-label={t('studio.cinema.catEntryLabel')}
         aria-expanded={historyOpen}
         aria-controls={historyPanelId}

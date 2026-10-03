@@ -68,6 +68,14 @@ function readInitialSidebarOpen(): boolean {
   return window.matchMedia('(min-width: 1024px)').matches
 }
 
+/** Desktop (lg+) renders the history panel as an in-flow sidebar; below lg it is a modal overlay. */
+function readInitialDesktopViewport(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return true
+  }
+  return window.matchMedia('(min-width: 1024px)').matches
+}
+
 /** Only a definite "this entry is gone" failure may be reported as removed. */
 function readSessionFailureKey(failure: StudioCinemaSessionFailure | null): TranslationKey | null {
   switch (failure) {
@@ -107,8 +115,21 @@ export function ManimCinemaWorkspace({
   // One initial media query, no resize listener and no polling; from `lg` up the side column is real.
   const [sidebarOpen, setSidebarOpen] = useState(readInitialSidebarOpen)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [isDesktopViewport, setIsDesktopViewport] = useState(readInitialDesktopViewport)
   const catButtonRef = useRef<HTMLButtonElement | null>(null)
   const initializedSessionRef = useRef<string | null>(null)
+
+  // One matchMedia listener (not a window resize listener) tracks whether the history panel renders
+  // as an in-flow sidebar (lg+) or a modal overlay (below lg). Doc §8: semantics match the layout.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+    const query = window.matchMedia('(min-width: 1024px)')
+    const onChange = () => setIsDesktopViewport(query.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
 
   const index = useMemo(() => selectStudioCinemaSceneIndex(state), [state])
   const view = useMemo(() => selectStudioCinemaSelectedSceneView(state), [state])
@@ -238,7 +259,10 @@ export function ManimCinemaWorkspace({
           sceneLabel={t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
         />
 
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main
+          className="relative flex min-w-0 flex-1 flex-col"
+          inert={historyOpen && !isDesktopViewport ? true : undefined}
+        >
           <header className="flex items-center gap-2 px-3 py-2">
             <h1 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">
               {t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
@@ -320,9 +344,10 @@ export function ManimCinemaWorkspace({
             }}
           />
 
-          <div className="relative flex min-h-0 flex-1 flex-col px-3 pb-2 sm:pr-28 lg:px-32">
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-3 sm:px-20 lg:px-32">
             <div
-              className="relative flex min-h-0 flex-1 items-center justify-center"
+              className="relative flex min-h-0 w-full flex-1 items-center justify-center"
               role="tabpanel"
               id={SCENE_PANEL_ID}
             >
@@ -344,7 +369,7 @@ export function ManimCinemaWorkspace({
                 </div>
               ) : (
                 <>
-                  <div className="flex h-full min-h-0 w-full max-w-[1040px] items-center justify-center">
+                  <div className="flex aspect-video max-h-full max-w-[1040px] flex-col">
                     <CinemaScreen
                       state={screenState}
                       sceneIndex={Math.max(0, sceneIndex)}
@@ -379,11 +404,14 @@ export function ManimCinemaWorkspace({
                 </>
               )}
             </div>
+            </div>
 
             {view !== null ? (
               <div
-                className={`pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 transition-opacity duration-200 sm:right-5 lg:right-8 ${
-                  historyOpen ? 'opacity-0' : 'opacity-100'
+                className={`pointer-events-none absolute right-3 top-1/2 z-10 transition-all duration-300 sm:right-5 lg:right-8 ${
+                  historyOpen
+                    ? 'pointer-events-none -translate-x-6 -translate-y-[60%] scale-50 opacity-0'
+                    : '-translate-y-1/2 opacity-100'
                 }`}
               >
                 <CatAssistant
@@ -393,6 +421,7 @@ export function ManimCinemaWorkspace({
                   sessionId={sessionId ?? ''}
                   sceneId={selectedSceneId ?? ''}
                   hasFailedOutcome={view?.userStatus.kind === 'failed'}
+                  latestRunStatus={view?.latestRun?.status ?? null}
                   historyOpen={historyOpen}
                   historyPanelId={HISTORY_PANEL_ID}
                   buttonRef={catButtonRef}
@@ -402,6 +431,7 @@ export function ManimCinemaWorkspace({
             ) : null}
           </div>
 
+          <div className="px-3 pb-3 sm:px-20 lg:px-32">
           <SceneComposer
             draft={view?.draft ?? ''}
             submitting={view?.submitting ?? false}
@@ -432,6 +462,7 @@ export function ManimCinemaWorkspace({
               }
             }}
           />
+          </div>
         </main>
 
         <SceneHistoryPanel
@@ -444,6 +475,7 @@ export function ManimCinemaWorkspace({
           rows={rows}
           loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
           onClose={closeHistory}
+          modal={!isDesktopViewport}
           catPose={
             catStatus?.tone === 'error'
               ? 'error'

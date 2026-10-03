@@ -57,6 +57,7 @@ export function readStudioCinemaCatTransition(
   previous: TranslationKey | null,
   current: TranslationKey,
   currentFailed: boolean,
+  currentCancelled = false,
 ): { bubbleKey: TranslationKey; kind: 'transient' } | null {
   const wasWorking = previous === 'studio.cinema.catWorking' || previous === 'studio.cinema.catSubmitting'
   if (!wasWorking) {
@@ -64,6 +65,11 @@ export function readStudioCinemaCatTransition(
   }
   if (current === 'studio.cinema.catIdle' && !currentFailed) {
     return { bubbleKey: 'studio.cinema.catBubbleDone', kind: 'transient' }
+  }
+  // A cancel reaches catFailed (cancelled is a failed outcome) but is not a failure: announce the
+  // distinct "stopped" sentence once (doc §7.2).
+  if (current === 'studio.cinema.catFailed' && currentCancelled) {
+    return { bubbleKey: 'studio.cinema.catBubbleStopped', kind: 'transient' }
   }
   return null
 }
