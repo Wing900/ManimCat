@@ -69,7 +69,21 @@ export function SceneComposer({
           </p>
         ) : null}
 
-        <div className="flex min-w-0 items-end gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {/* A hidden, equal-width mirror of the action buttons. Without it the buttons push the
+              input left of the shared centre axis, so the box no longer lines up under the stage. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none invisible flex shrink-0 items-center gap-2"
+          >
+            <span className="inline-flex min-h-[44px] items-center rounded-lg border border-black/10 px-3 text-sm dark:border-white/15">
+              {t('studio.cinema.stop')}
+            </span>
+            <span className="inline-flex min-h-[44px] items-center rounded-lg px-4 text-sm font-medium">
+              {submitting ? t('studio.cinema.sending') : t('studio.cinema.send')}
+            </span>
+          </div>
+
           <textarea
             className="min-h-[44px] min-w-0 flex-1 resize-none rounded-xl border border-black/10 bg-white/70 px-3 py-2.5 text-[17px] leading-relaxed text-text-primary outline-none focus:border-accent-rgb/60 focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15 dark:bg-white/5"
             value={draft}
