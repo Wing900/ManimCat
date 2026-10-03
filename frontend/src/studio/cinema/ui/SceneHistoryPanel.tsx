@@ -96,12 +96,13 @@ function SceneHistoryRow({ row }: { row: StudioCinemaConversationRow }) {
   const { t } = useI18n()
 
   if (row.kind === 'user') {
+    // The speaker label sits above the bubble, never inside it.
     return (
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-1">
+        <div className="text-xs uppercase tracking-wide text-text-secondary/50">
+          {t('studio.cinema.roleUser')}
+        </div>
         <div className="max-w-[85%] rounded-2xl bg-bg-tertiary/60 px-3 py-2">
-          <div className="mb-0.5 text-xs uppercase tracking-wide text-text-secondary/50">
-            {t('studio.cinema.roleUser')}
-          </div>
           <p className="whitespace-pre-wrap break-words text-base text-text-primary/85">{row.text}</p>
         </div>
       </div>

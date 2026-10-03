@@ -79,8 +79,8 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
                   ref={index === 0 ? firstRef : undefined}
                   className={`flex h-full w-full flex-col items-stretch gap-2 rounded-2xl p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
                     entry.isSelected
-                      ? 'bg-white dark:bg-white/15'
-                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/5 dark:hover:bg-white/10'
+                      ? 'bg-bg-tertiary/60 dark:bg-white/10'
+                      : 'bg-bg-secondary/60 hover:bg-bg-secondary dark:bg-white/5 dark:hover:bg-white/10'
                   }`}
                   aria-current={entry.isSelected ? 'true' : undefined}
                   onClick={() => onSelect(entry.id)}

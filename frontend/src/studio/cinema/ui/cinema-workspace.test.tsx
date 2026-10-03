@@ -409,11 +409,11 @@ function installScrollGeometry(): { setScrollHeight: (value: number) => void; re
 }
 
 function composer(): HTMLTextAreaElement {
-  return screen.getByLabelText('Tell the cat what you want…') as HTMLTextAreaElement
+  return screen.getByLabelText('Tell ManimCat what you want…') as HTMLTextAreaElement
 }
 
 function catButton(): HTMLButtonElement {
-  return screen.getByLabelText('Cat: open or close this Scene conversation') as HTMLButtonElement
+  return screen.getByLabelText('ManimCat: open or close this Scene conversation') as HTMLButtonElement
 }
 
 async function flush(): Promise<void> {

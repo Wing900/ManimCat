@@ -158,8 +158,8 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
               tabIndex={entry.isSelected ? 0 : -1}
               className={`flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
                 entry.isSelected
-                  ? 'bg-white/80 text-text-primary dark:bg-white/10'
-                  : 'text-text-secondary/70 hover:bg-bg-tertiary/50'
+                  ? 'bg-bg-tertiary/60 text-text-primary dark:bg-white/10'
+                  : 'text-text-secondary/70 hover:bg-bg-tertiary/35'
               }`}
               onClick={() => onSelect(entry.id)}
             >

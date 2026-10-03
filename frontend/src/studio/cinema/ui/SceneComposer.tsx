@@ -56,7 +56,7 @@ export function SceneComposer({
 
   return (
     <form
-      className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-4 pt-3 dark:border-white/10"
+      className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-8 pt-6 dark:border-white/10"
       onSubmit={(event) => {
         event.preventDefault()
         if (canSubmit) {
@@ -64,7 +64,7 @@ export function SceneComposer({
         }
       }}
     >
-      <div className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-1.5">
+      <div className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-3">
         {blockedReasonKey ? (
           <p id="cinema-composer-blocked" className="px-2 text-sm text-text-secondary/70">
             {t(blockedReasonKey)}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { TranslationKey } from '../../../i18n/messages'
 import { useI18n } from '../../../i18n'
+import ManimCatLogo from '../../../components/ManimCatLogo'
 import type { StudioCinemaScreenState } from './cinema-labels'
 
 /**
@@ -44,10 +45,13 @@ export function CinemaScreen({
     setPlaybackFailed(false)
   }, [playableUrl])
 
-  const placeholder = (titleKey: TranslationKey, hintKey: TranslationKey) => (
-    <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
-      <p className="text-base text-text-primary/80">{t(titleKey)}</p>
-      <p className="max-w-md text-sm text-text-secondary/70">{t(hintKey)}</p>
+  // Every placeholder sits on the dark stage, so it uses light ink instead of the theme's text tokens
+  // (which are near-black in the light theme and would be unreadable on `#101415`).
+  const placeholder = (titleKey: TranslationKey, hintKey: TranslationKey, art?: ReactNode) => (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+      {art}
+      <p className="text-base text-white/85">{t(titleKey)}</p>
+      <p className="max-w-md text-sm text-white/55">{t(hintKey)}</p>
     </div>
   )
 
@@ -80,7 +84,14 @@ export function CinemaScreen({
           />
         ) : null}
 
-        {state === 'empty' ? placeholder('studio.cinema.screenEmptyTitle', 'studio.cinema.screenEmptyHint') : null}
+        {state === 'empty'
+          ? placeholder(
+              'studio.cinema.screenEmptyTitle',
+              'studio.cinema.screenEmptyHint',
+              // The project's artistic M, as a faint watermark on the empty stage.
+              <ManimCatLogo glyph className="h-24 w-24 text-white/25" />,
+            )
+          : null}
         {state === 'rendering'
           ? placeholder('studio.cinema.screenRenderingTitle', 'studio.cinema.screenRenderingHint')
           : null}
