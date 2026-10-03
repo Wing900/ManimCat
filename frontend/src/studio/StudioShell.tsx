@@ -4,6 +4,7 @@ import { StudioPreview } from './preview/StudioPreview'
 import { RunStatus } from './status/RunStatus'
 import { StudioSessionHistoryModal } from './commands/ui/StudioSessionHistoryModal'
 import { useStudioSession } from './hooks/use-studio-session'
+import { ManimCinemaWorkspace } from './cinema/ui/ManimCinemaWorkspace'
 import type { StudioKind } from './protocol/studio-agent-types'
 
 interface StudioShellProps {
@@ -12,7 +13,29 @@ interface StudioShellProps {
   studioKind?: StudioKind
 }
 
+/**
+ * Studio entry (task 11C2).
+ *
+ * The Manim Studio screen is now the Cinema workspace; the legacy composition below is kept intact for
+ * the plot kind (and for any other caller that still passes `studioKind="plot"`), so nothing about the
+ * existing Plot Studio or the legacy components is removed by this task. The props contract is
+ * unchanged, which is why the App entry needs no edit.
+ */
 export function StudioShell({ onExit, isExiting, studioKind = 'manim' }: StudioShellProps) {
+  if (studioKind !== 'plot') {
+    return <ManimCinemaWorkspace onExit={onExit} isExiting={isExiting} />
+  }
+
+  return <LegacyStudioShell onExit={onExit} isExiting={isExiting} studioKind={studioKind} />
+}
+
+interface LegacyStudioShellProps {
+  onExit: () => void
+  isExiting?: boolean
+  studioKind: StudioKind
+}
+
+function LegacyStudioShell({ onExit, isExiting, studioKind }: LegacyStudioShellProps) {
   const studio = useStudioSession({
     studioKind,
     title: studioKind === 'plot' ? 'Plot Studio' : 'Manim Studio'
