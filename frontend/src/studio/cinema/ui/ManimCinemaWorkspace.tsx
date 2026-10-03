@@ -235,6 +235,9 @@ export function ManimCinemaWorkspace({
           onCreate={session.createNewSession}
           onRetry={session.retry}
           onSelectSession={session.selectSession}
+          tokenUsage={view?.tokenUsage ?? null}
+          sentRounds={view?.messages.filter((message) => message.role === 'user').length ?? 0}
+          sceneLabel={t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
         />
 
         <main className="relative flex min-w-0 flex-1 flex-col">

@@ -1,6 +1,8 @@
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import ManimCatLogo from '../../../components/ManimCatLogo'
+import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
+import { LogoUsagePopover } from './LogoUsagePopover'
 
 /**
  * Session sidebar (task 11C2, doc §4).
@@ -28,6 +30,12 @@ export interface SessionSidebarProps {
   onCreate: () => void
   onRetry: () => void
   onSelectSession: (sessionId: string) => void
+  /** Current Scene's token usage (doc §4: stats card is current-Scene scoped). */
+  tokenUsage: StudioTokenUsage | null
+  /** Saved user messages of the current Scene (failed local submits are not counted). */
+  sentRounds: number
+  /** Label of the current Scene, e.g. "Scene 2". */
+  sceneLabel: string
 }
 
 export function SessionSidebar({
@@ -41,6 +49,9 @@ export function SessionSidebar({
   onCreate,
   onRetry,
   onSelectSession,
+  tokenUsage,
+  sentRounds,
+  sceneLabel,
 }: SessionSidebarProps) {
   const { t } = useI18n()
 
@@ -75,7 +86,7 @@ export function SessionSidebar({
         aria-label={t('studio.cinema.sidebarLabel')}
       >
       <div className="flex items-center gap-2">
-        <ManimCatLogo className="h-9 w-9 shrink-0 rounded-full" />
+        <LogoUsagePopover usage={tokenUsage} sentRounds={sentRounds} sceneLabel={sceneLabel} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-medium text-text-primary/85" title={t('studio.cinema.sessionTitle')}>
             {t('studio.cinema.sessionTitle')}
