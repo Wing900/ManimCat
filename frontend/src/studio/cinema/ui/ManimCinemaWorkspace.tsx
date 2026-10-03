@@ -369,7 +369,7 @@ export function ManimCinemaWorkspace({
                 </div>
               ) : (
                 <>
-                  <div className="aspect-video max-h-full w-full max-w-[1040px]">
+                  <div className="aspect-video max-h-full w-full max-w-[900px]">
                     <CinemaScreen
                       state={screenState}
                       sceneIndex={Math.max(0, sceneIndex)}

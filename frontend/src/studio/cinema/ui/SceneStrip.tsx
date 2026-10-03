@@ -4,6 +4,7 @@ import type { TranslationKey } from '../../../i18n/messages'
 import { readStudioCinemaSceneStatusKey } from './cinema-labels'
 import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
 import { ScenePicker } from './ScenePicker'
+import { ChevronLeftIcon, ChevronRightIcon } from './CinemaIcons'
 
 /**
  * Scene strip (doc §5): the ordered Scenes of this Session, plus the append action.
@@ -54,6 +55,11 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
 
   const compact =
     entries.length > INLINE_LIMIT || (entries.length > 1 && availableWidth / entries.length < MIN_PX_PER_SCENE)
+  // In compact mode the row carries only the current Scene, so a pair of arrow buttons flanks the
+  // strip and steps to the previous/next Scene directly — no need to open the grid for one hop.
+  const selectedIndex = Math.max(0, entries.findIndex((entry) => entry.isSelected))
+  const previousEntry = compact && selectedIndex > 0 ? entries[selectedIndex - 1] : null
+  const nextEntry = compact && selectedIndex < entries.length - 1 ? entries[selectedIndex + 1] : null
   // In compact mode only the selected Scene stays inline; when none is selected (the brief moment
   // before the controller applies a choice) the first Scene stands in so the row is never empty.
   const inlineEntries = compact
@@ -118,6 +124,21 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
 
   return (
     <div ref={rootRef} className="flex items-center justify-center gap-2 px-3 py-2">
+      {compact ? (
+        <button
+          type="button"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-black/10 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40 dark:border-white/15"
+          aria-label={t('studio.cinema.scenePrev')}
+          disabled={previousEntry === null}
+          onClick={() => {
+            if (previousEntry) {
+              onSelect(previousEntry.id)
+            }
+          }}
+        >
+          <ChevronLeftIcon />
+        </button>
+      ) : null}
       <div
         className="flex min-w-0 max-w-full items-center justify-center gap-1.5 overflow-x-auto"
         role="tablist"
@@ -158,6 +179,22 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
           </button>
         ) : null}
       </div>
+
+      {compact ? (
+        <button
+          type="button"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-black/10 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40 dark:border-white/15"
+          aria-label={t('studio.cinema.sceneNext')}
+          disabled={nextEntry === null}
+          onClick={() => {
+            if (nextEntry) {
+              onSelect(nextEntry.id)
+            }
+          }}
+        >
+          <ChevronRightIcon />
+        </button>
+      ) : null}
 
       <button
         type="button"

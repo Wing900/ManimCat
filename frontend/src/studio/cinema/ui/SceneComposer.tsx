@@ -87,7 +87,7 @@ export function SceneComposer({
             }}
           />
 
-          <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               className="inline-flex min-h-[44px] items-center rounded-lg border border-black/10 px-3 text-sm text-text-secondary transition-opacity hover:opacity-80 disabled:opacity-40 dark:border-white/15"

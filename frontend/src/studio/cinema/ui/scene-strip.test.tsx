@@ -42,6 +42,24 @@ describe('SceneStrip', () => {
     expect(screen.getByRole('button', { name: /All scenes/ })).toBeInTheDocument()
   })
 
+  it('steps to the previous and next Scene with the flanking arrow buttons in compact mode', () => {
+    const entries = Array.from({ length: 8 }, (_, i) => entry(`s${i}`, i, i === 3))
+    const onSelect = vi.fn()
+    renderStrip(entries, onSelect)
+
+    // The current Scene is index 3 → both steppers are enabled.
+    fireEvent.click(screen.getByRole('button', { name: 'Previous scene' }))
+    expect(onSelect).toHaveBeenLastCalledWith('s2')
+    fireEvent.click(screen.getByRole('button', { name: 'Next scene' }))
+    expect(onSelect).toHaveBeenLastCalledWith('s4')
+  })
+
+  it('disables the steppers at the ends of the Scene list', () => {
+    renderStrip(Array.from({ length: 8 }, (_, i) => entry(`s${i}`, i, i === 0)))
+    expect(screen.getByRole('button', { name: 'Previous scene' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next scene' })).toBeEnabled()
+  })
+
   it('opens the all-scenes grid and selects a Scene from it', () => {
     const entries = Array.from({ length: 8 }, (_, i) => entry(`s${i}`, i, i === 3))
     const onSelect = vi.fn()
