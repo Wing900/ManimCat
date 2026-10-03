@@ -53,7 +53,7 @@ export function CinemaScreen({
 
   return (
     <section
-      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-black/5 bg-black/85 dark:border-white/10"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-[#101415]"
       aria-label={t('studio.cinema.screenLabel', { index: sceneIndex + 1 })}
       data-testid="cinema-screen"
     >
@@ -95,7 +95,7 @@ export function CinemaScreen({
           <p className="flex-1 text-sm text-white/90">{t('studio.cinema.screenPlaybackFailed')}</p>
           <button
             type="button"
-            className="inline-flex min-h-[36px] items-center rounded-md border border-white/25 px-2.5 text-sm text-white/90"
+            className="inline-flex min-h-[36px] items-center rounded-md bg-white/10 px-2.5 text-sm text-white/90 transition-colors hover:bg-white/20"
             onClick={() => {
               setPlaybackFailed(false)
               setReloadToken((token) => token + 1)
@@ -105,7 +105,7 @@ export function CinemaScreen({
           </button>
           <button
             type="button"
-            className="inline-flex min-h-[36px] items-center rounded-md border border-white/25 px-2.5 text-sm text-white/90"
+            className="inline-flex min-h-[36px] items-center rounded-md bg-white/10 px-2.5 text-sm text-white/90 transition-colors hover:bg-white/20"
             onClick={onReconcile}
           >
             {t('studio.cinema.reconcile')}
@@ -127,7 +127,7 @@ export function CinemaScreen({
         {state === 'failed' || state === 'media_gap' ? (
           <button
             type="button"
-            className="inline-flex min-h-[36px] items-center rounded-full border border-white/25 px-2.5 text-sm text-white/90"
+            className="inline-flex min-h-[36px] items-center rounded-full bg-white/10 px-2.5 text-sm text-white/90 transition-colors hover:bg-white/20"
             onClick={onReconcile}
           >
             {t('studio.cinema.reconcile')}
@@ -138,7 +138,7 @@ export function CinemaScreen({
             <span className="text-sm text-white/80">{t(refreshPausedReasonKey)}</span>
             <button
               type="button"
-              className="inline-flex min-h-[36px] items-center rounded-full border border-white/25 px-2.5 text-sm text-white/90"
+              className="inline-flex min-h-[36px] items-center rounded-full bg-white/10 px-2.5 text-sm text-white/90 transition-colors hover:bg-white/20"
               onClick={onResumeRefresh}
             >
               {t('studio.cinema.renderRefreshResume')}

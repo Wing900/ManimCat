@@ -8,6 +8,7 @@ import type { StudioCinemaSessionGatewayDependencies } from '../session/studio-c
 import { useStudioCinemaSession, type StudioCinemaSessionFailure } from '../session/use-studio-cinema-session'
 import type { StudioCinemaControllerDependencies } from '../cinema-controller'
 import { CatAssistant } from './CatAssistant'
+import { ArrowLeftIcon } from './CinemaIcons'
 import { CinemaScreen } from './CinemaScreen'
 import {
   readStudioCinemaCatStatus,
@@ -282,11 +283,12 @@ export function ManimCinemaWorkspace({
             ) : null}
             <button
               type="button"
-              className="inline-flex min-h-[36px] items-center rounded-md border border-black/10 px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
               onClick={onExit}
               aria-label={t('studio.cinema.exit')}
+              title={t('studio.cinema.exit')}
             >
-              {t('studio.cinema.exitShort')}
+              <ArrowLeftIcon />
             </button>
           </header>
 

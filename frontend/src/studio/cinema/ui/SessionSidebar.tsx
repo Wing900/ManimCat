@@ -62,9 +62,10 @@ export function SessionSidebar({
         <ManimCatLogo className="h-9 w-9 rounded-full" />
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-text-secondary transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
           aria-expanded={false}
           aria-label={t('studio.cinema.sidebarExpand')}
+          title={t('studio.cinema.sidebarExpand')}
           onClick={onToggle}
         >
           <ChevronRightIcon />
@@ -88,19 +89,15 @@ export function SessionSidebar({
       >
       <div className="flex items-center gap-2">
         <LogoUsagePopover usage={tokenUsage} sentRounds={sentRounds} sceneLabel={sceneLabel} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-medium text-text-primary/85" title={t('studio.cinema.sessionTitle')}>
-            {t('studio.cinema.sessionTitle')}
-          </p>
-          <p className="truncate text-sm text-text-secondary/60" title={currentTitle}>
-            {currentTitle}
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85" title={currentTitle}>
+          {currentTitle}
+        </p>
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-black/10 text-text-secondary transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
           aria-expanded
           aria-label={t('studio.cinema.sidebarCollapse')}
+          title={t('studio.cinema.sidebarCollapse')}
           onClick={onToggle}
         >
           <ChevronLeftIcon />
@@ -109,11 +106,11 @@ export function SessionSidebar({
 
       <button
         type="button"
-        className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-base text-text-primary/85 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+        className="flex min-h-[44px] items-center gap-2 rounded-xl px-3 text-base text-text-primary/85 transition-colors hover:bg-bg-tertiary/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
         onClick={onCreate}
       >
         <PlusIcon />
-        <span className="sr-only">{t('studio.cinema.newSession')}</span>
+        <span>{t('studio.cinema.newSession')}</span>
       </button>
 
       {feedbackKey ? (
@@ -144,8 +141,8 @@ export function SessionSidebar({
               <li key={sessionId}>
                 <button
                   type="button"
-                  className={`flex min-h-[44px] w-full items-center truncate rounded-md px-2 py-1.5 text-left text-sm transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
-                    isCurrent ? 'bg-accent-rgb/10 text-text-primary/90' : 'text-text-secondary/70'
+                  className={`flex min-h-[44px] w-full items-center truncate rounded-xl px-3 py-1.5 text-left text-sm transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
+                    isCurrent ? 'bg-bg-tertiary/60 text-text-primary' : 'text-text-secondary/70'
                   }`}
                   aria-current={isCurrent ? 'true' : undefined}
                   title={label}

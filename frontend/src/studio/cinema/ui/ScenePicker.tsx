@@ -72,19 +72,16 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
           {entries.map((entry, index) => {
             const statusKey: TranslationKey = readStudioCinemaSceneStatusKey(entry)
             const label = t('studio.cinema.sceneLabel', { index: entry.position + 1 })
-            const tileClass = entry.isSelected
-              ? 'border-accent-rgb/60 ring-2 ring-accent-rgb/30'
-              : entry.hasFailedOutcome
-                ? 'border-red-500/40'
-                : entry.isBusy
-                  ? 'border-accent-rgb/40'
-                  : 'border-black/10 dark:border-white/15'
             return (
               <li key={entry.id}>
                 <button
                   type="button"
                   ref={index === 0 ? firstRef : undefined}
-                  className={`flex h-full w-full flex-col items-stretch gap-2 rounded-xl border bg-white/50 p-2 text-left transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:bg-white/5 ${tileClass}`}
+                  className={`flex h-full w-full flex-col items-stretch gap-2 rounded-2xl p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
+                    entry.isSelected
+                      ? 'bg-white dark:bg-white/15'
+                      : 'bg-white/50 hover:bg-white/80 dark:bg-white/5 dark:hover:bg-white/10'
+                  }`}
                   aria-current={entry.isSelected ? 'true' : undefined}
                   onClick={() => onSelect(entry.id)}
                 >

@@ -98,7 +98,7 @@ function SceneHistoryRow({ row }: { row: StudioCinemaConversationRow }) {
   if (row.kind === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-xl bg-accent-rgb/10 px-3 py-2">
+        <div className="max-w-[85%] rounded-2xl bg-bg-tertiary/60 px-3 py-2">
           <div className="mb-0.5 text-xs uppercase tracking-wide text-text-secondary/50">
             {t('studio.cinema.roleUser')}
           </div>
@@ -277,9 +277,10 @@ export function SceneHistoryPanel({
           <h2 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">{title}</h2>
           <button
             type="button"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-text-secondary transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
             onClick={onClose}
             aria-label={t('studio.cinema.historyClose')}
+            title={t('studio.cinema.historyClose')}
           >
             <CloseIcon />
           </button>
