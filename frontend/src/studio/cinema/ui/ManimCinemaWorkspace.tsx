@@ -375,25 +375,16 @@ export function ManimCinemaWorkspace({
                       }}
                     />
                   </div>
-
-                  <SceneHistoryPanel
-                    id={HISTORY_PANEL_ID}
-                    open={historyOpen && view !== null}
-                    sessionId={sessionId ?? ''}
-                    sceneId={selectedSceneId ?? ''}
-                    revision={conversationRevision}
-                    title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
-                    rows={rows}
-                    usage={view?.tokenUsage ?? null}
-                    loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
-                    onClose={closeHistory}
-                  />
                 </>
               )}
             </div>
 
             {view !== null ? (
-              <div className="pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 sm:right-5 lg:right-8">
+              <div
+                className={`pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 transition-opacity duration-200 sm:right-5 lg:right-8 ${
+                  historyOpen ? 'opacity-0' : 'opacity-100'
+                }`}
+              >
                 <CatAssistant
                   statusKey={catStatus?.key ?? 'studio.cinema.catIdle'}
                   statusParams={catStatus?.params}
@@ -441,6 +432,26 @@ export function ManimCinemaWorkspace({
             }}
           />
         </main>
+
+        <SceneHistoryPanel
+          id={HISTORY_PANEL_ID}
+          open={historyOpen && view !== null}
+          sessionId={sessionId ?? ''}
+          sceneId={selectedSceneId ?? ''}
+          revision={conversationRevision}
+          title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
+          rows={rows}
+          usage={view?.tokenUsage ?? null}
+          loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
+          onClose={closeHistory}
+          catPose={
+            catStatus?.tone === 'error'
+              ? 'error'
+              : catStatus?.tone === 'busy' || catStatus?.tone === 'warning'
+                ? 'busy'
+                : 'idle'
+          }
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">

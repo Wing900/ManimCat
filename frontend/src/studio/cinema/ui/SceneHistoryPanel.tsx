@@ -2,27 +2,27 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../i18n'
 import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { StudioMarkdown } from '../../components/StudioMarkdown'
-import { StudioTokenUsageView } from '../../status/StudioTokenUsageView'
 import {
   readStudioCinemaToolStatusKey,
   type StudioCinemaConversationRow,
   type StudioCinemaToolRow,
 } from './scene-conversation-model'
+import { CatCharacter, type CatPose } from './CatCharacter'
 
 /**
- * The Scene conversation, opened only by the cat (task 11C2).
+ * The Scene conversation, opened only by the cat (task 11C2, doc §8).
  *
- * It floats above the screen instead of taking layout space, so the video keeps the maximum width and
- * the composer below stays reachable. It consumes the Scene public messages directly: no Legacy
- * message store, no raw Tool input, no internal error and no private path is rendered.
+ * Desktop (lg+): an in-flow right sidebar at full height, non-modal — the stage and composer re-centre
+ * in the remaining area (the workspace places this panel as a flex sibling). Narrow: a modal overlay
+ * with a backdrop, focus constrained and background interaction blocked. The semantics match the
+ * layout: the same `role="dialog"` carries both, with `aria-modal` only on the overlay.
  *
- * Scrolling (correction R3):
+ * It consumes the Scene public messages directly: no Legacy message store, no raw Tool input, no
+ * internal error and no private path is rendered.
  *
- * - following the stream is driven by the *content revision*, not by the row count: a single assistant
- *   part that keeps growing must keep pulling a bottom reader down;
- * - a reading position is stored per `(sessionId, sceneId)` and restored when the panel is re-opened
- *   or the Scene changes, so closing the history does not lose where the reader was;
- * - a reader who scrolled up is never dragged back to the bottom; only the explicit jump button does.
+ * Scrolling (correction R3) is unchanged: following the stream is driven by the *content revision*,
+ * a reading position is stored per `(sessionId, sceneId)` and restored on re-open or Scene switch,
+ * and a reader who scrolled up is never dragged back — only the explicit jump button does.
  */
 
 export interface SceneHistoryPanelProps {
@@ -39,6 +39,8 @@ export interface SceneHistoryPanelProps {
   usage: StudioTokenUsage | null
   loading: boolean
   onClose: () => void
+  /** Pose of the cat that moved into the header (doc §3.2). */
+  catPose?: CatPose
 }
 
 const NEAR_BOTTOM_PX = 48
@@ -53,7 +55,7 @@ function SceneToolActivity({ row }: { row: StudioCinemaToolRow }) {
     <div className="rounded-lg border border-black/10 bg-white/50 dark:border-white/10 dark:bg-white/5">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
         aria-expanded={expanded}
         disabled={!row.hasDetail}
         onClick={() => setExpanded((value) => !value)}
@@ -68,15 +70,15 @@ function SceneToolActivity({ row }: { row: StudioCinemaToolRow }) {
       </button>
 
       {expanded && row.hasDetail ? (
-        <div className="space-y-1 border-t border-black/5 px-2 py-1.5 dark:border-white/10">
-          {row.title ? <p className="text-[11px] text-text-primary/75">{row.title}</p> : null}
+        <div className="space-y-1 border-t border-black/5 px-2.5 py-2 dark:border-white/10">
+          {row.title ? <p className="text-sm text-text-primary/75">{row.title}</p> : null}
           {row.output ? (
-            <p className="whitespace-pre-wrap break-words text-[11px] text-text-secondary/80">{row.output}</p>
+            <p className="whitespace-pre-wrap break-words text-sm text-text-secondary/80">{row.output}</p>
           ) : null}
           {row.attachments.length > 0 ? (
             <ul className="space-y-0.5">
               {row.attachments.map((attachment, index) => (
-                <li key={`${row.id}-attachment-${index}`} className="text-[11px] text-text-secondary/70">
+                <li key={`${row.id}-attachment-${index}`} className="text-sm text-text-secondary/70">
                   {attachment.name ?? t('studio.cinema.toolAttachment')}
                 </li>
               ))}
@@ -94,11 +96,11 @@ function SceneHistoryRow({ row }: { row: StudioCinemaConversationRow }) {
   if (row.kind === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-xl bg-accent-rgb/10 px-2.5 py-1.5">
-          <div className="mb-0.5 text-[10px] uppercase tracking-wide text-text-secondary/50">
+        <div className="max-w-[85%] rounded-xl bg-accent-rgb/10 px-3 py-2">
+          <div className="mb-0.5 text-xs uppercase tracking-wide text-text-secondary/50">
             {t('studio.cinema.roleUser')}
           </div>
-          <p className="whitespace-pre-wrap break-words text-xs text-text-primary/85">{row.text}</p>
+          <p className="whitespace-pre-wrap break-words text-base text-text-primary/85">{row.text}</p>
         </div>
       </div>
     )
@@ -110,7 +112,7 @@ function SceneHistoryRow({ row }: { row: StudioCinemaConversationRow }) {
 
   if (row.kind === 'reasoning') {
     return (
-      <details className="rounded-lg border border-dashed border-black/10 px-2 py-1 text-[11px] dark:border-white/10">
+      <details className="rounded-lg border border-dashed border-black/10 px-2.5 py-1.5 text-sm dark:border-white/10">
         <summary className="cursor-pointer text-text-secondary/60">{t('studio.cinema.reasoningLabel')}</summary>
         <p className="mt-1 whitespace-pre-wrap break-words text-text-secondary/70">{row.text}</p>
       </details>
@@ -119,10 +121,10 @@ function SceneHistoryRow({ row }: { row: StudioCinemaConversationRow }) {
 
   return (
     <div className="max-w-[92%]">
-      <div className="mb-0.5 text-[10px] uppercase tracking-wide text-text-secondary/50">
+      <div className="mb-0.5 text-xs uppercase tracking-wide text-text-secondary/50">
         {t('studio.cinema.roleAssistant')}
       </div>
-      <StudioMarkdown content={row.text} className="text-xs" />
+      <StudioMarkdown content={row.text} className="text-base leading-relaxed" />
     </div>
   )
 }
@@ -135,9 +137,9 @@ export function SceneHistoryPanel({
   revision,
   title,
   rows,
-  usage,
   loading,
   onClose,
+  catPose = 'idle',
 }: SceneHistoryPanelProps) {
   const { t } = useI18n()
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -212,60 +214,65 @@ export function SceneHistoryPanel({
   }
 
   return (
-    <section
-      id={id}
-      role="dialog"
-      aria-label={title}
-      className="absolute inset-x-2 bottom-2 z-20 flex max-h-[60%] flex-col overflow-hidden rounded-xl border border-black/10 bg-bg-primary/95 shadow-lg backdrop-blur lg:left-3 lg:right-auto lg:w-[420px] dark:border-white/15"
-    >
-      <header className="flex items-center gap-2 border-b border-black/5 px-3 py-2 dark:border-white/10">
-        <h2 className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary/85">{title}</h2>
-        <button
-          type="button"
-          className="rounded-md border border-black/10 px-2 py-0.5 text-[11px] text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
-          onClick={onClose}
-          aria-label={t('studio.cinema.historyClose')}
-        >
-          {t('studio.cinema.historyClose')}
-        </button>
-      </header>
-
-      <div
-        ref={listRef}
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-2"
-        onScroll={(event) => {
-          const element = event.currentTarget
-          atBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM_PX
-          setShowJumpToLatest(!atBottomRef.current)
-          positionsRef.current.set(identity, element.scrollTop)
-        }}
+    <>
+      {/* Narrow screens only: a backdrop blocks background interaction and closes on outside click. */}
+      <button
+        type="button"
+        className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        aria-label={t('studio.cinema.sidebarBackdrop')}
+        onClick={onClose}
+      />
+      <aside
+        id={id}
+        role="dialog"
+        aria-label={title}
+        aria-modal="true"
+        className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col overflow-hidden border-l border-black/10 bg-bg-primary shadow-2xl lg:static lg:z-auto lg:w-[400px] lg:max-w-none lg:border-l lg:border-black/10 lg:shadow-none dark:border-white/15"
       >
-        {loading && rows.length === 0 ? (
-          <p className="text-[11px] text-text-secondary/60">{t('studio.cinema.historyLoading')}</p>
-        ) : null}
-        {!loading && rows.length === 0 ? (
-          <p className="text-[11px] text-text-secondary/60">{t('studio.cinema.historyEmpty')}</p>
-        ) : null}
-        {rows.map((row) => (
-          <SceneHistoryRow key={row.id} row={row} />
-        ))}
-      </div>
+        <header className="flex items-center gap-2 border-b border-black/5 px-3 py-3 dark:border-white/10">
+          <CatCharacter pose={catPose} className="h-10 w-10 shrink-0" />
+          <h2 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">{title}</h2>
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+            onClick={onClose}
+            aria-label={t('studio.cinema.historyClose')}
+          >
+            {t('studio.cinema.historyClose')}
+          </button>
+        </header>
 
-      {usage ? (
-        <div className="border-t border-black/5 px-3 dark:border-white/10">
-          <StudioTokenUsageView usage={usage} />
-        </div>
-      ) : null}
-
-      {showJumpToLatest ? (
-        <button
-          type="button"
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] text-text-secondary shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15 dark:bg-black/60"
-          onClick={jumpToLatest}
+        <div
+          ref={listRef}
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3"
+          onScroll={(event) => {
+            const element = event.currentTarget
+            atBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM_PX
+            setShowJumpToLatest(!atBottomRef.current)
+            positionsRef.current.set(identity, element.scrollTop)
+          }}
         >
-          {t('studio.cinema.jumpToLatest')}
-        </button>
-      ) : null}
-    </section>
+          {loading && rows.length === 0 ? (
+            <p className="text-sm text-text-secondary/60">{t('studio.cinema.historyLoading')}</p>
+          ) : null}
+          {!loading && rows.length === 0 ? (
+            <p className="text-sm text-text-secondary/60">{t('studio.cinema.historyEmpty')}</p>
+          ) : null}
+          {rows.map((row) => (
+            <SceneHistoryRow key={row.id} row={row} />
+          ))}
+        </div>
+
+        {showJumpToLatest ? (
+          <button
+            type="button"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-black/10 bg-bg-primary/95 px-3 py-1.5 text-sm text-text-secondary shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+            onClick={jumpToLatest}
+          >
+            {t('studio.cinema.jumpToLatest')}
+          </button>
+        ) : null}
+      </aside>
+    </>
   )
 }
