@@ -86,7 +86,7 @@ export function CatAssistant({
         type="button"
         tabIndex={historyOpen ? -1 : 0}
         aria-hidden={historyOpen || undefined}
-        className={`cinema-cat-button group flex h-16 w-16 items-center justify-center rounded-full border border-black/10 bg-bg-primary/80 transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 dark:border-white/15 sm:h-24 sm:w-24 ${
+        className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 sm:h-24 sm:w-24 ${
           historyOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
         aria-label={t('studio.cinema.catEntryLabel')}

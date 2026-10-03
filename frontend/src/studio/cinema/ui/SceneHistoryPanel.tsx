@@ -7,6 +7,7 @@ import {
   type StudioCinemaToolRow,
 } from './scene-conversation-model'
 import { CatCharacter, type CatPose } from './CatCharacter'
+import { CloseIcon } from './CinemaIcons'
 
 /**
  * The Scene conversation, opened only by the cat (task 11C2, doc §8).
@@ -35,6 +36,8 @@ export interface SceneHistoryPanelProps {
   title: string
   rows: readonly StudioCinemaConversationRow[]
   loading: boolean
+  /** True while a Run is active but the assistant has produced no text yet (doc §7.1). */
+  pendingReply?: boolean
   onClose: () => void
   /** Pose of the cat that moved into the header (doc §3.2). */
   catPose?: CatPose
@@ -137,6 +140,7 @@ export function SceneHistoryPanel({
   title,
   rows,
   loading,
+  pendingReply = false,
   onClose,
   catPose = 'idle',
   modal = false,
@@ -273,11 +277,11 @@ export function SceneHistoryPanel({
           <h2 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">{title}</h2>
           <button
             type="button"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-text-secondary transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
             onClick={onClose}
             aria-label={t('studio.cinema.historyClose')}
           >
-            {t('studio.cinema.historyClose')}
+            <CloseIcon />
           </button>
         </header>
 
@@ -298,8 +302,18 @@ export function SceneHistoryPanel({
             <p className="text-sm text-text-secondary/60">{t('studio.cinema.historyEmpty')}</p>
           ) : null}
           {rows.map((row) => (
-            <SceneHistoryRow key={row.id} row={row} />
+            <div key={row.id} className="cinema-row-enter">
+              <SceneHistoryRow row={row} />
+            </div>
           ))}
+          {pendingReply ? (
+            <div className="flex items-center gap-1.5 text-sm text-text-secondary/60" role="status">
+              <span className="cinema-thinking-dot h-1.5 w-1.5 rounded-full bg-text-secondary/50" />
+              <span className="cinema-thinking-dot h-1.5 w-1.5 rounded-full bg-text-secondary/50" />
+              <span className="cinema-thinking-dot h-1.5 w-1.5 rounded-full bg-text-secondary/50" />
+              <span className="ml-1">{t('studio.cinema.thinking')}</span>
+            </div>
+          ) : null}
         </div>
 
         {showJumpToLatest ? (

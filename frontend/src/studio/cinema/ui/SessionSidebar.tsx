@@ -1,6 +1,7 @@
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import ManimCatLogo from '../../../components/ManimCatLogo'
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from './CinemaIcons'
 import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { LogoUsagePopover } from './LogoUsagePopover'
 
@@ -61,12 +62,12 @@ export function SessionSidebar({
         <ManimCatLogo className="h-9 w-9 rounded-full" />
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-text-secondary transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
           aria-expanded={false}
           aria-label={t('studio.cinema.sidebarExpand')}
           onClick={onToggle}
         >
-          {t('studio.cinema.sidebarExpandShort')}
+          <ChevronRightIcon />
         </button>
       </div>
     )
@@ -97,21 +98,22 @@ export function SessionSidebar({
         </div>
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-black/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-black/10 text-text-secondary transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
           aria-expanded
           aria-label={t('studio.cinema.sidebarCollapse')}
           onClick={onToggle}
         >
-          {t('studio.cinema.sidebarCollapseShort')}
+          <ChevronLeftIcon />
         </button>
       </div>
 
       <button
         type="button"
-        className="flex min-h-[44px] items-center justify-center rounded-lg border border-black/10 px-3 text-base text-text-primary/85 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
+        className="flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-black/10 px-3 text-base text-text-primary/85 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
         onClick={onCreate}
       >
-        {t('studio.cinema.newSession')}
+        <PlusIcon />
+        <span className="sr-only">{t('studio.cinema.newSession')}</span>
       </button>
 
       {feedbackKey ? (

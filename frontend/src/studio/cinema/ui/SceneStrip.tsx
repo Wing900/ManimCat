@@ -135,20 +135,14 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
               aria-selected={entry.isSelected}
               aria-controls={panelId}
               tabIndex={entry.isSelected ? 0 : -1}
-              className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-lg px-3 text-base transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 ${
+              className={`flex min-h-[44px] shrink-0 items-center rounded-md px-3 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 ${
                 entry.isSelected
-                  ? 'bg-accent-rgb/10 text-text-primary/90 ring-1 ring-accent-rgb/40'
-                  : 'text-text-secondary/75 hover:opacity-80'
+                  ? 'bg-accent-rgb/15 text-text-primary'
+                  : 'text-text-secondary/70 hover:bg-bg-tertiary/50'
               }`}
               onClick={() => onSelect(entry.id)}
             >
               <span>{t('studio.cinema.sceneLabel', { index: entry.position + 1 })}</span>
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  entry.isBusy ? 'bg-accent-rgb' : entry.hasFailedOutcome ? 'bg-red-500/70' : 'bg-text-secondary/30'
-                }`}
-                aria-hidden="true"
-              />
               <span className="sr-only">{t(statusKey)}</span>
             </button>
           )
@@ -157,7 +151,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
         {compact ? (
           <button
             type="button"
-            className="flex min-h-[44px] shrink-0 items-center rounded-lg border border-black/10 px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 dark:border-white/15"
+            className="flex min-h-[44px] shrink-0 items-center rounded-md border border-black/10 px-3 text-base transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 dark:border-white/15"
             onClick={() => setPickerOpen(true)}
           >
             {t('studio.cinema.scenePickerAll', { count: entries.length })}
@@ -167,7 +161,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
 
       <button
         type="button"
-        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-black/10 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 disabled:opacity-40 dark:border-white/15"
+        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md border border-black/10 text-base transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40 dark:border-white/15"
         aria-label={t('studio.cinema.sceneAppend')}
         disabled={mutationPending}
         onClick={onAppend}

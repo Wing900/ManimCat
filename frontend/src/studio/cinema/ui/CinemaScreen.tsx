@@ -53,7 +53,7 @@ export function CinemaScreen({
 
   return (
     <section
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-black/5 bg-black/85 dark:border-white/10"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-black/5 bg-black/85 dark:border-white/10"
       aria-label={t('studio.cinema.screenLabel', { index: sceneIndex + 1 })}
       data-testid="cinema-screen"
     >

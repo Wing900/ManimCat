@@ -369,7 +369,7 @@ export function ManimCinemaWorkspace({
                 </div>
               ) : (
                 <>
-                  <div className="flex aspect-video max-h-full max-w-[1040px] flex-col">
+                  <div className="aspect-video max-h-full w-full max-w-[1040px]">
                     <CinemaScreen
                       state={screenState}
                       sceneIndex={Math.max(0, sceneIndex)}
@@ -408,9 +408,9 @@ export function ManimCinemaWorkspace({
 
             {view !== null ? (
               <div
-                className={`pointer-events-none absolute right-3 top-1/2 z-10 transition-all duration-300 sm:right-5 lg:right-8 ${
+                className={`pointer-events-none absolute right-3 top-1/2 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:right-5 lg:right-8 ${
                   historyOpen
-                    ? 'pointer-events-none -translate-x-6 -translate-y-[60%] scale-50 opacity-0'
+                    ? 'translate-x-12 -translate-y-[85%] opacity-0'
                     : '-translate-y-1/2 opacity-100'
                 }`}
               >
@@ -474,6 +474,11 @@ export function ManimCinemaWorkspace({
           title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
           rows={rows}
           loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
+          pendingReply={
+            view !== null &&
+            view.activeRun !== null &&
+            (rows.length === 0 || rows[rows.length - 1].kind === 'user')
+          }
           onClose={closeHistory}
           modal={!isDesktopViewport}
           catPose={
