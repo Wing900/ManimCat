@@ -26,6 +26,7 @@ import { RecoveryWindowSlot, takeBufferedRecoveryEvents } from './recovery-windo
 import { MutationLane } from './mutation-lane'
 import { RenderRefreshScheduler } from './render-refresh'
 import { SceneStream } from './scene-stream'
+import { InitializationWorkflow, type StudioCinemaAppendSceneOutcome } from './initialization-workflow'
 import { selectSceneState } from './scene-state'
 import { studioCinemaReducer, type StudioCinemaAction } from './scene-reducer'
 import {
@@ -39,7 +40,6 @@ import {
   isStudioCinemaTerminalRenderStatus,
   isStudioCinemaTerminalRunStatus,
   isStudioCinemaTextDeltaEvent,
-  STUDIO_CINEMA_DEFAULT_SCENE_COUNT,
   type StudioCinemaFeedbackCode,
   type StudioCinemaSceneEvent,
   type StudioCinemaSceneIdentity,
@@ -164,25 +164,6 @@ export type StudioCinemaCancelOutcome =
   | { status: 'no_session' }
   | { status: 'stale' }
 
-/**
- * A workflow slot whose identity is visible to concurrent callers *before* its work begins (P1).
- * The create path reaches its first ownership check synchronously, so a slot registered only after
- * `runInitialization` was called would make every fresh initialization look stale.
- */
-function createStudioCinemaWorkflowSlot<T>(): {
-  promise: Promise<T>
-  resolve: (value: T) => void
-  reject: (error: unknown) => void
-} {
-  let resolve!: (value: T) => void
-  let reject!: (error: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
-
 export class StudioCinemaController {
   private readonly deps: StudioCinemaControllerDependencies
   private readonly listeners = new Set<() => void>()
@@ -191,9 +172,6 @@ export class StudioCinemaController {
   private sceneStream: SceneStream
   private recoverySlot = new RecoveryWindowSlot()
   private lane = new MutationLane((pending) => this.publishMutationPending(pending))
-  private initialization: { id: number; promise: Promise<StudioCinemaInitializationOutcome> } | null = null
-  private workflowCounter = 0
-  private indexRead: Promise<StudioCinemaIndexOutcome> | null = null
   private readonly convergenceReads = new Set<string>()
   /**
    * The authoritative Scene snapshot reader. Owns the snapshot revision counter and the per-Scene
@@ -207,6 +185,12 @@ export class StudioCinemaController {
    * interface.
    */
   private renderRefresh: RenderRefreshScheduler
+  /**
+   * The one initialization workflow of a Session: fills a fresh Session to the default Scene count,
+   * sequentially, through the mutation lane; a repeated call joins the running workflow. Owns the
+   * workflow slot, the workflow counter and the in-flight index read.
+   */
+  private initWorkflow: InitializationWorkflow
   /**
    * Assistant deltas applied outside a recovery window, per Scene. A read compares this counter with
    * the value it started from: text that arrived while the read was in flight is not covered by the
@@ -274,6 +258,20 @@ export class StudioCinemaController {
       this.sceneStream,
       this.recoverySlot,
     )
+    this.initWorkflow = new InitializationWorkflow({
+      state: () => this.state,
+      generation: () => this.generation,
+      isStaleGeneration: (generation) => this.isStaleGeneration(generation),
+      isInactive: () => this.isInactive(),
+      dispatch: (action) => this.dispatch(action),
+      laneRun: (task) => this.lane.run(task),
+      api: () => this.deps.api,
+      createWorkflowId: () => this.deps.createWorkflowId(),
+      sessionSignal: () => this.sessionSignal(),
+      sceneStreamHasActive: () => this.sceneStream.peek() !== null,
+      sceneStreamStop: () => this.sceneStream.stop(),
+      selectScene: (sceneId) => this.selectScene(sceneId),
+    })
   }
 
   getState(): StudioCinemaState {
@@ -319,8 +317,7 @@ export class StudioCinemaController {
     this.generation += 1
     this.abortSessionRequests()
     this.sceneStream.stop()
-    this.indexRead = null
-    this.initialization = null
+    this.initWorkflow.clear()
   }
 
   /** Terminal teardown: detach and drop every listener. Nothing may write afterwards. */
@@ -341,8 +338,7 @@ export class StudioCinemaController {
     this.sceneStream.stop()
     this.resetSessionRequests()
     if (!sameSession) {
-      this.initialization = null
-      this.indexRead = null
+      this.initWorkflow.clear()
       this.snapshotReader.clearRevisions()
       this.convergenceReads.clear()
       this.appliedLiveTextDeltas.clear()
@@ -364,8 +360,7 @@ export class StudioCinemaController {
     this.generation += 1
     this.abortSessionRequests()
     this.sceneStream.stop()
-    this.initialization = null
-    this.indexRead = null
+    this.initWorkflow.clear()
     this.dispatch({ type: 'session/closed', generation: this.generation })
   }
 
@@ -417,17 +412,7 @@ export class StudioCinemaController {
    * join the same read instead of duplicating it.
    */
   loadSceneIndex(): Promise<StudioCinemaIndexOutcome> {
-    if (this.indexRead) {
-      return this.indexRead
-    }
-
-    const promise = this.performLoadSceneIndex().finally(() => {
-      if (this.indexRead === promise) {
-        this.indexRead = null
-      }
-    })
-    this.indexRead = promise
-    return promise
+    return this.initWorkflow.loadIndex()
   }
 
   /**
@@ -436,25 +421,7 @@ export class StudioCinemaController {
    * running workflow instead of starting a second one.
    */
   initializeScenes(): Promise<StudioCinemaInitializationOutcome> {
-    if (this.isInactive()) {
-      return Promise.resolve({ status: 'stale' })
-    }
-    const sessionId = this.state.session.id
-    if (!sessionId) {
-      return Promise.resolve({ status: 'failed', createdCount: 0, code: 'session_not_found' })
-    }
-    if (this.state.initialization.status === 'ready') {
-      return Promise.resolve({ status: 'already_ready', createdCount: this.state.sceneOrder.length })
-    }
-    if (this.state.initialization.status === 'partial' || this.state.initialization.status === 'failed') {
-      // A retried initialization is a continue: reconcile first, then create only what is missing.
-      return this.continueSceneInitialization()
-    }
-    if (this.initialization) {
-      return this.initialization.promise
-    }
-
-    return this.startInitializationWorkflow(sessionId, false)
+    return this.initWorkflow.initialize()
   }
 
   /**
@@ -463,41 +430,12 @@ export class StudioCinemaController {
    * client create duplicates.
    */
   continueSceneInitialization(): Promise<StudioCinemaInitializationOutcome> {
-    if (this.isInactive()) {
-      return Promise.resolve({ status: 'stale' })
-    }
-    const sessionId = this.state.session.id
-    if (!sessionId) {
-      return Promise.resolve({ status: 'failed', createdCount: 0, code: 'session_not_found' })
-    }
-    if (this.initialization) {
-      return this.initialization.promise
-    }
-
-    return this.startInitializationWorkflow(sessionId, true)
+    return this.initWorkflow.continueInit()
   }
 
   /** Append: shares the Session mutation lane with initialization and has no client-side cap. */
-  async appendScene(): Promise<
-    | { status: 'created'; scene: StudioScene }
-    | { status: 'failed' | 'unknown'; code: StudioCinemaFeedbackCode }
-    | { status: 'no_session' | 'stale' }
-  > {
-    const sessionId = this.state.session.id
-    if (!sessionId || this.isInactive()) {
-      return { status: 'no_session' }
-    }
-
-    const generation = this.generation
-    const outcome = await this.createSceneOnce(generation, sessionId)
-    if (outcome.status === 'stale') {
-      return { status: 'stale' }
-    }
-    if (outcome.status === 'satisfied') {
-      return { status: 'failed', code: 'scene_create_failed' }
-    }
-
-    return outcome
+  appendScene(): Promise<StudioCinemaAppendSceneOutcome> {
+    return this.initWorkflow.append()
   }
 
   setDraft(sceneId: string, text: string): void {
@@ -712,231 +650,12 @@ export class StudioCinemaController {
     return true
   }
 
-  private startInitializationWorkflow(
-    sessionId: string,
-    refreshFirst: boolean,
-  ): Promise<StudioCinemaInitializationOutcome> {
-    const id = this.workflowCounter + 1
-    this.workflowCounter = id
-    // P1: publish the identity and the joinable promise *before* starting the work. The create path
-    // checks `isWorkflowCurrent` synchronously, so a slot registered after the call would make every
-    // fresh initialization resolve `stale` without creating anything.
-    const slot = createStudioCinemaWorkflowSlot<StudioCinemaInitializationOutcome>()
-    this.initialization = { id, promise: slot.promise }
-    try {
-      void this.runInitialization(id, sessionId, refreshFirst, this.deps.createWorkflowId()).then(
-        (outcome) => slot.resolve(outcome),
-        (error: unknown) => slot.reject(error),
-      )
-    } catch (error) {
-      // A synchronous failure (e.g. workflow id creation) settles the published promise too, and the
-      // slot is released by identity: leaving it published would make every later `initializeScenes`
-      // join this rejected promise instead of starting a real workflow.
-      if (this.initialization?.id === id) {
-        this.initialization = null
-      }
-      slot.reject(error)
-    }
-    return slot.promise
-  }
-
-  private async runInitialization(
-    workflowSlot: number,
-    sessionId: string,
-    refreshFirst: boolean,
-    workflowLabel: string,
-  ): Promise<StudioCinemaInitializationOutcome> {
-    const generation = this.generation
-    this.dispatch({
-      type: 'initialization/patch',
-      generation,
-      patch: { status: 'creating', workflowId: workflowLabel, feedback: null },
-    })
-
-    try {
-      if (refreshFirst) {
-        const reconciled = await this.loadSceneIndex()
-        if (!this.isWorkflowCurrent(workflowSlot, sessionId, generation)) {
-          return { status: 'stale' }
-        }
-        if (reconciled === 'stale') {
-          return { status: 'stale' }
-        }
-        if (reconciled === 'failed') {
-          // No Scene is created on top of an index that could not be reconciled.
-          return this.finishInitializationWithFailure(generation, 'snapshot_failed', true)
-        }
-      }
-
-      const target = Math.max(this.state.initialization.targetCount, STUDIO_CINEMA_DEFAULT_SCENE_COUNT)
-
-      while (this.state.sceneOrder.length < target) {
-        if (!this.isWorkflowCurrent(workflowSlot, sessionId, generation)) {
-          return { status: 'stale' }
-        }
-
-        const outcome = await this.createSceneOnce(generation, sessionId, target)
-        if (outcome.status === 'stale') {
-          return { status: 'stale' }
-        }
-        if (outcome.status === 'satisfied') {
-          // The lane noticed that another request already filled the target: never over-create.
-          continue
-        }
-        if (outcome.status !== 'created') {
-          return this.finishInitializationWithFailure(
-            generation,
-            outcome.code,
-            outcome.status === 'unknown',
-          )
-        }
-      }
-
-      const createdCount = this.state.sceneOrder.length
-      this.dispatch({
-        type: 'initialization/patch',
-        generation,
-        patch: { status: 'ready', createdCount, feedback: null },
-      })
-      return { status: 'ready', createdCount }
-    } finally {
-      if (this.initialization?.id === workflowSlot) {
-        // Only the workflow that owns the slot clears it; a replay's workflow is never cleared by an
-        // older one finishing.
-        this.initialization = null
-      }
-    }
-  }
-
-  private finishInitializationWithFailure(
-    generation: number,
-    code: StudioCinemaFeedbackCode,
-    unknownOutcome: boolean,
-  ): StudioCinemaInitializationOutcome {
-    const createdCount = this.state.sceneOrder.length
-    const feedback = { code, needsReconciliation: unknownOutcome }
-    this.dispatch({
-      type: 'initialization/patch',
-      generation,
-      patch: { status: createdCount > 0 ? 'partial' : 'failed', createdCount, feedback },
-    })
-    this.dispatch({ type: 'session/feedback', generation, feedback })
-    return createdCount > 0
-      ? { status: 'partial', createdCount, code }
-      : { status: 'failed', createdCount, code }
-  }
-
-  /** The workflow slot, the Session and the generation the workflow started in must all still hold. */
-  private isWorkflowCurrent(workflowSlot: number, sessionId: string, generation: number): boolean {
-    return (
-      !this.isStaleGeneration(generation) &&
-      this.initialization?.id === workflowSlot &&
-      this.state.session.id === sessionId
-    )
-  }
-
   /**
    * True when an awaited result belongs to a binding, Session generation or instance that has since
    * moved on: nothing may be written to the state in that case.
    */
   private isStaleGeneration(generation: number): boolean {
     return this.isInactive() || generation !== this.generation
-  }
-
-  private async performLoadSceneIndex(): Promise<StudioCinemaIndexOutcome> {
-    const sessionId = this.state.session.id
-    if (!sessionId || this.isInactive()) {
-      return STALE_RESULT
-    }
-
-    const generation = this.generation
-    return this.lane.run(async () => {
-      if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
-        return STALE_RESULT
-      }
-
-      try {
-        const snapshot = await this.deps.api.getSessionSnapshot(sessionId, { signal: this.sessionSignal() })
-        if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
-          return STALE_RESULT
-        }
-        this.dispatch({ type: 'session/index', generation, scenes: snapshot.scenes ?? [] })
-        if (this.state.selectedSceneId === null && this.sceneStream.peek() !== null) {
-          // The selected Scene is gone from the index: its stream must not outlive the selection.
-          this.sceneStream.stop()
-        }
-        return 'ok'
-      } catch (error) {
-        if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
-          return STALE_RESULT
-        }
-        const mapped = readStudioCinemaRequestError('snapshot', error)
-        this.dispatch({
-          type: 'session/feedback',
-          generation,
-          feedback: { code: mapped.code, needsReconciliation: mapped.unknownOutcome },
-        })
-        return 'failed'
-      }
-    })
-  }
-
-  private async createSceneOnce(
-    generation: number,
-    sessionId: string,
-    targetCount?: number,
-  ): Promise<
-    | { status: 'created'; scene: StudioScene }
-    | { status: 'failed'; code: StudioCinemaFeedbackCode }
-    | { status: 'unknown'; code: StudioCinemaFeedbackCode }
-    | { status: 'satisfied' }
-    | { status: 'stale' }
-  > {
-    return this.lane.run(async () => {
-      // Re-checked inside the lane, right before the request leaves: a queued task must not act for
-      // a Session, generation or target that changed while it waited.
-      if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
-        return { status: 'stale' }
-      }
-      if (targetCount !== undefined && this.state.sceneOrder.length >= targetCount) {
-        return { status: 'satisfied' }
-      }
-
-      try {
-        const scene = await this.deps.api.createScene(sessionId, { signal: this.sessionSignal() })
-        if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
-          return { status: 'stale' }
-        }
-        this.dispatch({ type: 'scene/created', scene })
-        this.dispatch({
-          type: 'initialization/patch',
-          generation,
-          patch: { createdCount: this.state.initialization.createdCount + 1 },
-        })
-        this.selectFirstSceneIfUnselected(scene.id)
-        return { status: 'created', scene }
-      } catch (error) {
-        if (this.isStaleGeneration(generation) || this.state.session.id !== sessionId) {
-          return { status: 'stale' }
-        }
-        const mapped = readStudioCinemaRequestError('scene_create', error)
-        this.dispatch({
-          type: 'session/feedback',
-          generation,
-          feedback: { code: mapped.code, needsReconciliation: mapped.unknownOutcome },
-        })
-        return mapped.unknownOutcome
-          ? { status: 'unknown', code: mapped.code }
-          : { status: 'failed', code: mapped.code }
-      }
-    })
-  }
-
-  /** The first created Scene is shown only while nothing is selected; a user choice is never overridden. */
-  private selectFirstSceneIfUnselected(sceneId: string): void {
-    if (this.state.selectedSceneId === null) {
-      this.selectScene(sceneId)
-    }
   }
 
   /**
