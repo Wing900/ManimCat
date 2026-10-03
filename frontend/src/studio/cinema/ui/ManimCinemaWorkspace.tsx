@@ -8,7 +8,6 @@ import type { StudioCinemaSessionGatewayDependencies } from '../session/studio-c
 import { useStudioCinemaSession, type StudioCinemaSessionFailure } from '../session/use-studio-cinema-session'
 import type { StudioCinemaControllerDependencies } from '../cinema-controller'
 import { CatAssistant } from './CatAssistant'
-import { ArrowLeftIcon } from './CinemaIcons'
 import { CinemaScreen } from './CinemaScreen'
 import {
   readStudioCinemaCatStatus,
@@ -237,19 +236,6 @@ export function ManimCinemaWorkspace({
     readSessionFailureKey(session.failure) ??
     (state.feedback ? readStudioCinemaFeedbackKey(state.feedback.code) : null)
 
-  // 全局居中: <main> must sit on the window's own centre axis, so the stage and the composer do not
-  // drift when the sidebar is collapsed or expanded. From lg up (where the sidebar is an in-flow
-  // column) a hidden spacer mirrors its width — 240 open, 56 collapsed. Below lg the sidebar is an
-  // overlay and the mirror would only steal width from the video, so it is dropped. At lg the history
-  // panel is itself in flow and already balances the row, so the mirror stands down again.
-  const historyPanelInFlow = historyOpen && view !== null
-  let sidebarMirrorClass = 'hidden lg:block lg:w-14'
-  if (historyPanelInFlow) {
-    sidebarMirrorClass = 'hidden'
-  } else if (sidebarOpen) {
-    sidebarMirrorClass = 'hidden lg:block lg:w-60'
-  }
-
   return (
     <div
       className={`flex h-screen min-h-0 flex-col overflow-hidden bg-bg-primary text-text-primary studio-shell-root ${
@@ -271,6 +257,7 @@ export function ManimCinemaWorkspace({
           tokenUsage={view?.tokenUsage ?? null}
           sentRounds={view?.messages.filter((message) => message.role === 'user').length ?? 0}
           sceneLabel={t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
+          onExit={onExit}
         />
 
         <main
@@ -294,15 +281,6 @@ export function ManimCinemaWorkspace({
                 {t(readStudioCinemaStreamStateKey(view.streamState))}
               </span>
             ) : null}
-            <button
-              type="button"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
-              onClick={onExit}
-              aria-label={t('studio.cinema.exit')}
-              title={t('studio.cinema.exit')}
-            >
-              <ArrowLeftIcon />
-            </button>
           </header>
 
           {selection.indexFailed ? (
@@ -384,7 +362,7 @@ export function ManimCinemaWorkspace({
                 </div>
               ) : (
                 <>
-                  <div className="aspect-video max-h-full w-full max-w-[900px]">
+                  <div className="aspect-video max-h-full w-full max-w-[1040px]">
                     <CinemaScreen
                       state={screenState}
                       sceneIndex={Math.max(0, sceneIndex)}
@@ -479,8 +457,6 @@ export function ManimCinemaWorkspace({
           />
           </div>
         </main>
-
-        <div aria-hidden="true" className={`shrink-0 ${sidebarMirrorClass}`} />
 
         <SceneHistoryPanel
           id={HISTORY_PANEL_ID}

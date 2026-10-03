@@ -1,7 +1,7 @@
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import ManimCatLogo from '../../../components/ManimCatLogo'
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from './CinemaIcons'
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from './CinemaIcons'
 import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { LogoUsagePopover } from './LogoUsagePopover'
 
@@ -37,6 +37,8 @@ export interface SessionSidebarProps {
   sentRounds: number
   /** Label of the current Scene, e.g. "Scene 2". */
   sceneLabel: string
+  /** Leaves the studio and returns to the home screen. */
+  onExit: () => void
 }
 
 export function SessionSidebar({
@@ -53,6 +55,7 @@ export function SessionSidebar({
   tokenUsage,
   sentRounds,
   sceneLabel,
+  onExit,
 }: SessionSidebarProps) {
   const { t } = useI18n()
 
@@ -69,6 +72,16 @@ export function SessionSidebar({
           onClick={onToggle}
         >
           <ChevronRightIcon />
+        </button>
+        {/* Back to the home screen, bottom-left, mirroring the expanded column. */}
+        <button
+          type="button"
+          className="mt-auto flex h-10 w-10 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+          aria-label={t('studio.cinema.exit')}
+          title={t('studio.cinema.exit')}
+          onClick={onExit}
+        >
+          <ArrowLeftIcon />
         </button>
       </div>
     )
@@ -159,6 +172,17 @@ export function SessionSidebar({
       {status === 'loading' ? (
         <p className="text-sm text-text-secondary/55">{t('studio.cinema.sessionLoading')}</p>
       ) : null}
+
+      {/* Back to the home screen: bottom-left corner, icon only, in the home screen's icon style. */}
+      <button
+        type="button"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30"
+        aria-label={t('studio.cinema.exit')}
+        title={t('studio.cinema.exit')}
+        onClick={onExit}
+      >
+        <ArrowLeftIcon />
+      </button>
       </aside>
     </>
   )

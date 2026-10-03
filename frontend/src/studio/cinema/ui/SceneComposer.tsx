@@ -9,10 +9,11 @@ import { SendIcon, StopIcon } from './CinemaIcons'
  * Closing the history panel never closes, clears or disables this; it keeps its own draft, which lives
  * in the Scene record, so switching Scene changes the text but never mixes two drafts.
  *
- * Layout: one soft surface (no border, doc: 去框化) holds the textarea and the two icon actions, so the
- * composer reads as a single input centred under the stage. Stop and Send are icons, not text; Stop
- * stays mounted while disabled so the control is always addressable. A hint line spells out the
- * keyboard contract (Enter sends, Shift+Enter breaks the line).
+ * Layout: one soft surface (no border) holds the textarea and the single trailing action, so the
+ * composer reads as one input centred under the stage. The trailing slot is the primary action of the
+ * moment: Stop while this Scene's Run can be cancelled, Send otherwise. Keeping one slot is what puts
+ * the stop control on the right, at full size, instead of a small muted square beside Send. A hint line
+ * spells out the keyboard contract (Enter sends, Shift+Enter breaks the line).
  */
 
 export interface SceneComposerProps {
@@ -54,6 +55,8 @@ export function SceneComposer({
     }
   }
 
+  const showStop = canCancel || submitting
+
   return (
     <form
       className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-8 pt-6 dark:border-white/10"
@@ -89,25 +92,28 @@ export function SceneComposer({
             }}
           />
 
-          <button
-            type="button"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary/60 transition-all hover:bg-bg-tertiary/60 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-30"
-            onClick={onCancel}
-            disabled={!canCancel}
-            aria-label={t('studio.cinema.stop')}
-            title={t('studio.cinema.stop')}
-          >
-            <StopIcon />
-          </button>
-          <button
-            type="submit"
-            className="ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-rgb/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 disabled:opacity-30"
-            disabled={!canSubmit}
-            aria-label={t('studio.cinema.send')}
-            title={submitting ? t('studio.cinema.sending') : t('studio.cinema.send')}
-          >
-            <SendIcon />
-          </button>
+          {showStop ? (
+            <button
+              type="button"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-tertiary/60 text-text-primary/80 transition-all hover:bg-bg-tertiary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/30 disabled:opacity-40"
+              onClick={onCancel}
+              disabled={!canCancel}
+              aria-label={t('studio.cinema.stop')}
+              title={t('studio.cinema.stop')}
+            >
+              <StopIcon width={22} height={22} />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-rgb/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-rgb/40 disabled:opacity-30"
+              disabled={!canSubmit}
+              aria-label={t('studio.cinema.send')}
+              title={submitting ? t('studio.cinema.sending') : t('studio.cinema.send')}
+            >
+              <SendIcon />
+            </button>
+          )}
         </div>
 
         <p className="text-center text-xs text-text-secondary/50">{t('studio.cinema.composerHint')}</p>

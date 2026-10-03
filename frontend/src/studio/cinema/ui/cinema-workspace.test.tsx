@@ -682,7 +682,10 @@ describe('cinema workspace', () => {
     await renderWorkspace(harness)
     await flush()
 
-    expect(screen.getByLabelText('Send')).toBeDisabled()
+    // While this Scene's Run can be cancelled the trailing slot is Stop, so the Send is simply not
+    // offered — the blocked sentence still explains why.
+    expect(screen.queryByLabelText('Send')).toBeNull()
+    expect(screen.getByLabelText('Stop')).toBeEnabled()
     expect(screen.getByText('This Scene already has a running task; stop it first.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: /Scene 2/ }))
@@ -989,7 +992,8 @@ describe('cinema workspace', () => {
     expect(screen.getByLabelText('Send')).toBeDisabled()
 
     fireEvent.click(screen.getByLabelText('Send'))
-    fireEvent.click(screen.getByLabelText('Stop'))
+    // Nothing is cancellable while the switch is pending, so no Stop is offered at all.
+    expect(screen.queryByLabelText('Stop')).toBeNull()
     fireEvent.click(screen.getByLabelText('Add a Scene'))
     await flush()
 

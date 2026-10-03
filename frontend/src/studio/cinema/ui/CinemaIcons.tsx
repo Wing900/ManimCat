@@ -77,11 +77,11 @@ export function SendIcon(props: IconProps) {
   )
 }
 
-/** Stop: a filled square, shown while a Run can be cancelled. */
+/** Stop: a filled square, shown while a Run can be cancelled. Sized to read at a glance next to Send. */
 export function StopIcon(props: IconProps) {
   return (
     <svg {...base({ ...props, fill: 'currentColor', stroke: 'none' })}>
-      <rect x="7" y="7" width="10" height="10" rx="2" />
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
     </svg>
   )
 }
