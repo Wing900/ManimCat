@@ -41,6 +41,35 @@ describe('CatCharacter', () => {
     expect(pupils).toHaveLength(2)
   })
 
+  it('wears the conical wizard hat from the brand draft', () => {
+    const { container } = render(<CatCharacter />)
+    const hat = container.querySelector('[data-part="hat"]')
+    expect(hat).not.toBeNull()
+    // Cone, shaded fold, band and brim — the four pieces of the draft, with its exact palette.
+    expect(container.querySelector('[data-part="hat-cone"]')?.getAttribute('fill')).toBe('#37474f')
+    expect(container.querySelector('[data-part="hat-fold"]')?.getAttribute('fill')).toBe('#263238')
+    expect(container.querySelector('[data-part="hat-band"]')?.getAttribute('fill')).toBe('#b0bec5')
+    expect(container.querySelector('[data-part="hat-brim"]')?.getAttribute('fill')).toBe('#455a64')
+    // Drawn after the head, so the cone and brim sit on top of the ears instead of behind them.
+    const head = container.querySelector('[data-part="head"]')
+    expect(head).not.toBeNull()
+    expect(hat).not.toBeNull()
+    const position = head!.compareDocumentPosition(hat!)
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('fits the hat tip and the chin inside the viewBox so nothing is clipped', () => {
+    const { container } = render(<CatCharacter />)
+    const [, , width, height] = (container.querySelector('svg')?.getAttribute('viewBox') ?? '')
+      .split(/\s+/)
+      .map(Number)
+    // The group sits at (100, 90): the hat tip reaches y=-70 → 20, the chin y=70 → 160, ears x=±80 → 20/180.
+    expect(90 - 70).toBeGreaterThanOrEqual(0)
+    expect(90 + 70).toBeLessThanOrEqual(height)
+    expect(100 - 80).toBeGreaterThanOrEqual(0)
+    expect(100 + 80).toBeLessThanOrEqual(width)
+  })
+
   it('uses a compact viewBox that contains the ears with headroom', () => {
     const { container } = render(<CatCharacter />)
     const svg = container.querySelector('svg')
