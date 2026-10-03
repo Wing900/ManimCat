@@ -5,7 +5,6 @@ import {
   getStudioSessionSnapshot,
 } from '../api/studio-agent-api'
 import type { StudioKind, StudioMessage } from '../protocol/studio-agent-types'
-import type { StudioSessionState } from '../store/studio-types'
 import { useStudioEvents } from './use-studio-events'
 import { useStudioRun } from './use-studio-run'
 import { studioEventReducer } from '../store/studio-event-reducer'

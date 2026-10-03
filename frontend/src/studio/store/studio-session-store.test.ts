@@ -37,7 +37,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(next.entities.messagesById['local-assistant-1']).toBeUndefined()
     expect(next.entities.messagesById['server-assistant-1']?.role).toBe('assistant')
@@ -86,7 +86,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(next.entities.messagesById['local-assistant-1']?.role).toBe('assistant')
     expect(next.entities.messagesById['server-assistant-old']?.role).toBe('assistant')
@@ -132,7 +132,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(next.entities.messagesById['local-assistant-1']).toBeUndefined()
     expect(next.entities.messagesById['server-assistant-1']?.role).toBe('assistant')
@@ -179,7 +179,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(next.runtime.optimisticAssistantMessageIdByRunId['run-1']).toBe('server-assistant-1')
     expect(next.runtime.pendingAssistantMessageId).toBe('server-assistant-1')
@@ -255,7 +255,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(Object.keys(next.entities.messagesById)).toEqual(['server-assistant-1'])
     expect(next.entities.messageOrder).toEqual(['server-assistant-1'])
@@ -298,7 +298,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(next.entities.messagesById['server-assistant-1']).toBe(existingAssistant)
   })
@@ -332,7 +332,7 @@ describe('mergeStudioSnapshot', () => {
       renders: [],
     }
 
-    const next = mergeStudioSnapshot(current, snapshot, [])
+    const next = mergeStudioSnapshot(current, snapshot)
 
     expect(next.entities.runsById['run-1']?.status).toBe('completed')
     expect(next.entities.runsById['run-1']?.completedAt).toBe('2026-03-24T00:00:05.000Z')

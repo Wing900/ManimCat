@@ -61,11 +61,18 @@ export function StudioPreview({ session, renders, selectedRenderId, render, late
 
 function PreviewSurface({ attachment, render }: { attachment: StudioFileAttachment | null | undefined; render: StudioRender | null }) {
   const { t } = useI18n()
-  if (attachment?.mimeType?.startsWith('video/') || isVideoPath(attachment?.path)) {
+  // `isVideoPath` / `isImagePath` are ordinary helpers, so they cannot prove that the attachment
+  // exists. The proof is explicit in the two conditions below: without an attachment neither media
+  // branch is entered, and the render status fallbacks stay reachable instead of being hidden.
+  const attachmentPath = attachment?.path
+  const isVideo = attachment?.mimeType?.startsWith('video/') === true || isVideoPath(attachmentPath)
+  const isImage = attachment?.mimeType?.startsWith('image/') === true || isImagePath(attachmentPath)
+
+  if (attachment && isVideo) {
     return <video src={attachment.path} controls className="h-full w-full rounded-2xl object-contain" />
   }
 
-  if (attachment?.mimeType?.startsWith('image/') || isImagePath(attachment?.path)) {
+  if (attachment && isImage) {
     return <img src={attachment.path} alt={attachment.name ?? t('common.preview')} className="h-full w-full rounded-2xl object-contain" />
   }
 

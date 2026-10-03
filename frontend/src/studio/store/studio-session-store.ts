@@ -121,10 +121,6 @@ function createEmptyEntityState(): StudioEntityState {
   }
 }
 
-function indexById<T extends { id: string }>(items: T[]): Record<string, T> {
-  return Object.fromEntries(items.map((item) => [item.id, item]))
-}
-
 function mergeRecord<T extends { id: string }>(current: Record<string, T>, items: T[]): Record<string, T> {
   return items.reduce<Record<string, T>>((next, item) => {
     next[item.id] = item
