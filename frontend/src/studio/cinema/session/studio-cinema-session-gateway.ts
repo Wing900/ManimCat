@@ -33,6 +33,8 @@ import type {
 export interface StudioCinemaSessionGatewayApi {
   createSession: (input: StudioCreateSessionInput) => Promise<StudioSession>
   getSessionSnapshot: (sessionId: string, options?: StudioRequestOptions) => Promise<StudioSessionSnapshot>
+  /** Deletes the Session for real (the server removes it and everything it owns). */
+  deleteSession: (sessionId: string) => Promise<boolean>
 }
 
 export interface StudioCinemaSessionGatewayStorage {
@@ -178,6 +180,21 @@ export class StudioCinemaSessionGateway {
     }
     this.deps.storage.forgetSessionId(studioKind, sessionId)
     return true
+  }
+
+  /**
+   * Deletes one Session for real, then forgets it locally. The request comes first: forgetting locally
+   * on its own would leave the Session to reappear on the next restore, which reads as "the delete did
+   * nothing". `false` covers both a refused write and a failed request, and in either case the entry is
+   * still there — the caller decides what to say about it.
+   */
+  async delete(studioKind: StudioKind, sessionId: string): Promise<boolean> {
+    try {
+      await this.deps.api.deleteSession(sessionId)
+    } catch {
+      return false
+    }
+    return this.forget(studioKind, sessionId)
   }
 
   /**

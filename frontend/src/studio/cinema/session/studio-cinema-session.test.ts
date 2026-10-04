@@ -55,6 +55,7 @@ interface Harness {
   recent: string[]
   created: string[]
   restored: string[]
+  deleted: string[]
   setSnapshot: (sessionId: string, response: () => Promise<StudioSessionSnapshot>) => void
 }
 
@@ -63,11 +64,13 @@ function createHarness(options?: {
   snapshots?: Record<string, () => Promise<StudioSessionSnapshot>>
   /** Ownership of the caller (correction R5): a detached binding answers false. */
   isOwned?: () => boolean
+  deleteSessionFails?: unknown
 }): Harness {
   const storage = new Map<string, string>()
   const recent: string[] = []
   const created: string[] = []
   const restored: string[] = []
+  const deleted: string[] = []
   const snapshots: Record<string, () => Promise<StudioSessionSnapshot>> = { ...options?.snapshots }
 
   const deps: StudioCinemaSessionGatewayDependencies = {
@@ -84,6 +87,13 @@ function createHarness(options?: {
         restored.push(sessionId)
         const respond = snapshots[sessionId]
         return respond ? respond() : Promise.resolve(snapshotOf(sessionId))
+      },
+      deleteSession: (sessionId) => {
+        deleted.push(sessionId)
+        if (options?.deleteSessionFails) {
+          return Promise.reject(options.deleteSessionFails)
+        }
+        return Promise.resolve(true)
       },
     },
     storage: {
@@ -121,6 +131,7 @@ function createHarness(options?: {
     recent,
     created,
     restored,
+    deleted,
     setSnapshot: (sessionId, response) => {
       snapshots[sessionId] = response
     },
@@ -303,6 +314,23 @@ describe('cinema session gateway', () => {
     expect(harness.gateway.forget('manim', 'session_old')).toBe(false)
     expect(harness.recent).toEqual(['session_old'])
     expect(harness.storage.size).toBe(0)
+  })
+
+  it('deletes on the server before forgetting the entry, and keeps the entry when the request fails', async () => {
+    const harness = createHarness()
+    harness.recent.push('session_gone')
+
+    // The server call is what makes the deletion real; the local entry only goes after it succeeded.
+    await expect(harness.gateway.delete('manim', 'session_gone')).resolves.toBe(true)
+    expect(harness.deleted).toEqual(['session_gone'])
+    expect(harness.recent).toEqual([])
+
+    const offline = createHarness({ deleteSessionFails: new TypeError('Failed to fetch') })
+    offline.recent.push('session_kept')
+
+    // A failed request is not a deleted Session: the entry survives, so the user can try again.
+    await expect(offline.gateway.delete('manim', 'session_kept')).resolves.toBe(false)
+    expect(offline.recent).toEqual(['session_kept'])
   })
 
   it('stops a restore sweep whose owner detached while it was reading', async () => {

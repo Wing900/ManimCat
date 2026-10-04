@@ -284,6 +284,12 @@ select option:checked {
 @keyframes studio-rise-in { from { opacity: 0; transform: translateY(6px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes studio-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes studio-pop-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+/* Modal panels: the all-Scenes grid and the delete question. Slower and more decelerating than a
+   pop-in — a dialog that arrives as fast as a chip reads as a glitch, and the extra 100ms is what
+   makes the arrival feel placed rather than switched on. The exit keeps the shared exit curve, so
+   leaving still reads as leaving. */
+@keyframes studio-sheet-in { from { opacity: 0; transform: translateY(-8px) scale(0.965); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes studio-sheet-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-6px) scale(0.98); } }
 @keyframes studio-media-in { from { opacity: 0; transform: scale(0.965); } to { opacity: 1; transform: scale(1); } }
 @keyframes studio-slide-in-right { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes studio-slide-out-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(28px); } }
@@ -295,6 +301,8 @@ select option:checked {
 .studio-rise-in { animation: studio-rise-in 0.26s var(--ease-enter) both; }
 .studio-pop-in { animation: studio-pop-in 0.2s var(--ease-enter) both; }
 .studio-pop-out { animation: studio-pop-out 0.15s var(--ease-exit) both; }
+.studio-sheet-in { animation: studio-sheet-in 0.3s var(--ease-move) both; }
+.studio-sheet-out { animation: studio-sheet-out 0.2s var(--ease-exit) both; }
 .studio-media-in { animation: studio-media-in 0.42s var(--ease-enter) both; }
 
 /* 屏幕里的占位字：短而柔的浮现。不能拉长——换 state 时旧字立刻卸载，这段长度就是“黑底无字”的长度。 */
@@ -366,6 +374,7 @@ select option:checked {
 
 @media (prefers-reduced-motion: reduce) {
   .studio-fade-in, .studio-fade-out, .studio-rise-in, .studio-pop-in, .studio-pop-out,
+  .studio-sheet-in, .studio-sheet-out,
   .studio-media-in, .studio-slide-in-right, .studio-slide-out-right,
   .studio-slide-in-left, .studio-slide-out-left { animation: none !important; }
   .studio-collapse { transition: none !important; }
@@ -688,5 +697,7 @@ select option:checked {
   .studio-fade-in,
   .studio-fade-out,
   .studio-pop-in,
-  .studio-pop-out { animation: none !important; transition: none !important; }
+  .studio-pop-out,
+  .studio-sheet-in,
+  .studio-sheet-out { animation: none !important; transition: none !important; }
 }

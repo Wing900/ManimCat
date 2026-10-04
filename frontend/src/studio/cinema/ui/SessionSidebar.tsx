@@ -115,7 +115,9 @@ export function SessionSidebar({
   }, [deleteOpen])
 
   // The row leaves the screen before the list is told it is gone: it fades and collapses its own height,
-  // so the rows below close the gap with the same motion instead of jumping into it.
+  // so the rows below close the gap with the same motion instead of jumping into it. The delete itself is
+  // asked for immediately — waiting out the exit would only add the two delays together — and the list
+  // stays untouched until it answers, so a refused delete simply brings the row back.
   const confirmDelete = () => {
     const request = deleteRequest
     setDeleteOpen(false)
@@ -123,10 +125,10 @@ export function SessionSidebar({
       return
     }
     setRemovingId(request.sessionId)
+    void onDeleteSession(request.sessionId)
     removeTimerRef.current = window.setTimeout(() => {
       removeTimerRef.current = null
       setRemovingId(null)
-      onDeleteSession(request.sessionId)
     }, ROW_REMOVE_MS)
   }
 
@@ -314,7 +316,7 @@ export function SessionSidebar({
         >
           <div
             data-testid="session-delete-dialog"
-            className={`${deleteOpen ? 'studio-pop-in' : 'studio-pop-out'} w-full max-w-sm rounded-2xl border border-black/10 bg-bg-primary p-5 shadow-2xl dark:border-white/15`}
+            className={`${deleteOpen ? 'studio-sheet-in' : 'studio-sheet-out'} w-full max-w-sm rounded-2xl border border-black/10 bg-bg-primary p-5 shadow-2xl dark:border-white/15`}
             onClick={(event) => event.stopPropagation()}
           >
             <h2 className="text-base font-medium text-text-primary/85">

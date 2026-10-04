@@ -1,4 +1,4 @@
-import { getStudioAuthHeaders, studioRequest } from './client'
+import { StudioApiRequestError, getStudioAuthHeaders, studioRequest } from './client'
 import type {
   StudioCreateRunInput,
   StudioCreateSceneRunInput,
@@ -58,6 +58,30 @@ export async function getStudioSessionSnapshot(
     headers: getStudioAuthHeaders(),
     signal: options?.signal,
   })
+}
+
+/**
+ * Delete one Session and everything that points at it (the schema cascades: Scenes, messages, parts,
+ * Runs, renders, session events). An answer of `NOT_FOUND` means the Session is already gone for this
+ * owner, which is the outcome the caller wanted, so it resolves `true` too and a stale local id can
+ * still be forgotten. Any other failure rejects, and the caller keeps its entry.
+ */
+export async function deleteStudioSession(sessionId: string): Promise<boolean> {
+  try {
+    const data = await studioRequest<{ deleted: boolean }>(
+      `/sessions/${encodeURIComponent(sessionId)}`,
+      {
+        method: 'DELETE',
+        headers: getStudioAuthHeaders('application/json'),
+      },
+    )
+    return data.deleted === true
+  } catch (error) {
+    if (error instanceof StudioApiRequestError && error.code === 'NOT_FOUND') {
+      return true
+    }
+    throw error
+  }
 }
 
 /**

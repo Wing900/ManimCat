@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import type { StudioKind } from '../../protocol/studio-agent-types'
+import { CloseIcon } from './CinemaIcons'
 import { cinemaUnitKey } from './cinema-copy'
 import { readStudioCinemaSceneStatusKey } from './cinema-labels'
 import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
@@ -66,19 +67,19 @@ export function ScenePicker({ entries, studioKind, onSelect, onClose, exiting = 
     >
       <div
         className={`${
-          exiting ? 'studio-pop-out' : 'studio-pop-in'
+          exiting ? 'studio-sheet-out' : 'studio-sheet-in'
         } flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/10 bg-bg-primary shadow-2xl dark:border-white/15`}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-black/5 px-4 py-3 dark:border-white/10">
+        <header className="flex items-center justify-between px-4 py-3">
           <h2 className="text-base font-medium text-text-primary/85">{t(cinemaUnitKey(studioKind, 'scenePickerLabel'))}</h2>
           <button
             type="button"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             aria-label={t('studio.cinema.scenePickerClose')}
             onClick={onClose}
           >
-            {t('studio.cinema.scenePickerClose')}
+            <CloseIcon />
           </button>
         </header>
         <ul className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">

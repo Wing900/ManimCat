@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   createStudioSession,
+  deleteStudioSession,
   getStudioSessionSnapshot,
 } from '../../api/studio-agent-api'
 import type { StudioKind, StudioSession } from '../../protocol/studio-agent-types'
@@ -59,8 +60,12 @@ export interface UseStudioCinemaSessionResult {
   createNewSession: () => void
   retry: () => void
   selectSession: (sessionId: string) => void
-  /** Deletes a history entry; `false` when the write was refused (a detached binding). */
-  forgetSession: (sessionId: string) => boolean
+  /**
+   * Deletes one Session (server first, then the local entry) and moves the workspace on if it was the
+   * one on screen. `false` means nothing was removed: the request failed, or the write was refused by a
+   * detached binding.
+   */
+  forgetSession: (sessionId: string) => Promise<boolean>
 }
 
 export interface UseStudioCinemaSessionInput {
@@ -97,6 +102,7 @@ function createDefaultDependencies(
     api: {
       createSession: (input) => createStudioSession(input),
       getSessionSnapshot: (sessionId, options) => getStudioSessionSnapshot(sessionId, options),
+      deleteSession: (sessionId) => deleteStudioSession(sessionId),
     },
     createAbortController: () => new AbortController(),
     projectId: STUDIO_CINEMA_SESSION_PROJECT_ID,
@@ -258,8 +264,8 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
      * is opened, and a history that ran out creates a new Session, exactly as an attach would.
      */
     forgetSession: useCallback(
-      (sessionId: string) => {
-        const forgotten = gateway.forget(studioKind, sessionId)
+      async (sessionId: string) => {
+        const forgotten = await gateway.delete(studioKind, sessionId)
         if (!forgotten) {
           return false
         }

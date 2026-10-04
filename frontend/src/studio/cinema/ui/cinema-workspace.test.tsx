@@ -90,6 +90,7 @@ interface WorkspaceHarness {
   /** The recent Session list, in the order the sidebar renders it (newest first). */
   history: string[]
   forgotten: string[]
+  deleted: string[]
   selectionStore: TestSceneSelectionStore
   /** Unresolved Session reads of the gateway, in arrival order (only while deferring). */
   gatewayReads: Array<Deferred<StudioSessionSnapshot>>
@@ -121,6 +122,7 @@ function createHarness(options?: {
   const history = options?.history ?? []
   const storage = new Map<string, string>()
   const forgotten: string[] = []
+  const deleted: string[] = []
   const createSceneCalls: string[] = []
   const createSceneRunCalls: Array<{ sessionId: string; sceneId: string }> = []
   const cancelRunCalls: string[] = []
@@ -193,6 +195,10 @@ function createHarness(options?: {
           return control.promise
         }
         return Promise.resolve(buildSessionSnapshot(sessionId))
+      },
+      deleteSession: (sessionId) => {
+        deleted.push(sessionId)
+        return Promise.resolve(true)
       },
     },
     storage: {
@@ -323,6 +329,7 @@ function createHarness(options?: {
     storage,
     history,
     forgotten,
+    deleted,
     selectionStore,
     gatewayReads,
     indexReads,
@@ -518,6 +525,7 @@ describe('cinema workspace', () => {
       api: {
         createSession: () => Promise.reject(new Error('must not create')),
         getSessionSnapshot: () => Promise.reject(new TypeError('Failed to fetch')),
+        deleteSession: () => Promise.reject(new TypeError('Failed to fetch')),
       },
     }
 
@@ -830,6 +838,8 @@ describe('cinema workspace', () => {
     fireEvent.click(within(document.querySelector(`[data-session-id="${other}"]`) as HTMLElement).getByRole('button', { name: /删除对话|Delete session/ }))
     fireEvent.click(screen.getByRole('button', { name: /^(删除|Delete)$/ }))
     await waitFor(() => expect(harness.forgotten).toEqual([other]))
+    // The delete is real: the gateway asked the server first, and only then dropped the local entry.
+    expect(harness.deleted).toEqual([other])
 
     // The row is gone; the Session that was on screen was not touched by it…
     expect(document.querySelector(`[data-session-id="${other}"]`)).toBeNull()

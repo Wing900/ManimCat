@@ -515,13 +515,14 @@ export function ManimCinemaWorkspace({
             intentRef.current = { kind: 'session', sessionId }
             session.selectSession(sessionId)
           }}
-          onDeleteSession={(sessionId) => {
+          onDeleteSession={async (sessionId) => {
             // Deleting the Session that is on screen moves the stage to the one that takes its place: that
             // is also a switch the user asked for, so it gets the same card motion.
             if (sessionId === state.session.id) {
               intentRef.current = { kind: 'new-session', from: state.session.id }
             }
-            if (session.forgetSession(sessionId)) {
+            // The server removes it first; only a real delete touches the local list.
+            if (await session.forgetSession(sessionId)) {
               // The stored Scene choice of a Session that is gone goes with it.
               selectionStore.write(studioKind, sessionId, null)
             }
