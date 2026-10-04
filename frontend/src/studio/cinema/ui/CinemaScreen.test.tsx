@@ -10,7 +10,6 @@ function renderScreen(overrides: Partial<CinemaScreenProps> = {}) {
     sceneIndex: 0,
     playableUrl: 'scene-result.mp4',
     mediaKind: 'video',
-    hasNewerWorkBehindResult: false,
     refreshPausedReasonKey: null,
     onResumeRefresh: () => {},
     onReconcile: () => {},

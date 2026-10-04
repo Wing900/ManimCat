@@ -1149,8 +1149,11 @@ describe('cinema workspace', () => {
     await renderWorkspace(harness)
     await flush()
 
-    expect(document.querySelector('video')).not.toBeNull()
-    expect(screen.getByText('A new video is rendering; below is the previous success')).toBeInTheDocument()
+    // The screen plays the finished render, and the queued one behind it changes nothing yet: the
+    // stage shows the result that exists, with no sentence explaining it.
+    const video = document.querySelector('video')
+    expect(video).not.toBeNull()
+    expect(video?.getAttribute('src')).toContain('job-done.mp4')
   })
 
   it('sends with Enter, keeps Shift+Enter for a newline and ignores an IME Enter', async () => {

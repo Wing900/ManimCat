@@ -144,36 +144,33 @@ export function LogoUsagePopover({ studioKind, usage, sentRounds, sceneLabel }: 
           inert={open ? undefined : true}
           className={`${
             open ? 'studio-pop-in' : 'studio-pop-out'
-          } absolute left-0 top-full z-30 mt-2 w-64 origin-top-left rounded-xl border border-black/10 bg-bg-primary p-3 shadow-xl dark:border-white/15`}
+          } absolute left-0 top-full z-30 mt-2 w-48 origin-top-left rounded-xl border border-black/10 bg-bg-primary p-3 dark:border-white/15`}
           onMouseEnter={cancelCloseTimer}
           onMouseLeave={scheduleClose}
         >
-          <div className="mb-2 border-b border-black/5 pb-1.5 dark:border-white/10">
-            <p className="text-sm uppercase tracking-wide text-text-secondary/50">{t(cinemaUnitKey(studioKind, 'logoUsageScope'))}</p>
-            <p className="truncate text-base font-medium text-text-primary/85">{sceneLabel}</p>
-          </div>
+          {/* The Scene name is the title. An uppercase "current scene" line above it says the same
+              thing twice, and a divider between two short lines is decoration, not structure. */}
+          <p className="mb-2 truncate text-base font-medium text-text-primary/85">{sceneLabel}</p>
 
-          <dl className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-sm text-text-secondary/70">{t('studio.cinema.logoUsageRounds')}</dt>
-              <dd className="text-base text-text-primary/85">{sentRounds}</dd>
+          <dl className="space-y-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-sm text-text-secondary/55">{t('studio.cinema.logoUsageRounds')}</dt>
+              <dd className="text-sm tabular-nums text-text-primary/85">{sentRounds}</dd>
             </div>
             {usage && allUnmeasured ? (
-              <div className="text-sm text-text-secondary/70">{t('studio.tokens.unmeasured')}</div>
+              <div className="text-sm text-text-secondary/55">{t('studio.tokens.unmeasured')}</div>
             ) : usage ? (
               <>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-sm text-text-secondary/70">{t('studio.tokens.input')}</dt>
-                  <dd className="text-base text-text-primary/85">{formatStudioTokenCount(usage.promptTokens)}</dd>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-sm text-text-secondary/55">{t('studio.tokens.input')}</dt>
+                  <dd className="text-sm tabular-nums text-text-primary/85">{formatStudioTokenCount(usage.promptTokens)}</dd>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-sm text-text-secondary/70">{t('studio.tokens.output')}</dt>
-                  <dd className="text-base text-text-primary/85">{formatStudioTokenCount(usage.completionTokens)}</dd>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-sm text-text-secondary/55">{t('studio.tokens.output')}</dt>
+                  <dd className="text-sm tabular-nums text-text-primary/85">{formatStudioTokenCount(usage.completionTokens)}</dd>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-sm text-text-secondary/70">{t('studio.tokens.total')}</dt>
-                  <dd className="text-base font-medium text-text-primary/85">{formatStudioTokenCount(usage.totalTokens)}</dd>
-                </div>
+                {/* No total row: it is the sum of the two above, so it is a number the reader can
+                    derive, and a third row only makes a three-number card look like a table. */}
               </>
             ) : (
               <div className="text-sm text-text-secondary/55">{t('studio.cinema.logoUsageNoData')}</div>
@@ -181,7 +178,7 @@ export function LogoUsagePopover({ studioKind, usage, sentRounds, sceneLabel }: 
           </dl>
 
           {usage && !allUnmeasured ? (
-            <p className="mt-2 text-sm text-text-secondary/55">
+            <p className="mt-2 text-sm text-text-secondary/50">
               {partial ? t('studio.cinema.logoUsagePartial') : t('studio.cinema.logoUsageMeasured')}
             </p>
           ) : null}

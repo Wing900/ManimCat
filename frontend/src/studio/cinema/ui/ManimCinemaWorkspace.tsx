@@ -451,10 +451,6 @@ export function ManimCinemaWorkspace({
               sceneIndex={Math.max(0, cardSceneIndex)}
               playableUrl={cardView?.display.playableUrl ?? null}
               mediaKind={cardView?.display.mediaKind ?? null}
-              hasNewerWorkBehindResult={
-                cardScreenState === 'playable' &&
-                (cardView?.activeRender !== null || cardView?.userStatus.kind === 'failed')
-              }
               refreshPausedReasonKey={
                 cardView?.renderRefresh.pauseReason === 'failures'
                   ? 'studio.cinema.renderRefreshPausedFailures'

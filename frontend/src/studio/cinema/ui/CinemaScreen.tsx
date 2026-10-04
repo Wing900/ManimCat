@@ -30,8 +30,6 @@ export interface CinemaScreenProps {
   sceneIndex: number
   playableUrl: string | null
   mediaKind: 'video' | 'image' | null
-  /** True when a newer render is still running behind an already playable result. */
-  hasNewerWorkBehindResult: boolean
   refreshPausedReasonKey: TranslationKey | null
   onResumeRefresh: () => void
   onReconcile: () => void
@@ -64,7 +62,6 @@ export function CinemaScreen({
   sceneIndex,
   playableUrl,
   mediaKind,
-  hasNewerWorkBehindResult,
   refreshPausedReasonKey,
   onResumeRefresh,
   onReconcile,
@@ -92,7 +89,6 @@ export function CinemaScreen({
   // locator existing and its pixels arriving. Every ink below follows that surface: light ink on the
   // dark stage, theme ink once the media sits on the page.
   const onDarkStage = state !== 'playable' || !mediaReady
-  const chipInk = onDarkStage ? 'bg-white/10 text-white/85' : 'bg-bg-tertiary/50 text-text-secondary'
   const chipButtonInk = onDarkStage
     ? 'bg-white/10 text-white/90 hover:bg-white/20'
     : 'bg-bg-tertiary/60 text-text-secondary hover:bg-bg-tertiary'
@@ -185,11 +181,6 @@ export function CinemaScreen({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
-        {hasNewerWorkBehindResult ? (
-          <span className={`studio-pop-in rounded-full px-2 py-0.5 text-sm ${chipInk}`}>
-            {t('studio.cinema.screenNewerWorkBehind')}
-          </span>
-        ) : null}
         {state === 'failed' || state === 'media_gap' ? (
           <button
             type="button"
