@@ -48,6 +48,8 @@ import { useStudioCinemaSceneSelection } from './use-studio-cinema-scene-selecti
 export interface ManimCinemaWorkspaceProps {
   onExit: () => void
   isExiting?: boolean
+  /** The concept text the user typed on the home page; seeded into the first scene's draft on entry. */
+  concept?: string
   /** Test seam: partial overrides of the Session gateway (API and storage). */
   sessionOverrides?: Partial<StudioCinemaSessionGatewayDependencies>
   /** Test seam: partial overrides of the Scene controller dependencies. */
@@ -97,6 +99,7 @@ function readSessionFailureKey(failure: StudioCinemaSessionFailure | null): Tran
 export function ManimCinemaWorkspace({
   onExit,
   isExiting = false,
+  concept,
   sessionOverrides,
   controllerOverrides,
   sceneSelectionStore,
@@ -118,6 +121,22 @@ export function ManimCinemaWorkspace({
   const [isDesktopViewport, setIsDesktopViewport] = useState(readInitialDesktopViewport)
   const catButtonRef = useRef<HTMLButtonElement | null>(null)
   const initializedSessionRef = useRef<string | null>(null)
+
+  // Carry the home-page concept into the first Scene's draft, once. Only seeds an empty draft, so a
+  // restored Session (which already has its own draft) or a user edit is never overwritten.
+  const conceptSeededRef = useRef(false)
+  useEffect(() => {
+    if (conceptSeededRef.current) return
+    if (!concept || concept.trim().length === 0) return
+    const sceneId = state.selectedSceneId
+    if (!sceneId) return
+    const scene = state.scenes[sceneId]
+    if (!scene) return
+    conceptSeededRef.current = true
+    if (!scene.draft || scene.draft.trim().length === 0) {
+      controller.setDraft(sceneId, concept)
+    }
+  }, [concept, state.selectedSceneId, state.scenes, controller])
 
   // One matchMedia listener (not a window resize listener) tracks whether the history panel renders
   // as an in-flow sidebar (lg+) or a modal overlay (below lg). Doc §8: semantics match the layout.
@@ -292,7 +311,7 @@ export function ManimCinemaWorkspace({
           className="relative flex min-w-0 flex-1 flex-col"
           inert={historyOpen && !isDesktopViewport ? true : undefined}
         >
-          <header className="flex items-center gap-2 px-3 py-2">
+          <header data-assemble="header" className="flex items-center gap-2 px-3 py-2">
             <h1 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">
               {t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
             </h1>
@@ -349,23 +368,25 @@ export function ManimCinemaWorkspace({
             </div>
           ) : null}
 
-          <SceneStrip
-            entries={index}
-            mutationPending={state.sceneMutationPending || !identityReady}
-            panelId={SCENE_PANEL_ID}
-            onSelect={(sceneId) => {
-              if (sceneId !== state.selectedSceneId) {
-                controller.selectScene(sceneId)
-              }
-            }}
-            onAppend={() => {
-              if (identityReady) {
-                void controller.appendScene()
-              }
-            }}
-          />
+          <div data-assemble="strip">
+            <SceneStrip
+              entries={index}
+              mutationPending={state.sceneMutationPending || !identityReady}
+              panelId={SCENE_PANEL_ID}
+              onSelect={(sceneId) => {
+                if (sceneId !== state.selectedSceneId) {
+                  controller.selectScene(sceneId)
+                }
+              }}
+              onAppend={() => {
+                if (identityReady) {
+                  void controller.appendScene()
+                }
+              }}
+            />
+          </div>
 
-          <div className="relative flex min-h-0 flex-1 flex-col">
+          <div data-assemble="stage" className="relative flex min-h-0 flex-1 flex-col">
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-3 sm:px-20 lg:px-32">
             <div
               className="relative flex min-h-0 w-full flex-1 items-center justify-center"
@@ -428,7 +449,7 @@ export function ManimCinemaWorkspace({
             </div>
           </div>
 
-          <div className="relative px-3 pb-16 sm:px-20 sm:pb-4 lg:px-32">
+          <div data-assemble="composer" className="relative px-3 pb-16 sm:px-20 sm:pb-4 lg:px-32">
           {/* The cat stands at the bottom-right, under the video — never at its left or right flank. From sm
               up the wrapper's padding already clears the input box; on phones (full-width input) the band
               reserves bottom room so the cat drops below the input instead of sitting on it. */}

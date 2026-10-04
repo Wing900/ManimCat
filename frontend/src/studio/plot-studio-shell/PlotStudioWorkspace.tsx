@@ -28,7 +28,7 @@ export function PlotStudioWorkspace({
         onSelectRender={shell.setSelectedRenderId}
       />
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col px-6 pb-6 md:px-10">
+      <div data-assemble="stage" className="relative flex min-h-0 min-w-0 flex-1 flex-col px-6 pb-6 md:px-10">
         <StudioCommandPanel
           ref={commandPanelRef}
           session={shell.studio.session}

@@ -14,12 +14,18 @@ import { StudioPage } from './pages/StudioPage';
 import { Game2048Page } from './pages/Game2048Page';
 import { PlotStudioShell } from './studio/PlotStudioShell';
 import { StudioShell } from './studio/StudioShell';
-import { StudioTransitionOverlay } from './studio/StudioTransitionOverlay';
 
 type Screen = 'classic' | 'manim-studio' | 'plot-studio' | 'game';
 
-const STUDIO_TRANSITION_MS = 2000;
-const STUDIO_EXIT_DELAY_MS = 800;
+const PAGE_ENTRY_MS = 700
+const PAGE_SLIDE_MS = 400
+
+function readPrefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false
+  }
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 function createClassicRenderCacheKey(): string {
   return `classic-${crypto.randomUUID()}`;
@@ -40,13 +46,11 @@ function App() {
   const [concept, setConcept] = useState('');
   const [lastCompletedResult, setLastCompletedResult] = useState<JobResult | null>(null);
   const [screen, setScreen] = useState<Screen>('classic');
+  const [exitSliding, setExitSliding] = useState(false);
   const [activeStudioKind, setActiveStudioKind] = useState<StudioKind>('manim');
-  const [studioTransitionVisible, setStudioTransitionVisible] = useState(false);
-  const [studioIsExiting, setStudioIsExiting] = useState(false);
-  const [studioShellExiting, setStudioShellExiting] = useState(false);
-  const [isReturningFromStudio, setIsReturningFromStudio] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const transitionTimerRef = useRef<number | null>(null);
   const [problemAdjustment, setProblemAdjustment] = useState('');
-  const studioTransitionTimerRef = useRef<number | null>(null);
   const [lastRequest, setLastRequest] = useState<{
     concept: string;
     quality: Quality;
@@ -57,8 +61,8 @@ function App() {
 
   useEffect(() => {
     return () => {
-      if (studioTransitionTimerRef.current) {
-        window.clearTimeout(studioTransitionTimerRef.current);
+      if (transitionTimerRef.current) {
+        window.clearTimeout(transitionTimerRef.current);
       }
     };
   }, []);
@@ -78,66 +82,56 @@ function App() {
     setLastCompletedResult(null);
     setScreen('classic');
     setActiveStudioKind('manim');
-    setStudioTransitionVisible(false);
-    setStudioIsExiting(false);
-    setStudioShellExiting(false);
+    setEntering(false);
     setProblemAdjustment('');
-    if (studioTransitionTimerRef.current) {
-      window.clearTimeout(studioTransitionTimerRef.current);
-      studioTransitionTimerRef.current = null;
+    if (transitionTimerRef.current) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
     }
     problemFraming.reset();
   };
 
   const handleOpenStudio = (studioKind: StudioKind) => {
-    if (studioTransitionVisible || screen === 'manim-studio' || screen === 'plot-studio') {
+    if (entering || exitSliding || screen === 'manim-studio' || screen === 'plot-studio') {
       return;
     }
 
     setActiveStudioKind(studioKind);
-    setStudioIsExiting(false);
-    setStudioShellExiting(false);
-    setStudioTransitionVisible(true);
-    
-    studioTransitionTimerRef.current = window.setTimeout(() => {
-      setConcept('');
-      setScreen(studioKind === 'plot' ? 'plot-studio' : 'manim-studio');
-      
-      studioTransitionTimerRef.current = window.setTimeout(() => {
-        setStudioIsExiting(true);
-        
-        studioTransitionTimerRef.current = window.setTimeout(() => {
-          setStudioTransitionVisible(false);
-          setStudioIsExiting(false);
-          studioTransitionTimerRef.current = null;
-        }, STUDIO_EXIT_DELAY_MS);
-      }, 300);
-    }, STUDIO_TRANSITION_MS);
+    const target = studioKind === 'plot' ? 'plot-studio' : 'manim-studio';
+
+    if (readPrefersReducedMotion()) {
+      setScreen(target);
+      return;
+    }
+
+    // The studio mounts immediately and its parts assemble in a stagger (see `data-assemble` in
+    // index.css); the home fades out underneath. What actually needs waiting stays local to the stage.
+    setEntering(true);
+    setScreen(target);
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = window.setTimeout(() => {
+      setEntering(false);
+      transitionTimerRef.current = null;
+    }, PAGE_ENTRY_MS);
   };
 
   const handleExitStudio = () => {
-    if (studioTransitionVisible) return;
+    if (entering || exitSliding) return;
 
-    setStudioIsExiting(false);
-    setStudioShellExiting(true); // Studio 界面开始退场动画
-    setStudioTransitionVisible(true); // 遮罩开始升起
-
-    studioTransitionTimerRef.current = window.setTimeout(() => {
+    if (readPrefersReducedMotion()) {
       setScreen('classic');
-      setStudioShellExiting(false);
-      setIsReturningFromStudio(true); // 开启 Classic 入场动画
-      
-      studioTransitionTimerRef.current = window.setTimeout(() => {
-        setStudioIsExiting(true);
-        
-        studioTransitionTimerRef.current = window.setTimeout(() => {
-          setStudioTransitionVisible(false);
-          setStudioIsExiting(false);
-          setIsReturningFromStudio(false);
-          studioTransitionTimerRef.current = null;
-        }, STUDIO_EXIT_DELAY_MS);
-      }, 300);
-    }, STUDIO_TRANSITION_MS);
+      return;
+    }
+
+    // Exit has nothing to wait for: a horizontal slide (iOS pop) — the studio slides right off-screen
+    // while the home slides in from the left. No blur, no hold, no ghost.
+    setExitSliding(true);
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = window.setTimeout(() => {
+      setScreen('classic');
+      setExitSliding(false);
+      transitionTimerRef.current = null;
+    }, PAGE_SLIDE_MS);
   };
 
   const handleSubmit = (data: {
@@ -231,10 +225,10 @@ function App() {
   const isBusy = status === 'processing' || status === 'cancelling';
   const displayResult = result ?? lastCompletedResult;
 
-  return (
-    <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
-      {screen === 'classic' ? (
-        <div className={isReturningFromStudio ? 'animate-classic-entrance' : ''}>
+  const renderScreen = (name: Screen) => {
+    if (name === 'classic') {
+      return (
+        <div>
           <StudioPage
             status={status}
             result={displayResult}
@@ -273,34 +267,60 @@ function App() {
             onProblemGenerate={handleProblemGenerate}
           />
         </div>
-      ) : screen === 'manim-studio' ? (
+      );
+    }
+    if (name === 'manim-studio') {
+      return (
         <StudioShell
           onExit={handleExitStudio}
-          isExiting={studioShellExiting}
           studioKind={activeStudioKind}
+          concept={concept}
         />
-      ) : screen === 'plot-studio' ? (
-        <PlotStudioShell
-          onExit={handleExitStudio}
-          isExiting={studioShellExiting}
-        />
-      ) : (
-        <Game2048Page
-          board={game.board}
-          score={game.score}
-          bestScore={game.bestScore}
-          isGameOver={game.isGameOver}
-          hasWon={game.hasWon}
-          maxTile={game.maxTile}
-          generationStatus={status}
-          generationStage={stage}
-          onMove={game.move}
-          onRestart={game.restart}
-          onBackToStudio={() => setScreen('classic')}
-        />
-      )}
+      );
+    }
+    if (name === 'plot-studio') {
+      return <PlotStudioShell onExit={handleExitStudio} />;
+    }
+    return (
+      <Game2048Page
+        board={game.board}
+        score={game.score}
+        bestScore={game.bestScore}
+        isGameOver={game.isGameOver}
+        hasWon={game.hasWon}
+        maxTile={game.maxTile}
+        generationStatus={status}
+        generationStage={stage}
+        onMove={game.move}
+        onRestart={game.restart}
+        onBackToStudio={() => setScreen('classic')}
+      />
+    );
+  };
 
-      <StudioTransitionOverlay visible={studioTransitionVisible} isExiting={studioIsExiting} />
+  return (
+    <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
+      {exitSliding && (
+        <div className="fixed inset-0 z-[90] overflow-hidden">
+          <div className="absolute inset-0 page-slide-in">{renderScreen('classic')}</div>
+        </div>
+      )}
+      {entering && screen !== 'classic' && (
+        <div className="pointer-events-none fixed inset-0 z-[80] page-home-leave">
+          {renderScreen('classic')}
+        </div>
+      )}
+      <div
+        className={
+          exitSliding
+            ? 'relative z-[95] page-slide-out'
+            : entering
+              ? 'relative z-[82] page-assemble'
+              : ''
+        }
+      >
+        {renderScreen(screen)}
+      </div>
 
       <style>{`
         @keyframes fadeInUp {

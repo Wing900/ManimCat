@@ -61,7 +61,7 @@ export function SessionSidebar({
 
   if (!open) {
     return (
-      <div className="flex w-14 shrink-0 flex-col items-center gap-3 border-r border-black/5 py-3 dark:border-white/10">
+      <div data-assemble="sidebar" className="flex w-14 shrink-0 flex-col items-center gap-3 border-r border-black/5 py-3 dark:border-white/10">
         <ManimCatLogo className="h-9 w-9 rounded-full" />
         <button
           type="button"
@@ -97,6 +97,7 @@ export function SessionSidebar({
         onClick={onToggle}
       />
       <aside
+        data-assemble="sidebar"
         className="absolute inset-y-0 left-0 z-30 flex w-60 shrink-0 flex-col gap-3 border-r border-black/5 bg-bg-primary px-3 py-3 shadow-xl lg:static lg:z-auto lg:bg-transparent lg:shadow-none dark:border-white/10"
         aria-label={t('studio.cinema.sidebarLabel')}
       >
@@ -173,15 +174,16 @@ export function SessionSidebar({
         <p className="text-sm text-text-secondary/55">{t('studio.cinema.sessionLoading')}</p>
       ) : null}
 
-      {/* Back to the home screen: bottom-left corner, icon only, in the home screen's icon style. */}
+      {/* Back to the home screen: bottom-left corner, arrow + 退出 label. */}
       <button
         type="button"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-text-secondary/70 transition-all hover:bg-bg-secondary/50 hover:text-text-secondary active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         aria-label={t('studio.cinema.exit')}
         title={t('studio.cinema.exit')}
         onClick={onExit}
       >
         <ArrowLeftIcon />
+        <span className="text-sm">{t('studio.cinema.exitShort')}</span>
       </button>
       </aside>
     </>

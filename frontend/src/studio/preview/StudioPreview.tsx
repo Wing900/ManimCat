@@ -18,7 +18,7 @@ export function StudioPreview({ session, renders, selectedRenderId, render, late
   const previewAttachment = render?.attachments?.find(isPreviewAttachment) ?? render?.attachments?.[0] ?? null
 
   return (
-    <aside className="flex h-full min-h-0 w-[360px] shrink-0 flex-col gap-6 overflow-hidden px-6 pb-6 pt-8 shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.04)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.2)]">
+    <aside data-assemble="sidebar" className="flex h-full min-h-0 w-[360px] shrink-0 flex-col gap-6 overflow-hidden px-6 pb-6 pt-8 shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.04)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.2)]">
       <div className="shrink-0">
         <div className="flex items-center justify-between">
           <div className="text-[10px] uppercase tracking-[0.34em] text-text-secondary/45">{t('studio.preview')}</div>

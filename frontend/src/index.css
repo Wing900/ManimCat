@@ -187,31 +187,6 @@ select option:checked {
   animation: paw-stamp 1.2s ease-in-out infinite;
 }
 
-@keyframes studio-transition-enter {
-  0% { opacity: 0; backdrop-filter: blur(0px); }
-  100% { opacity: 1; backdrop-filter: blur(12px); }
-}
-
-@keyframes studio-cover-full {
-  0% { opacity: 0; transform: scale(1.05); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes studio-grid-rise {
-  0% { opacity: 0; transform: translateY(20px); }
-  100% { opacity: 0.15; transform: translateY(0); }
-}
-
-@keyframes studio-paw-fall {
-  0% { opacity: 0; transform: translateY(40px) scale(0.85); filter: blur(8px); }
-  100% { opacity: 0.25; transform: translateY(0) scale(1); filter: blur(0px); }
-}
-
-@keyframes studio-line-grow {
-  0% { transform: scaleX(0); opacity: 0; }
-  100% { transform: scaleX(1); opacity: 0.3; }
-}
-
 @keyframes studio-entrance {
   0% { opacity: 0; transform: scale(0.98); filter: blur(12px); }
   100% { opacity: 1; transform: scale(1); filter: blur(0px); }
@@ -245,50 +220,42 @@ select option:checked {
   animation: classic-entrance 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.studio-transition-enter {
-  animation: studio-transition-enter 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* ==========================================================
+   进场：studio 部件错峰组装浮现 + home 淡出退场
+   退出：studio 右滑出 ‖ home 左滑入（iOS pop，无模糊/无等待）
+   ========================================================== */
+@keyframes page-slide-out-right {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+@keyframes page-slide-in-left {
+  0% { transform: translateX(-30%); }
+  100% { transform: translateX(0); }
 }
 
-.studio-transition-exit {
-  animation: studio-transition-enter 0.8s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
+/* Studio 部件错峰组装浮现 */
+@keyframes assemble-slide-left { 0% { transform: translateX(-100%); } 100% { transform: translateX(0); } }
+@keyframes assemble-drop { 0% { opacity: 0; transform: translateY(-6px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes assemble-fade { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes assemble-rise { 0% { opacity: 0; transform: scale(0.97); } 100% { opacity: 1; transform: scale(1); } }
+.page-assemble [data-assemble="sidebar"] { animation: assemble-slide-left 0.48s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.page-assemble [data-assemble="header"] { animation: assemble-drop 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both; }
+.page-assemble [data-assemble="strip"] { animation: assemble-fade 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
+.page-assemble [data-assemble="stage"] { animation: assemble-rise 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
+.page-assemble [data-assemble="composer"] { animation: assemble-fade 0.40s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
+
+/* home 退场覆盖层：淡出 + 微缩，悄悄退到 studio 组装之下 */
+@keyframes home-leave { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.985); } }
+.page-home-leave { animation: home-leave 0.32s ease both; }
+
+/* 退出滑动（iOS pop）：studio 右滑出，home 左滑入 */
+.page-slide-out { animation: page-slide-out-right 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; will-change: transform; }
+.page-slide-in { animation: page-slide-in-left 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-slide-in, .page-slide-out, .page-assemble [data-assemble], .page-home-leave { animation: none !important; }
 }
 
-.studio-cover-full {
-  animation: studio-cover-full 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.studio-cover-full-exit {
-  animation: studio-cover-full 0.8s cubic-bezier(0.16, 1, 0.3, 1) reverse forwards;
-}
-
-.studio-transition-grid {
-  background-image:
-    linear-gradient(rgba(var(--border-rgb), 0.2) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--border-rgb), 0.2) 1px, transparent 1px);
-  background-size: 120px 120px;
-  mask-image: radial-gradient(circle at center, black, transparent 75%);
-  animation: studio-grid-rise 2s ease-out forwards;
-}
-
-.studio-paw-print {
-  opacity: 0;
-  transform-origin: center;
-  animation: studio-paw-fall 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.studio-paw-print-1 { animation-delay: 0.4s; }
-.studio-paw-print-2 { animation-delay: 0.6s; }
-.studio-paw-print-3 { animation-delay: 0.8s; }
-
-.studio-transition-line {
-  opacity: 0;
-  animation: studio-line-grow 1.2s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards;
-}
-
-/* 移除 sweep 扫光，改为更高级的平滑渐变 */
-.studio-transition-sweep {
-  display: none;
-}
 
 /* Studio 终端光标闪烁 */
 @keyframes blink-cursor {

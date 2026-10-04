@@ -9,7 +9,7 @@ export function PlotStudioShellHeader({ onExitClick }: PlotStudioShellHeaderProp
   const { t } = useI18n()
 
   return (
-    <header className="mb-10 flex shrink-0 items-center justify-between gap-6 md:mb-12">
+    <header data-assemble="header" className="mb-10 flex shrink-0 items-center justify-between gap-6 md:mb-12">
       <div className="flex min-w-0 items-center gap-4 sm:gap-6">
         <ManimCatLogo className="h-8 w-8 shrink-0 opacity-80 mix-blend-multiply dark:mix-blend-normal sm:h-9 sm:w-9" />
         <div className="flex min-w-0 items-baseline gap-4 sm:gap-6">

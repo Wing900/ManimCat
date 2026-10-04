@@ -11,6 +11,7 @@ interface StudioShellProps {
   onExit: () => void
   isExiting?: boolean
   studioKind?: StudioKind
+  concept?: string
 }
 
 /**
@@ -21,9 +22,9 @@ interface StudioShellProps {
  * existing Plot Studio or the legacy components is removed by this task. The props contract is
  * unchanged, which is why the App entry needs no edit.
  */
-export function StudioShell({ onExit, isExiting, studioKind = 'manim' }: StudioShellProps) {
+export function StudioShell({ onExit, isExiting, studioKind = 'manim', concept }: StudioShellProps) {
   if (studioKind !== 'plot') {
-    return <ManimCinemaWorkspace onExit={onExit} isExiting={isExiting} />
+    return <ManimCinemaWorkspace onExit={onExit} isExiting={isExiting} concept={concept} />
   }
 
   return <LegacyStudioShell onExit={onExit} isExiting={isExiting} studioKind={studioKind} />
