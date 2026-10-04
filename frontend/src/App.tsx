@@ -12,7 +12,6 @@ import { ProviderConfigModal } from './components/ProviderConfigModal';
 import { Workspace } from './components/Workspace';
 import { StudioPage } from './pages/StudioPage';
 import { Game2048Page } from './pages/Game2048Page';
-import { PlotStudioShell } from './studio/PlotStudioShell';
 import { StudioShell } from './studio/StudioShell';
 
 type Screen = 'classic' | 'manim-studio' | 'plot-studio' | 'game';
@@ -279,7 +278,7 @@ function App() {
       );
     }
     if (name === 'plot-studio') {
-      return <PlotStudioShell onExit={handleExitStudio} />;
+      return <StudioShell onExit={handleExitStudio} studioKind="plot" concept={concept} />;
     }
     return (
       <Game2048Page

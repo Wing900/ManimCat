@@ -38,6 +38,7 @@ function catInput(
   overrides: Partial<Parameters<typeof readStudioCinemaCatStatus>[0]> = {},
 ): Parameters<typeof readStudioCinemaCatStatus>[0] {
   return {
+    studioKind: 'manim',
     sceneIndex: 0,
     submitting: false,
     hasActiveRun: false,
@@ -145,15 +146,25 @@ describe('cinema display rules', () => {
   })
 
   it('maps every feedback code and submit block reason to a stable local key', () => {
-    expect(readStudioCinemaFeedbackKey('scene_create_failed')).toBe('studio.cinema.feedbackSceneCreateFailed')
-    expect(readStudioCinemaFeedbackKey('stream_resync')).toBe('studio.cinema.feedbackStreamResync')
+    expect(readStudioCinemaFeedbackKey('manim', 'scene_create_failed')).toBe(
+      'studio.cinema.feedbackSceneCreateFailed',
+    )
+    expect(readStudioCinemaFeedbackKey('plot', 'scene_create_failed')).toBe(
+      'studio.cinema.plot.feedbackSceneCreateFailed',
+    )
+    expect(readStudioCinemaFeedbackKey('manim', 'stream_resync')).toBe('studio.cinema.feedbackStreamResync')
     expect(readStudioCinemaFeedbackTone('scene_create_failed')).toBe('error')
     expect(readStudioCinemaFeedbackTone('stream_resync')).toBe('warning')
-    expect(readStudioCinemaSubmitBlockedKey('active_run')).toBe('studio.cinema.submitBlockedActiveRun')
-    expect(readStudioCinemaSubmitBlockedKey('reconciliation')).toBe('studio.cinema.submitBlockedReconciliation')
-    expect(readStudioCinemaSubmitBlockedKey('loading')).toBe('studio.cinema.submitBlockedLoading')
-    expect(readStudioCinemaSubmitBlockedKey('snapshot_failed')).toBe('studio.cinema.submitBlockedSnapshotFailed')
-    expect(readStudioCinemaSubmitBlockedKey('empty_draft')).toBe('studio.cinema.submitBlockedEmptyDraft')
-    expect(readStudioCinemaSubmitBlockedKey('submitting')).toBe('studio.cinema.submitBlockedSubmitting')
+    expect(readStudioCinemaSubmitBlockedKey('manim', 'active_run')).toBe('studio.cinema.submitBlockedActiveRun')
+    expect(readStudioCinemaSubmitBlockedKey('plot', 'active_run')).toBe('studio.cinema.plot.submitBlockedActiveRun')
+    expect(readStudioCinemaSubmitBlockedKey('manim', 'reconciliation')).toBe(
+      'studio.cinema.submitBlockedReconciliation',
+    )
+    expect(readStudioCinemaSubmitBlockedKey('manim', 'loading')).toBe('studio.cinema.submitBlockedLoading')
+    expect(readStudioCinemaSubmitBlockedKey('manim', 'snapshot_failed')).toBe(
+      'studio.cinema.submitBlockedSnapshotFailed',
+    )
+    expect(readStudioCinemaSubmitBlockedKey('manim', 'empty_draft')).toBe('studio.cinema.submitBlockedEmptyDraft')
+    expect(readStudioCinemaSubmitBlockedKey('manim', 'submitting')).toBe('studio.cinema.submitBlockedSubmitting')
   })
 })

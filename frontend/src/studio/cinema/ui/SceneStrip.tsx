@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
+import type { StudioKind } from '../../protocol/studio-agent-types'
+import { cinemaUnitKey } from './cinema-copy'
 import { readStudioCinemaSceneStatusKey } from './cinema-labels'
 import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
 import { ScenePicker } from './ScenePicker'
@@ -25,6 +27,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from './CinemaIcons'
 
 export interface SceneStripProps {
   entries: readonly StudioCinemaSceneIndexEntry[]
+  studioKind: StudioKind
   mutationPending: boolean
   panelId: string
   onSelect: (sceneId: string) => void
@@ -35,7 +38,7 @@ const INLINE_LIMIT = 6
 /** Below this many pixels per Scene the strip collapses even with ≤6 Scenes (narrow viewports). */
 const MIN_PX_PER_SCENE = 90
 
-export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppend }: SceneStripProps) {
+export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSelect, onAppend }: SceneStripProps) {
   const { t } = useI18n()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [availableWidth, setAvailableWidth] = useState(Number.POSITIVE_INFINITY)
@@ -128,7 +131,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
         <button
           type="button"
           className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
-          aria-label={t('studio.cinema.scenePrev')}
+          aria-label={t(cinemaUnitKey(studioKind, 'scenePrev'))}
           disabled={previousEntry === null}
           onClick={() => {
             if (previousEntry) {
@@ -142,7 +145,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
       <div
         className="flex min-w-0 max-w-full items-center justify-center gap-1.5 overflow-x-auto"
         role="tablist"
-        aria-label={t('studio.cinema.sceneStripLabel')}
+        aria-label={t(cinemaUnitKey(studioKind, 'sceneStripLabel'))}
         onKeyDown={handleKeyDown}
       >
         {inlineEntries.map((entry) => {
@@ -163,7 +166,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
               }`}
               onClick={() => onSelect(entry.id)}
             >
-              <span>{t('studio.cinema.sceneLabel', { index: entry.position + 1 })}</span>
+              <span>{t(cinemaUnitKey(studioKind, 'sceneLabel'), { index: entry.position + 1 })}</span>
               <span className="sr-only">{t(statusKey)}</span>
             </button>
           )
@@ -175,7 +178,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
             className="flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             onClick={() => setPickerOpen(true)}
           >
-            {t('studio.cinema.scenePickerAll', { count: entries.length })}
+            {t(cinemaUnitKey(studioKind, 'scenePickerAll'), { count: entries.length })}
           </button>
         ) : null}
       </div>
@@ -184,7 +187,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
         <button
           type="button"
           className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
-          aria-label={t('studio.cinema.sceneNext')}
+          aria-label={t(cinemaUnitKey(studioKind, 'sceneNext'))}
           disabled={nextEntry === null}
           onClick={() => {
             if (nextEntry) {
@@ -199,7 +202,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
       <button
         type="button"
         className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
-        aria-label={t('studio.cinema.sceneAppend')}
+        aria-label={t(cinemaUnitKey(studioKind, 'sceneAppend'))}
         disabled={mutationPending}
         onClick={onAppend}
       >
@@ -209,6 +212,7 @@ export function SceneStrip({ entries, mutationPending, panelId, onSelect, onAppe
       {pickerOpen ? (
         <ScenePicker
           entries={entries}
+          studioKind={studioKind}
           onSelect={(sceneId) => {
             setPickerOpen(false)
             onSelect(sceneId)

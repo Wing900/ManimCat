@@ -67,6 +67,17 @@ export function CloseIcon(props: IconProps) {
   )
 }
 
+/** Attach: an image frame, the composer's "add a reference image" action. */
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="M4 18l5-4.5 3.5 3 3-2.5L20 18" />
+    </svg>
+  )
+}
+
 /** Send: an up arrow, the composer's primary action. */
 export function SendIcon(props: IconProps) {
   return (

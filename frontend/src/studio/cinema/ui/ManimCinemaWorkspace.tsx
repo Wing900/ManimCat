@@ -8,6 +8,7 @@ import type { StudioCinemaSessionGatewayDependencies } from '../session/studio-c
 import { useStudioCinemaSession, type StudioCinemaSessionFailure } from '../session/use-studio-cinema-session'
 import type { StudioCinemaControllerDependencies } from '../cinema-controller'
 import { CatAssistant } from './CatAssistant'
+import { cinemaUnitKey } from './cinema-copy'
 import { CinemaScreen } from './CinemaScreen'
 import {
   readStudioCinemaCatStatus,
@@ -48,6 +49,8 @@ import { useStudioCinemaSceneSelection } from './use-studio-cinema-scene-selecti
 export interface ManimCinemaWorkspaceProps {
   onExit: () => void
   isExiting?: boolean
+  /** Which studio kind this workspace drives (Session/Scene/Sidebar storage keys). */
+  studioKind?: StudioKind
   /** The concept text the user typed on the home page; seeded into the first scene's draft on entry. */
   concept?: string
   /** Test seam: partial overrides of the Session gateway (API and storage). */
@@ -58,7 +61,6 @@ export interface ManimCinemaWorkspaceProps {
   sceneSelectionStore?: StudioCinemaSceneSelectionStore
 }
 
-const STUDIO_KIND: StudioKind = 'manim'
 const SCENE_PANEL_ID = 'cinema-scene-panel'
 const HISTORY_PANEL_ID = 'cinema-scene-history'
 
@@ -99,6 +101,7 @@ function readSessionFailureKey(failure: StudioCinemaSessionFailure | null): Tran
 export function ManimCinemaWorkspace({
   onExit,
   isExiting = false,
+  studioKind = 'manim',
   concept,
   sessionOverrides,
   controllerOverrides,
@@ -106,7 +109,7 @@ export function ManimCinemaWorkspace({
 }: ManimCinemaWorkspaceProps) {
   const { t } = useI18n()
   const session = useStudioCinemaSession({
-    studioKind: STUDIO_KIND,
+    studioKind,
     ...(sessionOverrides ? { overrides: sessionOverrides } : {}),
   })
   const { state, controller } = useStudioCinema({
@@ -183,7 +186,7 @@ export function ManimCinemaWorkspace({
   )
 
   const selection = useStudioCinemaSceneSelection({
-    studioKind: STUDIO_KIND,
+    studioKind,
     sessionId,
     indexSceneIds,
     currentSelection: selectedSceneId,
@@ -258,6 +261,7 @@ export function ManimCinemaWorkspace({
 
   const catStatus = view
     ? readStudioCinemaCatStatus({
+        studioKind,
         sceneIndex: Math.max(0, sceneIndex),
         submitting: view.submitting,
         hasActiveRun: view.activeRun !== null,
@@ -281,7 +285,7 @@ export function ManimCinemaWorkspace({
 
   const sessionFeedbackKey =
     readSessionFailureKey(session.failure) ??
-    (state.feedback ? readStudioCinemaFeedbackKey(state.feedback.code) : null)
+    (state.feedback ? readStudioCinemaFeedbackKey(studioKind, state.feedback.code) : null)
 
   return (
     <div
@@ -292,6 +296,7 @@ export function ManimCinemaWorkspace({
       <div className="relative flex min-h-0 flex-1">
         <SessionSidebar
           open={sidebarOpen}
+          studioKind={studioKind}
           onToggle={() => setSidebarOpen((open) => !open)}
           currentSessionId={state.session.id}
           currentTitle={state.session.title ?? t('studio.cinema.sessionTitle')}
@@ -303,7 +308,7 @@ export function ManimCinemaWorkspace({
           onSelectSession={session.selectSession}
           tokenUsage={view?.tokenUsage ?? null}
           sentRounds={view?.messages.filter((message) => message.role === 'user').length ?? 0}
-          sceneLabel={t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
+          sceneLabel={t(cinemaUnitKey(studioKind, 'sceneLabel'), { index: Math.max(0, sceneIndex) + 1 })}
           onExit={onExit}
         />
 
@@ -313,7 +318,7 @@ export function ManimCinemaWorkspace({
         >
           <header data-assemble="header" className="flex items-center gap-2 px-3 py-2">
             <h1 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">
-              {t('studio.cinema.sceneLabel', { index: Math.max(0, sceneIndex) + 1 })}
+              {t(cinemaUnitKey(studioKind, 'sceneLabel'), { index: Math.max(0, sceneIndex) + 1 })}
             </h1>
             {session.status === 'loading' && session.session !== null ? (
               <span
@@ -348,7 +353,7 @@ export function ManimCinemaWorkspace({
           {state.initialization.status === 'partial' || state.initialization.status === 'failed' ? (
             <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
               <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
-                {t('studio.cinema.initializeProgress', {
+                {t(cinemaUnitKey(studioKind, 'initializeProgress'), {
                   created: state.initialization.createdCount,
                   target: state.initialization.targetCount,
                 })}
@@ -363,7 +368,7 @@ export function ManimCinemaWorkspace({
                   }
                 }}
               >
-                {t('studio.cinema.initializeContinue')}
+                {t(cinemaUnitKey(studioKind, 'initializeContinue'))}
               </button>
             </div>
           ) : null}
@@ -371,6 +376,7 @@ export function ManimCinemaWorkspace({
           <div data-assemble="strip">
             <SceneStrip
               entries={index}
+              studioKind={studioKind}
               mutationPending={state.sceneMutationPending || !identityReady}
               panelId={SCENE_PANEL_ID}
               onSelect={(sceneId) => {
@@ -395,7 +401,7 @@ export function ManimCinemaWorkspace({
             >
               {index.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 text-center">
-                  <p className="text-base text-text-primary/70">{t('studio.cinema.sceneEmptyTitle')}</p>
+                  <p className="text-base text-text-primary/70">{t(cinemaUnitKey(studioKind, 'sceneEmptyTitle'))}</p>
                   <button
                     type="button"
                     className="inline-flex min-h-[44px] items-center rounded-lg border border-black/10 px-3 text-sm disabled:opacity-40 dark:border-white/15"
@@ -406,14 +412,23 @@ export function ManimCinemaWorkspace({
                       }
                     }}
                   >
-                    {t('studio.cinema.sceneCreateFirst')}
+                    {t(cinemaUnitKey(studioKind, 'sceneCreateFirst'))}
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="aspect-video max-h-full w-full max-w-[1040px]">
+                  <div
+                    className={
+                      // A result keeps its own aspect ratio and only borrows the slot's bounds; the dark
+                      // 16:9 stage is the shape of "nothing to show", not of the media.
+                      screenState === 'playable'
+                        ? 'flex h-full max-h-full min-h-0 w-full max-w-[1040px] items-center justify-center'
+                        : 'aspect-video max-h-full w-full max-w-[1040px]'
+                    }
+                  >
                     <CinemaScreen
                       state={screenState}
+                      studioKind={studioKind}
                       sceneIndex={Math.max(0, sceneIndex)}
                       playableUrl={view?.display.playableUrl ?? null}
                       mediaKind={view?.display.mediaKind ?? null}
@@ -460,6 +475,7 @@ export function ManimCinemaWorkspace({
               }`}
             >
               <CatAssistant
+                studioKind={studioKind}
                 statusKey={catStatus?.key ?? 'studio.cinema.catIdle'}
                 statusParams={catStatus?.params}
                 tone={catStatus?.tone ?? 'idle'}
@@ -491,7 +507,7 @@ export function ManimCinemaWorkspace({
                     // A running task is reported by the composer's own status line (`任务进行中…`), so
                     // the extra "you can stop it" sentence is gone.
                     view.submitBlockReason !== 'active_run'
-                  ? readStudioCinemaSubmitBlockedKey(view.submitBlockReason)
+                  ? readStudioCinemaSubmitBlockedKey(studioKind, view.submitBlockReason)
                   : null
             }
             onDraftChange={(text) => {
@@ -499,9 +515,9 @@ export function ManimCinemaWorkspace({
                 controller.setDraft(view.identity.sceneId, text)
               }
             }}
-            onSubmit={() => {
+            onSubmit={(inputTextOverride) => {
               if (view && identityReady) {
-                void controller.submitSceneRun(view.identity.sceneId)
+                void controller.submitSceneRun(view.identity.sceneId, inputTextOverride)
               }
             }}
             onCancel={() => {
@@ -519,7 +535,7 @@ export function ManimCinemaWorkspace({
           sessionId={sessionId ?? ''}
           sceneId={selectedSceneId ?? ''}
           revision={conversationRevision}
-          title={t('studio.cinema.historyTitle', { index: Math.max(0, sceneIndex) + 1 })}
+          title={t(cinemaUnitKey(studioKind, 'historyTitle'), { index: Math.max(0, sceneIndex) + 1 })}
           rows={rows}
           loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
           pendingReply={

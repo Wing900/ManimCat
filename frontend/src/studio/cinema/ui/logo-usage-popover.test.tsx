@@ -18,7 +18,7 @@ function usage(overrides: Partial<StudioTokenUsage> = {}): StudioTokenUsage {
 function renderPopover(props: Partial<Parameters<typeof LogoUsagePopover>[0]> = {}) {
   render(
     <I18nProvider>
-      <LogoUsagePopover usage={usage()} sentRounds={3} sceneLabel="Scene 2" {...props} />
+      <LogoUsagePopover studioKind="manim" usage={usage()} sentRounds={3} sceneLabel="Scene 2" {...props} />
     </I18nProvider>,
   )
 }

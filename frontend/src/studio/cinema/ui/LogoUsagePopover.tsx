@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useI18n } from '../../../i18n'
 import ManimCatLogo from '../../../components/ManimCatLogo'
-import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
+import type { StudioKind, StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { formatStudioTokenCount } from '../../status/format-studio-token-count'
+import { cinemaUnitKey } from './cinema-copy'
 
 /**
  * LogoUsagePopover (doc §4): the sidebar logo is the entry to the current-Scene stats card.
@@ -17,6 +18,7 @@ import { formatStudioTokenCount } from '../../status/format-studio-token-count'
  */
 
 export interface LogoUsagePopoverProps {
+  studioKind: StudioKind
   usage: StudioTokenUsage | null
   /** Saved user messages of the current Scene (doc §4: failed local submits are not counted). */
   sentRounds: number
@@ -27,7 +29,7 @@ export interface LogoUsagePopoverProps {
 const HOVER_OPEN_DELAY_MS = 200
 const HOVER_CLOSE_DELAY_MS = 150
 
-export function LogoUsagePopover({ usage, sentRounds, sceneLabel }: LogoUsagePopoverProps) {
+export function LogoUsagePopover({ studioKind, usage, sentRounds, sceneLabel }: LogoUsagePopoverProps) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [pinned, setPinned] = useState(false)
@@ -115,7 +117,7 @@ export function LogoUsagePopover({ usage, sentRounds, sceneLabel }: LogoUsagePop
       <button
         type="button"
         className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-        aria-label={t('studio.cinema.logoUsageLabel')}
+        aria-label={t(cinemaUnitKey(studioKind, 'logoUsageLabel'))}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? descriptionId : undefined}
@@ -133,13 +135,13 @@ export function LogoUsagePopover({ usage, sentRounds, sceneLabel }: LogoUsagePop
         <div
           id={descriptionId}
           role="dialog"
-          aria-label={t('studio.cinema.logoUsageTitle')}
+          aria-label={t(cinemaUnitKey(studioKind, 'logoUsageTitle'))}
           className="absolute left-0 top-full z-30 mt-2 w-64 rounded-xl border border-black/10 bg-bg-primary p-3 shadow-xl dark:border-white/15"
           onMouseEnter={cancelCloseTimer}
           onMouseLeave={scheduleClose}
         >
           <div className="mb-2 border-b border-black/5 pb-1.5 dark:border-white/10">
-            <p className="text-sm uppercase tracking-wide text-text-secondary/50">{t('studio.cinema.logoUsageScope')}</p>
+            <p className="text-sm uppercase tracking-wide text-text-secondary/50">{t(cinemaUnitKey(studioKind, 'logoUsageScope'))}</p>
             <p className="truncate text-base font-medium text-text-primary/85">{sceneLabel}</p>
           </div>
 

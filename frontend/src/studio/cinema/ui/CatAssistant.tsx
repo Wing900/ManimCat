@@ -3,6 +3,8 @@ import type { TranslationKey } from '../../../i18n/messages'
 import { useI18n } from '../../../i18n'
 import { CatCharacter, type CatPose } from './CatCharacter'
 import { CatSpeechBubble } from './CatSpeechBubble'
+import { cinemaUnitKey } from './cinema-copy'
+import type { StudioKind } from '../../protocol/studio-agent-types'
 import { useStudioCinemaCatFeedback } from './use-cat-feedback'
 
 /**
@@ -21,6 +23,7 @@ import { useStudioCinemaCatFeedback } from './use-cat-feedback'
  */
 
 export interface CatAssistantProps {
+  studioKind: StudioKind
   statusKey: TranslationKey
   statusParams?: Record<string, number | string>
   tone: 'idle' | 'busy' | 'warning' | 'error'
@@ -45,6 +48,7 @@ const TONE_TO_POSE: Record<CatAssistantProps['tone'], CatPose> = {
 }
 
 export function CatAssistant({
+  studioKind,
   statusKey,
   statusParams,
   tone,
@@ -97,7 +101,7 @@ export function CatAssistant({
         className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 lg:h-24 lg:w-24 ${
           historyOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
-        aria-label={t('studio.cinema.catEntryLabel')}
+        aria-label={t(cinemaUnitKey(studioKind, 'catEntryLabel'))}
         aria-expanded={historyOpen}
         aria-controls={historyPanelId}
         onClick={onToggleHistory}

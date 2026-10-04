@@ -2,7 +2,7 @@ import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import ManimCatLogo from '../../../components/ManimCatLogo'
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from './CinemaIcons'
-import type { StudioTokenUsage } from '../../protocol/studio-agent-types'
+import type { StudioKind, StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { LogoUsagePopover } from './LogoUsagePopover'
 
 /**
@@ -37,6 +37,8 @@ export interface SessionSidebarProps {
   sentRounds: number
   /** Label of the current Scene, e.g. "Scene 2". */
   sceneLabel: string
+  /** Which studio this shell drives: the manim studio says "Scene", the Plot Studio says "图片". */
+  studioKind: StudioKind
   /** Leaves the studio and returns to the home screen. */
   onExit: () => void
 }
@@ -55,6 +57,7 @@ export function SessionSidebar({
   tokenUsage,
   sentRounds,
   sceneLabel,
+  studioKind,
   onExit,
 }: SessionSidebarProps) {
   const { t } = useI18n()
@@ -102,7 +105,7 @@ export function SessionSidebar({
         aria-label={t('studio.cinema.sidebarLabel')}
       >
       <div className="flex items-center gap-2">
-        <LogoUsagePopover usage={tokenUsage} sentRounds={sentRounds} sceneLabel={sceneLabel} />
+        <LogoUsagePopover studioKind={studioKind} usage={tokenUsage} sentRounds={sentRounds} sceneLabel={sceneLabel} />
         <p className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85" title={currentTitle}>
           {currentTitle}
         </p>

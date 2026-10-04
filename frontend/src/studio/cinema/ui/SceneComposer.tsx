@@ -1,7 +1,9 @@
-import { useRef, type KeyboardEvent } from 'react'
+import { useRef, type DragEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { TranslationKey } from '../../../i18n/messages'
 import { useI18n } from '../../../i18n'
-import { SendIcon, StopIcon } from './CinemaIcons'
+import { StudioComposerAttachmentList } from '../../components/StudioComposerAttachmentList'
+import { ImageIcon, SendIcon, StopIcon } from './CinemaIcons'
+import { useSceneComposerAttachments } from './use-scene-composer-attachments'
 
 /**
  * The always-visible composer (task 11C2).
@@ -9,12 +11,14 @@ import { SendIcon, StopIcon } from './CinemaIcons'
  * Closing the history panel never closes, clears or disables this; it keeps its own draft, which lives
  * in the Scene record, so switching Scene changes the text but never mixes two drafts.
  *
- * Layout: one soft surface (no border) holds the textarea and the single trailing action, so the
- * composer reads as one input centred under the stage. The trailing slot is the primary action of the
- * moment: Stop while this Scene's Run can be cancelled, Send otherwise. Keeping one slot is what puts
- * the stop control on the right, at full size, instead of a small muted square beside Send.
+ * Layout: one soft surface (no border) holds the attach action, the textarea and the single trailing
+ * action, so the composer reads as one input centred under the stage. The trailing slot is the primary
+ * action of the moment: Stop while this Scene's Run can be cancelled, Send otherwise. Keeping one slot
+ * is what puts the stop control on the right, at full size, instead of a small muted square beside Send.
+ *
+ * Reference images (kept from the Plot Studio): the images a Run receives are the ones still mentioned
+ * in the draft, so the attachments follow the text across Scene switches and a resend keeps them.
  */
-
 export interface SceneComposerProps {
   draft: string
   submitting: boolean
@@ -23,7 +27,7 @@ export interface SceneComposerProps {
   /** Why the send button is disabled, already narrowed to a stable local sentence. */
   blockedReasonKey: TranslationKey | null
   onDraftChange: (text: string) => void
-  onSubmit: () => void
+  onSubmit: (inputTextOverride?: string) => void
   onCancel: () => void
 }
 
@@ -39,8 +43,15 @@ export function SceneComposer({
 }: SceneComposerProps) {
   const { t } = useI18n()
   const composingRef = useRef(false)
+  const attachments = useSceneComposerAttachments({ draft, disabled: submitting, onDraftChange })
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const submit = () => {
+    if (canSubmit) {
+      onSubmit(attachments.buildRunInput(draft))
+    }
+  }
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== 'Enter' || event.shiftKey) {
       return
     }
@@ -49,8 +60,12 @@ export function SceneComposer({
       return
     }
     event.preventDefault()
-    if (canSubmit) {
-      onSubmit()
+    submit()
+  }
+
+  const handleDragOver = (event: DragEvent<HTMLFormElement>) => {
+    if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault()
     }
   }
 
@@ -61,10 +76,10 @@ export function SceneComposer({
       className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-5 pt-6 dark:border-white/10"
       onSubmit={(event) => {
         event.preventDefault()
-        if (canSubmit) {
-          onSubmit()
-        }
+        submit()
       }}
+      onDragOver={handleDragOver}
+      onDrop={attachments.handleDrop}
     >
       <div className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-3">
         {blockedReasonKey ? (
@@ -73,7 +88,43 @@ export function SceneComposer({
           </p>
         ) : null}
 
+        <StudioComposerAttachmentList
+          attachments={attachments.attachments}
+          disabled={submitting}
+          onRemove={attachments.removeAttachment}
+        />
+
+        {attachments.attachmentError ? (
+          <p className="px-2 text-sm text-rose-500/80">{attachments.attachmentError}</p>
+        ) : null}
+
         <div className="flex min-w-0 items-end rounded-2xl bg-white/70 px-1.5 py-1.5 dark:bg-white/5">
+          <input
+            ref={attachments.fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(event) => {
+              const files = event.target.files
+              if (files && files.length > 0) {
+                void attachments.addFiles(files)
+              }
+              // Cleared so picking the same file twice still fires a change.
+              event.target.value = ''
+            }}
+          />
+          <button
+            type="button"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 hover:text-text-primary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
+            onClick={() => attachments.fileInputRef.current?.click()}
+            disabled={submitting}
+            aria-label={t('studio.cinema.composerAttachImage')}
+            title={t('studio.cinema.composerAttachImage')}
+          >
+            <ImageIcon />
+          </button>
+
           <textarea
             className="min-h-[44px] min-w-0 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[17px] leading-relaxed text-text-primary outline-none"
             value={draft}
@@ -83,6 +134,7 @@ export function SceneComposer({
             aria-describedby={blockedReasonKey ? 'cinema-composer-blocked' : undefined}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={attachments.handlePaste}
             onCompositionStart={() => {
               composingRef.current = true
             }}

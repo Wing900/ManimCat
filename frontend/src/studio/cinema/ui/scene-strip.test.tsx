@@ -20,7 +20,7 @@ function entry(id: string, position: number, selected = false): StudioCinemaScen
 function renderStrip(entries: StudioCinemaSceneIndexEntry[], onSelect = () => undefined) {
   render(
     <I18nProvider>
-      <SceneStrip entries={entries} mutationPending={false} panelId="p" onSelect={onSelect} onAppend={() => undefined} />
+      <SceneStrip entries={entries} studioKind="manim" mutationPending={false} panelId="p" onSelect={onSelect} onAppend={() => undefined} />
     </I18nProvider>,
   )
 }

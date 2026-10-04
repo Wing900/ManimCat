@@ -28,7 +28,7 @@ function entry(id: string, position: number, overrides: Partial<StudioCinemaScen
 function renderPicker(entries: StudioCinemaSceneIndexEntry[], onSelect: (id: string) => void = () => undefined) {
   render(
     <I18nProvider>
-      <ScenePicker entries={entries} onSelect={onSelect} onClose={() => undefined} />
+      <ScenePicker entries={entries} studioKind="manim" onSelect={onSelect} onClose={() => undefined} />
     </I18nProvider>,
   )
 }

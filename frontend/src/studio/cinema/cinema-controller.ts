@@ -451,7 +451,7 @@ export class StudioCinemaController {
    * version it captured may be cleared. Admission is the shared eligibility rule: the Scene must
    * have an authoritative snapshot, no active Run and no outcome still waiting for reconciliation.
    */
-  async submitSceneRun(sceneId: string): Promise<StudioCinemaSubmitOutcome> {
+  async submitSceneRun(sceneId: string, inputTextOverride?: string): Promise<StudioCinemaSubmitOutcome> {
     const identity = this.resolveIdentity(sceneId)
     const sessionId = this.state.session.id
     if (!identity || !sessionId || this.isInactive()) {
@@ -499,7 +499,9 @@ export class StudioCinemaController {
 
     const generation = this.generation
     const input: StudioCreateSceneRunInput = {
-      inputText: scene.draft,
+      // The composer hands in the draft plus the reference-image block of the images it still
+      // mentions; the stored draft never carries that block, so a resend stays clean.
+      inputText: inputTextOverride ?? scene.draft,
       ...(this.state.session.projectId ? { projectId: this.state.session.projectId } : {}),
       ...(provider.customApiConfig ? { customApiConfig: provider.customApiConfig } : {}),
     }

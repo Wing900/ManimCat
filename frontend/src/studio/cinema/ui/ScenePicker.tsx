@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
+import type { StudioKind } from '../../protocol/studio-agent-types'
+import { cinemaUnitKey } from './cinema-copy'
 import { readStudioCinemaSceneStatusKey } from './cinema-labels'
 import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
 
@@ -19,11 +21,12 @@ import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
 
 export interface ScenePickerProps {
   entries: readonly StudioCinemaSceneIndexEntry[]
+  studioKind: StudioKind
   onSelect: (sceneId: string) => void
   onClose: () => void
 }
 
-export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
+export function ScenePicker({ entries, studioKind, onSelect, onClose }: ScenePickerProps) {
   const { t } = useI18n()
   const firstRef = useRef<HTMLButtonElement | null>(null)
 
@@ -50,7 +53,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={t('studio.cinema.scenePickerLabel')}
+      aria-label={t(cinemaUnitKey(studioKind, 'scenePickerLabel'))}
       onClick={onClose}
     >
       <div
@@ -58,7 +61,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-black/5 px-4 py-3 dark:border-white/10">
-          <h2 className="text-base font-medium text-text-primary/85">{t('studio.cinema.scenePickerLabel')}</h2>
+          <h2 className="text-base font-medium text-text-primary/85">{t(cinemaUnitKey(studioKind, 'scenePickerLabel'))}</h2>
           <button
             type="button"
             className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-black/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
@@ -71,7 +74,7 @@ export function ScenePicker({ entries, onSelect, onClose }: ScenePickerProps) {
         <ul className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">
           {entries.map((entry, index) => {
             const statusKey: TranslationKey = readStudioCinemaSceneStatusKey(entry)
-            const label = t('studio.cinema.sceneLabel', { index: entry.position + 1 })
+            const label = t(cinemaUnitKey(studioKind, 'sceneLabel'), { index: entry.position + 1 })
             return (
               <li key={entry.id}>
                 <button

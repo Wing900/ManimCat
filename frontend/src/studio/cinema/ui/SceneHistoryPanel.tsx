@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../i18n'
+import { stripStudioReferenceImages } from '../../reference-images'
 import { StudioMarkdown } from '../../components/StudioMarkdown'
 import {
   readStudioCinemaToolStatusKey,
@@ -103,7 +104,9 @@ function SceneHistoryRow({ row }: { row: StudioCinemaConversationRow }) {
           {t('studio.cinema.roleUser')}
         </div>
         <div className="max-w-[85%] rounded-2xl bg-bg-tertiary/60 px-3 py-2">
-          <p className="whitespace-pre-wrap break-words text-base text-text-primary/85">{row.text}</p>
+          <p className="whitespace-pre-wrap break-words text-base text-text-primary/85">
+            {stripStudioReferenceImages(row.text)}
+          </p>
         </div>
       </div>
     )

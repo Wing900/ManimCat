@@ -1,4 +1,6 @@
 import type { TranslationKey } from '../../../i18n/messages'
+import type { StudioKind } from '../../protocol/studio-agent-types'
+import { cinemaUnitKey } from './cinema-copy'
 import type {
   StudioRenderStatus,
   StudioRunStatus,
@@ -25,10 +27,6 @@ export interface StudioCinemaCatStatus {
   key: TranslationKey
   params?: Record<string, number | string>
   tone: 'idle' | 'busy' | 'warning' | 'error'
-}
-
-export function readStudioCinemaSceneLabelKey(): TranslationKey {
-  return 'studio.cinema.sceneLabel'
 }
 
 export function readStudioCinemaRunStatusKey(status: StudioRunStatus): TranslationKey {
@@ -107,6 +105,7 @@ export function readStudioCinemaSceneStatusKey(input: {
  * what the user should do next; none of these cases lets an internal error text through.
  */
 export function readStudioCinemaCatStatus(input: {
+  studioKind: StudioKind
   sceneIndex: number
   submitting: boolean
   hasActiveRun: boolean
@@ -129,7 +128,7 @@ export function readStudioCinemaCatStatus(input: {
     return { key: 'studio.cinema.catSubmitting', params, tone: 'busy' }
   }
   if (input.hasActiveRun || input.hasActiveRender) {
-    return { key: 'studio.cinema.catWorking', params, tone: 'busy' }
+    return { key: cinemaUnitKey(input.studioKind, 'catWorking'), params, tone: 'busy' }
   }
   if (input.renderRefresh.status === 'paused') {
     return { key: 'studio.cinema.catRefreshPaused', params, tone: 'warning' }
@@ -144,14 +143,14 @@ export function readStudioCinemaCatStatus(input: {
 }
 
 /** Session-level feedback: one stable key per code, never a raw server message. */
-export function readStudioCinemaFeedbackKey(code: StudioCinemaFeedbackCode): TranslationKey {
+export function readStudioCinemaFeedbackKey(studioKind: StudioKind, code: StudioCinemaFeedbackCode): TranslationKey {
   switch (code) {
     case 'scene_create_failed':
-      return 'studio.cinema.feedbackSceneCreateFailed'
+      return cinemaUnitKey(studioKind, 'feedbackSceneCreateFailed')
     case 'scene_create_unknown':
-      return 'studio.cinema.feedbackSceneCreateUnknown'
+      return cinemaUnitKey(studioKind, 'feedbackSceneCreateUnknown')
     case 'scene_initialize_partial':
-      return 'studio.cinema.feedbackInitializePartial'
+      return cinemaUnitKey(studioKind, 'feedbackInitializePartial')
     case 'session_not_found':
       return 'studio.cinema.feedbackSessionNotFound'
     case 'provider_incomplete':
@@ -161,13 +160,13 @@ export function readStudioCinemaFeedbackKey(code: StudioCinemaFeedbackCode): Tra
     case 'run_submit_failed':
       return 'studio.cinema.feedbackRunSubmitFailed'
     case 'run_submit_conflict':
-      return 'studio.cinema.feedbackRunSubmitConflict'
+      return cinemaUnitKey(studioKind, 'feedbackRunSubmitConflict')
     case 'run_submit_unknown':
       return 'studio.cinema.feedbackRunSubmitUnknown'
     case 'run_cancel_failed':
       return 'studio.cinema.feedbackRunCancelFailed'
     case 'snapshot_failed':
-      return 'studio.cinema.feedbackSnapshotFailed'
+      return cinemaUnitKey(studioKind, 'feedbackSnapshotFailed')
     case 'stream_resync':
       return 'studio.cinema.feedbackStreamResync'
     case 'stream_disconnected':
@@ -181,18 +180,21 @@ export function readStudioCinemaFeedbackTone(code: StudioCinemaFeedbackCode): 'e
     : 'warning'
 }
 
-export function readStudioCinemaSubmitBlockedKey(reason: StudioCinemaSubmitBlockReason): TranslationKey {
+export function readStudioCinemaSubmitBlockedKey(
+  studioKind: StudioKind,
+  reason: StudioCinemaSubmitBlockReason,
+): TranslationKey {
   switch (reason) {
     case 'loading':
-      return 'studio.cinema.submitBlockedLoading'
+      return cinemaUnitKey(studioKind, 'submitBlockedLoading')
     case 'snapshot_failed':
-      return 'studio.cinema.submitBlockedSnapshotFailed'
+      return cinemaUnitKey(studioKind, 'submitBlockedSnapshotFailed')
     case 'empty_draft':
       return 'studio.cinema.submitBlockedEmptyDraft'
     case 'submitting':
       return 'studio.cinema.submitBlockedSubmitting'
     case 'active_run':
-      return 'studio.cinema.submitBlockedActiveRun'
+      return cinemaUnitKey(studioKind, 'submitBlockedActiveRun')
     case 'reconciliation':
       return 'studio.cinema.submitBlockedReconciliation'
   }
