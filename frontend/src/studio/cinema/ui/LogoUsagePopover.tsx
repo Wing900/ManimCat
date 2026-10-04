@@ -4,6 +4,7 @@ import ManimCatLogo from '../../../components/ManimCatLogo'
 import type { StudioKind, StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { formatStudioTokenCount } from '../../status/format-studio-token-count'
 import { cinemaUnitKey } from './cinema-copy'
+import { usePresence } from './use-presence'
 
 /**
  * LogoUsagePopover (doc §4): the sidebar logo is the entry to the current-Scene stats card.
@@ -33,6 +34,8 @@ export function LogoUsagePopover({ studioKind, usage, sentRounds, sceneLabel }: 
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [pinned, setPinned] = useState(false)
+  // The card slides back in when it closes instead of vanishing mid-hover.
+  const { mounted } = usePresence(open, 150)
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -131,12 +134,17 @@ export function LogoUsagePopover({ studioKind, usage, sentRounds, sceneLabel }: 
         <ManimCatLogo className="h-9 w-9 rounded-full" />
       </button>
 
-      {open ? (
+      {mounted ? (
         <div
           id={descriptionId}
-          role="dialog"
-          aria-label={t(cinemaUnitKey(studioKind, 'logoUsageTitle'))}
-          className="absolute left-0 top-full z-30 mt-2 w-64 rounded-xl border border-black/10 bg-bg-primary p-3 shadow-xl dark:border-white/15"
+          // Exiting is not a dialog any more: no role, no announcement, no pointer target.
+          role={open ? 'dialog' : undefined}
+          aria-label={open ? t(cinemaUnitKey(studioKind, 'logoUsageTitle')) : undefined}
+          aria-hidden={open ? undefined : true}
+          inert={open ? undefined : true}
+          className={`${
+            open ? 'studio-pop-in' : 'studio-pop-out'
+          } absolute left-0 top-full z-30 mt-2 w-64 origin-top-left rounded-xl border border-black/10 bg-bg-primary p-3 shadow-xl dark:border-white/15`}
           onMouseEnter={cancelCloseTimer}
           onMouseLeave={scheduleClose}
         >

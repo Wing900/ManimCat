@@ -26,6 +26,11 @@ export interface SceneComposerProps {
   canCancel: boolean
   /** Why the send button is disabled, already narrowed to a stable local sentence. */
   blockedReasonKey: TranslationKey | null
+  /**
+   * Screen-reader only for a wait that is not the user's to act on. A Session switch is over in a frame
+   * or two; printing a sentence about it on screen only adds noise around the stage.
+   */
+  quietBlockedReason?: boolean
   onDraftChange: (text: string) => void
   onSubmit: (inputTextOverride?: string) => void
   onCancel: () => void
@@ -37,6 +42,7 @@ export function SceneComposer({
   canSubmit,
   canCancel,
   blockedReasonKey,
+  quietBlockedReason = false,
   onDraftChange,
   onSubmit,
   onCancel,
@@ -82,11 +88,23 @@ export function SceneComposer({
       onDrop={attachments.handleDrop}
     >
       <div className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-3">
-        {blockedReasonKey ? (
-          <p id="cinema-composer-blocked" className="px-2 text-sm text-text-secondary/70">
-            {t(blockedReasonKey)}
+        {/* Always mounted, collapsed to zero: the reason slides in instead of shoving the stage down.
+            `-mb-3` cancels this column's `gap-3` while it is closed (it is a flex item even at 0 height). */}
+        {quietBlockedReason ? (
+          // Absolutely positioned (sr-only), so it leaves the column's gap alone and needs no collapse.
+          <p id="cinema-composer-blocked" className="sr-only">
+            {blockedReasonKey ? t(blockedReasonKey) : ''}
           </p>
-        ) : null}
+        ) : (
+          <div
+            className={`studio-collapse ${blockedReasonKey ? '' : '-mb-3'}`}
+            data-open={blockedReasonKey ? 'true' : 'false'}
+          >
+            <p id="cinema-composer-blocked" className="px-2 text-sm text-text-secondary/70">
+              {blockedReasonKey ? t(blockedReasonKey) : ''}
+            </p>
+          </div>
+        )}
 
         <StudioComposerAttachmentList
           attachments={attachments.attachments}
@@ -95,7 +113,7 @@ export function SceneComposer({
         />
 
         {attachments.attachmentError ? (
-          <p className="px-2 text-sm text-rose-500/80">{attachments.attachmentError}</p>
+          <p className="studio-rise-in px-2 text-sm text-rose-500/80">{attachments.attachmentError}</p>
         ) : null}
 
         <div className="flex min-w-0 items-end rounded-2xl bg-white/70 px-1.5 py-1.5 dark:bg-white/5">
@@ -145,8 +163,9 @@ export function SceneComposer({
 
           {showStop ? (
             <button
+              key="stop"
               type="button"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-tertiary/60 text-text-primary/80 transition-all hover:bg-bg-tertiary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
+              className="studio-pop-in flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-tertiary/60 text-text-primary/80 transition-all hover:bg-bg-tertiary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
               onClick={onCancel}
               disabled={!canCancel}
               aria-label={t('studio.cinema.stop')}
@@ -156,8 +175,9 @@ export function SceneComposer({
             </button>
           ) : (
             <button
+              key="send"
               type="submit"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-30"
+              className="studio-pop-in flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-30"
               disabled={!canSubmit}
               aria-label={t('studio.cinema.send')}
               title={submitting ? t('studio.cinema.sending') : t('studio.cinema.send')}

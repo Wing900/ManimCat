@@ -44,36 +44,6 @@ export function readStudioCinemaRunStatusKey(status: StudioRunStatus): Translati
   }
 }
 
-export function readStudioCinemaRenderStatusKey(status: StudioRenderStatus): TranslationKey {
-  switch (status) {
-    case 'queued':
-      return 'studio.renderStatus.queued'
-    case 'running':
-      return 'studio.renderStatus.running'
-    case 'completed':
-      return 'studio.renderStatus.completed'
-    case 'failed':
-      return 'studio.renderStatus.failed'
-    case 'cancelled':
-      return 'studio.renderStatus.cancelled'
-  }
-}
-
-export function readStudioCinemaStreamStateKey(state: StudioCinemaStreamState): TranslationKey {
-  switch (state) {
-    case 'idle':
-      return 'studio.cinema.streamIdle'
-    case 'connecting':
-      return 'studio.cinema.streamConnecting'
-    case 'connected':
-      return 'studio.cinema.streamConnected'
-    case 'reconnecting':
-      return 'studio.cinema.streamReconnecting'
-    case 'disconnected':
-      return 'studio.cinema.streamDisconnected'
-  }
-}
-
 /** Lightweight Scene state for the strip and the sidebar; a background Scene is never "live". */
 export function readStudioCinemaSceneStatusKey(input: {
   isBusy: boolean

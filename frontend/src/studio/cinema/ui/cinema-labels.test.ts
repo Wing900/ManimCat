@@ -5,7 +5,6 @@ import {
   readStudioCinemaCatStatus,
   readStudioCinemaFeedbackKey,
   readStudioCinemaFeedbackTone,
-  readStudioCinemaRenderStatusKey,
   readStudioCinemaRunStatusKey,
   readStudioCinemaSceneStatusKey,
   readStudioCinemaScreenState,
@@ -53,11 +52,9 @@ function catInput(
 }
 
 describe('cinema display rules', () => {
-  it('reuses the shared run and render status vocabulary', () => {
+  it('reuses the shared run status vocabulary', () => {
     expect(readStudioCinemaRunStatusKey('running')).toBe('studio.runStatus.running')
     expect(readStudioCinemaRunStatusKey('cancelled')).toBe('studio.runStatus.cancelled')
-    expect(readStudioCinemaRenderStatusKey('queued')).toBe('studio.renderStatus.queued')
-    expect(readStudioCinemaRenderStatusKey('completed')).toBe('studio.renderStatus.completed')
   })
 
   it('orders the scene badge by what the user has to do next', () => {

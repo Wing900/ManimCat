@@ -9,6 +9,7 @@ import {
 } from './scene-conversation-model'
 import { CatCharacter, type CatPose } from './CatCharacter'
 import { CloseIcon } from './CinemaIcons'
+import { usePresence } from './use-presence'
 
 /**
  * The Scene conversation, opened only by the cat (task 11C2, doc §8).
@@ -72,23 +73,25 @@ function SceneToolActivity({ row }: { row: StudioCinemaToolRow }) {
         ) : null}
       </button>
 
-      {expanded && row.hasDetail ? (
-        <div className="space-y-1 border-t border-black/5 px-2.5 py-2 dark:border-white/10">
-          {row.title ? <p className="text-sm text-text-primary/75">{row.title}</p> : null}
-          {row.output ? (
-            <p className="whitespace-pre-wrap break-words text-sm text-text-secondary/80">{row.output}</p>
-          ) : null}
-          {row.attachments.length > 0 ? (
-            <ul className="space-y-0.5">
-              {row.attachments.map((attachment, index) => (
-                <li key={`${row.id}-attachment-${index}`} className="text-sm text-text-secondary/70">
-                  {attachment.name ?? t('studio.cinema.toolAttachment')}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+      <div className="studio-collapse" data-open={expanded && row.hasDetail ? 'true' : 'false'}>
+        <div aria-hidden={!(expanded && row.hasDetail) || undefined} inert={!(expanded && row.hasDetail) || undefined}>
+          <div className="space-y-1 border-t border-black/5 px-2.5 py-2 dark:border-white/10">
+            {row.title ? <p className="text-sm text-text-primary/75">{row.title}</p> : null}
+            {row.output ? (
+              <p className="whitespace-pre-wrap break-words text-sm text-text-secondary/80">{row.output}</p>
+            ) : null}
+            {row.attachments.length > 0 ? (
+              <ul className="space-y-0.5">
+                {row.attachments.map((attachment, index) => (
+                  <li key={`${row.id}-attachment-${index}`} className="text-sm text-text-secondary/70">
+                    {attachment.name ?? t('studio.cinema.toolAttachment')}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   )
 }
@@ -157,6 +160,21 @@ export function SceneHistoryPanel({
   /** Identity whose reading position is currently restored in the mounted list. */
   const restoredIdentityRef = useRef<string | null>(null)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
+  // The panel is kept mounted while it slides out; the live dialog semantics end the moment it closes.
+  // 380ms outlives both exits an unmount would cut short: the 340ms width collapse and the slide.
+  const presence = usePresence(open, 380)
+  // A freshly mounted element has no previous width to transition from, so at 400px it would simply
+  // appear and shove the stage aside in one frame — the "the picture shrinks too fast" report. The
+  // panel therefore mounts collapsed and settles on the next frame, which makes the push a transition.
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    if (!open) {
+      setSettled(false)
+      return
+    }
+    const frame = requestAnimationFrame(() => setSettled(true))
+    return () => cancelAnimationFrame(frame)
+  }, [open])
 
   const identity = `${sessionId}${SCENE_IDENTITY_SEPARATOR}${sceneId}`
 
@@ -245,9 +263,10 @@ export function SceneHistoryPanel({
     return () => window.removeEventListener('keydown', onTab)
   }, [open, modal])
 
-  if (!open) {
+  if (!open && !presence.mounted) {
     return null
   }
+  const exiting = !open
 
   const jumpToLatest = () => {
     const element = listRef.current
@@ -264,17 +283,28 @@ export function SceneHistoryPanel({
       {/* Narrow screens only: a backdrop blocks background interaction and closes on outside click. */}
       <button
         type="button"
-        className="fixed inset-0 z-30 bg-black/40 lg:hidden"
-        aria-label={t('studio.cinema.sidebarBackdrop')}
+        className={`fixed inset-0 z-30 bg-black/40 lg:hidden ${exiting ? 'studio-fade-out' : 'studio-fade-in'}`}
+        aria-label={exiting ? undefined : t('studio.cinema.sidebarBackdrop')}
+        aria-hidden={exiting || undefined}
+        inert={exiting || undefined}
+        tabIndex={exiting ? -1 : undefined}
         onClick={onClose}
       />
       <aside
         ref={asideRef}
         id={id}
-        role="dialog"
-        aria-label={title}
-        aria-modal={modal ? 'true' : undefined}
-        className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col overflow-hidden border-l border-black/10 bg-bg-primary shadow-2xl lg:static lg:z-auto lg:w-[400px] lg:max-w-none lg:border-l lg:border-black/10 lg:shadow-none dark:border-white/15"
+        // An exiting panel is already closed: no live dialog role and nothing to announce, only the
+        // slide and the width collapse are still playing.
+        role={exiting ? undefined : 'dialog'}
+        aria-label={exiting ? undefined : title}
+        aria-modal={!exiting && modal ? 'true' : undefined}
+        aria-hidden={exiting || undefined}
+        inert={exiting || undefined}
+        className={`${
+          exiting ? 'studio-slide-out-right' : 'studio-slide-in-right'
+        } fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col overflow-hidden border-l border-black/10 bg-bg-primary shadow-2xl transition-[width] duration-[340ms] ease-move lg:static lg:z-auto lg:max-w-none lg:border-l lg:border-black/10 lg:shadow-none dark:border-white/15 ${
+          exiting || !settled ? 'lg:w-0' : 'lg:w-[400px]'
+        }`}
       >
         <header className="flex items-center gap-2 border-b border-black/5 px-3 py-3 dark:border-white/10">
           <CatCharacter pose={catPose} className="cinema-cat-enter h-10 w-10 shrink-0" />
@@ -324,7 +354,7 @@ export function SceneHistoryPanel({
         {showJumpToLatest ? (
           <button
             type="button"
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-black/10 bg-bg-primary/95 px-3 py-1.5 text-sm text-text-secondary shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
+            className="studio-rise-in absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-black/10 bg-bg-primary/95 px-3 py-1.5 text-sm text-text-secondary shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
             onClick={jumpToLatest}
           >
             {t('studio.cinema.jumpToLatest')}

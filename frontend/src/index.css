@@ -15,6 +15,20 @@
   --accent-rgb: 66, 66, 66;
   --accent-hover-rgb: 48, 48, 48;
   --border-rgb: 0, 0, 0;
+
+  /* 动效曲线（HIG 分工）：不是一条通吃。
+     ui    微交互（hover / 变色 / 焦点）——克制，几乎察觉不到
+     enter 进场浮现（弹层 / 气泡 / 媒体上屏）——减速落定
+     exit  退场——加速离开，不拖尾巴
+     move  位移 / 尺寸 / 翻页（侧栏宽度、舞台形状）——长距离柔和收尾
+     soft  透明度 / 颜色交叉溶解（深底溶解、占位浮现）——慢起手 + 长收尾
+     spring 回弹强调（猫） */
+  --ease-ui: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-move: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.45, 0, 0.25, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* iOS 风格主题变量 */
@@ -237,11 +251,13 @@ select option:checked {
 @keyframes assemble-slide-left { 0% { transform: translateX(-100%); } 100% { transform: translateX(0); } }
 @keyframes assemble-drop { 0% { opacity: 0; transform: translateY(-6px); } 100% { opacity: 1; transform: translateY(0); } }
 @keyframes assemble-fade { 0% { opacity: 0; } 100% { opacity: 1; } }
-@keyframes assemble-rise { 0% { opacity: 0; transform: scale(0.97); } 100% { opacity: 1; transform: scale(1); } }
 .page-assemble [data-assemble="sidebar"] { animation: assemble-slide-left 0.48s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .page-assemble [data-assemble="header"] { animation: assemble-drop 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both; }
 .page-assemble [data-assemble="strip"] { animation: assemble-fade 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
-.page-assemble [data-assemble="stage"] { animation: assemble-rise 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
+/* 舞台晚于其余部件落定，并且只做透明度——一大块深色表面缩放会读成“胀出来”。
+   浅色机架（header/strip/composer）先就位，屏幕像被点亮一样随后浮现。
+   透明度用 soft（慢起手），不是 move：这里没有运动去遮挡快起手。 */
+.page-assemble [data-assemble="stage"] { animation: assemble-fade 0.58s var(--ease-soft) 0.16s both; }
 .page-assemble [data-assemble="composer"] { animation: assemble-fade 0.40s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
 
 /* home 退场覆盖层：淡出 + 微缩，悄悄退到 studio 组装之下 */
@@ -254,6 +270,115 @@ select option:checked {
 
 @media (prefers-reduced-motion: reduce) {
   .page-slide-in, .page-slide-out, .page-assemble [data-assemble], .page-home-leave { animation: none !important; }
+}
+
+/* ==========================================================
+   Studio 细节过渡（HIG 曲线分工）
+   出现/消失是挂载/卸载，没有可过渡的中间态 —— 所以一律走 animation（keyframe），
+   而不是 transition；能留挂载的位移/尺寸才用 transition。
+   ========================================================== */
+@keyframes studio-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes studio-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes studio-rise-in { from { opacity: 0; transform: translateY(6px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes studio-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes studio-pop-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+@keyframes studio-media-in { from { opacity: 0; transform: scale(0.965); } to { opacity: 1; transform: scale(1); } }
+@keyframes studio-slide-in-right { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes studio-slide-out-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(28px); } }
+@keyframes studio-slide-in-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes studio-slide-out-left { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+.studio-fade-in { animation: studio-fade-in 0.18s var(--ease-enter) both; }
+.studio-fade-out { animation: studio-fade-out 0.15s var(--ease-exit) both; }
+.studio-rise-in { animation: studio-rise-in 0.26s var(--ease-enter) both; }
+.studio-pop-in { animation: studio-pop-in 0.2s var(--ease-enter) both; }
+.studio-pop-out { animation: studio-pop-out 0.15s var(--ease-exit) both; }
+.studio-media-in { animation: studio-media-in 0.42s var(--ease-enter) both; }
+
+/* 屏幕里的占位字：短而柔的浮现。不能拉长——换 state 时旧字立刻卸载，这段长度就是“黑底无字”的长度。 */
+@keyframes studio-placeholder-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.studio-placeholder-in { animation: studio-placeholder-in 0.26s var(--ease-soft) backwards; }
+.studio-slide-in-right { animation: studio-slide-in-right 0.26s var(--ease-enter) both; }
+.studio-slide-out-right { animation: studio-slide-out-right 0.18s var(--ease-exit) both; }
+.studio-slide-in-left { animation: studio-slide-in-left 0.3s var(--ease-move) both; }
+.studio-slide-out-left { animation: studio-slide-out-left 0.22s var(--ease-exit) both; }
+
+/* 内容换卡：换对话 = 竖轴，换场景 = 横轴。这是“推”：两张卡同向移动、彼此紧贴，
+   所以中间不会露出页面底色（不是从两边往中间对撞）。离场卡同时缩小 = 卡片飞走。
+   只走位移和缩放，不走透明度：透明度一低，卡后面的纸色就透出来（就是之前的白闪）。
+   用 backwards/forwards 而不都是 both：进场卡结束后不留 transform，
+   否则这个包裹层会变成 `position: fixed` 的包含块，把场景条里的选择器弹层定位弄歪。 */
+@keyframes content-rise { from { transform: translateY(100%) scale(0.94); } to { transform: translateY(0) scale(1); } }
+@keyframes content-fall { from { transform: translateY(-100%) scale(0.94); } to { transform: translateY(0) scale(1); } }
+@keyframes content-from-right { from { transform: translateX(100%) scale(0.94); } to { transform: translateX(0) scale(1); } }
+@keyframes content-from-left { from { transform: translateX(-100%) scale(0.94); } to { transform: translateX(0) scale(1); } }
+
+/* 离场卡是“上一帧那张卡的重放”：里面每个元素都已经播过自己的入场动画，
+   再播一遍——媒体又从 opacity 0 淡入一遍——就是两张卡之间那一帧亮的来源：
+   旧卡先透明、新图还没到。冻住重放内部的一切，只让外层那段推卡位移负责动。
+   放在外层包裹上、用子代选择器：包裹自己的推卡动画要留着。 */
+.studio-replay-freeze * { animation: none !important; transition: none !important; }
+
+.studio-content-rise { animation: content-rise 0.42s var(--ease-move) backwards; }
+.studio-content-fall { animation: content-fall 0.42s var(--ease-move) backwards; }
+.studio-content-from-right { animation: content-from-right 0.42s var(--ease-move) backwards; }
+.studio-content-from-left { animation: content-from-left 0.42s var(--ease-move) backwards; }
+
+/* 离场卡：往它来的反方向飞走（同时缩小）。用 forwards 保留终点，卡片停在画面外直到卸载。 */
+@keyframes content-rise-out { from { transform: translateY(0) scale(1); } to { transform: translateY(-100%) scale(0.9); } }
+@keyframes content-fall-out { from { transform: translateY(0) scale(1); } to { transform: translateY(100%) scale(0.9); } }
+@keyframes content-to-left { from { transform: translateX(0) scale(1); } to { transform: translateX(-100%) scale(0.9); } }
+@keyframes content-to-right { from { transform: translateX(0) scale(1); } to { transform: translateX(100%) scale(0.9); } }
+
+.studio-content-rise-out { animation: content-rise-out 0.42s var(--ease-move) forwards; }
+.studio-content-fall-out { animation: content-fall-out 0.42s var(--ease-move) forwards; }
+.studio-content-to-left { animation: content-to-left 0.42s var(--ease-move) forwards; }
+.studio-content-to-right { animation: content-to-right 0.42s var(--ease-move) forwards; }
+
+/* 猫开口：比通用淡入更慢、带一点由下往上，读起来是“说出来”而不是“跳出来”。 */
+@keyframes studio-bubble-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.studio-bubble-in { animation: studio-bubble-in 0.34s var(--ease-enter) backwards; }
+
+/* 高度折叠（工具详情 / 提示行）：留挂载，0fr → 1fr，位移用 move 曲线。
+   折叠时高度归零，但父容器的 gap 还会占一格 —— 需要时用 `-mb-<gap>` 在收起时抵消，
+   所以 margin-bottom 也在过渡里（跟高度同曲线同时长，不会跳）。 */
+.studio-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s var(--ease-move), opacity 0.24s var(--ease-move),
+    margin-bottom 0.24s var(--ease-move);
+  opacity: 0;
+}
+.studio-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.studio-collapse > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 窄屏的会话抽屉：只在 lg 以下滑入（lg 以上侧栏是在流列，宽度过渡已经够了）。 */
+@media (max-width: 1023px) {
+  .studio-drawer-in { animation: studio-slide-in-left 0.3s var(--ease-move) both; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-fade-in, .studio-fade-out, .studio-rise-in, .studio-pop-in, .studio-pop-out,
+  .studio-media-in, .studio-slide-in-right, .studio-slide-out-right,
+  .studio-slide-in-left, .studio-slide-out-left { animation: none !important; }
+  .studio-collapse { transition: none !important; }
+  .studio-drawer-in { animation: none !important; }
+  .studio-content-rise, .studio-content-fall, .studio-content-from-right, .studio-content-from-left {
+    animation: none !important;
+  }
+  .studio-content-rise-out, .studio-content-fall-out, .studio-content-to-left, .studio-content-to-right {
+    animation: none !important;
+  }
+  .studio-bubble-in { animation: none !important; }
+  .studio-placeholder-in { animation: none !important; }
+  /* 分段控件的选中胶囊：减少动态时直接跳位，不平移。 */
+  .studio-selection-pill { transition: none !important; }
 }
 
 

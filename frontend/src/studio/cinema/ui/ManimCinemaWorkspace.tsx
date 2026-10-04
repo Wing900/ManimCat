@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import type { StudioKind } from '../../protocol/studio-agent-types'
@@ -13,9 +13,7 @@ import { CinemaScreen } from './CinemaScreen'
 import {
   readStudioCinemaCatStatus,
   readStudioCinemaFeedbackKey,
-  readStudioCinemaRenderStatusKey,
   readStudioCinemaScreenState,
-  readStudioCinemaStreamStateKey,
   readStudioCinemaSubmitBlockedKey,
   type StudioCinemaScreenState,
 } from './cinema-labels'
@@ -29,6 +27,8 @@ import {
   type StudioCinemaSceneSelectionStore,
 } from './scene-selection-plan'
 import { useStudioCinemaSceneSelection } from './use-studio-cinema-scene-selection'
+import { useStudioCinemaContentSlide } from './use-content-slide'
+import { useExitingLayer } from './use-exiting-layer'
 
 /**
  * The Manim Cinema workspace (task 11C2): the real Manim Studio screen.
@@ -154,9 +154,79 @@ export function ManimCinemaWorkspace({
   }, [])
 
   const index = useMemo(() => selectStudioCinemaSceneIndex(state), [state])
-  const view = useMemo(() => selectStudioCinemaSelectedSceneView(state), [state])
+
+  // The reducer opens a new Session from an empty state (`session/opened`), and that blank frame —
+  // the stage falling back to "no Scenes yet" and then growing back — is the flash a switch shows.
+  // While the state has no view of its own and the last one belonged to a different Session, that
+  // last view stays on screen. A Session always ends up with a Scene (creation targets at least one),
+  // so the hold ends by itself as soon as the new view exists. Nothing is actionable during it: the
+  // `identityReady` gate below still closes every Scene-targeted action.
+  const stateView = useMemo(() => selectStudioCinemaSelectedSceneView(state), [state])
+  const lastViewRef = useRef<ReturnType<typeof selectStudioCinemaSelectedSceneView>>(null)
+  useLayoutEffect(() => {
+    if (stateView) {
+      lastViewRef.current = stateView
+    }
+  }, [stateView])
+  const view =
+    stateView ??
+    ((lastViewRef.current?.identity.sessionId ?? null) === state.session.id ? null : lastViewRef.current)
   const sceneIndex = index.findIndex((entry) => entry.isSelected)
   const selectedSceneId = state.selectedSceneId
+
+  // Which way the content is moving: a different Session is a different card (vertical), a different
+  // Scene inside the same Session is a different page of it (horizontal). The direction follows the
+  // list order, so switching down a list reads like scrolling a feed.
+  const contentSlide = useStudioCinemaContentSlide({
+    sessionId: view?.identity.sessionId ?? null,
+    sceneId: view?.identity.sceneId ?? null,
+    sessionOrder: view ? session.historyIds.indexOf(view.identity.sessionId) : -1,
+    sceneOrder: view ? index.findIndex((entry) => entry.id === view.identity.sceneId) : -1,
+  })
+  // Distinct keys per sibling: React requires unique keys among the children of one parent, and both
+  // must change on the same frame so the animations stay in step.
+  const contentKey = view ? `${view.identity.sessionId}\u0000${view.identity.sceneId}` : 'studio-empty'
+  // A push, not a swap: the arriving card enters from its side and the leaving card exits the other
+  // way. Both classes are resolved in this same render, so the two animations stay in step.
+  const slideForward = contentSlide.direction === 'forward'
+  const stageSlideClass =
+    contentSlide.axis === 'scene'
+      ? slideForward
+        ? 'studio-content-from-right'
+        : 'studio-content-from-left'
+      : contentSlide.axis === 'session'
+        ? slideForward
+          ? 'studio-content-rise'
+          : 'studio-content-fall'
+        : ''
+  const stageExitClass =
+    contentSlide.axis === 'scene'
+      ? slideForward
+        ? 'studio-content-to-left'
+        : 'studio-content-to-right'
+      : contentSlide.axis === 'session'
+        ? slideForward
+          ? 'studio-content-rise-out'
+          : 'studio-content-fall-out'
+        : ''
+  // The strip only follows a Session: inside one Session the tab row is the control the Scene is
+  // picked from, so it stays put and the screen is what turns.
+  const sessionSlideClass =
+    contentSlide.axis === 'session'
+      ? slideForward
+        ? 'studio-content-rise'
+        : 'studio-content-fall'
+      : ''
+  const sessionKey = view?.identity.sessionId ?? 'studio-empty'
+  // A push is decided once, on the frame its signal appears, and then held for its whole length: any
+  // live update (a media load, a stream event) re-renders, and a class recomputed from the live signal
+  // would drop the running animation halfway. `contentKey` is the only dependency on purpose — it
+  // changes exactly once per push, and the values read inside are from that same frame.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pushClasses = useMemo(
+    () => ({ enter: stageSlideClass, exit: stageExitClass, strip: sessionSlideClass }),
+    [contentKey],
+  )
 
   const sessionId = state.session.id
   // Correction R2: a Scene-targeted mutation needs the *resolved* Session to be the one the
@@ -195,16 +265,20 @@ export function ManimCinemaWorkspace({
     ...(sceneSelectionStore ? { store: sceneSelectionStore } : {}),
   })
 
-  // Scenes are created exactly once, and only for the Session this workspace created itself: a
-  // restored Session is never back-filled with new Scenes.
+  // Scenes are created exactly once per Session: for the one this workspace created, and for any
+  // Session that turns out to have none at all — an empty Session fills itself to the default count
+  // instead of showing a first-step screen of its own. A restored Session that already has Scenes is
+  // never back-filled, and the trigger is a *readable* index: an unreadable one must not invent them.
   useEffect(() => {
-    const sessionId = session.origin === 'created' ? session.session?.id ?? null : null
+    const createdId = session.origin === 'created' ? session.session?.id ?? null : null
+    const emptyId = selection.indexReadable && index.length === 0 ? session.session?.id ?? null : null
+    const sessionId = createdId ?? emptyId
     if (!sessionId || initializedSessionRef.current === sessionId) {
       return
     }
     initializedSessionRef.current = sessionId
     void controller.initializeScenes()
-  }, [controller, session.origin, session.session?.id])
+  }, [controller, index.length, selection.indexReadable, session.origin, session.session?.id])
 
   const closeHistory = useCallback(() => {
     setHistoryOpen(false)
@@ -274,23 +348,82 @@ export function ManimCinemaWorkspace({
       })
     : null
 
-  const screenState: StudioCinemaScreenState = view
-    ? readStudioCinemaScreenState({
-        playableUrl: view.display.playableUrl,
-        capabilityGap: view.display.capabilityGap,
-        hasActiveRender: view.activeRender !== null,
-        latestStatus: view.display.latestStatus,
-      })
-    : 'empty'
-
   const sessionFeedbackKey =
     readSessionFailureKey(session.failure) ??
     (state.feedback ? readStudioCinemaFeedbackKey(studioKind, state.feedback.code) : null)
 
+  // One card of the stage: the Scene's screen, or the "no Scenes yet" first step. Built as a plain
+  // element so a card that is leaving can be rendered again from the previous one — a React element is
+  // an immutable description, so re-rendering it re-creates the frame it had, values and all.
+  const renderStageCard = (cardView: ReturnType<typeof selectStudioCinemaSelectedSceneView>, cardSceneIndex: number) => {
+    const cardScreenState: StudioCinemaScreenState = cardView
+      ? readStudioCinemaScreenState({
+          playableUrl: cardView.display.playableUrl,
+          capabilityGap: cardView.display.capabilityGap,
+          hasActiveRender: cardView.activeRender !== null,
+          latestStatus: cardView.display.latestStatus,
+        })
+      : 'empty'
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-3 sm:px-20 lg:px-32">
+        <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+          {/* No "this Session has no Scenes yet" first step: an empty Session fills itself (see the
+              initialization effect above), and that screen was the one fully white frame on a light
+              page — a page-coloured hole with text on it. A card without a view is simply the dark
+              stage, the same surface as "no result yet". */}
+          <div
+            className={
+              // A result keeps its own aspect ratio and only borrows the slot's bounds; the dark
+              // 16:9 stage is the shape of "nothing to show", not of the media.
+              cardScreenState === 'playable'
+                ? 'flex h-full max-h-full min-h-0 w-full max-w-[1040px] items-center justify-center'
+                : 'aspect-video max-h-full w-full max-w-[1040px]'
+            }
+          >
+            <CinemaScreen
+              state={cardScreenState}
+              studioKind={studioKind}
+              sceneIndex={Math.max(0, cardSceneIndex)}
+              playableUrl={cardView?.display.playableUrl ?? null}
+              mediaKind={cardView?.display.mediaKind ?? null}
+              hasNewerWorkBehindResult={
+                cardScreenState === 'playable' &&
+                (cardView?.activeRender !== null || cardView?.userStatus.kind === 'failed')
+              }
+              refreshPausedReasonKey={
+                cardView?.renderRefresh.pauseReason === 'failures'
+                  ? 'studio.cinema.renderRefreshPausedFailures'
+                  : cardView?.renderRefresh.pauseReason === 'budget'
+                    ? 'studio.cinema.renderRefreshPausedBudget'
+                    : null
+              }
+              onResumeRefresh={() => {
+                if (cardView && identityReady) {
+                  controller.resumeSceneRenderRefresh(cardView.identity.sceneId)
+                }
+              }}
+              onReconcile={() => {
+                if (cardView && identityReady) {
+                  void controller.reconcileScene(cardView.identity.sceneId)
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const cardNode = renderStageCard(view, sceneIndex)
+  // Longer than the 420ms slide: the leaving card goes away just after it has finished moving.
+  const leavingCard = useExitingLayer(contentKey, cardNode, 440)
+
   return (
     <div
       className={`flex h-screen min-h-0 flex-col overflow-hidden bg-bg-primary text-text-primary studio-shell-root ${
-        isExiting ? 'animate-studio-exit' : 'animate-studio-entrance'
+        // The entry is owned by App's `page-assemble` (the parts assemble in a stagger). A second
+        // entrance here would run a 1.8s blur over the whole shell on top of it.
+        isExiting ? 'animate-studio-exit' : ''
       }`}
     >
       <div className="relative flex min-h-0 flex-1">
@@ -301,7 +434,6 @@ export function ManimCinemaWorkspace({
           currentSessionId={state.session.id}
           currentTitle={state.session.title ?? t('studio.cinema.sessionTitle')}
           historyIds={session.historyIds}
-          status={session.status}
           feedbackKey={sessionFeedbackKey}
           onCreate={session.createNewSession}
           onRetry={session.retry}
@@ -317,63 +449,76 @@ export function ManimCinemaWorkspace({
           inert={historyOpen && !isDesktopViewport ? true : undefined}
         >
           <header data-assemble="header" className="flex items-center gap-2 px-3 py-2">
-            <h1 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">
+            <h1
+              key={`${contentKey}-title`}
+              className="studio-fade-in min-w-0 flex-1 truncate text-base font-medium text-text-primary/85"
+            >
               {t(cinemaUnitKey(studioKind, 'sceneLabel'), { index: Math.max(0, sceneIndex) + 1 })}
             </h1>
             {session.status === 'loading' && session.session !== null ? (
-              <span
-                role="status"
-                className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-sm text-amber-700 dark:text-amber-300"
-              >
+              // sr-only on purpose: a switch is a frame or two long, and an amber chip for it is noise
+              // on top of the stage. The state is still announced — and the composer below still says
+              // why its send button is closed.
+              <span role="status" className="sr-only">
                 {t('studio.cinema.sessionSwitching')}
-              </span>
-            ) : null}
-            {view && view.streamState !== 'connected' ? (
-              <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-sm text-text-secondary/70 dark:bg-white/10">
-                {t(readStudioCinemaStreamStateKey(view.streamState))}
               </span>
             ) : null}
           </header>
 
-          {selection.indexFailed ? (
-            <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
-              <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
-                {t('studio.cinema.indexUnavailable')}
-              </p>
-              <button
-                type="button"
-                className="inline-flex min-h-[36px] shrink-0 items-center rounded-md border border-amber-500/40 px-2.5 text-sm text-amber-700 dark:text-amber-300"
-                onClick={selection.retryIndex}
-              >
-                {t('studio.cinema.indexRetry')}
-              </button>
+          {/* Both banners stay mounted and collapse to zero height, so they slide open instead of
+              shoving the stage down. */}
+          <div className="studio-collapse" data-open={selection.indexFailed ? 'true' : 'false'}>
+            <div>
+              <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+                <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
+                  {t('studio.cinema.indexUnavailable')}
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex min-h-[36px] shrink-0 items-center rounded-md border border-amber-500/40 px-2.5 text-sm text-amber-700 dark:text-amber-300"
+                  onClick={selection.retryIndex}
+                >
+                  {t('studio.cinema.indexRetry')}
+                </button>
+              </div>
             </div>
-          ) : null}
+          </div>
 
-          {state.initialization.status === 'partial' || state.initialization.status === 'failed' ? (
-            <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
-              <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
-                {t(cinemaUnitKey(studioKind, 'initializeProgress'), {
-                  created: state.initialization.createdCount,
-                  target: state.initialization.targetCount,
-                })}
-              </p>
-              <button
-                type="button"
-                className="inline-flex min-h-[36px] shrink-0 items-center rounded-md border border-amber-500/40 px-2.5 text-sm text-amber-700 dark:text-amber-300"
-                disabled={!identityReady}
-                onClick={() => {
-                  if (identityReady) {
-                    void controller.continueSceneInitialization()
-                  }
-                }}
-              >
-                {t(cinemaUnitKey(studioKind, 'initializeContinue'))}
-              </button>
+          <div
+            className="studio-collapse"
+            data-open={
+              state.initialization.status === 'partial' || state.initialization.status === 'failed'
+                ? 'true'
+                : 'false'
+            }
+          >
+            <div>
+              <div className="mx-3 mb-1 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5">
+                <p className="min-w-0 flex-1 text-sm text-amber-700 dark:text-amber-300">
+                  {t(cinemaUnitKey(studioKind, 'initializeProgress'), {
+                    created: state.initialization.createdCount,
+                    target: state.initialization.targetCount,
+                  })}
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex min-h-[36px] shrink-0 items-center rounded-md border border-amber-500/40 px-2.5 text-sm text-amber-700 dark:text-amber-300"
+                  disabled={!identityReady}
+                  onClick={() => {
+                    if (identityReady) {
+                      void controller.continueSceneInitialization()
+                    }
+                  }}
+                >
+                  {t(cinemaUnitKey(studioKind, 'initializeContinue'))}
+                </button>
+              </div>
             </div>
-          ) : null}
+          </div>
 
-          <div data-assemble="strip">
+          {/* The strip follows a Session switch — a new Session is a whole new set of Scenes. Inside one
+              Session it does not move: the tab row is the control, the stage is what turns. */}
+          <div key={`${sessionKey}-strip`} data-assemble="strip" className={pushClasses.strip}>
             <SceneStrip
               entries={index}
               studioKind={studioKind}
@@ -392,75 +537,27 @@ export function ManimCinemaWorkspace({
             />
           </div>
 
-          <div data-assemble="stage" className="relative flex min-h-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-3 pb-3 sm:px-20 lg:px-32">
+          <div data-assemble="stage" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            {/* The card that is leaving keeps the frame it had and slides out the other way, so both
+                cards move together and the stage is never empty in between. It is inert and hidden
+                from assistive tech: to a screen reader it is already gone. */}
+            {leavingCard ? (
+              <div
+                aria-hidden
+                inert
+                className={`studio-replay-freeze pointer-events-none absolute inset-0 flex min-h-0 flex-col ${pushClasses.exit}`}
+              >
+                {leavingCard}
+              </div>
+            ) : null}
+
             <div
-              className="relative flex min-h-0 w-full flex-1 items-center justify-center"
+              key={`${contentKey}-card`}
               role="tabpanel"
               id={SCENE_PANEL_ID}
+              className={`flex min-h-0 flex-1 flex-col ${pushClasses.enter}`}
             >
-              {index.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <p className="text-base text-text-primary/70">{t(cinemaUnitKey(studioKind, 'sceneEmptyTitle'))}</p>
-                  <button
-                    type="button"
-                    className="inline-flex min-h-[44px] items-center rounded-lg border border-black/10 px-3 text-sm disabled:opacity-40 dark:border-white/15"
-                    disabled={state.sceneMutationPending || !identityReady}
-                    onClick={() => {
-                      if (identityReady) {
-                        void controller.appendScene()
-                      }
-                    }}
-                  >
-                    {t(cinemaUnitKey(studioKind, 'sceneCreateFirst'))}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div
-                    className={
-                      // A result keeps its own aspect ratio and only borrows the slot's bounds; the dark
-                      // 16:9 stage is the shape of "nothing to show", not of the media.
-                      screenState === 'playable'
-                        ? 'flex h-full max-h-full min-h-0 w-full max-w-[1040px] items-center justify-center'
-                        : 'aspect-video max-h-full w-full max-w-[1040px]'
-                    }
-                  >
-                    <CinemaScreen
-                      state={screenState}
-                      studioKind={studioKind}
-                      sceneIndex={Math.max(0, sceneIndex)}
-                      playableUrl={view?.display.playableUrl ?? null}
-                      mediaKind={view?.display.mediaKind ?? null}
-                      hasNewerWorkBehindResult={
-                        screenState === 'playable' &&
-                        (view?.activeRender !== null || view?.userStatus.kind === 'failed')
-                      }
-                      activeRenderStatusKey={
-                        view?.activeRender ? readStudioCinemaRenderStatusKey(view.activeRender.status) : null
-                      }
-                      refreshPausedReasonKey={
-                        view?.renderRefresh.pauseReason === 'failures'
-                          ? 'studio.cinema.renderRefreshPausedFailures'
-                          : view?.renderRefresh.pauseReason === 'budget'
-                            ? 'studio.cinema.renderRefreshPausedBudget'
-                            : null
-                      }
-                      onResumeRefresh={() => {
-                        if (view && identityReady) {
-                          controller.resumeSceneRenderRefresh(view.identity.sceneId)
-                        }
-                      }}
-                      onReconcile={() => {
-                        if (view && identityReady) {
-                          void controller.reconcileScene(view.identity.sceneId)
-                        }
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
+              {cardNode}
             </div>
           </div>
 
@@ -470,7 +567,7 @@ export function ManimCinemaWorkspace({
               reserves bottom room so the cat drops below the input instead of sitting on it. */}
           {view !== null ? (
             <div
-              className={`pointer-events-none absolute bottom-1 right-3 z-10 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] sm:bottom-2 sm:right-4 lg:right-6 ${
+              className={`pointer-events-none absolute bottom-1 right-3 z-10 transition-all duration-300 ease-spring sm:bottom-2 sm:right-4 lg:right-6 ${
                 historyOpen ? 'translate-x-12 -translate-y-6 opacity-0' : 'opacity-100'
               }`}
             >
@@ -510,6 +607,7 @@ export function ManimCinemaWorkspace({
                   ? readStudioCinemaSubmitBlockedKey(studioKind, view.submitBlockReason)
                   : null
             }
+            quietBlockedReason={!identityReady && session.status === 'loading'}
             onDraftChange={(text) => {
               if (view) {
                 controller.setDraft(view.identity.sceneId, text)

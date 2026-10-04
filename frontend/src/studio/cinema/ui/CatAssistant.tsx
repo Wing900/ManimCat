@@ -78,19 +78,23 @@ export function CatAssistant({
   return (
     <div className="flex flex-col items-end gap-2">
       {bubble ? (
-        <CatSpeechBubble
-          text={bubble.text}
-          typing={bubble.typing}
-          bubbleKey={bubble.bubbleKey}
-          params={bubble.params}
-          visible={visible}
-          kind={bubble.kind}
-          hasRecoverEntry={bubble.hasRecoverEntry}
-          onHoverStart={onHoverStart}
-          onHoverEnd={onHoverEnd}
-          onRecover={onToggleHistory}
-          recoverLabelKey={t('studio.cinema.catRecoverView') as TranslationKey}
-        />
+        // Keyed by what the cat is saying, so a new line fades in instead of swapping in place. The
+        // fade lives on this wrapper: the bubble keeps its own `opacity` transition for show/hide.
+        <div key={bubble.bubbleKey ?? bubble.text ?? 'typing'} className="studio-bubble-in">
+          <CatSpeechBubble
+            text={bubble.text}
+            typing={bubble.typing}
+            bubbleKey={bubble.bubbleKey}
+            params={bubble.params}
+            visible={visible}
+            kind={bubble.kind}
+            hasRecoverEntry={bubble.hasRecoverEntry}
+            onHoverStart={onHoverStart}
+            onHoverEnd={onHoverEnd}
+            onRecover={onToggleHistory}
+            recoverLabelKey={t('studio.cinema.catRecoverView') as TranslationKey}
+          />
+        </div>
       ) : null}
 
       <button
@@ -98,7 +102,7 @@ export function CatAssistant({
         type="button"
         tabIndex={historyOpen ? -1 : 0}
         aria-hidden={historyOpen || undefined}
-        className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 lg:h-24 lg:w-24 ${
+        className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 ease-ui hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 lg:h-24 lg:w-24 ${
           historyOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
         aria-label={t(cinemaUnitKey(studioKind, 'catEntryLabel'))}
@@ -107,7 +111,11 @@ export function CatAssistant({
         onClick={onToggleHistory}
         data-tone={tone}
       >
-        <CatCharacter pose={pose} className="cinema-cat-character h-12 w-12 lg:h-20 lg:w-20" />
+        {/* A pose is state, not a transition: a keyed wrapper lets a change re-form the cat softly
+            instead of snapping between the idle breathe and the busy lean. */}
+        <span key={pose} className="studio-pop-in inline-flex">
+          <CatCharacter pose={pose} className="cinema-cat-character h-12 w-12 lg:h-20 lg:w-20" />
+        </span>
         <span className="sr-only">
           {historyOpen ? t('studio.cinema.catHistoryHide') : t('studio.cinema.catHistoryShow')}
         </span>

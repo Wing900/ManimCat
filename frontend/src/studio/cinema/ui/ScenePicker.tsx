@@ -24,9 +24,11 @@ export interface ScenePickerProps {
   studioKind: StudioKind
   onSelect: (sceneId: string) => void
   onClose: () => void
+  /** True while the grid plays its exit animation: it is already closed, only the pixels linger. */
+  exiting?: boolean
 }
 
-export function ScenePicker({ entries, studioKind, onSelect, onClose }: ScenePickerProps) {
+export function ScenePicker({ entries, studioKind, onSelect, onClose, exiting = false }: ScenePickerProps) {
   const { t } = useI18n()
   const firstRef = useRef<HTMLButtonElement | null>(null)
 
@@ -50,14 +52,22 @@ export function ScenePicker({ entries, studioKind, onSelect, onClose }: ScenePic
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t(cinemaUnitKey(studioKind, 'scenePickerLabel'))}
+      className={`${
+        exiting ? 'studio-fade-out' : 'studio-fade-in'
+      } fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4`}
+      // While exiting it is no longer a dialog: the role, the announcement and the pointer target are
+      // already gone, only the fade is still playing.
+      role={exiting ? undefined : 'dialog'}
+      aria-modal={exiting ? undefined : 'true'}
+      aria-label={exiting ? undefined : t(cinemaUnitKey(studioKind, 'scenePickerLabel'))}
+      aria-hidden={exiting || undefined}
+      inert={exiting || undefined}
       onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/10 bg-bg-primary shadow-2xl dark:border-white/15"
+        className={`${
+          exiting ? 'studio-pop-out' : 'studio-pop-in'
+        } flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/10 bg-bg-primary shadow-2xl dark:border-white/15`}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-black/5 px-4 py-3 dark:border-white/10">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import type { StudioKind } from '../../protocol/studio-agent-types'
@@ -7,6 +7,7 @@ import { readStudioCinemaSceneStatusKey } from './cinema-labels'
 import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
 import { ScenePicker } from './ScenePicker'
 import { ChevronLeftIcon, ChevronRightIcon } from './CinemaIcons'
+import { usePresence } from './use-presence'
 
 /**
  * Scene strip (doc §5): the ordered Scenes of this Session, plus the append action.
@@ -41,6 +42,8 @@ const MIN_PX_PER_SCENE = 90
 export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSelect, onAppend }: SceneStripProps) {
   const { t } = useI18n()
   const [pickerOpen, setPickerOpen] = useState(false)
+  // The grid is kept mounted while it fades out; closing is instant to a screen reader either way.
+  const pickerPresence = usePresence(pickerOpen, 200)
   const [availableWidth, setAvailableWidth] = useState(Number.POSITIVE_INFINITY)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -70,6 +73,23 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
       ? entries.filter((entry) => entry.isSelected)
       : entries.slice(0, 1)
     : entries
+
+  // The selection pill slides between tabs instead of cross-fading: this row is a segmented control,
+  // and a moving pill is what shows which Scene the stage is turning to. Measured in a layout effect
+  // (before paint, so the first pill never slides in from nowhere). Inside the scroll container the
+  // pill and the tabs share one coordinate system, so scrolling needs no listener.
+  const tabRefs = useRef(new Map<string, HTMLButtonElement | null>())
+  const [pill, setPill] = useState<{ left: number; width: number; height: number } | null>(null)
+  const inlineIds = inlineEntries.map((entry) => entry.id).join('\u0000')
+  const selectedInlineId = inlineEntries.find((entry) => entry.isSelected)?.id ?? null
+  useLayoutEffect(() => {
+    const tab = !compact && selectedInlineId ? tabRefs.current.get(selectedInlineId) : null
+    if (!tab) {
+      setPill(null)
+      return
+    }
+    setPill({ left: tab.offsetLeft, width: tab.offsetWidth, height: tab.offsetHeight })
+  }, [compact, inlineIds, selectedInlineId, availableWidth])
 
   const moveFocus = (direction: 'next' | 'prev' | 'first' | 'last') => {
     const ids = entries.map((entry) => entry.id)
@@ -130,7 +150,7 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
       {compact ? (
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
+          className="studio-fade-in flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
           aria-label={t(cinemaUnitKey(studioKind, 'scenePrev'))}
           disabled={previousEntry === null}
           onClick={() => {
@@ -143,11 +163,18 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
         </button>
       ) : null}
       <div
-        className="flex min-w-0 max-w-full items-center justify-center gap-1.5 overflow-x-auto"
+        className="relative flex min-w-0 max-w-full items-center justify-center gap-1.5 overflow-x-auto"
         role="tablist"
         aria-label={t(cinemaUnitKey(studioKind, 'sceneStripLabel'))}
         onKeyDown={handleKeyDown}
       >
+        {pill ? (
+          <span
+            aria-hidden="true"
+            className="studio-selection-pill pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full bg-bg-tertiary/60 transition-[left,width] duration-[340ms] ease-move dark:bg-white/10"
+            style={{ left: pill.left, width: pill.width, height: pill.height }}
+          />
+        ) : null}
         {inlineEntries.map((entry) => {
           const statusKey: TranslationKey = readStudioCinemaSceneStatusKey(entry)
           return (
@@ -159,10 +186,15 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
               aria-selected={entry.isSelected}
               aria-controls={panelId}
               tabIndex={entry.isSelected ? 0 : -1}
-              className={`flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                entry.isSelected
-                  ? 'bg-bg-tertiary/60 text-text-primary dark:bg-white/10'
-                  : 'text-text-secondary/70 hover:bg-bg-tertiary/35'
+              ref={(node) => {
+                if (node) {
+                  tabRefs.current.set(entry.id, node)
+                } else {
+                  tabRefs.current.delete(entry.id)
+                }
+              }}
+              className={`studio-fade-in relative flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                entry.isSelected ? 'text-text-primary' : 'text-text-secondary/70 hover:bg-bg-tertiary/35'
               }`}
               onClick={() => onSelect(entry.id)}
             >
@@ -175,7 +207,7 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
         {compact ? (
           <button
             type="button"
-            className="flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            className="studio-fade-in flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-base text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             onClick={() => setPickerOpen(true)}
           >
             {t(cinemaUnitKey(studioKind, 'scenePickerAll'), { count: entries.length })}
@@ -186,7 +218,7 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
       {compact ? (
         <button
           type="button"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
+          className="studio-fade-in flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
           aria-label={t(cinemaUnitKey(studioKind, 'sceneNext'))}
           disabled={nextEntry === null}
           onClick={() => {
@@ -209,10 +241,11 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
         {t('studio.cinema.sceneAppendShort')}
       </button>
 
-      {pickerOpen ? (
+      {pickerPresence.mounted ? (
         <ScenePicker
           entries={entries}
           studioKind={studioKind}
+          exiting={!pickerOpen}
           onSelect={(sceneId) => {
             setPickerOpen(false)
             onSelect(sceneId)

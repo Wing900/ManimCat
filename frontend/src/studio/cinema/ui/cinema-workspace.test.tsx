@@ -701,6 +701,32 @@ describe('cinema workspace', () => {
     expect(composer().value).toBe('scene one draft')
   })
 
+  it('freezes the card that is leaving, so its media cannot fade back in and flash the page', async () => {
+    const harness = createHarness({
+      history: [CINEMA_TEST_SESSION_ID],
+      sceneSnapshots: {
+        [CINEMA_TEST_SCENE_A]: () =>
+          Promise.resolve(createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A)),
+        [CINEMA_TEST_SCENE_B]: () =>
+          Promise.resolve(createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_B)),
+      },
+    })
+    await renderWorkspace(harness)
+    await flush()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Scene 2/ }))
+    await flush()
+
+    // The leaving card is a replay of the card that was on screen. Replaying it re-ran the media's own
+    // entrance fade from opacity zero, which is what left a bright page frame between the two cards, so
+    // the replay is frozen: everything inside it keeps the state it was last painted in.
+    const leaving = document.querySelector('.studio-replay-freeze')
+    expect(leaving).not.toBeNull()
+    expect(leaving).toHaveAttribute('aria-hidden')
+    // Only the live card may claim the panel, so the replay never becomes a second one while it plays out.
+    expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(1)
+  })
+
   it('lets another scene keep working while one scene runs', async () => {
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
@@ -1408,11 +1434,13 @@ describe('cinema workspace', () => {
 
     // The index is readable and empty, so the stale stored id is dropped — and the persistence ran even
     // though the selection never changed (the applied decision is state, not a ref).
-    expect(harness.selectionStore.entries.has(CINEMA_TEST_SESSION_ID)).toBe(false)
-    expect(harness.selectionStore.writes).toEqual([
-      { sessionId: CINEMA_TEST_SESSION_ID, sceneId: null },
-    ])
-    expect(screen.queryByRole('tab', { name: /Scene 1/ })).toBeNull()
+    // An empty Session then fills itself (see the initialization effect), so a selection lands
+    // afterwards; what this test is about is that the stale id was never written back.
+    expect(harness.selectionStore.writes[0]).toEqual({
+      sessionId: CINEMA_TEST_SESSION_ID,
+      sceneId: null,
+    })
+    expect(harness.selectionStore.writes.some((write) => write.sceneId === CINEMA_TEST_SCENE_C)).toBe(false)
   })
 
   it('writes a stored Scene back once the decision actually landed', async () => {

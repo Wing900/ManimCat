@@ -31,7 +31,7 @@ export function StudioComposerAttachmentList({
         {attachments.map((attachment, index) => (
           <div
             key={attachment.id}
-            className={`group relative overflow-hidden text-left ${isMinimal ? '' : 'rounded-lg border border-border/50 bg-bg-secondary/50'}`}
+            className={`studio-pop-in group relative overflow-hidden text-left ${isMinimal ? '' : 'rounded-lg border border-border/50 bg-bg-secondary/50'}`}
           >
             <button
               type="button"
