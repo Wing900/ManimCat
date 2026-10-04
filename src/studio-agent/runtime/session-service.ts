@@ -27,6 +27,12 @@ export interface StudioSessionService {
   createSession: (sessionInput: StudioCreateSessionInput) => Promise<StudioSession>
   getSession: (ownerId: string, sessionId: string) => Promise<StudioSession | null>
   getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
+  /**
+   * Removes one Session of this owner. Everything that belongs to it goes too (the schema cascades), and
+   * `false` means there was nothing to remove — which is also the answer for another owner's Session, so
+   * a delete never reveals that an id exists.
+   */
+  deleteSession: (ownerId: string, sessionId: string) => Promise<boolean>
 }
 
 export function createStudioSessionService(input: {
@@ -85,6 +91,7 @@ export function createStudioSessionService(input: {
     createSession,
     getSession: (ownerId, sessionId) => input.persistence.sessionStore.getById(ownerId, sessionId),
     getSessionSnapshot,
+    deleteSession: (ownerId, sessionId) => input.persistence.sessionStore.delete(ownerId, sessionId),
   }
 }
 

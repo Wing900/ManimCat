@@ -18,6 +18,12 @@ export interface StudioSessionStore {
   getById: (ownerId: string, sessionId: string) => Promise<StudioSession | null>
   update: (ownerId: string, sessionId: string, patch: Partial<StudioSession>) => Promise<StudioSession | null>
   listChildren: (ownerId: string, parentSessionId: string) => Promise<StudioSession[]>
+  /**
+   * Removes one Session of this owner, and with it everything that points at it: Scenes, messages,
+   * parts, Runs, renders and session events. The schema's foreign keys do that cascade, so this is the
+   * only delete any store offers. `false` means there was no such Session for this owner.
+   */
+  delete: (ownerId: string, sessionId: string) => Promise<boolean>
 }
 
 export interface StudioMessageStore {

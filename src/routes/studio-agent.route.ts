@@ -93,6 +93,18 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
   sendStudioSuccess(res, toPublicStudioSnapshot(snapshot))
 }))
 
+router.delete('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
+  const principal = requireStudioPrincipal(res)
+  const deleted = await studioRuntime.deleteSession(principal.ownerId, req.params.sessionId)
+  if (!deleted) {
+    // The same answer for another owner's Session: a delete never reveals that an id exists.
+    return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId: req.params.sessionId })
+  }
+
+  logger.info('Studio session deleted', { sessionId: req.params.sessionId })
+  sendStudioSuccess(res, { deleted: true })
+}))
+
 router.post('/studio-agent/sessions/:sessionId/scenes', authMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   if (!studioCreateSceneRequestSchema.safeParse(req.body ?? {}).success) {

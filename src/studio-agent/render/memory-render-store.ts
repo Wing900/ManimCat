@@ -9,6 +9,19 @@ import { canTransitionStudioRenderStatus } from './render-status-transitions'
 export class InMemoryStudioRenderStore implements StudioRenderStore {
   private readonly renders = new Map<string, StudioRender>()
 
+  /**
+   * The in-memory schema has no foreign keys, so Postgres' `on delete cascade` is wired here instead:
+   * the persistence factory subscribes this to the Session store's delete. Deliberately not part of the
+   * store contract — the Supabase adapter leaves the cascade to the database.
+   */
+  deleteBySessionId(sessionId: string): void {
+    for (const [id, render] of this.renders) {
+      if (render.sessionId === sessionId) {
+        this.renders.delete(id)
+      }
+    }
+  }
+
   async create(render: StudioRender): Promise<StudioRender> {
     this.renders.set(render.id, render)
     return render

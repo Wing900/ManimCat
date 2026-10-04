@@ -11,6 +11,19 @@ import { StudioSceneOrderRejectedError } from './studio-scene-order-error'
 export class InMemoryStudioSceneStore implements StudioSceneStore {
   private readonly scenes = new Map<string, StudioScene>()
 
+  /**
+   * The in-memory schema has no foreign keys, so Postgres' `on delete cascade` is wired here instead:
+   * the persistence factory subscribes this to the Session store's delete. Deliberately not part of the
+   * store contract — the Supabase adapter leaves the cascade to the database.
+   */
+  deleteBySessionId(sessionId: string): void {
+    for (const [id, scene] of this.scenes) {
+      if (scene.sessionId === sessionId) {
+        this.scenes.delete(id)
+      }
+    }
+  }
+
   async create(scene: StudioScene): Promise<StudioScene> {
     if (this.scenes.has(scene.id)) {
       throw new Error('Studio scene already exists')

@@ -8,6 +8,19 @@ import type {
 export class InMemoryStudioMessageStore implements StudioMessageStore {
   private readonly messages = new Map<string, StudioMessage>()
 
+  /**
+   * The in-memory schema has no foreign keys, so Postgres' `on delete cascade` is wired here instead:
+   * the persistence factory subscribes this to the Session store's delete. Deliberately not part of the
+   * store contract — the Supabase adapter leaves the cascade to the database.
+   */
+  deleteBySessionId(sessionId: string): void {
+    for (const [id, message] of this.messages) {
+      if (message.sessionId === sessionId) {
+        this.messages.delete(id)
+      }
+    }
+  }
+
   async createAssistantMessage(message: StudioAssistantMessage): Promise<StudioAssistantMessage> {
     this.messages.set(message.id, message)
     return message

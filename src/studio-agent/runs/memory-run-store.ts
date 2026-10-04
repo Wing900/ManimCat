@@ -4,6 +4,19 @@ import { canTransitionStudioRunStatus } from './run-status-transitions'
 export class InMemoryStudioRunStore implements StudioRunStore {
   private readonly runs = new Map<string, StudioRun>()
 
+  /**
+   * The in-memory schema has no foreign keys, so Postgres' `on delete cascade` is wired here instead:
+   * the persistence factory subscribes this to the Session store's delete. Deliberately not part of the
+   * store contract — the Supabase adapter leaves the cascade to the database.
+   */
+  deleteBySessionId(sessionId: string): void {
+    for (const [id, run] of this.runs) {
+      if (run.sessionId === sessionId) {
+        this.runs.delete(id)
+      }
+    }
+  }
+
   async create(run: StudioRun): Promise<StudioRun> {
     this.runs.set(run.id, run)
     return run

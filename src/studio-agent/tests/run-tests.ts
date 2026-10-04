@@ -17,6 +17,7 @@ import { runSceneRunAdmissionTests } from './run-tests/scene-run-admission.test'
 import { runSceneExecutionBoundaryTests } from './run-tests/scene-execution-boundary.test'
 import { runSceneEventRoutingTests } from './run-tests/scene-event-routing.test'
 import { runRenderResultBridgeTests } from './run-tests/render-result-bridge.test'
+import { runSessionDeleteTests } from './run-tests/session-delete.test'
 
 async function main() {
   await runPromptTests()
@@ -38,6 +39,7 @@ async function main() {
   await runSceneExecutionBoundaryTests()
   await runSceneEventRoutingTests()
   await runRenderResultBridgeTests()
+  await runSessionDeleteTests()
   console.log('All studio-agent tests passed')
 }
 

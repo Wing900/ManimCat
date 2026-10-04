@@ -182,6 +182,19 @@ function createSupabaseStudioSessionStore(client: SupabaseClient): StudioSession
       if (error) throw new Error(`[StudioDB] Failed to list child sessions: ${error.message}`)
       return (data ?? []).map((row) => fromSessionRow(row as StudioSessionRow))
     },
+    async delete(ownerId, sessionId) {
+      // One row: every child table references studio_sessions with `on delete cascade`, so the Scenes,
+      // messages, parts, Runs, renders and session events go with it. The selected id is what makes the
+      // answer honest — a refused write (another owner, no such id) comes back with no rows.
+      const { data, error } = await client
+        .from(TABLES.sessions)
+        .delete()
+        .eq('id', sessionId)
+        .eq('owner_id', ownerId)
+        .select('id')
+      if (error) throw new Error(`[StudioDB] Failed to delete session: ${error.message}`)
+      return (data ?? []).length > 0
+    },
   }
 }
 
