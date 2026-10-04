@@ -157,6 +157,33 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
   return (
     <div className="w-full max-w-2xl mx-auto">
       <form onSubmit={handleFormSubmit} className="space-y-6">
+        {onSecretStudioOpen && (
+          <div className="flex items-center justify-end gap-2 text-xs text-text-secondary/60">
+            <span>{t('form.studioEntry.hint')}</span>
+            <button
+              type="button"
+              onClick={() => onSecretStudioOpen('manim')}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-bg-secondary/60 bg-bg-tertiary/30 text-text-secondary/80 hover:text-accent hover:border-accent/30 transition-colors"
+            >
+              {t('form.studioEntry.manim')}
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17L17 7" />
+                <path d="M8 7h9v9" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => onSecretStudioOpen('plot')}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-bg-secondary/60 bg-bg-tertiary/30 text-text-secondary/80 hover:text-accent hover:border-accent/30 transition-colors"
+            >
+              {t('form.studioEntry.plot')}
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17L17 7" />
+                <path d="M8 7h9v9" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div
           className={`relative transition-all duration-200 ${isDragging ? 'scale-[1.02]' : ''}`}
           onDrop={handleDrop}
