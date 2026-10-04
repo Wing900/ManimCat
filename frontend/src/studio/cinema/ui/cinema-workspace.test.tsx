@@ -1,5 +1,5 @@
 import { StrictMode, type ReactNode } from 'react'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '../../../i18n'
 import type { StudioEventSubscriptionOptions } from '../../api/studio-agent-events'
@@ -219,6 +219,15 @@ function createHarness(options?: {
         const index = history.indexOf(sessionId)
         if (index >= 0) {
           history.splice(index, 1)
+        }
+        // Matches the real store: forgetting the last-used Session points that slot at the next entry
+        // (or clears it), so the next open does not try to restore the Session that is gone.
+        if (storage.get('last') === sessionId) {
+          if (history[0]) {
+            storage.set('last', history[0])
+          } else {
+            storage.delete('last')
+          }
         }
       },
     },
@@ -550,6 +559,8 @@ describe('cinema workspace', () => {
   // The bug the user reports as "switching does not work": picking an entry used to reshuffle the list,
   // so the highlighted row stayed first and every entry kept the same positional name. The marker must
   // land on the row that was clicked, and the rows must stay where they were.
+  // The list reads downwards (oldest first), so the Session that was restored — the most recent one —
+  // is the last row, and "Session 1" is the older one.
   it('marks the picked Session as current without moving it to the front of the list', async () => {
     const harness = createHarness({ history: [SESSION_A, SESSION_B] })
     await renderWorkspace(harness)
@@ -557,15 +568,44 @@ describe('cinema workspace', () => {
 
     const entries = () => screen.getAllByRole('button', { name: /^Session \d+$/ })
     expect(entries().map((entry) => entry.textContent)).toEqual(['Session 1', 'Session 2'])
-    expect(entries()[0]?.getAttribute('aria-current')).toBe('true')
+    expect(entries()[1]?.getAttribute('aria-current')).toBe('true')
 
-    fireEvent.click(entries()[1]!)
+    fireEvent.click(entries()[0]!)
     await flush()
 
     expect(harness.history).toEqual([SESSION_A, SESSION_B])
     expect(entries().map((entry) => entry.textContent)).toEqual(['Session 1', 'Session 2'])
-    expect(entries()[1]?.getAttribute('aria-current')).toBe('true')
-    expect(entries()[0]?.getAttribute('aria-current')).toBeNull()
+    expect(entries()[0]?.getAttribute('aria-current')).toBe('true')
+    expect(entries()[1]?.getAttribute('aria-current')).toBeNull()
+  })
+
+  it('scrolls the list to the current Session instead of flashing to it', async () => {
+    const harness = createHarness({ history: [SESSION_A, SESSION_B] })
+    // jsdom has no layout and does not implement scrollIntoView, so it is stubbed to observe the call.
+    const calls: Array<{ element: Element; options: ScrollIntoViewOptions }> = []
+    const hadScrollIntoView = Object.prototype.hasOwnProperty.call(Element.prototype, 'scrollIntoView')
+    Element.prototype.scrollIntoView = function (this: Element, options?: boolean | ScrollIntoViewOptions) {
+      calls.push({ element: this, options: options as ScrollIntoViewOptions })
+    }
+    try {
+      await renderWorkspace(harness)
+      await flush()
+      calls.length = 0
+
+      const entries = () => screen.getAllByRole('button', { name: /^Session \d+$/ })
+      fireEvent.click(entries()[0]!)
+      await flush()
+
+      // The row the user just picked is brought into view by scrolling to it, never by jumping. (The
+      // strip scrolls its own tab on the same frame, so the list call is looked up by element.)
+      const rowCall = calls.find((call) => call.element === entries()[0]!.closest('li'))
+      expect(rowCall?.options).toEqual({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+      expect(calls.every((call) => call.options?.behavior === 'smooth')).toBe(true)
+    } finally {
+      if (!hadScrollIntoView) {
+        delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+      }
+    }
   })
 
   it('opens and closes the conversation only through the cat', async () => {
@@ -701,7 +741,7 @@ describe('cinema workspace', () => {
     expect(composer().value).toBe('scene one draft')
   })
 
-  it('freezes the card that is leaving, so its media cannot fade back in and flash the page', async () => {
+  it('keeps the card that is leaving mounted, so its media cannot lose the frame it was showing', async () => {
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
       sceneSnapshots: {
@@ -713,18 +753,158 @@ describe('cinema workspace', () => {
     })
     await renderWorkspace(harness)
     await flush()
-
-    fireEvent.click(screen.getByRole('tab', { name: /Scene 2/ }))
     await flush()
 
-    // The leaving card is a replay of the card that was on screen. Replaying it re-ran the media's own
-    // entrance fade from opacity zero, which is what left a bright page frame between the two cards, so
-    // the replay is frozen: everything inside it keeps the state it was last painted in.
-    const leaving = document.querySelector('.studio-replay-freeze')
+    // Pick a Scene that is not the current one: the slide answers a switch the user made, and clicking
+    // the Scene already on screen is not a switch at all.
+    const current = screen.getByRole('tab', { selected: true })
+    const target = screen.getAllByRole('tab').find((tab) => tab !== current)
+    expect(target).toBeDefined()
+    const stage = document.querySelector('[data-assemble="stage"]')!
+    const before = stage.querySelector('[data-testid="cinema-screen"]')
+    expect(before).not.toBeNull()
+
+    fireEvent.click(target!)
+    await flush()
+
+    // The card that is leaving is the *same element*, not a rebuilt copy. That identity is the whole
+    // point: a `<video>` that is rebuilt has no data — it drops the frame it was showing, and until the
+    // metadata arrives it is laid out at the CSS default object size, which is the shrunken black box
+    // that used to fly out of a switch and then jump back to the real size.
+    const leaving = stage.querySelector('[data-leaving="true"]')
     expect(leaving).not.toBeNull()
     expect(leaving).toHaveAttribute('aria-hidden')
-    // Only the live card may claim the panel, so the replay never becomes a second one while it plays out.
+    expect(leaving!.querySelector('[data-testid="cinema-screen"]')).toBe(before)
+    // Only the live card may claim the panel, so the card that is leaving never becomes a second one.
     expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(1)
+  })
+
+  it('slides the stage when a new Session is created', async () => {
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID] })
+    await renderWorkspace(harness)
+    await flush()
+    await flush()
+
+    const stage = document.querySelector('[data-assemble="stage"]')!
+    const first = stage.querySelector('[role="tabpanel"] [data-testid="cinema-screen"]')
+    expect(first).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /新建对话|New session/ }))
+    await flush()
+    await flush()
+
+    // A new Session is the next card down the history list: the card that was on stage keeps its DOM and
+    // slides away, and the arriving card rises into place behind it.
+    const leaving = stage.querySelector('[data-leaving="true"]')
+    expect(leaving).not.toBeNull()
+    expect(leaving!.querySelector('[data-testid="cinema-screen"]')).toBe(first)
+    expect(stage.querySelector('[role="tabpanel"]')!.className).toMatch(/studio-content-rise(?!-out)/)
+  })
+
+  it('deletes the session the user picked, and only after asking', async () => {
+    const other = 'session_other'
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID, other] })
+    await renderWorkspace(harness)
+    await flush()
+    await flush()
+
+    const stage = document.querySelector('[data-assemble="stage"]')!
+    const before = stage.querySelector('[data-testid="cinema-screen"]')
+    const otherRow = document.querySelector(`[data-session-id="${other}"]`)
+    expect(otherRow).not.toBeNull()
+
+    // The row's own action: it is a real button whether or not a pointer is over the row.
+    fireEvent.click(within(otherRow as HTMLElement).getByRole('button', { name: /删除对话|Delete session/ }))
+    // Nothing is gone yet — this is a question, not the action.
+    expect(harness.forgotten).toEqual([])
+    expect(screen.getByRole('dialog')).not.toBeNull()
+
+    // Cancelling leaves the history and the screen alone.
+    fireEvent.click(screen.getByRole('button', { name: /取消|^Cancel$/ }))
+    await flush()
+    expect(harness.forgotten).toEqual([])
+    expect(document.querySelector(`[data-session-id="${other}"]`)).not.toBeNull()
+    // The fade-out is not a dialog any more: the role is dropped the moment it closes.
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    fireEvent.click(within(document.querySelector(`[data-session-id="${other}"]`) as HTMLElement).getByRole('button', { name: /删除对话|Delete session/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^(删除|Delete)$/ }))
+    await waitFor(() => expect(harness.forgotten).toEqual([other]))
+
+    // The row is gone; the Session that was on screen was not touched by it…
+    expect(document.querySelector(`[data-session-id="${other}"]`)).toBeNull()
+    expect(stage.querySelector('[data-testid="cinema-screen"]')).toBe(before)
+    // …and the Scene choice that belonged to the deleted Session went with it.
+    expect(harness.selectionStore.writes).toContainEqual({ sessionId: other, sceneId: null })
+  })
+
+  it('moves the stage on when the session that is on screen is deleted', async () => {
+    const previous = 'session_previous'
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID, previous] })
+    await renderWorkspace(harness)
+    await flush()
+    await flush()
+
+    const stage = document.querySelector('[data-assemble="stage"]')!
+    const before = stage.querySelector('[role="tabpanel"] [data-testid="cinema-screen"]')
+    expect(before).not.toBeNull()
+
+    fireEvent.click(within(document.querySelector(`[data-session-id="${CINEMA_TEST_SESSION_ID}"]`) as HTMLElement).getByRole('button', { name: /删除对话|Delete session/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^(删除|Delete)$/ }))
+
+    // The card that was on screen leaves with its own DOM and the Session that takes its place arrives:
+    // deleting what you are looking at is still a switch the user asked for, so it gets the card motion.
+    await waitFor(() => expect(stage.querySelector('[data-leaving="true"]')).not.toBeNull())
+    expect(stage.querySelector('[data-leaving="true"] [data-testid="cinema-screen"]')).toBe(before)
+    await waitFor(() => expect(harness.forgotten).toEqual([CINEMA_TEST_SESSION_ID]))
+  })
+
+  it('creates a new session when the last one is deleted, so the stage is never emptied', async () => {
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID] })
+    await renderWorkspace(harness)
+    await flush()
+    await flush()
+
+    fireEvent.click(within(document.querySelector(`[data-session-id="${CINEMA_TEST_SESSION_ID}"]`) as HTMLElement).getByRole('button', { name: /删除对话|Delete session/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^(删除|Delete)$/ }))
+
+    // The history ran out: the workspace opens the next candidate, and there is none — so it creates one,
+    // exactly as an attach would. A deleted Session never leaves an empty studio behind.
+    await waitFor(() => expect(harness.forgotten).toEqual([CINEMA_TEST_SESSION_ID]))
+    await waitFor(() => expect(harness.calls.createSession.length).toBeGreaterThan(0))
+  })
+
+  it('places a second switch without motion while the first slide is still running', async () => {
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID] })
+    await renderWorkspace(harness)
+    await flush()
+    await flush()
+
+    const currentTab = () => screen.getByRole('tab', { selected: true })
+    const otherTab = () => screen.getAllByRole('tab').find((tab) => tab !== currentTab())
+    const stage = document.querySelector('[data-assemble="stage"]')!
+    const first = stage.querySelector('[role="tabpanel"] [data-testid="cinema-screen"]')
+    expect(first).not.toBeNull()
+
+    fireEvent.click(otherTab()!)
+    await flush()
+    // The switch the user made slides: the card that was on stage is kept, still on stage, on its way out.
+    const leaving = stage.querySelector('[data-leaving="true"]')
+    expect(leaving).not.toBeNull()
+    expect(leaving!.querySelector('[data-testid="cinema-screen"]')).toBe(first)
+
+    const second = otherTab()!
+    fireEvent.click(second)
+    await flush()
+
+    // The content moved to the second Scene…
+    expect(currentTab()).toBe(second)
+    // …but the second switch did not start motion of its own: a CSS keyframe cannot be interrupted (it
+    // jumps back to the far edge, which is the pile of half-moved cards fast scrubbing used to leave
+    // behind), so what is on stage is still the *first* card finishing its exit, and the live card
+    // carries no slide class at all.
+    expect(stage.querySelector('[data-leaving="true"] [data-testid="cinema-screen"]')).toBe(first)
+    expect(stage.querySelector('[role="tabpanel"]')!.className).not.toContain('studio-content-')
   })
 
   it('lets another scene keep working while one scene runs', async () => {
@@ -1078,13 +1258,14 @@ describe('cinema workspace', () => {
 
     expect(screen.getByRole('tab', { name: /Scene 2/ })).toHaveAttribute('aria-selected', 'true')
 
-    fireEvent.click(screen.getByText('Session 2'))
+    // "Session 1" is the older row of the two, "Session 2" the most recent one.
+    fireEvent.click(screen.getByText('Session 1'))
     await flush()
     expect(screen.getByRole('tab', { name: /Scene 1/ })).toHaveAttribute('aria-selected', 'true')
     expect(harness.selectionStore.entries.get(SESSION_B)).toBe('scene_b_0001')
     expect(harness.selectionStore.entries.get(SESSION_A)).toBe(CINEMA_TEST_SCENE_B)
 
-    fireEvent.click(screen.getByText('Session 1'))
+    fireEvent.click(screen.getByText('Session 2'))
     await flush()
     expect(screen.getByRole('tab', { name: /Scene 2/ })).toHaveAttribute('aria-selected', 'true')
   })

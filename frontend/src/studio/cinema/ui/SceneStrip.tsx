@@ -7,6 +7,7 @@ import { readStudioCinemaSceneStatusKey } from './cinema-labels'
 import type { StudioCinemaSceneIndexEntry } from '../scene-selectors'
 import { ScenePicker } from './ScenePicker'
 import { ChevronLeftIcon, ChevronRightIcon } from './CinemaIcons'
+import { scrollIntoViewSoftly } from './scroll-into-view'
 import { usePresence } from './use-presence'
 
 /**
@@ -90,6 +91,12 @@ export function SceneStrip({ entries, studioKind, mutationPending, panelId, onSe
     }
     setPill({ left: tab.offsetLeft, width: tab.offsetWidth, height: tab.offsetHeight })
   }, [compact, inlineIds, selectedInlineId, availableWidth])
+
+  // The strip follows the stage as well: a Scene that is selected while its tab sits off-screen
+  // scrolls in rather than jumping, so the pill and the row stay in step.
+  useEffect(() => {
+    scrollIntoViewSoftly(selectedInlineId ? tabRefs.current.get(selectedInlineId) : null)
+  }, [selectedInlineId])
 
   const moveFocus = (direction: 'next' | 'prev' | 'first' | 'last') => {
     const ids = entries.map((entry) => entry.id)

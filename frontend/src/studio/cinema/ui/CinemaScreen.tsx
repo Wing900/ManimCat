@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type ReactNode } from 'react'
 import type { TranslationKey } from '../../../i18n/messages'
 import { useI18n } from '../../../i18n'
 import ManimCatLogo from '../../../components/ManimCatLogo'
@@ -17,6 +17,11 @@ import { cinemaUnitKey } from './cinema-copy'
  * expected to be (placeholders and status chips use light ink). Once an image or a video exists the
  * dark stage is gone and the media is shown on the page at its own aspect ratio — a hairline and a
  * faint all-round shadow, never a dropped one: anything soft under the result reads as a blur.
+ *
+ * The screen fills its slot in both cases (`h-full w-full`) and never sizes itself from the media: a
+ * media element that has just re-mounted has no intrinsic size for a frame, and a surface that shrinks
+ * to fit it collapses into a narrow dark strip (the portrait-shaped black rectangle) before the real
+ * size arrives.
  */
 
 export interface CinemaScreenProps {
@@ -36,22 +41,22 @@ export interface CinemaScreenProps {
  * The result keeps its own aspect ratio inside the slot. A hairline and a whisper of an all-round
  * shadow let it read as its own object on the page without the soft dark halo a dropped shadow makes.
  */
-const MEDIA_CLASS =
-  'studio-media-in max-h-full max-w-full rounded-lg object-contain ring-1 ring-black/5 shadow-[0_0_12px_rgba(0,0,0,0.06)] dark:ring-white/10 dark:shadow-none'
+const MEDIA_BASE_CLASS =
+  'max-h-full max-w-full rounded-lg object-contain ring-1 ring-black/5 shadow-[0_0_12px_rgba(0,0,0,0.06)] dark:ring-white/10 dark:shadow-none'
 
 /**
- * Locators that have painted at least once. A replaced card re-mounts its media, and it must not put
- * the dark stage back for a frame when the browser already holds the pixels — the card that is leaving,
- * and any re-mount of a result that is still on screen.
+ * A media element that has not received its data yet has no intrinsic size, and a replaced element with
+ * no intrinsic size is laid out at the CSS default object size (300×150) — a small box, wearing the
+ * hairline above, that the metadata then snaps to the real aspect ratio. That snap is the "the video
+ * shrank, then jumped" of a switch, so the media stays unpainted until it has a size of its own: the
+ * dark stage is what is on screen, and the first frame that shows is already at the right size.
+ *
+ * The entrance fade is attached at that same moment. A media element that mounts hidden must not spend
+ * the fade while it is still hidden, or it appears without it — correct size, but no dissolve out of
+ * the dark stage.
  */
-const paintedLocators = new Set<string>()
-
-function markLocatorPainted(playableUrl: string | null, setMediaReady: (ready: boolean) => void) {
-  if (playableUrl !== null) {
-    paintedLocators.add(playableUrl)
-  }
-  setMediaReady(true)
-}
+const mediaClass = (mediaReady: boolean) =>
+  `${MEDIA_BASE_CLASS}${mediaReady ? ' studio-media-in' : ' invisible'}`
 
 export function CinemaScreen({
   state,
@@ -67,16 +72,20 @@ export function CinemaScreen({
   const { t } = useI18n()
   const [playbackFailed, setPlaybackFailed] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
-  // Whether the current locator has actually painted. The screen surface must not be handed to the
-  // page before that: the page under it is near-white, so a not-yet-loaded media shows a white frame
-  // and then the video's own black one — the two-frame flash between them.
-  const [mediaReady, setMediaReady] = useState(() => playableUrl !== null && paintedLocators.has(playableUrl))
+  // Whether the media element mounted *right now* has painted. Nothing shorter than that is safe: a
+  // card that re-mounts its media — the one that leaves, and the one that arrives — gets a brand new
+  // `<img>`/`<video>`, and until that element has data it has no intrinsic size. A `<video>` then falls
+  // back to the spec's 300×150, which is the tiny black box (on the page's near-white background) the
+  // dark stage below exists to prevent. "The browser already holds this locator" is not the same claim,
+  // and trusting it is what put that box on screen.
+  const [mediaReady, setMediaReady] = useState(false)
 
   // A different locator is a different result: the failure and the readiness of the old one do not
-  // carry over — except for a locator the browser has already painted.
-  useEffect(() => {
+  // carry over. Reset before the browser paints, or the first frame of the new media is trusted for a
+  // readiness it does not have yet.
+  useLayoutEffect(() => {
     setPlaybackFailed(false)
-    setMediaReady(playableUrl !== null && paintedLocators.has(playableUrl))
+    setMediaReady(false)
   }, [playableUrl, reloadToken])
 
   // The dark stage exists while there is nothing on screen to look at — including the gap between a
@@ -104,7 +113,7 @@ export function CinemaScreen({
 
   return (
     <section
-      className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl transition-[background-color] duration-[420ms] ease-soft ${
+      className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl transition-[background-color] duration-[420ms] ease-soft ${
         onDarkStage ? 'bg-[#101415]' : ''
       }`}
       aria-label={t(cinemaUnitKey(studioKind, 'screenLabel'), { index: sceneIndex + 1 })}
@@ -116,8 +125,8 @@ export function CinemaScreen({
             key={`${playableUrl}-${reloadToken}`}
             src={playableUrl}
             alt={t(cinemaUnitKey(studioKind, 'screenResultAlt'), { index: sceneIndex + 1 })}
-            className={MEDIA_CLASS}
-            onLoad={() => markLocatorPainted(playableUrl, setMediaReady)}
+            className={mediaClass(mediaReady)}
+            onLoad={() => setMediaReady(true)}
             onError={() => setPlaybackFailed(true)}
           />
         ) : null}
@@ -129,8 +138,8 @@ export function CinemaScreen({
             controls
             playsInline
             preload="metadata"
-            className={`${MEDIA_CLASS} bg-black`}
-            onLoadedMetadata={() => markLocatorPainted(playableUrl, setMediaReady)}
+            className={`${mediaClass(mediaReady)} bg-black`}
+            onLoadedMetadata={() => setMediaReady(true)}
             onError={() => setPlaybackFailed(true)}
           />
         ) : null}

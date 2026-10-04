@@ -1,9 +1,11 @@
+import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../i18n'
 import type { TranslationKey } from '../../../i18n/messages'
 import ManimCatLogo from '../../../components/ManimCatLogo'
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from './CinemaIcons'
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, CloseIcon, PlusIcon } from './CinemaIcons'
 import type { StudioKind, StudioTokenUsage } from '../../protocol/studio-agent-types'
 import { LogoUsagePopover } from './LogoUsagePopover'
+import { scrollIntoViewSoftly } from './scroll-into-view'
 import { usePresence } from './use-presence'
 
 /**
@@ -21,6 +23,11 @@ import { usePresence } from './use-presence'
  * titles truncate but expose their full text through a native `title` so they are still viewable.
  */
 
+/** The row's own fade + height collapse, then the list is told it is gone. */
+const ROW_REMOVE_MS = 220
+/** Long enough for the dialog's fade-out, short enough not to feel stuck. */
+const DELETE_DIALOG_EXIT_MS = 160
+
 export interface SessionSidebarProps {
   open: boolean
   onToggle: () => void
@@ -31,6 +38,8 @@ export interface SessionSidebarProps {
   onCreate: () => void
   onRetry: () => void
   onSelectSession: (sessionId: string) => void
+  /** Deletes one history entry. Called after the row has already left the screen. */
+  onDeleteSession: (sessionId: string) => void
   /** Current Scene's token usage (doc §4: stats card is current-Scene scoped). */
   tokenUsage: StudioTokenUsage | null
   /** Saved user messages of the current Scene (failed local submits are not counted). */
@@ -53,6 +62,7 @@ export function SessionSidebar({
   onCreate,
   onRetry,
   onSelectSession,
+  onDeleteSession,
   tokenUsage,
   sentRounds,
   sceneLabel,
@@ -62,6 +72,63 @@ export function SessionSidebar({
   const { t } = useI18n()
   // The scrim fades out while the drawer snaps back; the drawer itself is the rail once it closes.
   const scrimPresence = usePresence(open, 200)
+
+  // The list is a feed read downwards, so a new Session is appended and the list follows it to the
+  // bottom. It scrolls there instead of jumping, and opening the list lands where the user already is.
+  const rowRefs = useRef(new Map<string, HTMLLIElement | null>())
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    scrollIntoViewSoftly(currentSessionId ? rowRefs.current.get(currentSessionId) : null)
+  }, [currentSessionId, open])
+
+  // Deleting is asked about first. The dialog keeps its target while it fades out, so the sentence does
+  // not blink away with it, and the row that is going keeps its own id until it has finished leaving.
+  const [deleteRequest, setDeleteRequest] = useState<{ sessionId: string; label: string } | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const deletePresence = usePresence(deleteOpen, DELETE_DIALOG_EXIT_MS)
+  const removeTimerRef = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (removeTimerRef.current !== null) {
+        window.clearTimeout(removeTimerRef.current)
+      }
+    },
+    [],
+  )
+  useEffect(() => {
+    if (!deleteOpen) {
+      return
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        setDeleteOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [deleteOpen])
+
+  // The row leaves the screen before the list is told it is gone: it fades and collapses its own height,
+  // so the rows below close the gap with the same motion instead of jumping into it.
+  const confirmDelete = () => {
+    const request = deleteRequest
+    setDeleteOpen(false)
+    if (request === null) {
+      return
+    }
+    setRemovingId(request.sessionId)
+    removeTimerRef.current = window.setTimeout(() => {
+      removeTimerRef.current = null
+      setRemovingId(null)
+      onDeleteSession(request.sessionId)
+    }, ROW_REMOVE_MS)
+  }
 
   // One element, two widths: collapsing is a width transition with the content cross-fading inside a
   // clipped track, so the rail never swaps the root node in and out (which cannot be animated).
@@ -142,19 +209,51 @@ export function SessionSidebar({
                 {historyIds.map((sessionId, index) => {
                   const isCurrent = sessionId === currentSessionId
                   const label = t('studio.cinema.sessionEntry', { index: index + 1 })
+                  const isRemoving = removingId === sessionId
                   return (
-                    <li key={sessionId}>
-                      <button
-                        type="button"
-                        className={`flex min-h-[44px] w-full items-center truncate rounded-xl px-3 py-1.5 text-left text-sm transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                          isCurrent ? 'bg-bg-tertiary/60 text-text-primary' : 'text-text-secondary/70'
-                        }`}
-                        aria-current={isCurrent ? 'true' : undefined}
-                        title={label}
-                        onClick={() => onSelectSession(sessionId)}
-                      >
-                        {label}
-                      </button>
+                    <li
+                      key={sessionId}
+                      data-session-id={sessionId}
+                      ref={(node) => {
+                        if (node) {
+                          rowRefs.current.set(sessionId, node)
+                        } else {
+                          rowRefs.current.delete(sessionId)
+                        }
+                      }}
+                      /* `grid-rows-[1fr] -> [0fr]` collapses the row without measuring it: the row is
+                         the grid's only track, so the height it gives back is its own. */
+                      className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-[220ms] ease-exit ${
+                        isRemoving ? 'studio-row-removing grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+                      }`}
+                    >
+                      <div className="group relative min-h-0">
+                        <button
+                          type="button"
+                          className={`flex min-h-[44px] w-full items-center truncate rounded-xl py-1.5 pl-3 pr-11 text-left text-sm transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                            isCurrent ? 'bg-bg-tertiary/60 text-text-primary' : 'text-text-secondary/70'
+                          }`}
+                          aria-current={isCurrent ? 'true' : undefined}
+                          title={label}
+                          onClick={() => onSelectSession(sessionId)}
+                        >
+                          {label}
+                        </button>
+                        {/* The row's own action: it appears where the pointer already is. Always reachable
+                            by keyboard (focus), and visible without hover on touch widths. */}
+                        <button
+                          type="button"
+                          className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-secondary/60 transition-opacity hover:text-text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          aria-label={`${t('studio.cinema.sessionDelete')}：${label}`}
+                          title={t('studio.cinema.sessionDelete')}
+                          onClick={() => {
+                            setDeleteRequest({ sessionId, label })
+                            setDeleteOpen(true)
+                          }}
+                        >
+                          <CloseIcon />
+                        </button>
+                      </div>
                     </li>
                   )
                 })}
@@ -200,6 +299,49 @@ export function SessionSidebar({
           </div>
         )}
       </aside>
+
+      {/* Confirming a delete. Same shape as every other overlay here: a backdrop, a dialog role, Escape
+          closes, and the fade-out is not part of the dialog any more (role and pointer target are gone). */}
+      {deletePresence.mounted && deleteRequest ? (
+        <div
+          className={`${deleteOpen ? 'studio-fade-in' : 'studio-fade-out'} fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4`}
+          role={deleteOpen ? 'dialog' : undefined}
+          aria-modal={deleteOpen ? 'true' : undefined}
+          aria-label={deleteOpen ? t('studio.cinema.sessionDeleteTitle') : undefined}
+          aria-hidden={deleteOpen ? undefined : true}
+          inert={deleteOpen ? undefined : true}
+          onClick={() => setDeleteOpen(false)}
+        >
+          <div
+            data-testid="session-delete-dialog"
+            className={`${deleteOpen ? 'studio-pop-in' : 'studio-pop-out'} w-full max-w-sm rounded-2xl border border-black/10 bg-bg-primary p-5 shadow-2xl dark:border-white/15`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-base font-medium text-text-primary/85">
+              {t('studio.cinema.sessionDeleteTitle')}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">
+              {t('studio.cinema.sessionDeleteBody', { label: deleteRequest.label })}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] items-center rounded-xl border border-black/10 px-4 text-sm transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:border-white/15"
+                onClick={() => setDeleteOpen(false)}
+              >
+                {t('studio.cinema.sessionDeleteCancel')}
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] items-center rounded-xl bg-red-600/90 px-4 text-sm text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+                onClick={confirmDelete}
+              >
+                {t('studio.cinema.sessionDeleteConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

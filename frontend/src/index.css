@@ -27,6 +27,8 @@
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-move: cubic-bezier(0.22, 1, 0.36, 1);
+  /* 推卡：两张同向移动、两端都在静止 → 对称 S 曲线（UIKit curveEaseInOut） */
+  --ease-swap: cubic-bezier(0.42, 0, 0.58, 1);
   --ease-soft: cubic-bezier(0.45, 0, 0.25, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -313,16 +315,15 @@ select option:checked {
 @keyframes content-from-right { from { transform: translateX(100%) scale(0.94); } to { transform: translateX(0) scale(1); } }
 @keyframes content-from-left { from { transform: translateX(-100%) scale(0.94); } to { transform: translateX(0) scale(1); } }
 
-/* 离场卡是“上一帧那张卡的重放”：里面每个元素都已经播过自己的入场动画，
-   再播一遍——媒体又从 opacity 0 淡入一遍——就是两张卡之间那一帧亮的来源：
-   旧卡先透明、新图还没到。冻住重放内部的一切，只让外层那段推卡位移负责动。
-   放在外层包裹上、用子代选择器：包裹自己的推卡动画要留着。 */
-.studio-replay-freeze * { animation: none !important; transition: none !important; }
 
-.studio-content-rise { animation: content-rise 0.42s var(--ease-move) backwards; }
-.studio-content-fall { animation: content-fall 0.42s var(--ease-move) backwards; }
-.studio-content-from-right { animation: content-from-right 0.42s var(--ease-move) backwards; }
-.studio-content-from-left { animation: content-from-left 0.42s var(--ease-move) backwards; }
+/* 缩放的原点必须落在“接缝边”（两卡相邻的那条边），否则缩放在飞行中点会把接缝撕开
+   一条纸色带（默认以中心缩放，两张各往回缩 5%+3%）。
+   接缝边 = 旧卡的“被推进方向的那条边” = 新卡的“进入方向的那条边”：
+   往上推：旧卡底边 / 新卡顶边；往下推：旧卡顶边 / 新卡底边；往左推：旧卡右边 / 新卡左边。 */
+.studio-content-rise { animation: content-rise 0.42s var(--ease-swap) backwards; transform-origin: center top; }
+.studio-content-fall { animation: content-fall 0.42s var(--ease-swap) backwards; transform-origin: center bottom; }
+.studio-content-from-right { animation: content-from-right 0.42s var(--ease-swap) backwards; transform-origin: left center; }
+.studio-content-from-left { animation: content-from-left 0.42s var(--ease-swap) backwards; transform-origin: right center; }
 
 /* 离场卡：往它来的反方向飞走（同时缩小）。用 forwards 保留终点，卡片停在画面外直到卸载。 */
 @keyframes content-rise-out { from { transform: translateY(0) scale(1); } to { transform: translateY(-100%) scale(0.9); } }
@@ -330,10 +331,10 @@ select option:checked {
 @keyframes content-to-left { from { transform: translateX(0) scale(1); } to { transform: translateX(-100%) scale(0.9); } }
 @keyframes content-to-right { from { transform: translateX(0) scale(1); } to { transform: translateX(100%) scale(0.9); } }
 
-.studio-content-rise-out { animation: content-rise-out 0.42s var(--ease-move) forwards; }
-.studio-content-fall-out { animation: content-fall-out 0.42s var(--ease-move) forwards; }
-.studio-content-to-left { animation: content-to-left 0.42s var(--ease-move) forwards; }
-.studio-content-to-right { animation: content-to-right 0.42s var(--ease-move) forwards; }
+.studio-content-rise-out { animation: content-rise-out 0.42s var(--ease-swap) forwards; transform-origin: center bottom; }
+.studio-content-fall-out { animation: content-fall-out 0.42s var(--ease-swap) forwards; transform-origin: center top; }
+.studio-content-to-left { animation: content-to-left 0.42s var(--ease-swap) forwards; transform-origin: right center; }
+.studio-content-to-right { animation: content-to-right 0.42s var(--ease-swap) forwards; transform-origin: left center; }
 
 /* 猫开口：比通用淡入更慢、带一点由下往上，读起来是“说出来”而不是“跳出来”。 */
 @keyframes studio-bubble-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -678,3 +679,14 @@ select option:checked {
   .cinema-thinking-dot { animation: none; opacity: 0.6; }
 }
 
+
+/* 删除一行：这个过渡在 Tailwind 类上（grid-rows 1fr → 0fr 收高度、同时淡出），
+   所以这里只需给 prefers-reduced-motion 一个兜底。顺带把删除确认框用到的
+   fade/pop 也一起关掉——它们原本就漏在这道闸门外。 */
+@media (prefers-reduced-motion: reduce) {
+  .studio-row-removing,
+  .studio-fade-in,
+  .studio-fade-out,
+  .studio-pop-in,
+  .studio-pop-out { animation: none !important; transition: none !important; }
+}

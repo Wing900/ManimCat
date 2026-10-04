@@ -63,6 +63,12 @@ export function readRecentStudioSessionIds(studioKind: string): string[] {
   }
 }
 
+/**
+ * The recent list is kept in recency order: the most recent Session first, and the cap drops the
+ * oldest entries from the end. The sidebar shows the same ids the other way up (it reads downwards
+ * as a feed, so the newest Session sits at the bottom); that single flip happens in
+ * `useStudioCinemaSession`, so every reader of this module agrees on one order.
+ */
 export function writeRecentStudioSessionIds(studioKind: string, sessionIds: string[]) {
   if (typeof window === 'undefined') {
     return

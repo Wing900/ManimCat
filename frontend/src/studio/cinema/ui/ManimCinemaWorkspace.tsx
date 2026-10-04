@@ -26,9 +26,9 @@ import {
   isStudioCinemaIndexReadTarget,
   type StudioCinemaSceneSelectionStore,
 } from './scene-selection-plan'
-import { useStudioCinemaSceneSelection } from './use-studio-cinema-scene-selection'
-import { useStudioCinemaContentSlide } from './use-content-slide'
-import { useExitingLayer } from './use-exiting-layer'
+import { useStudioCinemaSceneSelection, STUDIO_CINEMA_SCENE_SELECTION_STORE } from './use-studio-cinema-scene-selection'
+import { useStudioCinemaContentSlide, type StudioCinemaContentPosition } from './use-content-slide'
+import { useLeavingCard } from './use-leaving-card'
 
 /**
  * The Manim Cinema workspace (task 11C2): the real Manim Studio screen.
@@ -63,6 +63,10 @@ export interface ManimCinemaWorkspaceProps {
 
 const SCENE_PANEL_ID = 'cinema-scene-panel'
 const HISTORY_PANEL_ID = 'cinema-scene-history'
+/** The content slide of doc §3.1, in milliseconds — kept in step with the `content-*` animations in index.css. */
+const CONTENT_SLIDE_MS = 420
+// A little past the slide, so an exit that has started is never cut off by its own removal.
+const EXIT_CARD_MS = 440
 
 /** From `lg` up the side column is in flow; below it the expanded sidebar is an overlay. */
 function readInitialSidebarOpen(): boolean {
@@ -155,12 +159,6 @@ export function ManimCinemaWorkspace({
 
   const index = useMemo(() => selectStudioCinemaSceneIndex(state), [state])
 
-  // The reducer opens a new Session from an empty state (`session/opened`), and that blank frame —
-  // the stage falling back to "no Scenes yet" and then growing back — is the flash a switch shows.
-  // While the state has no view of its own and the last one belonged to a different Session, that
-  // last view stays on screen. A Session always ends up with a Scene (creation targets at least one),
-  // so the hold ends by itself as soon as the new view exists. Nothing is actionable during it: the
-  // `identityReady` gate below still closes every Scene-targeted action.
   const stateView = useMemo(() => selectStudioCinemaSelectedSceneView(state), [state])
   const lastViewRef = useRef<ReturnType<typeof selectStudioCinemaSelectedSceneView>>(null)
   useLayoutEffect(() => {
@@ -168,43 +166,94 @@ export function ManimCinemaWorkspace({
       lastViewRef.current = stateView
     }
   }, [stateView])
-  const view =
-    stateView ??
-    ((lastViewRef.current?.identity.sessionId ?? null) === state.session.id ? null : lastViewRef.current)
+  // The card on stage is held while the next one is unresolved, whoever it belonged to. It cannot be
+  // dropped because the Session changed: the card that is leaving has to stay *the same DOM* (see
+  // `useLeavingCard`), and a hole in between is exactly what unmounts the media that is still on screen.
+  // A Session always ends up with a Scene (creation targets at least one), so the hold ends by itself.
+  const view = stateView ?? lastViewRef.current
   const sceneIndex = index.findIndex((entry) => entry.isSelected)
   const selectedSceneId = state.selectedSceneId
 
   // Which way the content is moving: a different Session is a different card (vertical), a different
   // Scene inside the same Session is a different page of it (horizontal). The direction follows the
   // list order, so switching down a list reads like scrolling a feed.
-  const contentSlide = useStudioCinemaContentSlide({
+  // The slide hook must only ever see resolved cards. A view that is momentarily unresolved is not a
+  // destination — the user chose nothing — and letting it through clears the memory of where the stage
+  // was, so the real change that follows reads as "no movement" and the push is lost (and the transient
+  // empty card would be pushed as if it were a Session).
+  const resolvedPositionRef = useRef<StudioCinemaContentPosition | null>(null)
+  const position: StudioCinemaContentPosition = {
     sessionId: view?.identity.sessionId ?? null,
     sceneId: view?.identity.sceneId ?? null,
     sessionOrder: view ? session.historyIds.indexOf(view.identity.sessionId) : -1,
     sceneOrder: view ? index.findIndex((entry) => entry.id === view.identity.sceneId) : -1,
+  }
+  if (view !== null) {
+    resolvedPositionRef.current = position
+  }
+  const contentSlide = useStudioCinemaContentSlide(resolvedPositionRef.current ?? position)
+  // The card this render is showing (null while the view is unresolved).
+  const destinationKey = view ? `${view.identity.sessionId}\u0000${view.identity.sceneId}` : null
+  // Motion answers the user's own action. `intentRef` is armed by every switch the user makes (a Scene
+  // tab, a Session row, a new Session) and consumed by the card that answers it, so the arrivals that
+  // are not the user's doing — a Session settling, the index landing, the second half of a card that is
+  // still filling in — are placed without motion.
+  const intentRef = useRef<
+    { kind: 'scene'; sceneId: string } | { kind: 'session'; sessionId: string } | { kind: 'new-session'; from: string | null } | null
+  >(null)
+  const userIntent = intentRef.current
+  const intentMatches =
+    userIntent !== null &&
+    view !== null &&
+    (userIntent.kind === 'scene'
+      ? view.identity.sceneId === userIntent.sceneId
+      : userIntent.kind === 'session'
+        ? view.identity.sessionId === userIntent.sessionId
+        : // A new Session cannot be named in advance, and it must not be a plain wildcard: the card on
+          // stage is still the *previous* Session's, so a wildcard would match it, spend the intent a
+          // render before the new card exists, and leave the arrival to be animated by whatever else
+          // happens to arm an intent — which is exactly what it used to do. Any Session other than the
+          // one that was on screen is the card this answers.
+          view.identity.sessionId !== userIntent.from)
+  // A slide that is still running toward another card is not restarted. A CSS keyframe animation cannot
+  // be interrupted: it jumps back to the far edge, and the card that was leaving is replaced mid-flight
+  // — the pile of half-moved cards that fast scrubbing looks like today. The content still changes; what
+  // coalesces is the motion.
+  const lastSlideAtRef = useRef(Number.NEGATIVE_INFINITY)
+  const slideInFlight =
+    contentSlide.axis !== null && performance.now() - lastSlideAtRef.current < CONTENT_SLIDE_MS
+  const animatePush = contentSlide.axis !== null && intentMatches && !slideInFlight
+  const push = animatePush ? contentSlide : { axis: null, direction: contentSlide.direction }
+  useLayoutEffect(() => {
+    if (intentMatches) {
+      intentRef.current = null
+    }
+    if (animatePush) {
+      lastSlideAtRef.current = performance.now()
+    }
   })
   // Distinct keys per sibling: React requires unique keys among the children of one parent, and both
   // must change on the same frame so the animations stay in step.
   const contentKey = view ? `${view.identity.sessionId}\u0000${view.identity.sceneId}` : 'studio-empty'
   // A push, not a swap: the arriving card enters from its side and the leaving card exits the other
   // way. Both classes are resolved in this same render, so the two animations stay in step.
-  const slideForward = contentSlide.direction === 'forward'
+  const slideForward = push.direction === 'forward'
   const stageSlideClass =
-    contentSlide.axis === 'scene'
+    push.axis === 'scene'
       ? slideForward
         ? 'studio-content-from-right'
         : 'studio-content-from-left'
-      : contentSlide.axis === 'session'
+      : push.axis === 'session'
         ? slideForward
           ? 'studio-content-rise'
           : 'studio-content-fall'
         : ''
   const stageExitClass =
-    contentSlide.axis === 'scene'
+    push.axis === 'scene'
       ? slideForward
         ? 'studio-content-to-left'
         : 'studio-content-to-right'
-      : contentSlide.axis === 'session'
+      : push.axis === 'session'
         ? slideForward
           ? 'studio-content-rise-out'
           : 'studio-content-fall-out'
@@ -212,21 +261,27 @@ export function ManimCinemaWorkspace({
   // The strip only follows a Session: inside one Session the tab row is the control the Scene is
   // picked from, so it stays put and the screen is what turns.
   const sessionSlideClass =
-    contentSlide.axis === 'session'
+    push.axis === 'session'
       ? slideForward
         ? 'studio-content-rise'
         : 'studio-content-fall'
       : ''
   const sessionKey = view?.identity.sessionId ?? 'studio-empty'
-  // A push is decided once, on the frame its signal appears, and then held for its whole length: any
-  // live update (a media load, a stream event) re-renders, and a class recomputed from the live signal
-  // would drop the running animation halfway. `contentKey` is the only dependency on purpose — it
-  // changes exactly once per push, and the values read inside are from that same frame.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const pushClasses = useMemo(
-    () => ({ enter: stageSlideClass, exit: stageExitClass, strip: sessionSlideClass }),
-    [contentKey],
-  )
+  // A push belongs to the *card*, not to the render: it is latched when a new destination appears and
+  // then held, because a live update (a media load, a stream event, the card filling in) re-renders, and
+  // a class recomputed from the live signal would drop the running animation halfway. A destination that
+  // is not animated is latched as such, so fast input never leaves a stale slide behind.
+  const pushRef = useRef({ destination: null as string | null, animated: false, enter: '', exit: '', strip: '' })
+  if (pushRef.current.destination !== destinationKey) {
+    pushRef.current = {
+      destination: destinationKey,
+      animated: animatePush,
+      enter: stageSlideClass,
+      exit: stageExitClass,
+      strip: sessionSlideClass,
+    }
+  }
+  const pushState = pushRef.current
 
   const sessionId = state.session.id
   // Correction R2: a Scene-targeted mutation needs the *resolved* Session to be the one the
@@ -236,7 +291,14 @@ export function ManimCinemaWorkspace({
 
   // Correction F1: these inputs keep a stable identity across renders (and the binding reads them
   // through refs anyway), so a re-render can never restart the index read or cancel a resolved one.
-  const selectScene = useCallback((sceneId: string) => controller.selectScene(sceneId), [controller])
+  const selectScene = useCallback(
+    (sceneId: string) => {
+      // The user asked for this Scene: the card that answers it is the one that slides.
+      intentRef.current = { kind: 'scene', sceneId }
+      controller.selectScene(sceneId)
+    },
+    [controller],
+  )
   const indexSceneIds = useMemo(() => index.map((entry) => entry.id), [index])
   const readSceneIndex = useCallback(
     (expectedSessionId: string): Promise<'ok' | 'failed' | 'stale'> => {
@@ -255,6 +317,9 @@ export function ManimCinemaWorkspace({
     [controller],
   )
 
+  // Where a Session's Scene choice lives. Deleting a Session clears its entry too, so the two must write
+  // the same store — the store a caller brought, or the browser's localStorage.
+  const selectionStore = sceneSelectionStore ?? STUDIO_CINEMA_SCENE_SELECTION_STORE
   const selection = useStudioCinemaSceneSelection({
     studioKind,
     sessionId,
@@ -262,7 +327,7 @@ export function ManimCinemaWorkspace({
     currentSelection: selectedSceneId,
     selectScene,
     readIndex: readSceneIndex,
-    ...(sceneSelectionStore ? { store: sceneSelectionStore } : {}),
+    store: selectionStore,
   })
 
   // Scenes are created exactly once per Session: for the one this workspace created, and for any
@@ -414,9 +479,15 @@ export function ManimCinemaWorkspace({
     )
   }
 
-  const cardNode = renderStageCard(view, sceneIndex)
-  // Longer than the 420ms slide: the leaving card goes away just after it has finished moving.
-  const leavingCard = useExitingLayer(contentKey, cardNode, 440)
+  // The two cards the stage can hold, both keyed by destination. That key is the mechanism: React keeps
+  // the DOM of a keyed item, so the card that is leaving is still the very element — down to the pixels
+  // a `<video>` was showing — that was on screen a moment ago. The arriving card is a new key, which is
+  // what starts its slide; a key that does not change reuses the element, so a scrub neither restarts
+  // the animation nor re-mounts the media.
+  const liveCard = view
+    ? { key: `${view.identity.sessionId}\u0000${view.identity.sceneId}`, view, sceneIndex }
+    : null
+  const leavingCard = useLeavingCard(liveCard, pushState.animated, EXIT_CARD_MS)
 
   return (
     <div
@@ -435,9 +506,26 @@ export function ManimCinemaWorkspace({
           currentTitle={state.session.title ?? t('studio.cinema.sessionTitle')}
           historyIds={session.historyIds}
           feedbackKey={sessionFeedbackKey}
-          onCreate={session.createNewSession}
+          onCreate={() => {
+            intentRef.current = { kind: 'new-session', from: state.session.id }
+            session.createNewSession()
+          }}
           onRetry={session.retry}
-          onSelectSession={session.selectSession}
+          onSelectSession={(sessionId) => {
+            intentRef.current = { kind: 'session', sessionId }
+            session.selectSession(sessionId)
+          }}
+          onDeleteSession={(sessionId) => {
+            // Deleting the Session that is on screen moves the stage to the one that takes its place: that
+            // is also a switch the user asked for, so it gets the same card motion.
+            if (sessionId === state.session.id) {
+              intentRef.current = { kind: 'new-session', from: state.session.id }
+            }
+            if (session.forgetSession(sessionId)) {
+              // The stored Scene choice of a Session that is gone goes with it.
+              selectionStore.write(studioKind, sessionId, null)
+            }
+          }}
           tokenUsage={view?.tokenUsage ?? null}
           sentRounds={view?.messages.filter((message) => message.role === 'user').length ?? 0}
           sceneLabel={t(cinemaUnitKey(studioKind, 'sceneLabel'), { index: Math.max(0, sceneIndex) + 1 })}
@@ -518,7 +606,7 @@ export function ManimCinemaWorkspace({
 
           {/* The strip follows a Session switch — a new Session is a whole new set of Scenes. Inside one
               Session it does not move: the tab row is the control, the stage is what turns. */}
-          <div key={`${sessionKey}-strip`} data-assemble="strip" className={pushClasses.strip}>
+          <div key={`${sessionKey}-strip`} data-assemble="strip" className={pushState.strip}>
             <SceneStrip
               entries={index}
               studioKind={studioKind}
@@ -526,7 +614,7 @@ export function ManimCinemaWorkspace({
               panelId={SCENE_PANEL_ID}
               onSelect={(sceneId) => {
                 if (sceneId !== state.selectedSceneId) {
-                  controller.selectScene(sceneId)
+                  selectScene(sceneId)
                 }
               }}
               onAppend={() => {
@@ -538,27 +626,33 @@ export function ManimCinemaWorkspace({
           </div>
 
           <div data-assemble="stage" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-            {/* The card that is leaving keeps the frame it had and slides out the other way, so both
-                cards move together and the stage is never empty in between. It is inert and hidden
-                from assistive tech: to a screen reader it is already gone. */}
+            {/* The card that is leaving keeps its own DOM — the same keyed item, still mounted — and
+                slides out the other way, so both cards move together and the picture that was on screen
+                stays on screen: a `<video>` that is kept is a video that keeps its frame. It is inert
+                and hidden from assistive tech: to a screen reader it is already gone. */}
             {leavingCard ? (
               <div
+                key={leavingCard.key}
+                data-leaving="true"
                 aria-hidden
                 inert
-                className={`studio-replay-freeze pointer-events-none absolute inset-0 flex min-h-0 flex-col ${pushClasses.exit}`}
+                className={`pointer-events-none absolute inset-0 flex min-h-0 flex-col ${pushState.exit}`}
               >
-                {leavingCard}
+                {renderStageCard(leavingCard.view, leavingCard.sceneIndex)}
               </div>
             ) : null}
 
-            <div
-              key={`${contentKey}-card`}
-              role="tabpanel"
-              id={SCENE_PANEL_ID}
-              className={`flex min-h-0 flex-1 flex-col ${pushClasses.enter}`}
-            >
-              {cardNode}
-            </div>
+            {/* The arriving card is keyed by destination: the key is what starts the slide. */}
+            {liveCard ? (
+              <div
+                key={liveCard.key}
+                role="tabpanel"
+                id={SCENE_PANEL_ID}
+                className={`flex min-h-0 flex-1 flex-col ${pushState.enter}`}
+              >
+                {renderStageCard(liveCard.view, liveCard.sceneIndex)}
+              </div>
+            ) : null}
           </div>
 
           <div data-assemble="composer" className="relative px-3 pb-16 sm:px-20 sm:pb-4 lg:px-32">

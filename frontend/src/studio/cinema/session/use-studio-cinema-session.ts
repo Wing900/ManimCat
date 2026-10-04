@@ -32,6 +32,16 @@ import {
 
 export type StudioCinemaSessionStatus = 'loading' | 'ready' | 'unavailable'
 
+/**
+ * The order the sidebar reads downwards: oldest first, the newest Session at the bottom, where the
+ * list already scrolls to. The stored list is in recency order (newest first), so this one flip turns
+ * it into the reading order — and everything downstream (the row names, which follow the position, and
+ * the push direction, which follows the list order) then agrees with what is on screen.
+ */
+function readDisplayHistoryIds(storage: StudioCinemaSessionGatewayStorage, studioKind: string): string[] {
+  return [...storage.readRecentSessionIds(studioKind)].reverse()
+}
+
 export type StudioCinemaSessionFailure =
   | 'restore_unavailable'
   | 'restore_missing'
@@ -49,6 +59,8 @@ export interface UseStudioCinemaSessionResult {
   createNewSession: () => void
   retry: () => void
   selectSession: (sessionId: string) => void
+  /** Deletes a history entry; `false` when the write was refused (a detached binding). */
+  forgetSession: (sessionId: string) => boolean
 }
 
 export interface UseStudioCinemaSessionInput {
@@ -134,7 +146,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
     status: 'loading',
     session: null,
     origin: null,
-    historyIds: storage.readRecentSessionIds(studioKind),
+    historyIds: readDisplayHistoryIds(storage, studioKind),
     failure: null,
   }))
 
@@ -142,7 +154,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
   const generationRef = useRef(0)
 
   const readHistory = useCallback(
-    () => storage.readRecentSessionIds(studioKind),
+    () => readDisplayHistoryIds(storage, studioKind),
     [storage, studioKind]
   )
 
@@ -237,5 +249,28 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
     createNewSession: useCallback(() => run('create'), [run]),
     retry: useCallback(() => run('restore'), [run]),
     selectSession: useCallback((sessionId: string) => run('select', sessionId), [run]),
+    /**
+     * Removes one history entry the user asked to delete.
+     *
+     * The write itself is the gateway's, so it carries the same ownership gate as every other write —
+     * and the answer is passed back, so a caller that was refused does not clear what belongs to the
+     * entry (its Scene choice). A Session that was on screen is not left as a hole: the next candidate
+     * is opened, and a history that ran out creates a new Session, exactly as an attach would.
+     */
+    forgetSession: useCallback(
+      (sessionId: string) => {
+        const forgotten = gateway.forget(studioKind, sessionId)
+        if (!forgotten) {
+          return false
+        }
+        if (state.session?.id === sessionId) {
+          run('restore')
+        } else {
+          setState((previous) => ({ ...previous, historyIds: readHistory() }))
+        }
+        return true
+      },
+      [gateway, readHistory, run, state.session?.id, studioKind],
+    ),
   }
 }

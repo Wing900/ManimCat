@@ -30,7 +30,9 @@ export default {
         // ui    微交互（hover / 变色 / 焦点）：克制、几乎察觉不到
         // enter 进场浮现：减速落定（decelerate）
         // exit  退场：加速离开（accelerate），不拖尾巴
-        // move  位移 / 尺寸 / 翻页：长距离，柔和收尾
+        // move  位移 / 尺寸 / 翻页：长距离，柔和收尾（单张元素进场）
+        // swap  推卡：两张同向移动、两端都在静止，用对称 S 曲线
+        //       = UIKit 的 curveEaseInOut（begin slowly, accelerate through the middle, slow again）
         // soft  透明度 / 颜色交叉溶解：慢起手 + 长收尾（没有运动遮挡，快起手就是啪一下）
         // spring 回弹强调（猫）
         DEFAULT: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
@@ -38,6 +40,7 @@ export default {
         enter: 'cubic-bezier(0.16, 1, 0.3, 1)',
         exit: 'cubic-bezier(0.4, 0, 1, 1)',
         move: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        swap: 'cubic-bezier(0.42, 0, 0.58, 1)',
         soft: 'cubic-bezier(0.45, 0, 0.25, 1)',
         spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
