@@ -18,6 +18,7 @@ import { runSceneExecutionBoundaryTests } from './run-tests/scene-execution-boun
 import { runSceneEventRoutingTests } from './run-tests/scene-event-routing.test'
 import { runRenderResultBridgeTests } from './run-tests/render-result-bridge.test'
 import { runSessionDeleteTests } from './run-tests/session-delete.test'
+import { runRenderMediaHandoffTests } from './run-tests/render-media-handoff.test'
 
 async function main() {
   await runPromptTests()
@@ -29,6 +30,7 @@ async function main() {
   await runKnowledgeTests()
   await runMatplotlibKnowledgeTests()
   await runStaticCheckTests()
+  await runRenderMediaHandoffTests()
   await runTokenUsageTests()
   await runDistributedEventTests()
   await runDistributedRunCoordinationTests()

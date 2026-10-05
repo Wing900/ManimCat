@@ -1,4 +1,4 @@
-import type { StudioAgentEvent, StudioEventBus } from '../domain/types'
+import type { StudioAgentEvent, StudioEventBus, StudioRender } from '../domain/types'
 import { InMemoryStudioEventBus } from '../events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
 import type { StudioPersistence } from '../persistence/studio-persistence'
@@ -50,6 +50,11 @@ interface CreateStudioRuntimeServiceInput {
 }
 
 export interface StudioRuntimeService extends StudioSessionService, StudioRunService, StudioSceneService {
+  /**
+   * Reads one Render by id. The media hand-off endpoint turns a Render into the file it delivers,
+   * and this is the only reader that must see a Render outside its Session or Scene listing.
+   */
+  getRender: (ownerId: string, renderId: string) => Promise<StudioRender | null>
   /**
    * Session-keyed event delivery. `options.filter` runs on the domain event before adaptation, so
    * a Scene stream can drop sibling and Legacy events with the one canonical scope rule while the
@@ -109,6 +114,11 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     ...sessionService,
     ...sceneService,
     ...runService,
+    /**
+     * Reads one Render by id. The media hand-off endpoint needs this to turn a Render into the file
+     * it may deliver, and it is the only reader that must see a Render outside its Session listing.
+     */
+    getRender: (ownerId: string, renderId: string) => input.persistence.renderStore.getById(ownerId, renderId),
     subscribeExternalEvents(
       sessionId: string,
       listener: (event: StudioExternalEvent) => void,

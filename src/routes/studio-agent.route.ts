@@ -19,6 +19,7 @@ import {
   type StudioSceneRouteDependencies
 } from './helpers/studio-agent-scene-handlers'
 import { parseStudioScenePathParams } from './helpers/studio-agent-scene-params'
+import { handleStudioRenderMediaRequest } from './helpers/studio-agent-render-media-handler'
 import {
   studioCreateSceneRequestSchema,
   studioSceneOrderRequestSchema
@@ -199,6 +200,23 @@ router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId', authMiddleware, 
   }
 
   sendStudioSuccess(res, toPublicStudioSceneSnapshot(snapshot))
+}))
+
+router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/renders/:renderId/video', authMiddleware, asyncHandler(async (req, res) => {
+  // The browser keeps the only durable copy of a Render, so this endpoint is a hand-off: it streams
+  // the file and then deletes it. A client that misses the stream re-renders instead of retrying.
+  const principal = requireStudioPrincipal(res)
+  await handleStudioRenderMediaRequest({
+    res,
+    ownerId: principal.ownerId,
+    sessionId: req.params.sessionId,
+    sceneId: req.params.sceneId,
+    renderId: req.params.renderId,
+    getRender: (ownerId, renderId) => studioRuntime.getRender(ownerId, renderId),
+    // Off until the client keeps its own Render records: today the public static file is the only
+    // thing the player can read, so deleting it on delivery would break playback after a reload.
+    removeAfterDelivery: false
+  })
 }))
 
 router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
