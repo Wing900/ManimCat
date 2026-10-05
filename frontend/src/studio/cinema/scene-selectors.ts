@@ -60,6 +60,7 @@ export interface StudioCinemaDisplayRender {
   mediaKind: StudioCinemaMediaKind | null
   /** Present only for a real browser locator (`data:` / `http(s):`); never a workspace path. */
   playableUrl: string | null
+  fallbackVideoUrl?: string
   /** Newest Render of the Scene in any status, for the working badge beside the media. */
   latest: StudioSceneRender | null
   latestStatus: StudioRenderStatus | null
@@ -367,6 +368,9 @@ export function selectStudioCinemaDisplayRender(scene: StudioCinemaSceneState): 
     media: displayedMedia?.attachment ?? null,
     mediaKind: displayedMedia?.kind ?? null,
     playableUrl: displayedMedia?.url ?? null,
+    ...(displayed && displayedMedia?.kind === 'video' && scene.localVideoUrls?.[displayed.id]
+      ? { fallbackVideoUrl: readStudioCinemaPlayableMedia(displayed.attachments)?.url }
+      : {}),
     latest,
     latestStatus: latest?.status ?? null,
     newestSuccess,

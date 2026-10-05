@@ -29,6 +29,7 @@ export interface CinemaScreenProps {
   studioKind: StudioKind
   sceneIndex: number
   playableUrl: string | null
+  fallbackVideoUrl?: string
   mediaKind: 'video' | 'image' | null
   refreshPausedReasonKey: TranslationKey | null
   onResumeRefresh: () => void
@@ -61,6 +62,7 @@ export function CinemaScreen({
   studioKind,
   sceneIndex,
   playableUrl,
+  fallbackVideoUrl,
   mediaKind,
   refreshPausedReasonKey,
   onResumeRefresh,
@@ -69,6 +71,8 @@ export function CinemaScreen({
   const { t } = useI18n()
   const [playbackFailed, setPlaybackFailed] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const [failedLocalUrl, setFailedLocalUrl] = useState<string | null>(null)
+  const effectiveUrl = failedLocalUrl === playableUrl && fallbackVideoUrl ? fallbackVideoUrl : playableUrl
   // Whether the media element mounted *right now* has painted. Nothing shorter than that is safe: a
   // card that re-mounts its media — the one that leaves, and the one that arrives — gets a brand new
   // `<img>`/`<video>`, and until that element has data it has no intrinsic size. A `<video>` then falls
@@ -83,7 +87,11 @@ export function CinemaScreen({
   useLayoutEffect(() => {
     setPlaybackFailed(false)
     setMediaReady(false)
-  }, [playableUrl, reloadToken])
+  }, [effectiveUrl, reloadToken])
+
+  useLayoutEffect(() => {
+    setFailedLocalUrl(null)
+  }, [playableUrl, fallbackVideoUrl])
 
   // The dark stage exists while there is nothing on screen to look at — including the gap between a
   // locator existing and its pixels arriving. Every ink below follows that surface: light ink on the
@@ -118,8 +126,8 @@ export function CinemaScreen({
       <div className="flex min-h-0 flex-1 items-center justify-center">
         {state === 'playable' && playableUrl && mediaKind === 'image' ? (
           <img
-            key={`${playableUrl}-${reloadToken}`}
-            src={playableUrl}
+            key={`${effectiveUrl}-${reloadToken}`}
+            src={effectiveUrl ?? undefined}
             alt={t(cinemaUnitKey(studioKind, 'screenResultAlt'), { index: sceneIndex + 1 })}
             className={mediaClass(mediaReady)}
             onLoad={() => setMediaReady(true)}
@@ -129,14 +137,21 @@ export function CinemaScreen({
 
         {state === 'playable' && playableUrl && mediaKind !== 'image' ? (
           <video
-            key={`${playableUrl}-${reloadToken}`}
-            src={playableUrl}
+            key={`${effectiveUrl}-${reloadToken}`}
+            src={effectiveUrl ?? undefined}
             controls
             playsInline
             preload="metadata"
             className={`${mediaClass(mediaReady)} bg-black`}
             onLoadedMetadata={() => setMediaReady(true)}
-            onError={() => setPlaybackFailed(true)}
+            onError={() => {
+              if (playableUrl?.startsWith('blob:') && fallbackVideoUrl && effectiveUrl !== fallbackVideoUrl) {
+                setMediaReady(false)
+                setFailedLocalUrl(playableUrl)
+              } else {
+                setPlaybackFailed(true)
+              }
+            }}
           />
         ) : null}
 
