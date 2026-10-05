@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { StudioSession } from '../protocol/studio-agent-types'
+import { getStudioApiBase, getStudioAuthHeaders } from '../api/client'
+import { createRenderMediaSession } from '../local/render-media-session'
+import { createLocalStudioStore } from '../local/local-studio-store'
 import {
   createStudioCinemaController,
   type StudioCinemaController,
@@ -65,6 +68,30 @@ export function useStudioCinema(input: UseStudioCinemaInput): UseStudioCinemaRes
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const sessionId = input.session?.id ?? null
+  const mediaSessionRef = useRef<ReturnType<typeof createRenderMediaSession> | null>(null)
+  const stateRef = useRef(state)
+  stateRef.current = state
+
+  // One store and resource owner per Session. StrictMode cleanup can safely release and rebuild it.
+  useEffect(() => {
+    if (!sessionId || typeof indexedDB === 'undefined') return
+    const media = createRenderMediaSession({
+      sessionId,
+      store: createLocalStudioStore(),
+      deps: { fetchImpl: fetch, apiBase: getStudioApiBase(), authHeaders: getStudioAuthHeaders },
+      apply: (identity, renderId, url) => controller.applyLocalVideoCapture(identity, renderId, url),
+    })
+    mediaSessionRef.current = media
+    media.sync(Object.values(stateRef.current.scenes))
+    return () => {
+      mediaSessionRef.current = null
+      media.dispose()
+    }
+  }, [sessionId, controller])
+
+  useEffect(() => {
+    mediaSessionRef.current?.sync(Object.values(state.scenes))
+  }, [state])
 
   useEffect(() => {
     const live = readController()

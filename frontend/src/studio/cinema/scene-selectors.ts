@@ -18,7 +18,7 @@ import {
   type StudioCinemaState,
   type StudioCinemaStreamState,
 } from './types'
-import { type StudioCinemaMediaKind, type StudioCinemaPlayableMedia, readStudioCinemaPlayableMedia } from './media-locators'
+import { type StudioCinemaMediaKind, type StudioCinemaPlayableMedia, preferStudioCinemaLocalVideo, readStudioCinemaPlayableMedia } from './media-locators'
 
 /**
  * Read models for the Cinema UI.
@@ -351,7 +351,11 @@ export function selectStudioCinemaDisplayRender(scene: StudioCinemaSceneState): 
       newestSuccess = render
     }
 
-    const media = readStudioCinemaPlayableMedia(render.attachments)
+    // A locally captured copy wins, so playback survives the server deleting the file after delivery.
+    const media = preferStudioCinemaLocalVideo(
+      readStudioCinemaPlayableMedia(render.attachments),
+      scene.localVideoUrls?.[render.id]
+    )
     if (media && (!displayed || isLaterRender(render, displayed))) {
       displayed = render
       displayedMedia = media

@@ -59,6 +59,22 @@ function sceneStateOf(state: StudioCinemaState, sceneId: string) {
 }
 
 describe('studio cinema scene reducer', () => {
+  it('adds and removes a local video only for an existing Render of the selected identity', () => {
+    let state = withScenes(openState(), [createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0)])
+    state = studioCinemaReducer(state, { type: 'scene/snapshot', identity: IDENTITY_A,
+      snapshot: createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A,
+        { renders: [createTestRender(CINEMA_TEST_SCENE_A, 'render_1')] }) })
+    const apply = (identity: typeof IDENTITY_A, renderId: string, url: string | null) => {
+      state = studioCinemaReducer(state, { type: 'scene/local-video', identity, renderId, url })
+    }
+    apply(IDENTITY_A, 'render_1', 'blob:video')
+    expect(sceneStateOf(state, CINEMA_TEST_SCENE_A).localVideoUrls).toEqual({ render_1: 'blob:video' })
+    apply({ ...IDENTITY_A, sessionId: 'other' }, 'render_1', 'blob:wrong')
+    apply(IDENTITY_A, 'unknown-render', 'blob:wrong')
+    expect(sceneStateOf(state, CINEMA_TEST_SCENE_A).localVideoUrls).toEqual({ render_1: 'blob:video' })
+    apply(IDENTITY_A, 'render_1', null)
+    expect(sceneStateOf(state, CINEMA_TEST_SCENE_A).localVideoUrls).toEqual({})
+  })
   it('opens a session with an empty scene map and resets on a different session', () => {
     const opened = withScenes(openState(), [createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0)])
     expect(opened.sceneOrder).toEqual([CINEMA_TEST_SCENE_A])

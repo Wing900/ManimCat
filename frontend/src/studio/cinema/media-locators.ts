@@ -41,6 +41,26 @@ export interface StudioCinemaPlayableMedia {
 }
 
 /**
+ * Prefers a locally stored copy of the same video over the server locator.
+ *
+ * The attachment keeps carrying the render's metadata (duration, kind, mime type); only the URL is
+ * replaced, and only for a video. While the client holds the file, playback does not depend on the
+ * server still having it, which is what lets the server delete it after delivery. A page that has
+ * lost its local copy keeps the fallback, so playback degrades to the public file instead of to a
+ * dead source.
+ */
+export function preferStudioCinemaLocalVideo(
+  media: StudioCinemaPlayableMedia | null,
+  localVideoUrl: string | null | undefined,
+): StudioCinemaPlayableMedia | null {
+  if (!localVideoUrl || !media || media.kind !== 'video') {
+    return media
+  }
+
+  return { ...media, url: localVideoUrl }
+}
+
+/**
  * One attachment of a Render, in the order the server sent them, that a browser can load directly.
  * A relative workspace path, an absolute path or an unsupported media type answers `null`, so the
  * caller keeps the placeholder instead of guessing a URL (and never builds a server path).

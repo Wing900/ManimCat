@@ -797,6 +797,14 @@ export class StudioCinemaController {
   }
 
   /**
+   * Adds or releases the resource owner's temporary video URL. Durable links live in IndexedDB;
+   * server deletion stays disabled until acknowledged delivery is available.
+   */
+  applyLocalVideoCapture(identity: StudioCinemaSceneIdentity, renderId: string, url: string | null): void {
+    this.dispatch({ type: 'scene/local-video', identity, renderId, url })
+  }
+
+  /**
    * A terminal Run/Render is a determinable checkpoint: while the Scene still has a pending
    * convergence, one authoritative read is scheduled so the display converges instead of keeping a
    * suspected gap forever. One read at a time per Scene; a failed or superseded one leaves the

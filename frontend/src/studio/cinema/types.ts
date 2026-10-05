@@ -120,6 +120,12 @@ export interface StudioCinemaSceneState {
   messages: StudioSceneMessage[]
   runs: StudioSceneRun[]
   renders: StudioSceneRender[]
+  /**
+   * Locally captured videos, keyed by Render id. A page that holds one plays its own copy instead of
+   * asking the server for it, which is what allows the server to delete the file after delivery.
+   * Empty after a reload, where playback falls back to the public file without a visible difference.
+   */
+  localVideoUrls?: Record<string, string>
   draft: string
   /** Bumped on every draft edit, so a submit can clear only the text it actually captured. */
   draftVersion: number

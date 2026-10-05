@@ -74,6 +74,12 @@ export type StudioCinemaAction =
   | { type: 'scene/convergence-pending'; identity: StudioCinemaSceneIdentity; at: number }
   | { type: 'scene/feedback'; identity: StudioCinemaSceneIdentity; feedback: StudioCinemaFeedback | null }
   /**
+   * A locally captured copy of a Render's video, keyed by Render id. Playback prefers it over the
+   * public file, which is what lets the server delete the file after delivering it. A page that has
+   * no local copy for a Render keeps using the public locator, so the difference is never visible.
+   */
+  | { type: 'scene/local-video'; identity: StudioCinemaSceneIdentity; renderId: string; url: string | null }
+  /**
    * Render refresh bookkeeping: `active` while a tick is pending or in flight, `paused` when the
    * loop gave up (bounded failures or budget) and waits for an explicit resume. It is a statement
    * about the loop, never about the render outcome.
@@ -175,6 +181,14 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
       }))
     case 'scene/feedback':
       return updateScene(state, action.identity, (scene) => ({ ...scene, feedback: action.feedback }))
+    case 'scene/local-video':
+      return updateScene(state, action.identity, (scene) => {
+        if (action.url && !scene.renders.some((render) => render.id === action.renderId)) return scene
+        const localVideoUrls = { ...scene.localVideoUrls }
+        if (action.url) localVideoUrls[action.renderId] = action.url
+        else delete localVideoUrls[action.renderId]
+        return { ...scene, localVideoUrls }
+      })
     case 'draft/changed':
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
