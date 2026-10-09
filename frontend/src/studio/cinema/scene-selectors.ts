@@ -420,6 +420,13 @@ export function selectStudioCinemaUserStatus(scene: StudioCinemaSceneState): Stu
   if (latestRender && !isStudioCinemaTerminalRenderStatus(latestRender.status)) {
     return { code: 'render_running', kind: 'working' }
   }
+  // A dropped stream is a transport fact, not an outcome: the Scene keeps whatever status it had and
+  // the UI can offer a reconnect without rewriting the record. It outranks a pending load because a
+  // load is only meaningful while the transport it waits on is alive — saying "still loading" over a
+  // dead stream tells the user something is coming when nothing can arrive.
+  if (scene.streamState === 'disconnected') {
+    return { code: 'stream_disconnected', kind: 'connection' }
+  }
   if (scene.snapshotStatus === 'loading') {
     return { code: 'scene_loading', kind: 'working' }
   }
@@ -437,11 +444,6 @@ export function selectStudioCinemaUserStatus(scene: StudioCinemaSceneState): Stu
   }
   if (latestRender && latestRender.status === 'failed') {
     return { code: 'render_failed', kind: 'failed' }
-  }
-  // A dropped stream is reported as a transport fact, not as an outcome: the Scene keeps whatever
-  // status it had, and the UI can offer a reconnect without rewriting the record.
-  if (scene.streamState === 'disconnected') {
-    return { code: 'stream_disconnected', kind: 'connection' }
   }
 
   return { code: 'idle', kind: 'idle' }

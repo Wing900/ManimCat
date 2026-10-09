@@ -288,6 +288,14 @@ function openSession(
 function withSceneIndex(state: StudioCinemaState, scenes: StudioScene[]): StudioCinemaState {
   const sessionId = state.session.id ?? ''
   const ordered = scenes.filter((scene) => scene.sessionId === sessionId).sort(compareSceneOrder)
+  // An index that names only Scenes of another Session proves that the payload is not about this one.
+  // Read as "this Session has no Scenes" it would empty the stage and hand the Session to the
+  // initializer, which fills an empty index with a fresh default set — three Scenes created over a
+  // Session that already has some. A genuinely empty index is an empty list to begin with, and is
+  // still applied below.
+  if (scenes.length > 0 && ordered.length === 0) {
+    return state
+  }
   const nextScenes: Record<string, StudioCinemaSceneState> = {}
   for (const scene of ordered) {
     const identity = { sessionId, sceneId: scene.id }
