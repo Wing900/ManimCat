@@ -57,22 +57,25 @@ export function CatSpeechBubble({
       onBlur={onHoverEnd}
       data-testid="cinema-cat-bubble"
     >
+      {text ? (
+        <p className="whitespace-pre-wrap break-words leading-snug">{text}</p>
+      ) : bubbleKey && !typing ? (
+        <p className="whitespace-pre-wrap break-words leading-snug">{t(bubbleKey, params)}</p>
+      ) : null}
       {typing ? (
-        /* The same three pulsing dots the conversation uses, so "composing" looks the same everywhere. */
+        /* The same three pulsing dots the conversation uses, so "composing" looks the same everywhere.
+           They sit under whatever the cat has already said: a Run that has answered once may answer
+           again, and the bubble says so until it stops. */
         <p
           aria-hidden="true"
           data-testid="cinema-cat-typing"
-          className="flex items-center gap-1 px-0.5 py-1"
+          className={`flex items-center gap-1 px-0.5 ${text ? 'pt-1' : 'py-1'}`}
         >
           <span className="cinema-thinking-dot h-1.5 w-1.5 rounded-full bg-text-primary/60" />
           <span className="cinema-thinking-dot h-1.5 w-1.5 rounded-full bg-text-primary/60" />
           <span className="cinema-thinking-dot h-1.5 w-1.5 rounded-full bg-text-primary/60" />
         </p>
-      ) : (
-        <p className="whitespace-pre-wrap break-words leading-snug">
-          {text ?? (bubbleKey ? t(bubbleKey, params) : '')}
-        </p>
-      )}
+      ) : null}
       {typing ? <span className="sr-only">{t('studio.cinema.catTyping')}</span> : null}
       {hasRecoverEntry && onRecover && recoverLabelKey ? (
         <button

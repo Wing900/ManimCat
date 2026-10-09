@@ -372,21 +372,34 @@ export function ManimCinemaWorkspace({
     return null
   }, [rows])
 
-  // While a Run is in flight and this Scene has not answered for it yet, the cat types. The marker is
-  // structural — the newest row is a user message with no assistant message after it — so a reply that
-  // already belongs to this Run keeps its own bubble instead of being masked by a typing indicator.
-  const pendingReply = useMemo(() => {
+  // A Run is in flight from the moment the request leaves until the Run itself stops: `submitting`
+  // covers the window before the Run exists, then the Run's own status takes over. Another reply may
+  // still arrive for as long as that holds, so the indicator belongs to the Run rather than to the
+  // first answer it happens to produce.
+  const runInFlight = useMemo(() => {
     if (!view) {
       return false
     }
     const runStatus = view.latestRun?.status ?? null
-    const runInFlight = view.submitting || runStatus === 'pending' || runStatus === 'running'
+    return view.submitting || runStatus === 'pending' || runStatus === 'running'
+  }, [view])
+
+  // What the cat may repeat while the Run is in flight is only what this Run itself has said: a text
+  // part that lands after the user message that started it. A reply from an earlier Run sits before
+  // that message, so the cat never repeats it as though it were news.
+  const runReply = useMemo(() => {
     if (!runInFlight) {
-      return false
+      return latestReply
     }
-    const kinds = rows.map((row) => row.kind)
-    return kinds.lastIndexOf('user') > kinds.lastIndexOf('assistant-text')
-  }, [rows, view])
+    const lastUserIndex = rows.reduce((found, row, index) => (row.kind === 'user' ? index : found), -1)
+    for (let index = rows.length - 1; index > lastUserIndex; index -= 1) {
+      const row = rows[index]
+      if (row.kind === 'assistant-text') {
+        return { id: row.id, text: row.text }
+      }
+    }
+    return null
+  }, [latestReply, rows, runInFlight])
 
   // Correction R3: the scroll follow must see content growth, not only a new row count — a streaming
   // assistant part keeps the row count and changes only its text.
@@ -671,8 +684,8 @@ export function ManimCinemaWorkspace({
                 sessionId={sessionId ?? ''}
                 sceneId={selectedSceneId ?? ''}
                 latestRunStatus={view?.latestRun?.status ?? null}
-                reply={latestReply}
-                pendingReply={pendingReply}
+                reply={runReply}
+                pendingReply={runInFlight}
                 historyOpen={historyOpen}
                 historyPanelId={HISTORY_PANEL_ID}
                 buttonRef={catButtonRef}
@@ -728,11 +741,9 @@ export function ManimCinemaWorkspace({
           title={t(cinemaUnitKey(studioKind, 'historyTitle'), { index: Math.max(0, sceneIndex) + 1 })}
           rows={rows}
           loading={view?.snapshotStatus === 'loading' && isStudioCinemaConversationEmpty(rows)}
-          pendingReply={
-            view !== null &&
-            view.activeRun !== null &&
-            (rows.length === 0 || rows[rows.length - 1].kind === 'user')
-          }
+          // The same Run marker as the cat's: the conversation says the Run is still working even
+          // though its reply has already landed, because another one may still be on its way.
+          pendingReply={runInFlight}
           onClose={closeHistory}
           modal={!isDesktopViewport}
           catPose={

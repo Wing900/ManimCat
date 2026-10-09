@@ -122,14 +122,21 @@ export function useStudioCinemaCatFeedback({
       }, delay)
     }
 
-    // 0) A run is in flight and this Scene has not answered for it yet: the cat types. Repeating the
-    //    previous reply here would be the stale "instant answer", so it never does.
+    // 0) A Run is in flight and another reply may still arrive for it: the cat types, and repeats what
+    //    this Run has already said instead of dropping it the moment it lands. `reply` is already
+    //    restricted by the caller to this Run's own text, so the previous Run's reply is never
+    //    repeated here. Repeating it would be the stale "instant answer".
     if (pendingReply) {
       const typingKey = `${identity}\u0000typing\u0000${replyId ?? ''}`
       if (typingKey !== lastEmittedRef.current) {
         lastEmittedRef.current = typingKey
         sourceRef.current = 'typing'
-        setBubble({ typing: true, hasRecoverEntry: false, kind: 'transient' })
+        setBubble({
+          ...(replyId !== null && snippet !== '' ? { text: snippet } : {}),
+          typing: true,
+          hasRecoverEntry: false,
+          kind: 'transient',
+        })
         setVisible(true)
         // A task can run for a while: the typing bubble does not fade on a timer.
         scheduleFade(null)

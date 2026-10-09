@@ -947,7 +947,7 @@ describe('cinema workspace', () => {
 
   // The cat must never answer a new request with the previous answer. While the Run is in flight it
   // types; only a reply that arrives *after* the user message replaces the dots (doc §7.2).
-  it('types while the run is in flight and shows the reply that arrives afterwards', async () => {
+  it('types until the Run is over, keeping the reply it already has', async () => {
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
       sceneSnapshots: {
@@ -1002,8 +1002,53 @@ describe('cinema workspace', () => {
     })
 
     const replyBubble = screen.getByTestId('cinema-cat-bubble')
-    expect(within(replyBubble).queryByTestId('cinema-cat-typing')).toBeNull()
     expect(within(replyBubble).getByText('Spin the circle…')).toBeInTheDocument()
+    // The Run is still in flight, so another reply may follow: the cat keeps typing next to what it has
+    // already said instead of falling silent the moment the first answer lands.
+    expect(within(replyBubble).getByTestId('cinema-cat-typing')).toBeInTheDocument()
+  })
+
+  it('keeps the conversation saying the Run is still working after a reply lands', async () => {
+    const harness = createHarness({
+      history: [CINEMA_TEST_SESSION_ID],
+      sceneSnapshots: {
+        [CINEMA_TEST_SCENE_A]: () =>
+          Promise.resolve(
+            createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, {
+              messages: [
+                userMessage(CINEMA_TEST_SCENE_A, 'now make it spin'),
+                {
+                  id: 'message_2',
+                  sessionId: CINEMA_TEST_SESSION_ID,
+                  sceneId: CINEMA_TEST_SCENE_A,
+                  role: 'assistant',
+                  agent: 'builder',
+                  createdAt: ISO,
+                  updatedAt: ISO,
+                  parts: [
+                    {
+                      id: 'part_2',
+                      messageId: 'message_2',
+                      sessionId: CINEMA_TEST_SESSION_ID,
+                      type: 'text',
+                      text: 'Spinning it now.',
+                    },
+                  ],
+                },
+              ],
+              runs: [createTestRun(CINEMA_TEST_SCENE_A, 'run_live', 'running')],
+            }),
+          ),
+      },
+    })
+    await renderWorkspace(harness)
+    await flush()
+
+    fireEvent.click(catButton())
+    await flush()
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Spinning it now.')).toBeInTheDocument()
+    expect(within(dialog).getByText('ManimCat is thinking…')).toBeInTheDocument()
   })
 
   // Fixture correction 11C5-H3: the folded body is rendered from `output`, so a fixture that reuses the
