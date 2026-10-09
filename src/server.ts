@@ -10,6 +10,10 @@ import { redisClient } from './config/redis'
 import { closeQueue } from './config/bull'
 import { createLogger } from './utils/logger'
 import { startMediaCleanupScheduler } from './services/media-cleanup'
+import {
+  getStudioWorkspaceRootDirectory,
+  startStudioWorkspaceCleanupScheduler
+} from './studio-agent/workspace/studio-workspace-cleanup'
 import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
@@ -22,9 +26,15 @@ const appLogger = createLogger('Server')
 
 let server: Server | null = null
 let stopMediaCleanupScheduler: (() => void) | null = null
+let stopStudioWorkspaceCleanup: (() => void) | null = null
 
 async function cleanupResources(): Promise<void> {
   try {
+    if (stopStudioWorkspaceCleanup) {
+      stopStudioWorkspaceCleanup()
+      stopStudioWorkspaceCleanup = null
+    }
+
     if (stopMediaCleanupScheduler) {
       stopMediaCleanupScheduler()
       stopMediaCleanupScheduler = null
@@ -54,6 +64,12 @@ async function startServer(): Promise<void> {
 
     if (!stopMediaCleanupScheduler) {
       stopMediaCleanupScheduler = startMediaCleanupScheduler()
+    }
+
+    // Session workspaces are scratch space (STUDIO_WORKSPACE_TTL_HOURS, 5 by default). The browser
+    // holds the durable copy, so an expired workspace is thrown away rather than archived.
+    if (!stopStudioWorkspaceCleanup) {
+      stopStudioWorkspaceCleanup = startStudioWorkspaceCleanupScheduler(getStudioWorkspaceRootDirectory())
     }
 
     server = await tryListen(app, appConfig.port, appConfig.host, appLogger)

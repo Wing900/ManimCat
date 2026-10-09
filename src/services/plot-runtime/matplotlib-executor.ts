@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { StudioRunCancelledError, readAbortReason } from '../../studio-agent/runtime/execution/run-cancellation'
+import { StudioRunCancelledError, isStudioRunCancelledError, readAbortReason, throwIfStudioRunCancelled } from '../../studio-agent/runtime/execution/run-cancellation'
 
 export interface MatplotlibExecutionResult {
   outputDir: string
@@ -18,6 +18,7 @@ export async function executeMatplotlibRender(input: {
   code: string
   signal?: AbortSignal
 }): Promise<MatplotlibExecutionResult> {
+  throwIfStudioRunCancelled(input.signal)
   const outputDir = join(input.workspaceDirectory, 'renders', input.renderId)
   const matplotlibConfigDir = join(input.workspaceDirectory, '.cache', 'matplotlib')
   await mkdir(outputDir, { recursive: true })
@@ -72,6 +73,7 @@ async function runPython(scriptPath: string, args: string[], signal?: AbortSigna
     try {
       return await spawnProcess(candidate.command, candidate.args, candidate.matplotlibConfigDirIndex, signal)
     } catch (error) {
+      if (isStudioRunCancelledError(error)) throw error
       const message = error instanceof Error ? error.message : String(error)
       failures.push(`${candidate.command} failed: ${message}`)
     }

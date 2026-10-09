@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { createLogger } from './logger'
 import {
   registerManimProcess,
+  cancelManimProcess,
   terminateManimProcess,
   unregisterManimProcess,
   wasManimProcessCancelled
@@ -37,6 +38,8 @@ export interface ManimExecuteOptions {
   tempDir: string
   mediaDir: string
   timeoutMs?: number
+  /** Injected queue marker reader, so the executor stays independent of Redis. */
+  isCancelled?: () => Promise<boolean>
 }
 
 export function executeManimCommand(
@@ -54,14 +57,17 @@ export function executeManimCommand(
   return new Promise((resolve) => {
     const startTime = Date.now()
     const state = createExecutionState()
-    const proc = spawn('manim', args, { cwd: normalizedOptions.tempDir })
+    const processGroup = process.platform !== 'win32'
+    const proc = spawn('manim', args, { cwd: normalizedOptions.tempDir, detached: processGroup, windowsHide: true })
 
-    registerManimProcess(normalizedOptions.jobId, proc)
+    registerManimProcess(normalizedOptions.jobId, proc, processGroup)
 
     const memoryMonitor = startMemoryMonitor(proc, normalizedOptions, state)
     let timeoutTimer: NodeJS.Timeout | null = null
     let settled = false
     let fatalErrorDetected = false
+    let cancellationTimer: NodeJS.Timeout | null = null
+    let cancellationReadPending = false
 
     const settle = (result: ManimExecutionResult): void => {
       if (settled) {
@@ -73,8 +79,27 @@ export function executeManimCommand(
         clearTimeout(timeoutTimer)
       }
       clearInterval(memoryMonitor)
+      if (cancellationTimer) clearInterval(cancellationTimer)
       unregisterManimProcess(normalizedOptions.jobId)
       resolve(result)
+    }
+
+    // A different API replica cannot kill this local process directly. Read the durable marker.
+    if (options.isCancelled) {
+      const checkCancellation = async () => {
+        if (settled || cancellationReadPending) return
+        cancellationReadPending = true
+        try {
+          const cancelled = await options.isCancelled!()
+          if (cancelled && !settled) cancelManimProcess(normalizedOptions.jobId)
+        } catch (error) {
+          logger.warn('Unable to read render cancellation marker', { jobId: normalizedOptions.jobId, error: String(error) })
+        } finally {
+          cancellationReadPending = false
+        }
+      }
+      cancellationTimer = setInterval(() => { void checkCancellation() }, 1000)
+      void checkCancellation()
     }
 
     proc.stdout.on('data', (data) => {

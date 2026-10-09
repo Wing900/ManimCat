@@ -1,13 +1,16 @@
 import { createStudioRender } from '../../domain/factories'
-import type { StudioFileAttachment, StudioToolDefinition, StudioToolResult } from '../../domain/types'
+import type { StudioFileAttachment, StudioKind, StudioToolDefinition, StudioToolResult } from '../../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
-import { isStudioRunCancelledError } from '../../runtime/execution/run-cancellation'
+import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 import {
   createUnconfiguredPlotRenderPort,
   type PlotRenderExecution,
   type PlotRenderPort
 } from '../plot-render-port'
 import { plotRenderToolParameters } from '../../tools/tool-parameters'
+import { createUnconfiguredStudioStaticCheckPort } from '../../static-check/create-default-studio-static-check-port'
+import type { StudioStaticCheckPort } from '../../static-check/studio-static-check-types'
+import { runStudioStaticCheckGate } from '../../static-check/static-check-gate'
 import { publishStudioRenderUpdated } from '../../render/render-events'
 import { toWorkspaceRelativePath } from '../../tools/workspace-paths'
 
@@ -17,28 +20,57 @@ interface PlotRenderToolInput {
 }
 
 export function createPlotStudioRenderTool(
-  renderPort: PlotRenderPort = createUnconfiguredPlotRenderPort()
+  renderPort: PlotRenderPort = createUnconfiguredPlotRenderPort(),
+  staticCheckPort: StudioStaticCheckPort = createUnconfiguredStudioStaticCheckPort()
 ): StudioToolDefinition<PlotRenderToolInput> {
   return {
     name: 'render',
     parameters: plotRenderToolParameters,
-    description: 'Execute matplotlib code and persist static plot outputs for preview.',
+    description:
+      'Check the matplotlib source, then execute it and persist the plot images. If the check fails nothing is executed and the diagnostics come back.',
     allowedAgents: ['builder'],
     allowedStudioKinds: ['plot'],
-    execute: async (input, context) => executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
+    execute: async (input, context) =>
+      executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort, staticCheckPort)
   }
 }
 
 async function executePlotRenderTool(
   input: PlotRenderToolInput,
   context: StudioRuntimeBackedToolContext,
-  renderPort: PlotRenderPort
+  renderPort: PlotRenderPort,
+  staticCheckPort: StudioStaticCheckPort
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
   }
   if (!context.renderStore) {
     throw new Error('Render store is unavailable')
+  }
+
+  const kind: StudioKind = context.session.studioKind ?? 'plot'
+
+  // Check first: nothing is reserved and no plot image is produced when the source is broken.
+  const check = await runStudioStaticCheckGate({
+    port: staticCheckPort,
+    kind,
+    code: input.code,
+    outputMode: 'image',
+    signal: context.abortSignal
+  })
+  throwIfStudioRunCancelled(context.abortSignal)
+  if (!check.passed) {
+    return {
+      title: `Static check: ${input.concept.slice(0, 80)}`,
+      output: check.output,
+      metadata: {
+        phase: 'static-check',
+        kind,
+        outputMode: 'image',
+        diagnosticCount: check.result.diagnostics.length,
+        diagnostics: check.result.diagnostics
+      }
+    }
   }
 
   const title = `Plot render: ${input.concept.slice(0, 80)}`
@@ -72,12 +104,14 @@ async function executePlotRenderTool(
   })
 
   try {
+    throwIfStudioRunCancelled(context.abortSignal)
     const execution = await renderPort.execute({
       workspaceDirectory: context.session.directory,
       renderId: render.id,
       code: input.code,
       signal: context.abortSignal,
     })
+    throwIfStudioRunCancelled(context.abortSignal)
     const attachments = buildAttachments(execution.imageDataUris, execution.imagePaths)
     const completed = await context.renderStore.update(context.session.ownerId, render.id, {
       status: 'completed',
@@ -100,6 +134,8 @@ async function executePlotRenderTool(
       attachments,
       metadata: {
         renderId: render.id,
+        phase: 'render',
+        diagnosticCount: 0,
         imageCount: execution.imageDataUris.length,
         scriptPath: completed.metadata?.scriptPath,
         imagePaths: completed.metadata?.imagePaths,

@@ -16,7 +16,6 @@ export function buildStudioPreToolCommentary(input: {
     case 'write':
       return path ? `我准备写入 ${path}。` : '我准备写入目标文件。'
     case 'edit':
-    case 'apply_patch':
       return path ? `我先修改 ${path}。` : '我先修改相关文件。'
     case 'static-check':
       return '我先做一次静态检查确认当前状态。'

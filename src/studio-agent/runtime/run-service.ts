@@ -1,3 +1,4 @@
+import { materializeStudioSceneSources } from '../scenes/materialize-studio-scene-sources'
 import type { CustomApiConfig } from '../../types'
 import type {
   StudioAssistantMessage,
@@ -25,6 +26,8 @@ import {
 } from '../run-coordination/studio-run-coordinator'
 import type { StudioBuilderRuntime } from './builder-runtime'
 import { cancelRunState } from './execution/session-runner-helpers'
+import { cancelStudioRunRenders } from '../render/cancel-run-renders'
+import type { ManimRenderPort } from '../manim/manim-render-port'
 
 export interface StudioStartRunInput {
   ownerId: string
@@ -36,6 +39,11 @@ export interface StudioStartRunInput {
    */
   sceneId?: string
   inputText: string
+  /**
+   * The Session's whole Scene source map, sent by the browser that owns the code. Materialized into
+   * the workspace before the session runner loads its execution scope; absent leaves files alone.
+   */
+  sceneSources?: Record<string, string>
   customApiConfig?: CustomApiConfig
   modelPort?: StudioModelPort
   toolChoice?: StudioToolChoice
@@ -99,6 +107,7 @@ export interface CreateStudioRunServiceInput {
   runtime: Pick<StudioBuilderRuntime, 'startBackgroundRun'>
   eventBus: StudioEventBus
   coordination: StudioRunCoordinationServicePort
+  manimRenderPort?: ManimRenderPort
 }
 
 export function createStudioRunService(input: CreateStudioRunServiceInput): StudioRunService {
@@ -135,6 +144,21 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       return { status: 'coordination_unavailable', message: admission.message }
     }
     const reservation = admission.reservation
+
+    // The workspace must match the request before the session runner reads it. Doing this after
+    // admission means a rejected Run (conflict, unavailable coordination) never writes anything.
+    if (runInput.sceneSources) {
+      try {
+        await materializeStudioSceneSources({
+          rootDirectory: runInput.session.directory,
+          sceneSources: runInput.sceneSources
+        })
+      } catch (error) {
+        // The Run never came up: give the lease back instead of holding the session hostage.
+        await coordination.finishRun({ reservation })
+        throw error
+      }
+    }
 
     let handle: Awaited<ReturnType<StudioBuilderRuntime['startBackgroundRun']>>
     try {
@@ -235,6 +259,13 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
     }
 
     if (isStudioRunTerminalStatus(run.status)) {
+      // Model generation can be finished while its video is still queued or rendering.
+      try {
+        await cancelStudioRunRenders({ run, renderStore: input.persistence.renderStore,
+          eventBus: input.eventBus, manimRenderPort: input.manimRenderPort })
+      } catch {
+        return { status: 'coordination_unavailable', message: 'Unable to cancel render tasks; please retry.', run }
+      }
       return { status: 'already_finished' as const, run }
     }
 
@@ -249,6 +280,12 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
     }
 
     const reason = cancellation.command.reason
+    try {
+      await cancelStudioRunRenders({ run, renderStore: input.persistence.renderStore,
+        eventBus: input.eventBus, manimRenderPort: input.manimRenderPort })
+    } catch {
+      return { status: 'coordination_unavailable', message: 'Unable to cancel render tasks; please retry.', run }
+    }
     const transitioned = await input.persistence.runStore.transitionStatus({
       ownerId: cancelInput.ownerId,
       runId: cancelInput.runId,

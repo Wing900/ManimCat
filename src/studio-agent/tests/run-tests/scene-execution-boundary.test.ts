@@ -6,7 +6,6 @@ import {
   createInMemoryStudioPersistence,
   createLegacyRunExecutionScope,
   createSceneRunExecutionScope,
-  createStudioApplyPatchTool,
   createStudioAssistantMessage,
   createStudioEditTool,
   createStudioGlobTool,
@@ -15,7 +14,6 @@ import {
   createStudioReadTool,
   createStudioRender,
   createStudioRenderTool,
-  createStudioStaticCheckTool,
   createStudioRun,
   createStudioScene,
   createStudioSession,
@@ -53,7 +51,7 @@ import { configureStudioToolRegistry } from '../../runtime/studio-tool-registry'
 import { buildStudioAgentSystemPrompt } from '../../orchestration/studio-agent-prompt'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 import { ScriptedStudioModel } from '../support/scripted-studio-model'
-import { run } from './factories'
+import { createPassingStudioStaticCheckPort, run } from './factories'
 
 /**
  * Task 11B2B — Scene context assembly and Tool write boundary.
@@ -130,8 +128,7 @@ function sharedRegistry(): StudioToolRegistry {
     createStudioGlobTool(),
     createStudioGrepTool(),
     createStudioWriteTool(),
-    createStudioEditTool(),
-    createStudioApplyPatchTool()
+    createStudioEditTool()
   ]) {
     registry.register(tool)
   }
@@ -231,14 +228,6 @@ class RecordingPlotRenderPort implements PlotRenderPort {
 }
 
 /** Static-check Port double: records the exact code the Tool handed to the static checker. */
-class RecordingStaticCheckPort implements StudioStaticCheckPort {
-  readonly checked: Array<{ kind: string; code: string; outputMode?: string }> = []
-
-  async check(request: StudioStaticCheckRequest): Promise<StudioStaticCheckResult> {
-    this.checked.push({ kind: request.kind, code: request.code, outputMode: request.outputMode })
-    return { kind: request.kind, outputMode: request.outputMode ?? 'video', diagnostics: [] }
-  }
-}
 
 /** Manim render Port double: records the workspace and code of every submitted job. */
 class RecordingManimRenderPort implements ManimRenderPort {
@@ -275,7 +264,7 @@ function stubMutationTool(name: string, resultPath: string | null): StudioToolDe
  */
 function autoRenderRegistry(renderPort: PlotRenderPort, mutationTool: StudioToolDefinition<any>): StudioToolRegistry {
   const registry = new StudioToolRegistry()
-  registry.register(createPlotStudioRenderTool(renderPort))
+  registry.register(createPlotStudioRenderTool(renderPort, createPassingStudioStaticCheckPort()))
   registry.register(mutationTool)
   return registry
 }
@@ -983,24 +972,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     )
   })
 
-  await run('scene apply_patch succeeds on the exact current source', async () => {
-    const fixture = await createFixture()
-    const scope = await loadScope(fixture, 'scene_0001')
-    const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
-
-    const result = await createStudioApplyPatchTool().execute({
-      path: 'scenes/scene_0001.py',
-      patches: [{ search: 'source of scene_0001', replace: 'patched scene_0001' }]
-    }, context)
-
-    assert.equal(result.metadata?.patchCount, 1)
-    assert.equal(
-      await readFile(path.join(fixture.workspace, 'scenes', 'scene_0001.py'), 'utf8'),
-      '# patched scene_0001\n'
-    )
-  })
-
-  await run('all three mutation tools deny a sibling scene source', async () => {
+  await run('both mutation tools deny a sibling scene source', async () => {
     const fixture = await createFixture()
     const scope = await loadScope(fixture, 'scene_0001')
     const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
@@ -1015,14 +987,10 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       () => createStudioEditTool().execute({ path: 'scenes/scene_0000.py', search: 'source', replace: 'clobbered' }, context),
       (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'not_authorized_target'
     )
-    await assert.rejects(
-      () => createStudioApplyPatchTool().execute({ path: 'scenes/scene_0000.py', patches: [{ search: 'source', replace: 'clobbered' }] }, context),
-      (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'not_authorized_target'
-    )
     assert.equal(await readFile(sibling, 'utf8'), before)
   })
 
-  await run('all three mutation tools deny another session file and a new arbitrary file', async () => {
+  await run('both mutation tools deny another session file and a new arbitrary file', async () => {
     const fixture = await createFixture()
     const scope = await loadScope(fixture, 'scene_0001')
     const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
@@ -1035,10 +1003,6 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       )
       await assert.rejects(
         () => createStudioEditTool().execute({ path: target, search: 'a', replace: 'b' }, context),
-        (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'not_authorized_target'
-      )
-      await assert.rejects(
-        () => createStudioApplyPatchTool().execute({ path: target, patches: [{ search: 'a', replace: 'b' }] }, context),
         (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'not_authorized_target'
       )
     }
@@ -1074,10 +1038,6 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       assert.equal(hasSessionRelativeTraversalSegment(spelling), true)
       await assert.rejects(
         () => createStudioWriteTool().execute({ path: spelling, content: 'x' }, context),
-        (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'traversal_target'
-      )
-      await assert.rejects(
-        () => createStudioApplyPatchTool().execute({ path: spelling, patches: [{ search: 'a', replace: 'b' }] }, context),
         (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'traversal_target'
       )
     }
@@ -1199,7 +1159,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     assert.equal(denial.message.includes('\\'), false)
   })
 
-  await run('legacy write, edit and apply_patch remain session-wide', async () => {
+  await run('legacy write and edit remain session-wide', async () => {
     const fixture = await createFixture()
     const legacyScope = createLegacyRunExecutionScope({ rootDirectory: fixture.workspace })
     const context = toolContext({ session: fixture.session, run: runFor(fixture.session), executionScope: legacyScope })
@@ -1211,14 +1171,6 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     await createStudioEditTool().execute({ path: 'legacy/new_file.py', search: 'print(1)', replace: 'print(2)' }, context)
     assert.equal(await readFile(path.join(fixture.workspace, 'legacy', 'new_file.py'), 'utf8'), 'print(2)\n')
 
-    await createStudioApplyPatchTool().execute({
-      path: 'scenes/scene_0000.py',
-      patches: [{ search: '# source of scene_0000', replace: '# legacy patched sibling' }]
-    }, context)
-    assert.equal(
-      await readFile(path.join(fixture.workspace, 'scenes', 'scene_0000.py'), 'utf8'),
-      '# legacy patched sibling\n'
-    )
   })
 
   await run('exact-file policy objects are immutable snapshots', async () => {
@@ -1394,27 +1346,6 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     assert.ok(grep.output.includes('scene_0000.py'))
   })
 
-  await run('static-check reads a sibling scene source while the write boundary stays exact-file', async () => {
-    const fixture = await createFixture()
-    const scope = await loadScope(fixture, 'scene_0001')
-    const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
-    const port = new RecordingStaticCheckPort()
-
-    const checked = await createStudioStaticCheckTool(port).execute({ path: 'scenes/scene_0000.py' }, context)
-    assert.equal(port.checked.length, 1)
-    assert.equal(port.checked[0]?.kind, 'manim')
-    assert.ok(port.checked[0]?.code.includes('source of scene_0000'))
-    assert.equal(checked.metadata?.path, 'scenes/scene_0000.py')
-    assert.equal(checked.metadata?.diagnosticCount, 0)
-
-    // Reading a neighbour never widens the write authority of the same Tool context.
-    await assert.rejects(
-      () => createStudioWriteTool().execute({ path: 'scenes/scene_0000.py', content: 'x' }, context),
-      (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'not_authorized_target'
-    )
-    assert.equal(await readFile(path.join(fixture.workspace, 'scenes', 'scene_0000.py'), 'utf8'), '# source of scene_0000\n')
-  })
-
   await run('trusted plot render output paths remain unaffected by the generic write policy', async () => {
     const fixture = await createFixture({ studioKind: 'plot' })
     const renderPort = new RecordingPlotRenderPort()
@@ -1453,7 +1384,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const scope = await loadScope(fixture, 'scene_0001')
     const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
 
-    const rendered = await createStudioRenderTool(renderPort).execute(
+    const rendered = await createStudioRenderTool(renderPort, createPassingStudioStaticCheckPort()).execute(
       { concept: 'fixture manim', code: 'print("manim")\n' },
       context
     )
@@ -1554,7 +1485,6 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const toolSources = await Promise.all([
       readFile(path.join(process.cwd(), 'src/studio-agent/tools/write-tool.ts'), 'utf8'),
       readFile(path.join(process.cwd(), 'src/studio-agent/tools/edit-tool.ts'), 'utf8'),
-      readFile(path.join(process.cwd(), 'src/studio-agent/tools/apply-patch-tool.ts'), 'utf8')
     ])
     for (const source of toolSources) {
       assert.equal(source.includes('executionScope?.'), false)

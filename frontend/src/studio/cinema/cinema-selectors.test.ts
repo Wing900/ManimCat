@@ -6,6 +6,7 @@ import {
   readStudioCinemaActiveRenderIds,
   readStudioCinemaRenderWaitTarget,
   readStudioCinemaSceneEligibility,
+  readStudioCinemaStopTarget,
   selectStudioCinemaDisplayRender,
   selectStudioCinemaSceneCumulativeTokenUsage,
   selectStudioCinemaSceneIndex,
@@ -96,6 +97,25 @@ function renderEvent(
 }
 
 describe('studio cinema scene selectors', () => {
+  it('keeps Stop available for an active render after its model Run has completed', () => {
+    const scene = sceneRecordOf(openState([createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0)]), CINEMA_TEST_SCENE_A)
+    scene.runs = [createTestRun(CINEMA_TEST_SCENE_A, 'run_1', 'completed')]
+    scene.renders = [{ ...createTestRender(CINEMA_TEST_SCENE_A, 'render_1', { status: 'running' }), runId: 'run_1' }]
+    expect(readStudioCinemaStopTarget(scene)?.id).toBe('run_1')
+    expect(readStudioCinemaSceneEligibility(scene).canCancel).toBe(true)
+    scene.cancelRequested = true
+    expect(readStudioCinemaSceneEligibility(scene).canCancel).toBe(false)
+    scene.cancelRequested = false
+    scene.renders[0].status = 'cancelled'
+    expect(readStudioCinemaStopTarget(scene)).toBeNull()
+    expect(readStudioCinemaSceneEligibility(scene).canCancel).toBe(false)
+  })
+
+  it('never selects an unknown Run just because a render is active', () => {
+    const scene = sceneRecordOf(openState([createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0)]), CINEMA_TEST_SCENE_A)
+    scene.renders = [{ ...createTestRender(CINEMA_TEST_SCENE_A, 'render_1', { status: 'queued' }), runId: 'missing-run' }]
+    expect(readStudioCinemaStopTarget(scene)).toBeNull()
+  })
   it('lists the ordered scene index with selection, busy and recovery flags', () => {
     const state = applyActions(
       openState([

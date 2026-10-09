@@ -9,7 +9,7 @@ import {
   createStudioAssistantMessage,
   createStudioRun,
   createStudioSession,
-  createStudioStaticCheckTool,
+  createStudioRenderTool,
   createUnconfiguredStudioStaticCheckPort,
   InMemoryStudioEventBus,
   InMemoryStudioRenderStore,
@@ -31,7 +31,11 @@ import {
 } from '../../../services/static-guard/checker'
 import type { StaticDiagnostic } from '../../../services/static-guard/types'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
+import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
+import { registerManimStudioTools } from '../../manim/register-manim-tools'
+import { registerPlotStudioTools } from '../../plot/register-plot-tools'
 import { run } from './factories'
+import { isStudioRunCancelledError } from '../../runtime/execution/run-cancellation'
 
 const IMAGE_SOURCE = [
   'header',
@@ -160,92 +164,163 @@ export async function runStaticCheckTests(): Promise<void> {
     assert.equal(result.kind, 'plot')
   })
 
-  await run('Tool derives the Studio kind from the session context', async () => {
-    const workspace = await createWorkspaceWithSource()
-    const seen: StudioStaticCheckRequest[] = []
-    const tool = createStudioStaticCheckTool({
-      async check(request) {
-        seen.push(request)
-        return { kind: request.kind, outputMode: 'image', diagnostics: [] }
+  await run('the render Tool checks before it reserves anything, and a blocked check renders nothing', async () => {
+    const context = await createToolContext(await createWorkspaceWithSource(), 'manim')
+    const tool = createStudioRenderTool(undefined, {
+      async check() {
+        return { kind: 'manim', outputMode: 'video', diagnostics: [diagnostic(4, 'boom', 2)] }
       }
     })
 
-    await tool.execute({ path: 'scene.py' }, createToolContext(workspace, 'plot'))
-    await tool.execute({ path: 'scene.py' }, createToolContext(workspace, 'manim'))
+    const result = await tool.execute({ concept: 'scene', code: 'print(1)\n' }, context)
+
+    assert.equal(result.title, 'Static check: scene')
+    assert.equal(result.output, 'mypy:4:2 boom')
+    assert.equal(result.metadata?.phase, 'static-check')
+    assert.equal(result.metadata?.kind, 'manim')
+    assert.equal(result.metadata?.outputMode, 'video')
+    assert.equal(result.metadata?.diagnosticCount, 1)
+    assert.deepEqual(result.metadata?.diagnostics, [diagnostic(4, 'boom', 2)])
+    // Nothing was reserved: no render record exists for a source that never passed the check.
+    assert.ok(context.renderStore)
+    assert.deepEqual(await context.renderStore.listBySessionId(context.session.ownerId, context.session.id), [])
+  })
+
+  for (const kind of ['manim', 'plot'] as const) {
+    for (const stage of ['before-check', 'during-check', 'during-blocked-check', 'during-persistence'] as const) {
+      await run(`${kind} cancellation ${stage} never starts rendering`, async () => {
+        const context = await createToolContext(await createWorkspaceWithSource(), kind)
+        const controller = new AbortController()
+        context.abortSignal = controller.signal
+        let checks = 0
+        let renders = 0
+        const port: StudioStaticCheckPort = {
+          async check(request) {
+            checks += 1
+            if (stage === 'during-check' || stage === 'during-blocked-check') {
+              controller.abort('stopped during check')
+            }
+            return {
+              kind: request.kind,
+              outputMode: request.outputMode ?? 'video',
+              diagnostics: stage === 'during-blocked-check' ? [diagnostic(1, 'broken source')] : []
+            }
+          }
+        }
+        assert.ok(context.renderStore)
+        if (stage === 'before-check') {
+          controller.abort('stopped before check')
+        }
+        if (stage === 'during-persistence') {
+          const create = context.renderStore.create.bind(context.renderStore)
+          context.renderStore.create = async (render) => {
+            const result = await create(render)
+            controller.abort('stopped during persistence')
+            return result
+          }
+        }
+        const tool = kind === 'manim'
+          ? createStudioRenderTool({
+              async submit(input) {
+                renders += 1
+                return { jobId: input.jobId }
+              }
+            }, port)
+          : createPlotStudioRenderTool({
+              async execute() {
+                renders += 1
+                throw new Error('cancelled render must never execute')
+              }
+            }, port)
+
+        await assert.rejects(
+          () => tool.execute({ concept: 'cancelled scene', code: 'print(1)\n' }, context),
+          isStudioRunCancelledError
+        )
+        assert.equal(checks, stage === 'before-check' ? 0 : 1)
+        assert.equal(renders, 0)
+        const records = await context.renderStore.listBySessionId(context.session.ownerId, context.session.id)
+        if (stage === 'during-persistence') {
+          assert.equal(records.length, 1)
+          assert.equal(records[0].status, 'cancelled')
+        } else {
+          assert.deepEqual(records, [])
+        }
+      })
+    }
+  }
+
+  await run('the check request carries the session kind, never a caller-supplied one', async () => {
+    const workspace = await createWorkspaceWithSource()
+    const seen: StudioStaticCheckRequest[] = []
+    const failing: StudioStaticCheckPort = {
+      async check(request) {
+        seen.push(request)
+        return { kind: request.kind, outputMode: 'image', diagnostics: [diagnostic(1, 'boom')] }
+      }
+    }
+
+    await createPlotStudioRenderTool(undefined, failing).execute(
+      { concept: 'plot', code: 'print(1)\n' },
+      await createToolContext(workspace, 'plot')
+    )
+    await createStudioRenderTool(undefined, failing).execute(
+      { concept: 'scene', code: 'print(1)\n' },
+      await createToolContext(workspace, 'manim')
+    )
 
     assert.deepEqual(seen.map((request) => request.kind), ['plot', 'manim'])
     assert.equal(seen[0].code, 'print(1)\n')
-    assert.equal(seen[0].outputMode, undefined)
   })
 
-  await run('Tool defaults a session without a Studio kind to Manim', async () => {
-    const workspace = await createWorkspaceWithSource()
+  await run('the check defaults a session without a Studio kind to Manim', async () => {
     const seen: StudioStaticCheckRequest[] = []
-    const tool = createStudioStaticCheckTool({
+    await createStudioRenderTool(undefined, {
       async check(request) {
         seen.push(request)
-        return { kind: request.kind, outputMode: 'video', diagnostics: [] }
+        return { kind: request.kind, outputMode: 'video', diagnostics: [diagnostic(1, 'boom')] }
       }
-    })
-
-    await tool.execute({ path: 'scene.py' }, createToolContext(workspace, undefined))
+    }).execute({ concept: 'scene', code: 'print(1)\n' }, await createToolContext(await createWorkspaceWithSource(), undefined))
 
     assert.deepEqual(seen.map((request) => request.kind), ['manim'])
   })
 
-  await run('Tool metadata reports the effective kind, mode and diagnostics', async () => {
-    const workspace = await createWorkspaceWithSource()
-    const tool = createStudioStaticCheckTool({
-      async check() {
-        return { kind: 'plot', outputMode: 'image', diagnostics: [diagnostic(4, 'boom', 2)] }
-      }
-    })
-
-    const result = await tool.execute({ path: 'scene.py', outputMode: 'video' }, createToolContext(workspace, 'plot'))
-
-    assert.equal(result.title, 'Static check scene.py')
-    assert.equal(result.output, 'mypy:4:2 boom')
-    assert.equal(result.metadata?.path, 'scene.py')
-    assert.equal(result.metadata?.kind, 'plot')
-    assert.equal(result.metadata?.outputMode, 'image')
-    assert.equal(result.metadata?.diagnosticCount, 1)
-    assert.deepEqual(result.metadata?.diagnostics, [diagnostic(4, 'boom', 2)])
-    assert.equal(result.metadata?.truncated, false)
-  })
-
-  await run('Tool without a configured Port fails loudly', async () => {
-    const workspace = await createWorkspaceWithSource()
-    const tool = createStudioStaticCheckTool()
-
+  await run('an unconfigured check Port fails loudly instead of rendering', async () => {
     assert.ok(createUnconfiguredStudioStaticCheckPort())
     await assert.rejects(
-      () => tool.execute({ path: 'scene.py' }, createToolContext(workspace, 'plot')),
-      /No Studio static check adapter is configured for kind: plot/
+      async () => {
+        const context = await createToolContext(await createWorkspaceWithSource(), 'manim')
+        return createStudioRenderTool().execute({ concept: 'scene', code: 'print(1)\n' }, context)
+      },
+      /No Studio static check adapter is configured for kind: manim/
     )
   })
 
-  await run('shared registry resolves exactly one static-check Tool per Studio kind', async () => {
+  await run('no standalone check Tool is registered, and each render Tool owns its own check', async () => {
+    assert.equal(createSharedStudioTools().some((tool) => tool.name === 'static-check'), false)
+
     const seen: StudioStaticCheckRequest[] = []
-    const staticCheckPort: StudioStaticCheckPort = {
+    const port: StudioStaticCheckPort = {
       async check(request) {
         seen.push(request)
-        return { kind: request.kind, outputMode: 'video', diagnostics: [] }
+        return { kind: request.kind, outputMode: 'video', diagnostics: [diagnostic(1, 'boom')] }
       }
     }
     const registry = new StudioToolRegistry()
-    for (const tool of createSharedStudioTools({ staticCheckPort })) {
-      registry.register(tool)
-    }
+    registerManimStudioTools(registry, undefined, port)
+    registerPlotStudioTools(registry, undefined, port)
 
-    assert.equal(registry.list().filter((tool) => tool.name === 'static-check').length, 1)
-    const manimTool = registry.get('static-check', 'manim')
-    const plotTool = registry.get('static-check', 'plot')
+    assert.equal(registry.list().filter((tool) => tool.name === 'render').length, 2)
+    const manimTool = registry.get('render', 'manim')
+    const plotTool = registry.get('render', 'plot')
     assert.ok(manimTool)
     assert.ok(plotTool)
-    assert.equal(manimTool, plotTool)
+    assert.notEqual(manimTool, plotTool)
 
-    // The dependency bag must carry the injected Port into the shared Tool.
-    await manimTool.execute({ path: 'scene.py' }, createToolContext(await createWorkspaceWithSource(), 'manim'))
+    await manimTool.execute(
+      { concept: 'scene', code: 'print(1)\n' },
+      await createToolContext(await createWorkspaceWithSource(), 'manim')
+    )
     assert.deepEqual(seen.map((request) => request.kind), ['manim'])
   })
 

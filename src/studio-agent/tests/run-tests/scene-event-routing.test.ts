@@ -1039,14 +1039,14 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     assert.equal('error' in sceneToolEvent.properties, false)
   })
 
-  await run('a completed static check publishes a count summary instead of its raw diagnostics', async () => {
+  await run('a completed pre-render check publishes a count summary instead of its raw diagnostics', async () => {
     const assistant = createStudioAssistantMessage({ sessionId: SESSION_ID, sceneId: SCENE_A, agent: 'builder' })
     const diagnosticLine = 'manim:12:3 ENOENT: D:/private/scene_0001.py raw diagnostic exploded'
     const staticCheckPart: StudioToolPart = {
       ...createStudioToolPart({
         messageId: assistant.id,
         sessionId: SESSION_ID,
-        tool: 'static-check',
+        tool: 'render',
         callId: 'call-static',
         raw: JSON.stringify({ path: 'scenes/scene_0001.py' })
       }),
@@ -1057,6 +1057,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
         title: 'Static check scenes/scene_0001.py',
         time: { start: 0, end: 1 },
         metadata: {
+          phase: 'static-check',
           path: 'scenes/scene_0001.py',
           kind: 'manim',
           outputMode: 'video',
@@ -1115,9 +1116,9 @@ export async function runSceneEventRoutingTests(): Promise<void> {
         output: diagnosticLine,
         title: 'Static check scenes/scene_0001.py',
         time: { start: 0, end: 1 },
-        metadata: { path: 'scenes/scene_0001.py', diagnosticCount: 0 }
+        metadata: { phase: 'static-check', path: 'scenes/scene_0001.py', diagnosticCount: 0 }
       },
-      'static-check'
+      'render'
     )
     assert.equal(zero.output, 'Static check completed: no diagnostics.')
     assert.equal(
@@ -1127,9 +1128,10 @@ export async function runSceneEventRoutingTests(): Promise<void> {
           input: {},
           output: diagnosticLine,
           title: 'Static check scenes/scene_0001.py',
-          time: { start: 0, end: 1 }
+          time: { start: 0, end: 1 },
+          metadata: { phase: 'static-check' }
         },
-        'static-check'
+        'render'
       ).output,
       'Static check completed.'
     )

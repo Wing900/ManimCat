@@ -799,7 +799,13 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     })
     await persistence.sessionStore.create(session)
     const scene: StudioScene = {
-      ...createStudioScene({ ownerId: OWNER, sessionId: session.id, position: 0, sourcePath: 'scenes/legacy.py' })
+      ...createStudioScene({
+        id: 'scene_1',
+        ownerId: OWNER,
+        sessionId: session.id,
+        position: 0,
+        sourcePath: 'scenes/legacy.py'
+      })
     }
     await persistence.sceneStore.create(scene)
     // A Session-scoped render (no Scene) must stay exactly as stored.

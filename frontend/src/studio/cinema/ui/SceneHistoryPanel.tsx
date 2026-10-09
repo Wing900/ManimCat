@@ -56,18 +56,19 @@ function SceneToolActivity({ row }: { row: StudioCinemaToolRow }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="rounded-lg border border-black/10 bg-white/50 dark:border-white/10 dark:bg-white/5">
+    <div className="rounded-lg bg-ink/[0.07] dark:bg-white/[0.07]">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-ink/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 dark:hover:bg-white/[0.05]"
         aria-expanded={expanded}
         disabled={!row.hasDetail}
         onClick={() => setExpanded((value) => !value)}
       >
-        <span className="font-medium text-text-primary/80">{row.toolName}</span>
-        <span className="text-text-secondary/60">{t(readStudioCinemaToolStatusKey(row.status))}</span>
+        <span className="font-medium text-ink dark:text-white/90">{row.toolName}</span>
+        <span className="text-ink/55 dark:text-white/55">{t(readStudioCinemaToolStatusKey(row.status))}</span>
+        {/* 点击即展开，所以行上不摆“查看结果/收起结果”这几个字（屏幕阅读器仍知道它能展开）。 */}
         {row.hasDetail ? (
-          <span className="ml-auto text-text-secondary/50">
+          <span className="sr-only">
             {expanded ? t('studio.cinema.toolCollapse') : t('studio.cinema.toolExpand')}
           </span>
         ) : null}
@@ -75,15 +76,15 @@ function SceneToolActivity({ row }: { row: StudioCinemaToolRow }) {
 
       <div className="studio-collapse" data-open={expanded && row.hasDetail ? 'true' : 'false'}>
         <div aria-hidden={!(expanded && row.hasDetail) || undefined} inert={!(expanded && row.hasDetail) || undefined}>
-          <div className="space-y-1 border-t border-black/5 px-2.5 py-2 dark:border-white/10">
-            {row.title ? <p className="text-sm text-text-primary/75">{row.title}</p> : null}
+          <div className="space-y-1 border-t border-ink/10 px-2.5 py-2 dark:border-white/10">
+            {row.title ? <p className="text-sm text-ink/75 dark:text-white/75">{row.title}</p> : null}
             {row.output ? (
-              <p className="whitespace-pre-wrap break-words text-sm text-text-secondary/80">{row.output}</p>
+              <p className="whitespace-pre-wrap break-words text-sm text-ink/70 dark:text-white/70">{row.output}</p>
             ) : null}
             {row.attachments.length > 0 ? (
               <ul className="space-y-0.5">
                 {row.attachments.map((attachment, index) => (
-                  <li key={`${row.id}-attachment-${index}`} className="text-sm text-text-secondary/70">
+                  <li key={`${row.id}-attachment-${index}`} className="text-sm text-ink/60 dark:text-white/60">
                     {attachment.name ?? t('studio.cinema.toolAttachment')}
                   </li>
                 ))}
@@ -306,7 +307,7 @@ export function SceneHistoryPanel({
           exiting || !settled ? 'lg:w-0' : 'lg:w-[400px]'
         }`}
       >
-        <header className="flex items-center gap-2 border-b border-black/5 px-3 py-3 dark:border-white/10">
+        <header className="flex items-center gap-2 border-b border-black/5 px-4 py-3 dark:border-white/10">
           <CatCharacter pose={catPose} className="cinema-cat-enter h-10 w-10 shrink-0" />
           <h2 className="min-w-0 flex-1 truncate text-base font-medium text-text-primary/85">{title}</h2>
           <button
@@ -322,7 +323,7 @@ export function SceneHistoryPanel({
 
         <div
           ref={listRef}
-          className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3"
+          className="studio-fade-bottom min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-3 pb-14"
           onScroll={(event) => {
             const element = event.currentTarget
             atBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < NEAR_BOTTOM_PX

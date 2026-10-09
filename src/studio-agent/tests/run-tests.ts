@@ -18,13 +18,21 @@ import { runSceneExecutionBoundaryTests } from './run-tests/scene-execution-boun
 import { runSceneEventRoutingTests } from './run-tests/scene-event-routing.test'
 import { runRenderResultBridgeTests } from './run-tests/render-result-bridge.test'
 import { runSessionDeleteTests } from './run-tests/session-delete.test'
+import { runRenderCancellationTests } from './run-tests/render-cancellation.test'
 import { runRenderMediaHandoffTests } from './run-tests/render-media-handoff.test'
+import { runSceneSourceMaterializationTests } from './run-tests/scene-source-materialization.test'
+import { runStudioWorkspaceCleanupTests } from './run-tests/studio-workspace-cleanup.test'
 
 async function main() {
   await runPromptTests()
   await runLoopTests()
   await runReasoningContentTests()
   await runModeAndToolTests()
+  // Ordered ahead of runSecurityTests(): a known-failing assertion there aborts main(), and these
+  // suites must not be skipped silently because of it.
+  await runSceneSourceMaterializationTests()
+  await runRenderCancellationTests()
+  await runStudioWorkspaceCleanupTests()
   await runSecurityTests()
   await runAgentLoopTests()
   await runKnowledgeTests()

@@ -11,7 +11,7 @@ import { resolveSafeWorkspacePath, WorkspacePathError } from './workspace-paths'
 /**
  * One enforcement layer for workspace mutation authority.
  *
- * `write`, `edit` and `apply_patch` all authorize through `resolveAuthorizedWorkspaceTarget`, so a
+ * `write` and `edit` both authorize through `resolveAuthorizedWorkspaceTarget`, so a
  * Scene Run can mutate exactly one file and a Legacy Run keeps the pre-existing whole-workspace
  * behavior. A root would grant a subtree; this policy grants one exact file instead.
  *

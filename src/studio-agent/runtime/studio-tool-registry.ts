@@ -15,10 +15,19 @@ export function configureStudioToolRegistry(input: {
   staticCheckPort?: StudioStaticCheckPort
 }): StudioToolRegistry {
   registerSharedStudioTools(input.registry, {
-    knowledgeProvider: input.knowledgeProvider,
-    staticCheckPort: input.staticCheckPort
+    knowledgeProvider: input.knowledgeProvider
   })
-  registerManimStudioTools(input.registry, input.manimRenderPort ?? createUnconfiguredManimRenderPort())
-  registerPlotStudioTools(input.registry, input.plotRenderPort ?? createUnconfiguredPlotRenderPort())
+  // The static check gate lives inside the render Tools: one Tool checks and renders, so no
+  // standalone check Tool is registered and the port reaches the render path directly.
+  registerManimStudioTools(
+    input.registry,
+    input.manimRenderPort ?? createUnconfiguredManimRenderPort(),
+    input.staticCheckPort
+  )
+  registerPlotStudioTools(
+    input.registry,
+    input.plotRenderPort ?? createUnconfiguredPlotRenderPort(),
+    input.staticCheckPort
+  )
   return input.registry
 }

@@ -13,15 +13,19 @@ import { cinemaUnitKey } from './cinema-copy'
  * `sourcePath` or an attachment path, and a playback problem is reported as a playback problem — the
  * Render keeps whatever status the server gave it.
  *
- * Two surfaces, one slot. While there is no result the slot is the dark stage a cinema screen is
- * expected to be (placeholders and status chips use light ink). Once an image or a video exists the
- * dark stage is gone and the media is shown on the page at its own aspect ratio — a hairline and a
- * faint all-round shadow, never a dropped one: anything soft under the result reads as a blur.
+ * Two surfaces, one slot. While there is no result the slot is the stage. In the light themes that is the
+ * studio's own field (`stage` — the page colour): no panel is put up for a wait, so the ink draws straight on
+ * the room and there is no edge to look at; the screen itself only appears once there is something to show.
+ * The dark theme is the exception — there the stage is `#101415`, the surface a screen is expected to be and
+ * one an unlit page cannot supply, held apart from the dark page by a hairline. The loading clip is drawn with
+ * alpha, so it carries only its ink and takes whatever surface it lands on; one clip per ink (dark ink for a
+ * light stage, light ink for the dark one). Once an image or a video exists the stage is gone and the media is
+ * shown on the page at its own aspect ratio — a hairline and a faint all-round shadow, never a dropped one:
+ * anything soft under the result reads as a blur.
  *
  * The screen fills its slot in both cases (`h-full w-full`) and never sizes itself from the media: a
  * media element that has just re-mounted has no intrinsic size for a frame, and a surface that shrinks
- * to fit it collapses into a narrow dark strip (the portrait-shaped black rectangle) before the real
- * size arrives.
+ * to fit it collapses into a narrow strip (the portrait-shaped rectangle) before the real size arrives.
  */
 
 export interface CinemaScreenProps {
@@ -48,14 +52,51 @@ const MEDIA_BASE_CLASS =
  * no intrinsic size is laid out at the CSS default object size (300×150) — a small box, wearing the
  * hairline above, that the metadata then snaps to the real aspect ratio. That snap is the "the video
  * shrank, then jumped" of a switch, so the media stays unpainted until it has a size of its own: the
- * dark stage is what is on screen, and the first frame that shows is already at the right size.
+ * stage is what is on screen, and the first frame that shows is already at the right size.
  *
  * The entrance fade is attached at that same moment. A media element that mounts hidden must not spend
  * the fade while it is still hidden, or it appears without it — correct size, but no dissolve out of
- * the dark stage.
+ * the stage.
  */
 const mediaClass = (mediaReady: boolean) =>
   `${MEDIA_BASE_CLASS}${mediaReady ? ' studio-media-in' : ' invisible'}`
+
+/**
+ * The waiting art: the project's own loading animation, rendered by Manim from the mark's Fourier
+ * coefficients. It is a clip rather than a spinner because the thing the studio makes is a Manim
+ * video — the wait is the one place the product can say what it is.
+ *
+ * The clip carries an alpha channel, so nothing of the surface it sits on is baked into it: a video
+ * is a rectangle with its own colour, and a rectangle whose colour is a level off the surface shows
+ * its own edge as a line. With alpha there is no colour to be off. One clip per ink (dark ink for the
+ * light theme, light ink for the dark one), each usable on any surface the theme may paint.
+ *
+ * The mp4 is the fallback for a browser that cannot decode VP9's alpha layer: it carries the same
+ * drawing with that surface's colour painted in, which is exactly what such a browser would show.
+ * `aspect-video` reserves the box before metadata lands (a `<video>` with no intrinsic size is 300×150).
+ */
+const LOADING_ART_CLASS = 'aspect-video w-[min(56%,600px)]'
+
+const LoadingClip = ({ ink, surface }: { ink: 'light' | 'dark'; surface: string }) => (
+  <video
+    className={`${surface} ${LOADING_ART_CLASS}`}
+    autoPlay
+    loop
+    muted
+    playsInline
+    aria-hidden="true"
+  >
+    <source src={`/studio-loading-${ink}.webm`} type="video/webm" />
+    <source src={`/studio-loading-${ink}.mp4`} type="video/mp4" />
+  </video>
+)
+
+const LoadingArt = () => (
+  <>
+    <LoadingClip ink="light" surface="dark:hidden" />
+    <LoadingClip ink="dark" surface="hidden dark:block" />
+  </>
+)
 
 export function CinemaScreen({
   state,
@@ -76,8 +117,7 @@ export function CinemaScreen({
   // Whether the media element mounted *right now* has painted. Nothing shorter than that is safe: a
   // card that re-mounts its media — the one that leaves, and the one that arrives — gets a brand new
   // `<img>`/`<video>`, and until that element has data it has no intrinsic size. A `<video>` then falls
-  // back to the spec's 300×150, which is the tiny black box (on the page's near-white background) the
-  // dark stage below exists to prevent. "The browser already holds this locator" is not the same claim,
+  // back to the spec's 300×150 — a box on the paper that `mediaClass`'s `invisible` keeps off screen. "The browser already holds this locator" is not the same claim,
   // and trusting it is what put that box on screen.
   const [mediaReady, setMediaReady] = useState(false)
 
@@ -93,32 +133,41 @@ export function CinemaScreen({
     setFailedLocalUrl(null)
   }, [playableUrl, fallbackVideoUrl])
 
-  // The dark stage exists while there is nothing on screen to look at — including the gap between a
-  // locator existing and its pixels arriving. Every ink below follows that surface: light ink on the
-  // dark stage, theme ink once the media sits on the page.
-  const onDarkStage = state !== 'playable' || !mediaReady
-  const chipButtonInk = onDarkStage
-    ? 'bg-white/10 text-white/90 hover:bg-white/20'
+  // The stage is the panel white in the light theme and the dark surface in the dark one; it is up
+  // while there is nothing on screen to look at — including the gap between a locator existing and its
+  // pixels arriving. Each surface has its own ink, and the art and the words share it.
+  const onStage = state !== 'playable' || !mediaReady
+  const chipButtonInk = onStage
+    ? 'bg-ink/10 text-ink hover:bg-ink/20 dark:bg-white/10 dark:text-white/90 dark:hover:bg-white/20'
     : 'bg-bg-tertiary/60 text-text-secondary hover:bg-bg-tertiary'
 
-  // Every placeholder sits on the dark stage, so it uses light ink instead of the theme's text tokens
-  // (which are near-black in the light theme and would be unreadable on `#101415`).
-  const placeholder = (titleKey: TranslationKey, hintKey: TranslationKey, art?: ReactNode) => (
+  // A placeholder draws in the ink of the surface it is on. `hintVisible = false` keeps the sentence
+  // for screen readers only.
+  const placeholder = (
+    titleKey: TranslationKey,
+    hintKey: TranslationKey,
+    art?: ReactNode,
+    hintVisible = true,
+  ) => (
     // Keyed by the state so a placeholder change fades in instead of swapping instantly.
     <div
       key={state}
       className="studio-placeholder-in flex h-full flex-col items-center justify-center gap-3 px-4 text-center"
     >
       {art}
-      <p className="text-base text-white/85">{t(titleKey)}</p>
-      <p className="max-w-md text-sm text-white/55">{t(hintKey)}</p>
+      <p className="text-base text-ink dark:text-white/85">{t(titleKey)}</p>
+      <p className={hintVisible ? 'max-w-md text-sm text-ink/55 dark:text-white/55' : 'sr-only'}>
+        {t(hintKey)}
+      </p>
     </div>
   )
 
   return (
     <section
       className={`relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl transition-[background-color] duration-[420ms] ease-soft ${
-        onDarkStage ? 'bg-[#101415]' : ''
+        onStage
+          ? 'bg-stage dark:ring-1 dark:ring-white/10'
+          : ''
       }`}
       aria-label={t(cinemaUnitKey(studioKind, 'screenLabel'), { index: sceneIndex + 1 })}
       data-testid="cinema-screen"
@@ -160,11 +209,16 @@ export function CinemaScreen({
               'studio.cinema.screenEmptyTitle',
               'studio.cinema.screenEmptyHint',
               // The project's artistic M, as a faint watermark on the empty stage.
-              <ManimCatLogo glyph className="h-24 w-24 text-white/25" />,
+              <ManimCatLogo glyph className="h-24 w-24 text-ink/25 dark:text-white/25" />,
             )
           : null}
         {state === 'rendering'
-          ? placeholder('studio.cinema.screenRenderingTitle', 'studio.cinema.screenRenderingHint')
+          ? placeholder(
+              'studio.cinema.screenRenderingTitle',
+              'studio.cinema.screenRenderingHint',
+              <LoadingArt />,
+              false,
+            )
           : null}
         {state === 'failed' ? placeholder('studio.cinema.screenFailedTitle', 'studio.cinema.screenFailedHint') : null}
         {state === 'media_gap'
@@ -207,7 +261,7 @@ export function CinemaScreen({
         ) : null}
         {refreshPausedReasonKey ? (
           <>
-            <span className={`text-sm ${onDarkStage ? 'text-white/80' : 'text-text-secondary'}`}>
+            <span className={`text-sm ${onStage ? 'text-ink/55 dark:text-white/80' : 'text-text-secondary'}`}>
               {t(refreshPausedReasonKey)}
             </span>
             <button

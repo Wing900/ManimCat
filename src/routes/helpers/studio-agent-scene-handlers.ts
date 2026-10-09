@@ -122,6 +122,9 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
     session,
     sceneId: scene.id,
     inputText,
+    // The browser sent the Session's whole Scene source map; the Run writes it into the workspace
+    // before the agent starts, so the agent always reads what the user is actually looking at.
+    sceneSources: parsed.code,
     customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
     toolChoice: parsed.toolChoice
   })

@@ -61,8 +61,11 @@ export function createStudioSession(input: {
 }
 
 /**
- * Stable, Python import-safe module stem for a Scene. The name never changes when the Scene is
- * reordered, so later cross-Scene imports keep resolving.
+ * Globally unique Scene id.
+ *
+ * Deliberately not the module stem: the Scene store keys Scenes by id alone (the in-memory adapter
+ * is a `Map<id>`, so two Sessions cannot both own `scene_1`), and `getById(ownerId, sceneId)` has no
+ * Session to disambiguate with. The Python module stem lives in `sourcePath` instead.
  */
 export function createStudioSceneId(): string {
   return `scene_${randomUUID().replace(/-/g, '')}`

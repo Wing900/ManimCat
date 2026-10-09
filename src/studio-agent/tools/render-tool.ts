@@ -1,4 +1,4 @@
-import type { StudioToolDefinition, StudioToolResult } from '../domain/types'
+import type { StudioKind, StudioToolDefinition, StudioToolResult } from '../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import type { OutputMode, VideoQuality } from '../../types'
 import {
@@ -6,9 +6,16 @@ import {
   createUnconfiguredManimRenderPort,
   type ManimRenderPort
 } from '../manim/manim-render-port'
+import {
+  createUnconfiguredStudioStaticCheckPort
+} from '../static-check/create-default-studio-static-check-port'
+import type { StudioStaticCheckPort } from '../static-check/studio-static-check-types'
+import { runStudioStaticCheckGate } from '../static-check/static-check-gate'
 import { manimRenderToolParameters } from './tool-parameters'
 import { createStudioRender } from '../domain/factories'
 import { publishStudioRenderUpdated } from '../render/render-events'
+import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../runtime/execution/run-cancellation'
+import { STUDIO_RENDER_ACTIVE_STATUSES } from '../render/render-status-transitions'
 
 interface RenderToolInput {
   concept: string
@@ -18,30 +25,60 @@ interface RenderToolInput {
 }
 
 export function createStudioRenderTool(
-  renderPort: ManimRenderPort = createUnconfiguredManimRenderPort()
+  renderPort: ManimRenderPort = createUnconfiguredManimRenderPort(),
+  staticCheckPort: StudioStaticCheckPort = createUnconfiguredStudioStaticCheckPort()
 ): StudioToolDefinition<RenderToolInput> {
   return {
     name: 'render',
     parameters: manimRenderToolParameters,
-    description: 'Create a Manim render task backed by the existing queue.',
+    description:
+      'Check the Scene source, then render it. If the check fails the render is skipped and the diagnostics come back.',
     allowedAgents: ['builder'],
     allowedStudioKinds: ['manim'],
-    execute: async (input, context) => executeRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
+    execute: async (input, context) =>
+      executeRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort, staticCheckPort)
   }
 }
 
 async function executeRenderTool(
   input: RenderToolInput,
   context: StudioRuntimeBackedToolContext,
-  renderPort: ManimRenderPort
+  renderPort: ManimRenderPort,
+  staticCheckPort: StudioStaticCheckPort
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
   }
 
-  const jobId = createManimRenderJobId()
   const outputMode = input.outputMode ?? 'video'
   const quality = input.quality ?? 'medium'
+  const kind: StudioKind = context.session.studioKind ?? 'manim'
+
+  // Check first, reserve nothing: a broken source costs no queue job, no render record and no
+  // displaced notebook. The diagnostics reach the model; the Tool row reads a count summary.
+  const check = await runStudioStaticCheckGate({
+    port: staticCheckPort,
+    kind,
+    code: input.code,
+    outputMode,
+    signal: context.abortSignal
+  })
+  throwIfStudioRunCancelled(context.abortSignal)
+  if (!check.passed) {
+    return {
+      title: `Static check: ${input.concept.slice(0, 80)}`,
+      output: check.output,
+      metadata: {
+        phase: 'static-check',
+        kind,
+        outputMode,
+        diagnosticCount: check.result.diagnostics.length,
+        diagnostics: check.result.diagnostics
+      }
+    }
+  }
+
+  const jobId = createManimRenderJobId()
 
   if (!context.renderStore) {
     throw new Error('Render store is unavailable')
@@ -65,33 +102,41 @@ async function executeRenderTool(
   publishStudioRenderUpdated(context.eventBus, createdRender)
 
   try {
+    // Persistence is asynchronous too: Stop may arrive while the record is being created.
+    throwIfStudioRunCancelled(context.abortSignal)
     await renderPort.submit({
       jobId,
       concept: input.concept,
       code: input.code,
       outputMode,
       quality,
-      workspaceDirectory: context.session.directory
+      workspaceDirectory: context.session.directory,
+      signal: context.abortSignal
     })
   } catch (error) {
-    const failedRender = await context.renderStore.update(context.session.ownerId, render.id, {
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
+    const transition = await context.renderStore.transitionStatus({
+      ownerId: context.session.ownerId,
+      renderId: render.id,
+      expectedJobId: jobId,
+      from: STUDIO_RENDER_ACTIVE_STATUSES,
+      patch: {
+        status: isStudioRunCancelledError(error) ? 'cancelled' : 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      }
     })
-    if (failedRender) {
-      publishStudioRenderUpdated(context.eventBus, failedRender)
+    if (transition.applied && transition.render) {
+      publishStudioRenderUpdated(context.eventBus, transition.render)
     }
     throw error
   }
 
   context.setToolMetadata?.({
     title: render.title,
-    metadata: { renderId: render.id, jobId, outputMode, quality },
+    metadata: { renderId: render.id, jobId, outputMode, quality, phase: 'render', diagnosticCount: 0 },
   })
   return {
     title: `Render queued ${jobId}`,
     output: `render_id: ${render.id}\nrender_job_id: ${jobId}`,
-    metadata: { renderId: render.id, jobId, outputMode, quality },
+    metadata: { renderId: render.id, jobId, outputMode, quality, phase: 'render', diagnosticCount: 0 },
   }
 }
-

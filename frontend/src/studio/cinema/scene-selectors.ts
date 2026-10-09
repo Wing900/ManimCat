@@ -255,7 +255,7 @@ export function readStudioCinemaSceneEligibility(
   return {
     canSubmit: submitBlockReason === null,
     submitBlockReason,
-    canCancel: !scene.cancelRequested && activeRun !== null,
+    canCancel: !scene.cancelRequested && readStudioCinemaStopTarget(scene) !== null,
     canReconcile,
   }
 }
@@ -318,6 +318,19 @@ export function readStudioCinemaActiveRun(scene: StudioCinemaSceneState): Studio
     }
   }
   return active
+}
+
+/** Stop remains available after the model finishes while its render is still active. */
+export function readStudioCinemaStopTarget(scene: StudioCinemaSceneState): StudioSceneRun | null {
+  const active = readStudioCinemaActiveRun(scene)
+  if (active) return active
+  let latest: StudioSceneRender | null = null
+  for (const render of scene.renders) {
+    if (!isStudioCinemaActiveRenderStatus(render.status) || !render.runId ||
+        !scene.runs.some((run) => run.id === render.runId)) continue
+    if (!latest || isLaterRender(render, latest)) latest = render
+  }
+  return latest ? scene.runs.find((run) => run.id === latest.runId) ?? null : null
 }
 
 export function selectStudioCinemaLatestRender(scene: StudioCinemaSceneState): StudioSceneRender | null {

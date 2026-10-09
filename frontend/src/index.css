@@ -9,6 +9,9 @@
   --bg-primary-rgb: 245, 245, 245;
   --bg-secondary-rgb: 238, 238, 238;
   --bg-tertiary-rgb: 224, 224, 224;
+  /* 舞台 = 工作室自己的场，和页面同色：等待态不摆一块面板，墨直接画在屋里，也就没有"边"可看。
+     屏只在真的有东西上屏时才出现。暗色主题是例外（见 .dark）——那里需要一块深色的屏。 */
+  --stage-rgb: 245, 245, 245;
   --text-primary-rgb: 33, 33, 33;
   --text-secondary-rgb: 117, 117, 117;
   --text-tertiary-rgb: 158, 158, 158;
@@ -38,6 +41,7 @@
   --bg-primary-rgb: 242, 242, 247;
   --bg-secondary-rgb: 255, 253, 248;
   --bg-tertiary-rgb: 209, 209, 214;
+  --stage-rgb: 242, 242, 247;
   --text-primary-rgb: 0, 0, 0;
   --text-secondary-rgb: 60, 60, 67;
   --text-tertiary-rgb: 142, 142, 147;
@@ -51,6 +55,7 @@
   --bg-primary-rgb: 18, 18, 18;
   --bg-secondary-rgb: 28, 28, 28;
   --bg-tertiary-rgb: 38, 38, 38;
+  --stage-rgb: 16, 20, 21;
   --text-primary-rgb: 245, 245, 245;
   --text-secondary-rgb: 189, 189, 189;
   --text-tertiary-rgb: 117, 117, 117;
@@ -365,6 +370,19 @@ select option:checked {
 .studio-collapse > * {
   min-height: 0;
   overflow: hidden;
+}
+
+/* 面板底部的渐隐带：最底那一条固定什么都不放，内容在滚到底之前先淡出。
+   用 mask 而不是盖一层渐变 —— 不用配色，亮/暖/暗三套主题自动一致，也不会盖住滚动条。
+   滚动容器要留出同样高度的底部内边距（pb-14 = 56px），否则最后一行会停在渐隐带里。 */
+.studio-fade-bottom {
+  --studio-fade-bottom: 56px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--studio-fade-bottom)),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--studio-fade-bottom)), transparent);
 }
 
 /* 窄屏的会话抽屉：只在 lg 以下滑入（lg 以上侧栏是在流列，宽度过渡已经够了）。 */

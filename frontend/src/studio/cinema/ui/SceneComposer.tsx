@@ -79,7 +79,7 @@ export function SceneComposer({
 
   return (
     <form
-      className="flex min-w-0 flex-col border-t border-black/5 bg-bg-primary/70 px-3 pb-5 pt-6 dark:border-white/10"
+      className="flex min-w-0 flex-col bg-bg-primary/70 px-3 pb-5 pt-6"
       onSubmit={(event) => {
         event.preventDefault()
         submit()
@@ -161,30 +161,32 @@ export function SceneComposer({
             }}
           />
 
-          {showStop ? (
-            <button
-              key="stop"
-              type="button"
-              className="studio-pop-in flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-tertiary/60 text-text-primary/80 transition-all hover:bg-bg-tertiary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
-              onClick={onCancel}
-              disabled={!canCancel}
-              aria-label={t('studio.cinema.stop')}
-              title={t('studio.cinema.stop')}
-            >
-              <StopIcon width={22} height={22} />
-            </button>
-          ) : (
-            <button
-              key="send"
-              type="submit"
-              className="studio-pop-in flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/90 text-white transition-all hover:opacity-90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-30"
-              disabled={!canSubmit}
-              aria-label={t('studio.cinema.send')}
-              title={submitting ? t('studio.cinema.sending') : t('studio.cinema.send')}
-            >
-              <SendIcon />
-            </button>
-          )}
+          {/*
+            One element for both states. Two keyed buttons unmounted and remounted the trailing
+            action on every send, and the arriving button replayed its `studio-pop-in` — which read
+            as a flash. A stable identity swaps only handlers, colours and icon, so the only time the
+            entry animation plays is when the composer itself first appears.
+          */}
+          <button
+            type={showStop ? 'button' : 'submit'}
+            className={`studio-pop-in flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 ${
+              showStop
+                ? 'bg-bg-tertiary/60 text-text-primary/80 hover:bg-bg-tertiary/80 focus-visible:ring-accent/30 disabled:opacity-40'
+                : 'bg-accent/90 text-white hover:opacity-90 focus-visible:ring-accent/40 disabled:opacity-30'
+            }`}
+            onClick={showStop ? onCancel : undefined}
+            disabled={showStop ? !canCancel : !canSubmit}
+            aria-label={showStop ? t('studio.cinema.stop') : t('studio.cinema.send')}
+            title={
+              showStop
+                ? t('studio.cinema.stop')
+                : submitting
+                  ? t('studio.cinema.sending')
+                  : t('studio.cinema.send')
+            }
+          >
+            {showStop ? <StopIcon width={22} height={22} /> : <SendIcon />}
+          </button>
         </div>
       </div>
     </form>

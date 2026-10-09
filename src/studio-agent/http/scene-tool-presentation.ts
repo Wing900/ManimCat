@@ -13,15 +13,17 @@
  * Rules:
  * - a failed Tool publishes no result text at all, so a traceback, a private path or a checker
  *   message can never ride along on `output`;
- * - `static-check` publishes a stable count summary instead of its raw diagnostics, whose message
- *   text is structurally path-bearing (each line reads `tool:line:col <checker message>`);
+ * - a render Tool that stopped at its pre-render static check publishes a stable count summary
+ *   instead of its raw diagnostics, whose message text is structurally path-bearing (each line
+ *   reads `tool:line:col <checker message>`). The phase marker in the trusted Tool metadata is
+ *   what identifies that answer, so one Tool can hold both the check and the render;
  * - every other Tool publishes its output unchanged: that text is the working result the user asked
  *   for (`read`, `grep`, listings, renders). This module therefore makes no claim that arbitrary
- *   Tool output is path-free — only the structurally path-bearing static-check result is replaced.
+ *   Tool output is path-free — only the structurally path-bearing check result is replaced.
  */
 
-/** Tool name whose raw diagnostics are replaced by a public count summary. */
-export const STUDIO_SCENE_STATIC_CHECK_TOOL_NAME = 'static-check'
+/** Tool metadata phase marking a render Tool's pre-render static check answer. */
+export const STUDIO_SCENE_STATIC_CHECK_PHASE = 'static-check'
 
 /** Tool status as seen by the public boundary: the message-part and the streaming vocabularies. */
 export type StudioSceneToolPresentationStatus = 'pending' | 'running' | 'completed' | 'error' | 'failed'
@@ -70,7 +72,7 @@ export function projectStudioSceneToolPresentation(
     return { title: input.title, metadata: input.metadata }
   }
 
-  if (isStudioStaticCheckToolName(input.tool)) {
+  if (isStudioStaticCheckPhase(input.metadata)) {
     return {
       title: input.title,
       output: readStudioStaticCheckSummary(input.metadata),
@@ -81,8 +83,8 @@ export function projectStudioSceneToolPresentation(
   return { title: input.title, output: input.output, metadata: input.metadata }
 }
 
-function isStudioStaticCheckToolName(tool: unknown): boolean {
-  return typeof tool === 'string' && tool.trim().toLowerCase() === STUDIO_SCENE_STATIC_CHECK_TOOL_NAME
+function isStudioStaticCheckPhase(metadata: Record<string, unknown> | undefined): boolean {
+  return metadata?.phase === STUDIO_SCENE_STATIC_CHECK_PHASE
 }
 
 /**

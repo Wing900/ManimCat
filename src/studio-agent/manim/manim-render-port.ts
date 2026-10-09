@@ -8,10 +8,13 @@ export interface ManimRenderSubmissionInput {
   outputMode: OutputMode
   quality: VideoQuality
   workspaceDirectory: string
+  signal?: AbortSignal
 }
 
 export interface ManimRenderPort {
   submit: (input: ManimRenderSubmissionInput) => Promise<{ jobId: string }>
+  /** Cancel a persisted queue job; terminal jobs retain their actual outcome. */
+  cancel?: (jobId: string) => Promise<'cancelled' | 'completed' | 'failed'>
 }
 
 export function createUnconfiguredManimRenderPort(): ManimRenderPort {

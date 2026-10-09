@@ -100,6 +100,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     })
   })
   const runService = createStudioRunService({
+    manimRenderPort: input.manimRenderPort,
     persistence: input.persistence,
     runtime,
     eventBus,

@@ -24,6 +24,14 @@ export default {
           hover: 'rgba(var(--accent-hover-rgb), 1)',
         },
         border: 'rgba(var(--border-rgb), 1)',
+        // 舞台：等待时工作室自己的场。亮/暖主题 = 页面同色（不摆面板、没有边），由 index.css 的 --stage-rgb 给；
+        // 暗色主题才是一块深色的屏（16, 20, 21），靠一圈发丝线从深色页面里分出来。
+        // 加载动画是透明底（studio-loading-*.webm），不烤任何底色 —— 所以换舞台色不需要重渲动画。
+        stage: 'rgba(var(--stage-rgb), 1)',
+        // 墨色 #455a64 是 logo 的笔画，也是猫的毛色（CatCharacter.tsx 的 CAT_FUR）。
+        ink: {
+          DEFAULT: '#455a64',
+        },
       },
       transitionTimingFunction: {
         // 动效曲线（HIG 分工，见 index.css 的 --ease-*）：不是一条通吃。

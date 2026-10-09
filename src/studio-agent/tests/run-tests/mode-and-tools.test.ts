@@ -16,7 +16,7 @@ import {
   type PlotRenderExecution,
   type StudioRuntimeBackedToolContext
 } from '../../index'
-import { createWorkspace, run } from './factories'
+import { createPassingStudioStaticCheckPort, createWorkspace, run } from './factories'
 import { RecordingEventBus } from '../support/recording-event-bus'
 import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
@@ -135,11 +135,7 @@ export async function runModeAndToolTests(): Promise<void> {
 
   await run('studio modes own their automatic render policy', async () => {
     assert.deepEqual(getStudioModeDefinition('manim').autoRenderAfterTools, [])
-    assert.deepEqual(getStudioModeDefinition('plot').autoRenderAfterTools, [
-      'write',
-      'edit',
-      'apply_patch'
-    ])
+    assert.deepEqual(getStudioModeDefinition('plot').autoRenderAfterTools, ['write', 'edit'])
   })
 
   await run('shared tool set excludes question interaction and includes API lookup', async () => {
@@ -151,8 +147,6 @@ export async function runModeAndToolTests(): Promise<void> {
       'ls',
       'write',
       'edit',
-      'apply_patch',
-      'static-check',
       'lookup-api'
     ])
     assert.equal(toolNames.filter((name) => name === 'lookup-api').length, 1)
@@ -165,7 +159,7 @@ export async function runModeAndToolTests(): Promise<void> {
         calls.push(input)
         return { jobId: input.jobId }
       }
-    })
+    }, createPassingStudioStaticCheckPort())
     const context = createToolContext('manim')
 
     const result = await tool.execute({
@@ -215,10 +209,10 @@ export async function runModeAndToolTests(): Promise<void> {
         order.push('submit')
         throw new Error('queue unavailable')
       }
-    })
+    }, createPassingStudioStaticCheckPort())
 
     await assert.rejects(() => tool.execute({ concept: 'broken queue', code: 'class Scene: pass' }, context), /queue unavailable/)
-    assert.deepEqual(order, ['create', 'submit', 'update:failed'])
+    assert.deepEqual(order, ['create', 'submit', 'transition:failed'])
     const renders = await renderStore.listBySessionId(context.session.ownerId, context.session.id)
     assert.equal(renders[0]?.status, 'failed')
     assert.deepEqual(eventBus.events.filter((event) => event.type === 'render_updated').map((event) => event.render.status), [
@@ -242,7 +236,7 @@ export async function runModeAndToolTests(): Promise<void> {
         receivedCode = input.code
         return execution
       }
-    })
+    }, createPassingStudioStaticCheckPort())
     const context = createToolContext('plot')
     const eventBus = new RecordingEventBus()
     context.eventBus = eventBus

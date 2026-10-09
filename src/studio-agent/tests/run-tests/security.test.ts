@@ -21,7 +21,7 @@ import {
 import { buildStudioChatTools } from '../../orchestration/studio-tool-schema'
 import { parseStudioCreateSessionRequest } from '../../../routes/helpers/studio-agent-run-request'
 import { toPublicStudioRender, toPublicStudioSession, toPublicStudioSnapshot } from '../../http/public-dto'
-import { run } from './factories'
+import { createPassingStudioStaticCheckPort, run } from './factories'
 
 export async function runSecurityTests(): Promise<void> {
   await run('studio principal does not expose the raw API key', async () => {
@@ -148,7 +148,7 @@ export async function runSecurityTests(): Promise<void> {
 
   await run('tool registry never falls back across Studio modes', async () => {
     const registry = new StudioToolRegistry()
-    const manimRender = createStudioRenderTool({ submit: async ({ jobId }) => ({ jobId }) })
+    const manimRender = createStudioRenderTool({ submit: async ({ jobId }) => ({ jobId }) }, createPassingStudioStaticCheckPort())
     registry.register(manimRender)
     assert.equal(registry.get('render', 'plot'), null)
     assert.equal(registry.require('render', 'manim'), manimRender)
@@ -156,7 +156,7 @@ export async function runSecurityTests(): Promise<void> {
       buildStudioChatTools(registry, 'builder', 'manim')[0]?.function.parameters,
       manimRender.parameters
     )
-    assert.throws(() => registry.register(createStudioRenderTool()), /Duplicate Studio tool registration/)
+    assert.throws(() => registry.register(createStudioRenderTool(undefined, createPassingStudioStaticCheckPort())), /Duplicate Studio tool registration/)
     assert.ok(createStudioReadTool().parameters)
   })
 }

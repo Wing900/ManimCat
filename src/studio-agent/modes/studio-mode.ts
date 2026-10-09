@@ -26,7 +26,7 @@ const STUDIO_MODES: Record<StudioKind, StudioModeDefinition> = {
     codeLanguage: 'python',
     outputModes: ['image'],
     runtimeSummary: 'Generate, inspect, render, and repair matplotlib Python.',
-    autoRenderAfterTools: ['write', 'edit', 'apply_patch']
+    autoRenderAfterTools: ['write', 'edit']
   }
 }
 

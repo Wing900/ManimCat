@@ -5,6 +5,7 @@ import { cleanManimCode } from '../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../utils/manim-executor'
 import { findImageFile } from '../../../utils/file-utils'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
+import { isJobCancelled } from '../../../services/job-cancel-store'
 import { JobCancelledError } from '../../../utils/errors'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
 import { resolveRenderCacheWorkspace } from '../../../utils/render-cache-workspace'
@@ -154,6 +155,7 @@ async function renderImageBlocks(
         quality,
         frameRate,
         format: 'png',
+        isCancelled: () => isJobCancelled(jobId),
         sceneName,
         tempDir: blockDir,
         mediaDir,

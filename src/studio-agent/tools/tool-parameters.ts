@@ -55,38 +55,6 @@ export const editToolParameters: StudioToolParameters = {
   additionalProperties: false,
 }
 
-export const applyPatchToolParameters: StudioToolParameters = {
-  type: 'object',
-  properties: {
-    path: { type: 'string', description: 'Workspace-relative file path to patch.' },
-    patches: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          search: { type: 'string' },
-          replace: { type: 'string' },
-          replaceAll: { type: 'boolean' },
-        },
-        required: ['search', 'replace'],
-        additionalProperties: false,
-      },
-      minItems: 1,
-    },
-  },
-  required: ['path', 'patches'],
-  additionalProperties: false,
-}
-
-export const staticCheckToolParameters: StudioToolParameters = {
-  type: 'object',
-  properties: {
-    path: { type: 'string', description: 'Workspace-relative file path to check.' },
-    outputMode: { type: 'string', enum: ['video', 'image'] },
-  },
-  required: ['path'],
-  additionalProperties: false,
-}
 
 export const lookupApiToolParameters: StudioToolParameters = {
   type: 'object',

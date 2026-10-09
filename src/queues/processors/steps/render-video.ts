@@ -6,6 +6,7 @@ import { executeManimCommand, type ManimExecuteOptions } from '../../../utils/ma
 import { findVideoFile } from '../../../utils/file-utils'
 import { addBackgroundMusic } from '../../../audio/bgm-mixer'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
+import { isJobCancelled } from '../../../services/job-cancel-store'
 import { storeJobStage } from '../../../services/job-store'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
 import { resolveRenderCacheWorkspace } from '../../../utils/render-cache-workspace'
@@ -147,6 +148,7 @@ export async function renderVideo(
       quality,
       frameRate,
       format: 'mp4',
+      isCancelled: () => isJobCancelled(jobId),
       sceneName: 'MainScene',
       tempDir,
       mediaDir,

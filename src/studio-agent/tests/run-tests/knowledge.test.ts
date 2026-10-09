@@ -392,8 +392,6 @@ export async function runKnowledgeTests(): Promise<void> {
       'ls',
       'write',
       'edit',
-      'apply_patch',
-      'static-check',
       'lookup-api'
     ])
   })

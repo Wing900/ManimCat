@@ -355,6 +355,12 @@ export interface StudioCreateSceneRunInput {
   projectId?: string
   customApiConfig?: CustomApiConfig
   toolChoice?: 'auto' | 'required' | 'none'
+  /**
+   * Every Scene of this Session, by id, with its current code. The browser owns the code, so a Run
+   * carries the whole set and the server materializes it into the workspace before the agent runs.
+   * Absent means "leave the workspace alone" (a Legacy Run, or a caller with nothing to sync).
+   */
+  code?: Record<string, string>
 }
 
 /** Accepted Scene Run response: the selected Scene's own records plus the accepted Run. */

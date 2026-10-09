@@ -30,7 +30,13 @@ export async function runSessionDeleteTests(): Promise<void> {
       }),
     )
     const scene = await persistence.sceneStore.create(
-      createStudioScene({ ownerId: OWNER, sessionId: session.id, position: 0, sourcePath: 'scene.py' }),
+      createStudioScene({
+      id: 'scene_1',
+      ownerId: OWNER,
+      sessionId: session.id,
+      position: 0,
+      sourcePath: 'scene.py'
+    }),
     )
     const message = await persistence.messageStore.createAssistantMessage(
       createStudioAssistantMessage({ sessionId: session.id, agent: 'builder' }),

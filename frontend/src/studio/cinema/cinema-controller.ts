@@ -30,7 +30,7 @@ import { InitializationWorkflow, type StudioCinemaAppendSceneOutcome } from './i
 import { selectSceneState } from './scene-state'
 import { studioCinemaReducer, type StudioCinemaAction } from './scene-reducer'
 import {
-  readStudioCinemaActiveRun,
+  readStudioCinemaStopTarget,
   readStudioCinemaSceneEligibility,
   type StudioCinemaSubmitBlockReason,
 } from './scene-selectors'
@@ -564,7 +564,7 @@ export class StudioCinemaController {
       return { status: 'ignored_busy' }
     }
 
-    const activeRun = readStudioCinemaActiveRun(scene)
+    const activeRun = readStudioCinemaStopTarget(scene)
     if (!activeRun) {
       return { status: 'no_active_run' }
     }
@@ -594,6 +594,8 @@ export class StudioCinemaController {
       }
       const run = verdict.kind === 'run' ? verdict.run : this.readStatusOnlyCancelRun(response.status, identity, scene, runId)
       this.dispatch({ type: 'cancel/settled', identity, targetRunId: runId, ...(run ? { run } : {}) })
+      // Queue cancellation changes Render records even when the Run was already completed.
+      await this.reconcileScene(sceneId)
       return { status: 'requested' }
     } catch (error) {
       if (this.isStaleGeneration(generation)) {

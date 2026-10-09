@@ -25,8 +25,13 @@ export async function runPromptTests() {
     })
   })
 
-  await run('default studio workspace uses dedicated hidden directory', async () => {
-    assert.equal(getDefaultStudioWorkspacePath(), path.join(process.cwd(), '.studio-workspace'))
+  await run('default studio workspace lives in the system temp directory, not the project', async () => {
+    const workspacePath = path.resolve(getDefaultStudioWorkspacePath())
+    // Session workspaces hold user content for the length of a Run, so they must not sit inside the
+    // project tree where they would be committed, backed up or shipped with the build.
+    assert.equal(path.isAbsolute(workspacePath), true)
+    assert.equal(workspacePath.startsWith(path.resolve(process.cwd())), false)
+    assert.equal(path.basename(workspacePath), 'manimcat-studio')
   })
 
   await run('builder core carries structured scene facts for the manim scene', async () => {
@@ -77,7 +82,7 @@ export async function runPromptTests() {
     assert.match(prompt, /\noutputs: image\n/)
     assert.doesNotMatch(prompt, /\nlanguage: manim-python\n/)
     assert.ok(prompt.includes(`\nworkspace: ${directory}\n`))
-    assert.match(prompt, /\nautomatic_render_after: write, edit, apply_patch\n/)
+    assert.match(prompt, /\nautomatic_render_after: write, edit\n/)
     assert.doesNotMatch(prompt, /<studio_render_context>/)
     assert.doesNotMatch(prompt, /<studio_documentation>/)
   })

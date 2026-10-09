@@ -19,6 +19,7 @@ const studioCreateRunRequestSchema = studioRunControlRequestSchema.extend({
 /**
  * Scene Run body. Identity (Session and Scene) comes from the URL only, so an unknown key —
  * including an attempted `sessionId` or `sceneId` override — is rejected instead of ignored.
+ * `code` is content: it names Scenes to write into the workspace, never the Run's scope.
  */
 const studioCreateSceneRunRequestSchema = z
   .object({
@@ -26,6 +27,12 @@ const studioCreateSceneRunRequestSchema = z
     inputText: z.string(),
     customApiConfig: customApiConfigSchema.optional(),
     toolChoice: studioToolChoiceSchema.optional(),
+    /**
+     * Scene sources keyed by Scene id. This is content, not identity: the Session and the current
+     * Scene still come from the URL only, so an attempted `sessionId`/`sceneId` override is still
+     * rejected by `.strict()`, and the key shape is validated where the files are written.
+     */
+    code: z.record(z.string(), z.string()).optional(),
   })
   .strict()
 

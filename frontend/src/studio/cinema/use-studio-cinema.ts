@@ -89,9 +89,28 @@ export function useStudioCinema(input: UseStudioCinemaInput): UseStudioCinemaRes
     }
   }, [sessionId, controller])
 
+  // Only the identity of the Renders that could be captured is an input to the sync effect. Keying it
+  // on the whole state ran a sync on every keystroke, which is what stalled the composer.
+  const captureKey = useMemo(() => {
+    const parts: string[] = []
+    for (const scene of Object.values(state.scenes)) {
+      if (scene.identity.sessionId !== sessionId) continue
+      const ids = scene.renders
+        .filter(
+          (render) =>
+            render.status === 'completed' && render.kind === 'manim' && render.outputMode === 'video'
+        )
+        .map((render) => render.id)
+        .join('|')
+      parts.push(`${scene.identity.sceneId}:${ids}`)
+    }
+    return parts.join(';')
+  }, [state, sessionId])
+
   useEffect(() => {
-    mediaSessionRef.current?.sync(Object.values(state.scenes))
-  }, [state])
+    // Reads the live state instead of closing over it: the key says when to sync, not what to sync.
+    mediaSessionRef.current?.sync(Object.values(stateRef.current.scenes))
+  }, [captureKey])
 
   useEffect(() => {
     const live = readController()
