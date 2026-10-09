@@ -158,6 +158,16 @@ describe('useStudioCinema binding', () => {
     await flush()
     expect(liveStreams(harness.streams)).toHaveLength(1)
     expect(result.current.state.selectedSceneId).toBe(CINEMA_TEST_SCENE_A)
+
+    // A resumed binding holds no authoritative snapshot until the stream it just opened reports a real
+    // connection, so the read is driven by that connection and not by the resume alone.
+    await act(async () => {
+      liveStreams(harness.streams)[0]?.options.onEvent({
+        type: 'studio.connected',
+        properties: { timestamp: 2 },
+      })
+      await Promise.resolve()
+    })
     expect(harness.calls.getSceneSnapshot).toContain(CINEMA_TEST_SCENE_A)
   })
 

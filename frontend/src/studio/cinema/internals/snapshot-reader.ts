@@ -51,7 +51,9 @@ export class SceneSnapshotReader {
    * render refresh loop. A caller that finds a read already running joins it instead of starting a
    * newer one, so two of them can never bump each other's revision in a loop; the outcome they get
    * back is the same record, and `superseded` simply means a newer read (a recovery, or a user
-   * action) already answered for this Scene.
+   * action) already answered for this Scene. A read that hangs holds the joiners, which is the price
+   * of never issuing a duplicate request for the same Scene; the revision gate, not a second request,
+   * is what makes a newer read win.
    */
   requestSceneSnapshot(
     identity: StudioCinemaSceneIdentity,
