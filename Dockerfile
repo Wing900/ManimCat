@@ -32,15 +32,17 @@ RUN python -m pip install --no-cache-dir matplotlib
 
 WORKDIR /app
 
-# 3. 复制 package.json
+# 3. 复制 package.json（裁剪脚本必须在这一层之前就位）
 COPY package.json package-lock.json* ./
 COPY frontend/package.json frontend/package-lock.json* ./frontend/
+COPY scripts/prune-onnxruntime-web.mjs ./scripts/
 
 # 4. 设置 npm 淘宝源
 RUN npm config set registry https://registry.npmmirror.com
 
-# 5. 安装依赖
-RUN npm install && npm --prefix frontend install
+# 5. 安装依赖，并在同一层裁掉 ONNX Runtime 里用不到的 124MB
+#    必须同层：换成一个单独的 RUN，删掉的字节仍然留在上一层，镜像不会变小。
+RUN npm install && npm --prefix frontend install && node scripts/prune-onnxruntime-web.mjs
 
 # 6. 复制源码并构建 React
 COPY . .

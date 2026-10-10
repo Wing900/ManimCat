@@ -9,6 +9,7 @@
     "dev:frontend": "cd frontend && vite",
     "build": "npm run build:frontend",
     "build:backend": "tsc",
+    "prune:onnxruntime-web": "node scripts/prune-onnxruntime-web.mjs",
     "build:frontend": "cd frontend && npm run build",
     "start": "tsx src/server.ts",
     "test": "npm run test:frontend && npm run test:workflow && npm run test:studio-agent",
@@ -17,7 +18,7 @@
     "test:studio-agent": "tsc -p tsconfig.studio-agent-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/studio-agent/tests/run-tests.js && node dist-tests/src/studio-agent/tests/reasoning-content.run.js"
   },
   "dependencies": {
-    "@huggingface/transformers": "4.3.1",
+    "@huggingface/tokenizers": "0.2.0",
     "@supabase/supabase-js": "^2.99.2",
     "@types/react-syntax-highlighter": "^15.5.13",
     "bull": "^4.16.5",
@@ -26,6 +27,7 @@
     "express": "^4.18.0",
     "https-proxy-agent": "^8.0.0",
     "ioredis": "^5.9.2",
+    "onnxruntime-web": "1.30.0",
     "openai": "^4.50.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
