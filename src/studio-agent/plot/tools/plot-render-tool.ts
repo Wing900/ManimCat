@@ -1,8 +1,8 @@
 import { createStudioRender } from '../../domain/factories'
-import type { StudioFileAttachment, StudioToolDefinition, StudioToolResult } from '../../domain/types'
+import type { StudioToolDefinition, StudioToolResult } from '../../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
-import type { PlotRenderExecution, PlotRenderPort } from '../plot-render-port'
+import type { StudioRenderDriver } from '../../render/studio-render-driver'
 import { plotRenderToolParameters } from '../../tools/tool-parameters'
 import { publishStudioRenderUpdated } from '../../render/render-events'
 import {
@@ -10,7 +10,6 @@ import {
   studioRenderFailureMessage,
   studioRenderFailureStatus
 } from '../../render/render-lifecycle'
-import { toWorkspaceRelativePath } from '../../tools/workspace-paths'
 
 interface PlotRenderToolInput {
   concept: string
@@ -18,7 +17,7 @@ interface PlotRenderToolInput {
 }
 
 export function createPlotStudioRenderTool(
-  renderPort: PlotRenderPort
+  driver: StudioRenderDriver
 ): StudioToolDefinition<PlotRenderToolInput> {
   return {
     name: 'render',
@@ -27,14 +26,14 @@ export function createPlotStudioRenderTool(
     allowedAgents: ['builder'],
     allowedStudioKinds: ['matplotlib'],
     execute: async (input, context) =>
-      executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
+      executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, driver)
   }
 }
 
 async function executePlotRenderTool(
   input: PlotRenderToolInput,
   context: StudioRuntimeBackedToolContext,
-  renderPort: PlotRenderPort
+  driver: StudioRenderDriver
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
@@ -74,22 +73,20 @@ async function executePlotRenderTool(
         }
       })
 
-      const execution = await renderPort.execute({
+      const result = await driver.execute({
+        render,
         workspaceDirectory: context.session.directory,
-        renderId: render.id,
         code: input.code,
         signal: context.abortSignal,
       })
       throwIfStudioRunCancelled(context.abortSignal)
-      const attachments = buildAttachments(execution.imageDataUris, execution.imagePaths)
+      const attachments = result.attachments ?? []
       const completed = await renderStore.update(context.session.ownerId, render.id, {
         status: 'completed',
         attachments,
         metadata: {
           ...(render.metadata ?? {}),
-          imageCount: execution.imageDataUris.length,
-          scriptPath: toWorkspaceRelativePath(context.session.directory, execution.scriptPath).replace(/\\/g, '/'),
-          imagePaths: execution.imagePaths.map((imagePath) => toWorkspaceRelativePath(context.session.directory, imagePath).replace(/\\/g, '/')),
+          ...(result.metadata ?? {}),
         },
       })
       if (!completed) {
@@ -105,7 +102,7 @@ async function executePlotRenderTool(
           renderId: render.id,
           phase: 'render',
           diagnosticCount: 0,
-          imageCount: execution.imageDataUris.length,
+          imageCount: result.metadata?.imageCount,
           scriptPath: completed.metadata?.scriptPath,
           imagePaths: completed.metadata?.imagePaths,
         },
@@ -123,20 +120,3 @@ async function executePlotRenderTool(
   })
 }
 
-function buildAttachments(imageDataUris: string[], imagePaths: string[]): StudioFileAttachment[] {
-  return imageDataUris.map((path, index) => ({
-    kind: 'file',
-    path,
-    name: fileNameFromPath(imagePaths[index]) || `plot_${index + 1}.png`,
-    mimeType: 'image/png'
-  }))
-}
-
-function fileNameFromPath(path?: string): string {
-  if (!path) {
-    return ''
-  }
-
-  const parts = path.split(/[\\/]/)
-  return parts[parts.length - 1] || path
-}

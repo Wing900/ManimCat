@@ -8,6 +8,12 @@ import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-prov
 import type { ApiRagService } from '../../services/api-rag'
 import type { ManimRenderPort } from '../manim/manim-render-port'
 import type { PlotRenderPort } from '../plot/plot-render-port'
+import { createManimRenderDriver } from '../manim/manim-render-driver'
+import { createMatplotlibRenderDriver } from '../plot/plot-render-driver'
+import {
+  createStudioRenderDriverRegistry,
+  type StudioRenderDriverRegistry
+} from '../render/studio-render-driver'
 import {
   StudioRunCoordinationService,
   type StudioRunCoordinationServicePort
@@ -62,10 +68,16 @@ export interface StudioRuntimeService extends StudioSessionService, StudioRunSer
 export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInput): StudioRuntimeService {
   const registry = input.registry ?? new StudioToolRegistry()
   const eventBus: StudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
+
+  // One driver per Mode wraps its Port; the registry is the only thing the shared layer imports.
+  const driverRegistry: StudioRenderDriverRegistry = createStudioRenderDriverRegistry([
+    createManimRenderDriver({ renderPort: input.manimRenderPort, resultPort: input.renderResultPort }),
+    createMatplotlibRenderDriver({ renderPort: input.plotRenderPort }),
+  ])
+
   configureStudioToolRegistry({
     registry,
-    manimRenderPort: input.manimRenderPort,
-    plotRenderPort: input.plotRenderPort,
+    driverRegistry,
     apiRagService: input.apiRagService,
   })
   const runtime = new StudioBuilderRuntime({
@@ -85,13 +97,13 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     persistence: input.persistence,
     workspaceProvider: input.workspaceProvider,
     renderResultReconciler: createStudioRenderResultReconciler({
-      resultPort: input.renderResultPort,
+      driverRegistry,
       renderStore: input.persistence.renderStore,
       eventBus
     })
   })
   const runService = createStudioRunService({
-    manimRenderPort: input.manimRenderPort,
+    driverRegistry,
     persistence: input.persistence,
     runtime,
     eventBus,

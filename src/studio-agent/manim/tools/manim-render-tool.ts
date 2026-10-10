@@ -1,7 +1,8 @@
 import type { StudioToolDefinition, StudioToolResult } from '../../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
 import type { OutputMode, VideoQuality } from '../../../types'
-import { createManimRenderJobId, type ManimRenderPort } from '../manim-render-port'
+import { createManimRenderJobId } from '../manim-render-port'
+import type { StudioRenderDriver } from '../../render/studio-render-driver'
 import { manimRenderToolParameters } from '../../tools/tool-parameters'
 import { createStudioRender } from '../../domain/factories'
 import { publishStudioRenderUpdated } from '../../render/render-events'
@@ -20,7 +21,7 @@ interface ManimRenderToolInput {
 }
 
 export function createManimStudioRenderTool(
-  renderPort: ManimRenderPort
+  driver: StudioRenderDriver
 ): StudioToolDefinition<ManimRenderToolInput> {
   return {
     name: 'render',
@@ -29,14 +30,14 @@ export function createManimStudioRenderTool(
     allowedAgents: ['builder'],
     allowedStudioKinds: ['manim'],
     execute: async (input, context) =>
-      executeRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
+      executeRenderTool(input, context as StudioRuntimeBackedToolContext, driver)
   }
 }
 
 async function executeRenderTool(
   input: ManimRenderToolInput,
   context: StudioRuntimeBackedToolContext,
-  renderPort: ManimRenderPort
+  driver: StudioRenderDriver
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
@@ -64,15 +65,11 @@ async function executeRenderTool(
         jobId,
       }),
     execute: async (render) => {
-      // Persistence is asynchronous too: Stop may arrive while the record is being created.
-      await renderPort.submit({
-        jobId,
-        concept: input.concept,
-        code: input.code,
-        outputMode,
-        quality,
+      await driver.execute({
+        render,
         workspaceDirectory: context.session.directory,
-        signal: context.abortSignal
+        code: input.code,
+        signal: context.abortSignal,
       })
 
       context.setToolMetadata?.({

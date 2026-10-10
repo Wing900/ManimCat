@@ -1,10 +1,10 @@
 import type { StudioToolRegistry } from '../tools/registry'
-import type { ManimRenderPort } from './manim-render-port'
+import type { StudioRenderDriver } from '../render/studio-render-driver'
 import { createManimStudioRenderTool } from './tools/manim-render-tool'
 
 export function registerManimStudioTools(
   registry: StudioToolRegistry,
-  renderPort: ManimRenderPort
+  driver: StudioRenderDriver
 ): void {
-  registry.register(createManimStudioRenderTool(renderPort))
+  registry.register(createManimStudioRenderTool(driver))
 }

@@ -1,6 +1,6 @@
 import type { StudioEventBus, StudioFileAttachment, StudioRender, StudioRenderStore } from '../domain/types'
 import { publishStudioRenderUpdated } from './render-events'
-import type { StudioRenderResultPort } from './render-result-port'
+import type { StudioRenderDriverRegistry } from './studio-render-driver'
 import {
   buildStudioRenderReconcileScopeKey,
   createStudioRenderReconcileCursor,
@@ -55,7 +55,7 @@ export interface StudioRenderResultReconciler {
 }
 
 export interface StudioRenderResultReconcilerDependencies {
-  resultPort: StudioRenderResultPort
+  driverRegistry: StudioRenderDriverRegistry
   renderStore: StudioRenderStore
   eventBus: StudioEventBus
 }
@@ -63,7 +63,7 @@ export interface StudioRenderResultReconcilerDependencies {
 export function createStudioRenderResultReconciler(
   dependencies: StudioRenderResultReconcilerDependencies
 ): StudioRenderResultReconciler {
-  const { resultPort, renderStore, eventBus } = dependencies
+  const { driverRegistry, renderStore, eventBus } = dependencies
   const cursors = createStudioRenderReconcileCursor()
 
   async function reconcileSceneRenders(input: StudioRenderRecognition): Promise<StudioRender[]> {
@@ -93,9 +93,14 @@ export function createStudioRenderResultReconciler(
         continue
       }
 
+      const driver = driverRegistry.resolve(render.kind)
+      if (!driver?.reconcile) {
+        continue
+      }
+
       let result: StudioRenderResult
       try {
-        result = await resultPort.getRenderResult(jobId)
+        result = await driver.reconcile(jobId)
       } catch {
         // A port failure is the same answer as an unavailable store: no state may be invented.
         result = { status: 'unknown' }
@@ -137,15 +142,15 @@ export function createStudioRenderResultReconciler(
 }
 
 /**
- * True for a render this reconciliation may look at: a Manim render of exactly this owner, Session
- * and Scene, with a persisted job id, that has not already finished.
+ * True for a render this reconciliation may look at: a render of exactly this owner, Session
+ * and Scene, with a persisted job id, that has not already finished. The kind check lives in the
+ * loop: a render is only reconciled when its driver exposes `reconcile`.
  */
 export function isReconcilableSceneRender(
   render: StudioRender,
   scope: { ownerId: string; sessionId: string; sceneId: string }
 ): boolean {
   return (
-    render.kind === 'manim' &&
     render.ownerId === scope.ownerId &&
     render.sessionId === scope.sessionId &&
     render.sceneId === scope.sceneId &&

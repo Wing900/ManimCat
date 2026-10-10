@@ -34,7 +34,7 @@ import {
   type StudioSession
 } from '../../index'
 import { toPublicStudioSceneAttachment, toPublicStudioSceneSnapshot } from '../../http/public-dto'
-import { createWorkspace, run } from './factories'
+import { createWorkspace, run, createTestDriverRegistry, createTestManimRenderDriverFromResultPort } from './factories'
 import { createTestStudioRuntime } from './factories'
 
 /**
@@ -91,7 +91,7 @@ function createReconcilerFixture(results: Record<string, StudioRenderResult>): R
 
   return {
     reconciler: createStudioRenderResultReconciler({
-      resultPort: recording.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(recording.port)]),
       renderStore,
       eventBus
     }),
@@ -341,7 +341,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const eventBus = new InMemoryStudioEventBus()
     const published = subscribeRenderEvents(eventBus, 'session-render-bridge')
     const reconciler = createStudioRenderResultReconciler({
-      resultPort: resultPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(resultPort.port)]),
       renderStore,
       eventBus
     })
@@ -377,7 +377,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
 
     const unknownPort = createRecordingResultPort({})
     const unknownReconciler = createStudioRenderResultReconciler({
-      resultPort: unknownPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(unknownPort.port)]),
       renderStore,
       eventBus
     })
@@ -397,7 +397,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     assert.equal(published.length, 0)
 
     const throwingReconciler = createStudioRenderResultReconciler({
-      resultPort: createThrowingResultPort(),
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(createThrowingResultPort())]),
       renderStore,
       eventBus
     })
@@ -420,7 +420,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const eventBus = new InMemoryStudioEventBus()
     const published = subscribeRenderEvents(eventBus, 'session-render-bridge')
     const reconciler = createStudioRenderResultReconciler({
-      resultPort: resultPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(resultPort.port)]),
       renderStore,
       eventBus
     })
@@ -464,7 +464,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const eventBus = new InMemoryStudioEventBus()
     const published = subscribeRenderEvents(eventBus, 'session-render-bridge')
     const reconciler = createStudioRenderResultReconciler({
-      resultPort: resultPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(resultPort.port)]),
       renderStore,
       eventBus
     })
@@ -518,7 +518,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const resultPort = createRecordingResultPort({})
     const renderStore = new InMemoryStudioRenderStore()
     const reconciler = createStudioRenderResultReconciler({
-      resultPort: resultPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(resultPort.port)]),
       renderStore,
       eventBus: new InMemoryStudioEventBus()
     })
@@ -744,7 +744,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
       listBySceneId: (ownerId, sceneId) => renderStore.listBySceneId(ownerId, sceneId)
     }
     const reconciler = createStudioRenderResultReconciler({
-      resultPort: resultPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(resultPort.port)]),
       renderStore: gatedStore,
       eventBus
     })
@@ -1059,7 +1059,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const renderStore = new InMemoryStudioRenderStore()
     const eventBus = new InMemoryStudioEventBus()
     const reconciler = createStudioRenderResultReconciler({
-      resultPort: resultPort.port,
+      driverRegistry: createTestDriverRegistry([createTestManimRenderDriverFromResultPort(resultPort.port)]),
       renderStore,
       eventBus
     })

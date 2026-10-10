@@ -66,7 +66,7 @@ import {
   type Deferred
 } from '../support/fake-studio-run-coordinator'
 import { RecordingEventBus } from '../support/recording-event-bus'
-import { run } from './factories'
+import { run, createTestDriverRegistry } from './factories'
 
 const OWNER_ID = 'owner-1'
 const RUN_START_REASON = 'user pressed stop'
@@ -528,6 +528,7 @@ function createHarness(options: {
   }).service
 
   const service = createStudioRunService({
+    driverRegistry: createTestDriverRegistry(),
     persistence: effectivePersistence,
     runtime: stub.runtime,
     eventBus,
@@ -743,12 +744,14 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const stubA = createStubRunRuntime()
     const stubB = createStubRunRuntime()
     const runServiceA = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence: persistenceA,
       runtime: stubA.runtime,
       eventBus: new RecordingEventBus(),
       coordination: serviceA
     })
     const runServiceB = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence: persistenceB,
       runtime: stubB.runtime,
       eventBus: new RecordingEventBus(),
@@ -775,6 +778,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     })
     const persistence = createInMemoryStudioPersistence()
     const service = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence,
       runtime: stub.runtime,
       eventBus: new RecordingEventBus(),
@@ -999,6 +1003,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       scheduler: new ManualStudioRunRenewalScheduler()
     })
     const runServiceA = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence: persistenceA,
       runtime: stubA.runtime,
       eventBus: new RecordingEventBus(),
@@ -1540,6 +1545,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     const coordination = createMemoryCoordinationService({ coordinator, runStore: failingStore }).service
     const stub = createStubRunRuntime()
     const service = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence: { ...persistence, runStore: failingStore },
       runtime: stub.runtime,
       eventBus: new RecordingEventBus(),
@@ -1968,6 +1974,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     }
     const cancelEventBus = new RecordingEventBus()
     const runService = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence: { ...persistence, runStore: cancellationStore },
       runtime: createStubRunRuntime().runtime,
       eventBus: cancelEventBus,

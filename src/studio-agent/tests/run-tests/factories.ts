@@ -30,6 +30,12 @@ import {
   type ManimRenderPort,
   type PlotRenderPort
 } from '../../index'
+import {
+  createStudioRenderDriverRegistry,
+  type StudioRenderDriver,
+  type StudioRenderDriverRegistry
+} from '../../render/studio-render-driver'
+import type { StudioRenderResult } from '../../render/render-result-types'
 
 /** A RAG service that registers no package: no catalog file, no model, no tools. */
 export function createDetachedApiRagService(): ApiRagService {
@@ -132,4 +138,37 @@ export async function findLastAssistantMessageWithTool(messageStore: InMemoryStu
   return [...messages]
     .reverse()
     .find((message): message is StudioAssistantMessage => message.role === 'assistant' && message.parts.some((part) => part.type === 'tool'))
+}
+
+/** A no-op driver registry for tests that need the type but never exercise renders. */
+export function createTestDriverRegistry(drivers?: readonly StudioRenderDriver[]): StudioRenderDriverRegistry {
+  return createStudioRenderDriverRegistry(drivers ?? [])
+}
+
+/** A manim driver whose cancel and reconcile are stubbed by the test. */
+export function createTestManimRenderDriver(options: {
+  cancel?: (jobId: string) => Promise<'cancelled' | 'completed' | 'failed'>
+  reconcile?: (jobId: string) => Promise<StudioRenderResult>
+}): StudioRenderDriver {
+  return {
+    kind: 'manim',
+    async execute() {
+      return { status: 'queued' }
+    },
+    cancel: options.cancel,
+    reconcile: options.reconcile,
+  }
+}
+
+/** A manim driver that wraps a result port — the common case for reconciler tests. */
+export function createTestManimRenderDriverFromResultPort(resultPort: StudioRenderResultPort): StudioRenderDriver {
+  return {
+    kind: 'manim',
+    async execute() {
+      return { status: 'queued' }
+    },
+    async reconcile(jobId: string) {
+      return resultPort.getRenderResult(jobId)
+    },
+  }
 }

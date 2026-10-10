@@ -18,6 +18,8 @@ import {
   StudioWorkspaceWriteDeniedError,
   createStudioReadTool,
   createManimStudioRenderTool,
+  createManimRenderDriver,
+  createUnavailableStudioRenderResultPort,
 } from '../../index'
 import { buildStudioChatTools } from '../../orchestration/studio-tool-schema'
 import { parseStudioCreateSessionRequest } from '../../../routes/helpers/studio-agent-run-request'
@@ -152,7 +154,10 @@ export async function runSecurityTests(): Promise<void> {
 
   await run('tool registry never falls back across Studio modes', async () => {
     const registry = new StudioToolRegistry()
-    const manimRender = createManimStudioRenderTool({ submit: async ({ jobId }) => ({ jobId }) })
+    const manimRender = createManimStudioRenderTool(createManimRenderDriver({
+      renderPort: { submit: async ({ jobId }) => ({ jobId }) },
+      resultPort: createUnavailableStudioRenderResultPort()
+    }))
     registry.register(manimRender)
     assert.equal(registry.get('render', 'matplotlib'), null)
     assert.equal(registry.require('render', 'manim'), manimRender)
@@ -160,7 +165,10 @@ export async function runSecurityTests(): Promise<void> {
       buildStudioChatTools(registry, 'builder', 'manim')[0]?.function.parameters,
       manimRender.parameters
     )
-    assert.throws(() => registry.register(createManimStudioRenderTool({ submit: async ({ jobId }) => ({ jobId }) })), /Duplicate Studio tool registration/)
+    assert.throws(() => registry.register(createManimStudioRenderTool(createManimRenderDriver({
+      renderPort: { submit: async ({ jobId }) => ({ jobId }) },
+      resultPort: createUnavailableStudioRenderResultPort()
+    }))), /Duplicate Studio tool registration/)
     assert.ok(createStudioReadTool().parameters)
   })
 }

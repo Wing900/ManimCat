@@ -56,6 +56,8 @@ import {
 } from '../../index'
 import { createManimStudioRenderTool } from '../../manim/tools/manim-render-tool'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
+import { createManimRenderDriver, createMatplotlibRenderDriver, createUnavailableStudioRenderResultPort } from '../../index'
+import { createTestDriverRegistry } from './factories'
 import {
   FakeStudioRunCoordinator,
   ManualStudioRunRenewalScheduler,
@@ -218,6 +220,7 @@ function createRunServiceHarness<C extends StudioRunCoordinatorPort = ReturnType
   const effective: StudioPersistence = options.runStore ? { ...persistence, runStore: options.runStore } : persistence
   const coordination = memoryService<C>({ coordinator: options.coordinator, runStore: effective.runStore, eventBus })
   const service = createStudioRunService({
+    driverRegistry: createTestDriverRegistry(),
     persistence: effective,
     runtime: stub.runtime,
     eventBus,
@@ -985,6 +988,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     const stub = createStubRunRuntime()
     const coordination = memoryService({ coordinator, runStore: persistence.runStore, eventBus: new RecordingEventBus() })
     const service = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence,
       runtime: stub.runtime,
       eventBus: new RecordingEventBus(),
@@ -1017,6 +1021,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     const stub = createStubRunRuntime()
     const coordination = memoryService({ runStore: persistence.runStore, eventBus: new RecordingEventBus() })
     const service = createStudioRunService({
+      driverRegistry: createTestDriverRegistry(),
       persistence,
       runtime: stub.runtime,
       eventBus: new RecordingEventBus(),
@@ -1062,7 +1067,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a scoped Manim render copies run.sceneId', async () => {
     const context = createToolContext('manim', 'scene-a')
-    const tool = createManimStudioRenderTool({ async submit() { return { jobId: 'job-1' } } })
+    const tool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: { async submit() { return { jobId: 'job-1' } } }, resultPort: createUnavailableStudioRenderResultPort() }))
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1075,7 +1080,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a Legacy Manim render leaves sceneId absent', async () => {
     const context = createToolContext('manim')
-    const tool = createManimStudioRenderTool({ async submit() { return { jobId: 'job-2' } } })
+    const tool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: { async submit() { return { jobId: 'job-2' } } }, resultPort: createUnavailableStudioRenderResultPort() }))
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1087,12 +1092,12 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: render ports receive unchanged payloads (scope stays persistence-only)', async () => {
     const manimRequests: Array<Record<string, unknown>> = []
-    const manimTool = createManimStudioRenderTool({
+    const manimTool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: {
       async submit(input) {
         manimRequests.push({ ...input })
         return { jobId: input.jobId }
       }
-    })
+    }, resultPort: createUnavailableStudioRenderResultPort() }))
     const manimContext = createToolContext('manim', 'scene-a')
     await manimTool.execute({ concept: 'circle', code: 'class Scene: pass', outputMode: 'image', quality: 'high' }, manimContext)
     assert.deepEqual(Object.keys(manimRequests[0] ?? {}).sort(), [
@@ -1107,7 +1112,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     assert.equal('sceneId' in (manimRequests[0] ?? {}), false, 'the render port payload is untouched')
 
     const plotRequests: Array<Record<string, unknown>> = []
-    const plotTool = createPlotStudioRenderTool({
+    const plotTool = createPlotStudioRenderTool(createMatplotlibRenderDriver({ renderPort: {
       async execute(input) {
         plotRequests.push({ ...input })
         return {
@@ -1119,7 +1124,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
           stderr: ''
         }
       }
-    })
+    } }))
     const plotContext = createToolContext('matplotlib', 'scene-b')
     await plotTool.execute({ concept: 'line', code: 'import matplotlib' }, plotContext)
     assert.deepEqual(Object.keys(plotRequests[0] ?? {}).sort(), [
@@ -1134,18 +1139,18 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: render failure and update paths keep the persisted scope', async () => {
     const manimContext = createToolContext('manim', 'scene-a')
-    const failingManim = createManimStudioRenderTool({
+    const failingManim = createManimStudioRenderTool(createManimRenderDriver({ renderPort: {
       async submit() {
         throw new Error('queue unavailable')
       }
-    })
+    }, resultPort: createUnavailableStudioRenderResultPort() }))
     await assert.rejects(() => failingManim.execute({ concept: 'circle', code: 'class Scene: pass' }, manimContext), /queue unavailable/)
     const failedRenders = await manimContext.renderStore!.listBySceneId(manimContext.session.ownerId, 'scene-a')
     assert.equal(failedRenders[0]?.status, 'failed')
     assert.equal(failedRenders[0]?.sceneId, 'scene-a', 'the failed update keeps the immutable scope')
 
     const plotContext = createToolContext('matplotlib', 'scene-b')
-    const completingPlot = createPlotStudioRenderTool({
+    const completingPlot = createPlotStudioRenderTool(createMatplotlibRenderDriver({ renderPort: {
       async execute() {
         return {
           outputDir: '/workspace/plot/renders/spec',
@@ -1156,17 +1161,17 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
           stderr: ''
         }
       }
-    })
+    } }))
     await completingPlot.execute({ concept: 'line', code: 'import matplotlib' }, plotContext)
     const completed = await plotContext.renderStore!.listBySceneId(plotContext.session.ownerId, 'scene-b')
     assert.equal(completed[0]?.status, 'completed')
     assert.equal(completed[0]?.sceneId, 'scene-b', 'the completed update keeps the immutable scope')
 
-    const failingPlot = createPlotStudioRenderTool({
+    const failingPlot = createPlotStudioRenderTool(createMatplotlibRenderDriver({ renderPort: {
       async execute() {
         throw new Error('plot execution failed')
       }
-    })
+    } }))
     const failingPlotContext = createToolContext('matplotlib', 'scene-c')
     await assert.rejects(
       () => failingPlot.execute({ concept: 'line', code: 'import matplotlib' }, failingPlotContext),

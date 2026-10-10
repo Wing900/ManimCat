@@ -1,10 +1,10 @@
 import type { StudioToolRegistry } from '../tools/registry'
-import type { PlotRenderPort } from './plot-render-port'
+import type { StudioRenderDriver } from '../render/studio-render-driver'
 import { createPlotStudioRenderTool } from './tools/plot-render-tool'
 
 export function registerPlotStudioTools(
   registry: StudioToolRegistry,
-  renderPort: PlotRenderPort
+  driver: StudioRenderDriver
 ): void {
-  registry.register(createPlotStudioRenderTool(renderPort))
+  registry.register(createPlotStudioRenderTool(driver))
 }

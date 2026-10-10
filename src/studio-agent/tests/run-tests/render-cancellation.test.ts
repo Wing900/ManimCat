@@ -6,7 +6,7 @@ import { cancelStudioRunRenders } from '../../render/cancel-run-renders'
 import { createStudioRunService } from '../../runtime/run-service'
 import { StudioRunCoordinationService } from '../../run-coordination/studio-run-coordination-service'
 import { createInMemoryStudioRunCoordinator } from '../../run-coordination/in-memory-studio-run-coordinator'
-import { run } from './factories'
+import { run, createTestManimRenderDriver, createTestDriverRegistry } from './factories'
 
 export async function runRenderCancellationTests(): Promise<void> {
   for (const status of ['running', 'completed'] as const) {
@@ -32,8 +32,11 @@ export async function runRenderCancellationTests(): Promise<void> {
         runtime: { async startBackgroundRun() { throw new Error('must not start a Run') } },
         coordination: new StudioRunCoordinationService({ coordinator: createInMemoryStudioRunCoordinator(),
           runStore: persistence.runStore, eventBus }),
-        manimRenderPort: { async submit() { throw new Error('must not submit') },
-          async cancel(jobId) { cancelled.push(jobId); return 'cancelled' } }
+        driverRegistry: createTestDriverRegistry([
+          createTestManimRenderDriver({
+            async cancel(jobId) { cancelled.push(jobId); return 'cancelled' }
+          })
+        ])
       })
       const result = await service.cancelRun({ ownerId: record.ownerId, runId: record.id })
       assert.equal(result.status, status === 'completed' ? 'already_finished' : 'cancelled')
@@ -55,10 +58,11 @@ export async function runRenderCancellationTests(): Promise<void> {
       jobId: 'job', outputMode: 'video', quality: 'low' })
     await persistence.renderStore.create(render)
     await assert.rejects(() => cancelStudioRunRenders({ run: record, renderStore: persistence.renderStore,
-      eventBus: new InMemoryStudioEventBus(), manimRenderPort: {
-        async submit() { throw new Error('must not submit') },
-        async cancel() { throw new Error('queue unavailable') }
-      } }), /queue unavailable/)
+      eventBus: new InMemoryStudioEventBus(), driverRegistry: createTestDriverRegistry([
+        createTestManimRenderDriver({
+          async cancel() { throw new Error('queue unavailable') }
+        })
+      ]) }), /queue unavailable/)
     assert.equal((await persistence.renderStore.getById(record.ownerId, render.id))?.status, 'queued')
   })
 }

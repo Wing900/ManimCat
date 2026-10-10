@@ -15,6 +15,10 @@ import {
   createStudioReadTool,
   createStudioRender,
   createManimStudioRenderTool,
+  createManimRenderDriver,
+  createMatplotlibRenderDriver,
+  createStudioRenderDriverRegistry,
+  createUnavailableStudioRenderResultPort,
   createStudioRun,
   createStudioScene,
   createStudioSession,
@@ -1227,8 +1231,13 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const renderPort = new RecordingPlotRenderPort()
     const registry = configureStudioToolRegistry({
       registry: new StudioToolRegistry(),
-      manimRenderPort: { submit: async ({ jobId }) => ({ jobId }) },
-      plotRenderPort: renderPort,
+      driverRegistry: createStudioRenderDriverRegistry([
+        createManimRenderDriver({
+          renderPort: { submit: async ({ jobId }) => ({ jobId }) },
+          resultPort: createUnavailableStudioRenderResultPort()
+        }),
+        createMatplotlibRenderDriver({ renderPort: renderPort })
+      ]),
       apiRagService: createDetachedApiRagService()
     })
     const model = new ScriptedStudioModel([completion('rendered')])
@@ -1275,7 +1284,12 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       renderStore: fixture.persistence.renderStore
     })
 
-    const rendered = await createManimStudioRenderTool(renderPort).execute(
+    const rendered = await createManimStudioRenderTool(
+      createManimRenderDriver({
+        renderPort: renderPort,
+        resultPort: createUnavailableStudioRenderResultPort()
+      })
+    ).execute(
       { concept: 'fixture manim', code: 'print("manim")\n' },
       context
     )

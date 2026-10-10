@@ -7,6 +7,10 @@ import {
   createInMemoryStudioPersistence,
   createLocalStudioWorkspaceProvider,
   createManimStudioRenderTool,
+  createPlotStudioRenderTool,
+  createManimRenderDriver,
+  createMatplotlibRenderDriver,
+  createUnavailableStudioRenderResultPort,
   createStudioRender,
   createStudioRun,
   createStudioSession,
@@ -23,7 +27,6 @@ import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { getApiRagService } from '../../../services/api-rag'
-import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 
 function createToolContext(studioKind: StudioKind): StudioRuntimeBackedToolContext {
   const session = createStudioSession({
@@ -165,12 +168,17 @@ export async function runModeAndToolTests(): Promise<void> {
 
   await run('Manim render tool uses an injected render port', async () => {
     const calls: ManimRenderSubmissionInput[] = []
-    const tool = createManimStudioRenderTool({
-      async submit(input) {
-        calls.push(input)
-        return { jobId: input.jobId }
-      }
-    })
+    const tool = createManimStudioRenderTool(
+      createManimRenderDriver({
+        renderPort: {
+          async submit(input) {
+            calls.push(input)
+            return { jobId: input.jobId }
+          }
+        },
+        resultPort: createUnavailableStudioRenderResultPort()
+      })
+    )
     const context = createToolContext('manim')
 
     const result = await tool.execute({
@@ -215,12 +223,17 @@ export async function runModeAndToolTests(): Promise<void> {
         return renderStore.listBySceneId(ownerId, sceneId)
       },
     }
-    const tool = createManimStudioRenderTool({
-      async submit() {
-        order.push('submit')
-        throw new Error('queue unavailable')
-      }
-    })
+    const tool = createManimStudioRenderTool(
+      createManimRenderDriver({
+        renderPort: {
+          async submit() {
+            order.push('submit')
+            throw new Error('queue unavailable')
+          }
+        },
+        resultPort: createUnavailableStudioRenderResultPort()
+      })
+    )
 
     await assert.rejects(() => tool.execute({ concept: 'broken queue', code: 'class Scene: pass' }, context), /queue unavailable/)
     assert.deepEqual(order, ['create', 'submit', 'transition:failed'])
@@ -242,12 +255,16 @@ export async function runModeAndToolTests(): Promise<void> {
       stderr: ''
     }
     let receivedCode = ''
-    const tool = createPlotStudioRenderTool({
-      async execute(input) {
-        receivedCode = input.code
-        return execution
-      }
-    })
+    const tool = createPlotStudioRenderTool(
+      createMatplotlibRenderDriver({
+        renderPort: {
+          async execute(input) {
+            receivedCode = input.code
+            return execution
+          }
+        }
+      })
+    )
     const context = createToolContext('matplotlib')
     const eventBus = new RecordingEventBus()
     context.eventBus = eventBus

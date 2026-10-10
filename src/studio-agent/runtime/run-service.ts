@@ -27,7 +27,7 @@ import {
 import type { StudioBuilderRuntime } from './builder-runtime'
 import { cancelRunState } from './execution/session-runner-helpers'
 import { cancelStudioRunRenders } from '../render/cancel-run-renders'
-import type { ManimRenderPort } from '../manim/manim-render-port'
+import type { StudioRenderDriverRegistry } from '../render/studio-render-driver'
 
 export interface StudioStartRunInput {
   ownerId: string
@@ -107,7 +107,7 @@ export interface CreateStudioRunServiceInput {
   runtime: Pick<StudioBuilderRuntime, 'startBackgroundRun'>
   eventBus: StudioEventBus
   coordination: StudioRunCoordinationServicePort
-  manimRenderPort?: ManimRenderPort
+  driverRegistry: StudioRenderDriverRegistry
 }
 
 export function createStudioRunService(input: CreateStudioRunServiceInput): StudioRunService {
@@ -262,7 +262,7 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       // Model generation can be finished while its video is still queued or rendering.
       try {
         await cancelStudioRunRenders({ run, renderStore: input.persistence.renderStore,
-          eventBus: input.eventBus, manimRenderPort: input.manimRenderPort })
+          eventBus: input.eventBus, driverRegistry: input.driverRegistry })
       } catch {
         return { status: 'coordination_unavailable', message: 'Unable to cancel render tasks; please retry.', run }
       }
@@ -282,7 +282,7 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
     const reason = cancellation.command.reason
     try {
       await cancelStudioRunRenders({ run, renderStore: input.persistence.renderStore,
-        eventBus: input.eventBus, manimRenderPort: input.manimRenderPort })
+        eventBus: input.eventBus, driverRegistry: input.driverRegistry })
     } catch {
       return { status: 'coordination_unavailable', message: 'Unable to cancel render tasks; please retry.', run }
     }
