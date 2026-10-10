@@ -54,7 +54,7 @@ export interface StudioSession {
   projectId: string
   workspaceId?: string
   parentSessionId?: string
-  studioKind?: StudioKind
+ studioKind: StudioKind
   agentType: StudioAgentType
   title: string
   directory: string

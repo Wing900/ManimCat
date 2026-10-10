@@ -223,6 +223,7 @@ function createHandlerFixture(options?: {
   const session = options?.session === undefined
     ? {
         ...createStudioSession({
+          studioKind: 'manim',
           ownerId: OWNER_ID,
           projectId: 'project-scene-events',
           agentType: 'builder',
@@ -721,6 +722,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
   await run('streaming and tool events inherit the active run scene scope', async () => {
     const persistence = createInMemoryStudioPersistence()
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: OWNER_ID,
       projectId: 'project-scene-events',
       agentType: 'builder',

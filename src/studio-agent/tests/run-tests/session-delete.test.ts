@@ -22,6 +22,7 @@ export async function runSessionDeleteTests(): Promise<void> {
     const persistence = createInMemoryStudioPersistence()
     const session = await persistence.sessionStore.create(
       createStudioSession({
+        studioKind: 'manim',
         ownerId: OWNER,
         projectId: 'project_delete',
         agentType: 'builder',
@@ -79,6 +80,7 @@ export async function runSessionDeleteTests(): Promise<void> {
     const persistence = createInMemoryStudioPersistence()
     const session = await persistence.sessionStore.create(
       createStudioSession({
+        studioKind: 'manim',
         ownerId: OWNER,
         projectId: 'project_delete',
         agentType: 'builder',

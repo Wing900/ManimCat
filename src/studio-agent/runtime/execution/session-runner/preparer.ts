@@ -57,7 +57,7 @@ export async function prepareRun(
   )
   const eventBus = deps.sharedEventBus ?? new InMemoryStudioEventBus()
 
-  getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'run.started', data: {
+  getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'run.started', data: {
     sessionId: input.session.id,
     runId: persistedRun.id,
     assistantMessageId: assistantMessage.id,

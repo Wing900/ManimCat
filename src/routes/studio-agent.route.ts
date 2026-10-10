@@ -68,7 +68,7 @@ router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, r
     projectId,
     useDedicatedWorkspace: true,
     title: parsed.title,
-    studioKind: parsed.studioKind,
+    studioKind: parsed.studioKind ?? 'manim',
     agentType: parsed.agentType,
     workspaceId: parsed.workspaceId,
     toolChoice: parsed.toolChoice
@@ -318,14 +318,14 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     routedCustomApiConfig
   })
 
-  getStudioTelemetry().event({ studioKind: session.studioKind ?? 'manim', name: 'http.run.requested', data: {
+  getStudioTelemetry().event({ studioKind: session.studioKind, name: 'http.run.requested', data: {
     sessionId,
     projectId,
     inputLength: inputText.length,
     hasCustomApiConfig: customApiConfigResolution.hasUsableCustomApiConfig,
     routeByManimcatKey: customApiConfigResolution.routeByManimcatKey,
   } })
-  getStudioTelemetry().timeline({ studioKind: session.studioKind ?? 'manim', name: 'run.requested', detail: JSON.stringify(inputText.slice(0, 20)) })
+  getStudioTelemetry().timeline({ studioKind: session.studioKind, name: 'run.requested', detail: JSON.stringify(inputText.slice(0, 20)) })
 
   const started = await studioRuntime.startRun({
     ownerId: principal.ownerId,
@@ -360,13 +360,13 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     })
   }
 
-  getStudioTelemetry().event({ studioKind: session.studioKind ?? 'manim', name: 'http.run.accepted', data: {
+  getStudioTelemetry().event({ studioKind: session.studioKind, name: 'http.run.accepted', data: {
     sessionId,
     runId: started.run.id,
     assistantMessageId: started.assistantMessage.id,
     durationMs: readElapsedMs(requestStartedAt),
   } })
-  getStudioTelemetry().timeline({ studioKind: session.studioKind ?? 'manim', name: 'run.accepted', detail: started.run.id })
+  getStudioTelemetry().timeline({ studioKind: session.studioKind, name: 'run.accepted', detail: started.run.id })
 
   const snapshot = await studioRuntime.getSessionSnapshot(principal.ownerId, session.id)
   if (!snapshot) {

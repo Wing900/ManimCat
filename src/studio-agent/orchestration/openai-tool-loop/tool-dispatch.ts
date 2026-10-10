@@ -67,7 +67,7 @@ async function* executeStudioSingleToolCall(
 
   if (!parsedInput.ok) {
     const fatal = autonomy.consecutiveFailures + 1 >= autonomy.maxConsecutiveFailures
-    getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failure.detected', data: {
+    getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'tool.failure.detected', data: {
       sessionId: input.session.id,
       runId: input.run.id,
       assistantMessageId: runtime.currentAssistantMessage.id,
@@ -79,7 +79,7 @@ async function* executeStudioSingleToolCall(
       rawArgumentsPreview: summarizeRawArguments(toolCall.function.arguments),
       runElapsedMs: readRunElapsedMs(input.run),
     }, level: 'warn' })
-    getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failure', detail: `${toolName} argument_parse` })
+    getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'tool.failure', detail: `${toolName} argument_parse` })
     yield {
       type: 'tool-input-start',
       id: toolCallId,

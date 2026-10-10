@@ -39,6 +39,7 @@ export async function runSecurityTests(): Promise<void> {
     const sessionStore = new InMemoryStudioSessionStore()
     const runStore = new InMemoryStudioRunStore()
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-a',
       projectId: 'project',
       agentType: 'builder',
@@ -70,6 +71,7 @@ export async function runSecurityTests(): Promise<void> {
 
   await run('public studio DTO never exposes host paths or owner identifiers', async () => {
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-a',
       projectId: 'project',
       agentType: 'builder',

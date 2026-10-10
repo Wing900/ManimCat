@@ -75,6 +75,7 @@ type RunServiceRuntime = Pick<StudioBuilderRuntime, 'startBackgroundRun'>
 
 function createSession(overrides: { title?: string } = {}): StudioSession {
   return createStudioSession({
+    studioKind: 'manim',
     projectId: 'project-1',
     ownerId: OWNER_ID,
     agentType: 'builder',

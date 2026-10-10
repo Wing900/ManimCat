@@ -130,6 +130,7 @@ function createNoopTool(): StudioToolDefinition {
 async function createLoopFixture(input?: { tokenUsage?: StudioTokenUsage }) {
   const persistence = createInMemoryStudioPersistence()
   const session = createStudioSession({
+    studioKind: 'manim',
     ownerId: 'owner-token',
     projectId: 'project-token',
     agentType: 'builder',

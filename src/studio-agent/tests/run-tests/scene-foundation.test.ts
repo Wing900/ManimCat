@@ -30,6 +30,7 @@ async function createTestSession(options?: { ownerId?: string; directory?: strin
   const persistence = createInMemoryStudioPersistence()
   const directory = options?.directory ?? (await createWorkspace())
   const session = createStudioSession({
+    studioKind: 'manim',
     ownerId: options?.ownerId ?? 'owner-a',
     projectId: 'project-1',
     agentType: 'builder',
@@ -295,6 +296,7 @@ export async function runSceneFoundationTests(): Promise<void> {
     const [first, second] = await createScenes(service, session, 2)
 
     const otherSession = createStudioSession({
+      studioKind: 'manim',
       ownerId: session.ownerId,
       projectId: 'project-1',
       agentType: 'builder',
@@ -307,6 +309,7 @@ export async function runSceneFoundationTests(): Promise<void> {
     )
 
     const foreignOwnerSession = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-b',
       projectId: 'project-1',
       agentType: 'builder',

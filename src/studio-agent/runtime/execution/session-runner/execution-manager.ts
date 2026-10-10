@@ -18,7 +18,7 @@ export async function executePreparedStream(
   try {
     throwIfStudioRunCancelled(abortSignal)
     if (execution.startLog) {
-      getStudioTelemetry().event({ studioKind: prepared.input.session.studioKind ?? 'manim', name: execution.startLog.event, data: execution.startLog.payload })
+      getStudioTelemetry().event({ studioKind: prepared.input.session.studioKind, name: execution.startLog.event, data: execution.startLog.payload })
     }
 
     const outcome = await deps.processor.processStream({

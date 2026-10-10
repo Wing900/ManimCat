@@ -37,7 +37,7 @@ export function createStudioSession(input: {
   ownerId: string
   workspaceId?: string
   parentSessionId?: string
-  studioKind?: StudioKind
+  studioKind: StudioKind
   agentType: StudioAgentType
   title: string
   directory: string
@@ -50,7 +50,7 @@ export function createStudioSession(input: {
     projectId: input.projectId,
     workspaceId: input.workspaceId,
     parentSessionId: input.parentSessionId,
-    studioKind: input.studioKind ?? 'manim',
+    studioKind: input.studioKind,
     agentType: input.agentType,
     title: input.title,
     directory: input.directory,

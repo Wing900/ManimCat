@@ -13,7 +13,7 @@ export async function runRenderCancellationTests(): Promise<void> {
     await run(`Stop cancels queue jobs when model Run is ${status}`, async () => {
       const persistence = createInMemoryStudioPersistence()
       const eventBus = new InMemoryStudioEventBus()
-      const session = createStudioSession({ ownerId: 'owner', projectId: 'project', directory: '/workspace', agentType: 'builder', title: 'Stop review' })
+      const session = createStudioSession({ studioKind: 'manim', ownerId: 'owner', projectId: 'project', directory: '/workspace', agentType: 'builder', title: 'Stop review' })
       await persistence.sessionStore.create(session)
       const record = createStudioRun({ ownerId: session.ownerId, sessionId: session.id,
         inputText: 'render', activeAgent: 'builder', sceneId: 'scene_a' })

@@ -37,6 +37,7 @@ export async function runPromptTests() {
   await run('builder core carries structured scene facts for the manim scene', async () => {
     const directory = await createWorkspace()
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-test',
       projectId: 'project-1',
       agentType: 'builder',
@@ -94,6 +95,7 @@ export async function runPromptTests() {
     const plotDirectory = await createWorkspace()
     const manimPrompt = buildStudioAgentSystemPrompt({
       session: createStudioSession({
+        studioKind: 'manim',
         ownerId: 'owner-test',
         projectId: 'project-1',
         agentType: 'builder',
@@ -125,6 +127,7 @@ export async function runPromptTests() {
   await run('optional render context stays represented and documentation stays gone', async () => {
     const directory = await createWorkspace()
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-test',
       projectId: 'project-1',
       agentType: 'builder',
@@ -155,6 +158,7 @@ export async function runPromptTests() {
   await run('removed domain manual phrases do not return', async () => {
     const manimPrompt = buildStudioAgentSystemPrompt({
       session: createStudioSession({
+        studioKind: 'manim',
         ownerId: 'owner-test',
         projectId: 'project-1',
         agentType: 'builder',

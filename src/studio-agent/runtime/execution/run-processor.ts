@@ -126,7 +126,7 @@ export class StudioRunProcessor {
               },
               time: { start: Date.now(), end: Date.now() }
             })
-            getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failed', data: {
+            getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'tool.failed', data: {
               sessionId: input.session.id,
               runId: input.run.id,
               assistantMessageId: currentAssistantMessage.id,
@@ -141,7 +141,7 @@ export class StudioRunProcessor {
               runElapsedMs: readRunElapsedMs(input.run),
               processedAt: startedAt,
             }, level: 'warn' })
-            getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failed', detail: `${event.toolName} doom_loop_rejected` })
+            getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'tool.failed', detail: `${event.toolName} doom_loop_rejected` })
             toolCalls.delete(event.toolCallId)
             break
           }
@@ -153,7 +153,7 @@ export class StudioRunProcessor {
             metadata: undefined,
             time: { start: Date.now() }
           })
-          getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.started', data: {
+          getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'tool.started', data: {
             sessionId: input.session.id,
             runId: input.run.id,
             assistantMessageId: currentAssistantMessage.id,
@@ -162,7 +162,7 @@ export class StudioRunProcessor {
             inputSummary: summarizeToolInput(event.input),
             runElapsedMs: readRunElapsedMs(input.run),
           } })
-          getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.started', detail: event.toolName })
+          getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'tool.started', detail: event.toolName })
           break
         }
 
@@ -223,14 +223,14 @@ export class StudioRunProcessor {
         case 'text-end': {
           const text = activeTextValue.trim()
           if (text) {
-            getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'assistant.text', data: {
+            getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'assistant.text', data: {
               sessionId: input.session.id,
               runId: input.run.id,
               assistantMessageId: currentAssistantMessage.id,
               textLength: text.length,
               runElapsedMs: readRunElapsedMs(input.run),
             } })
-            getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'assistant.text', detail: `${text.length} chars` })
+            getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'assistant.text', detail: `${text.length} chars` })
             input.eventBus?.publish({
               type: 'assistant_text',
               sessionId: input.session.id,
@@ -375,7 +375,7 @@ export class StudioRunProcessor {
       }
     })
     const durationMs = Math.max(0, Date.now() - getToolTimeStart(runningState))
-    getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.completed', data: {
+    getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'tool.completed', data: {
       sessionId: input.session.id,
       runId: input.run.id,
       assistantMessageId: match.messageId,
@@ -388,7 +388,7 @@ export class StudioRunProcessor {
       inputSummary: summarizeToolInput(getToolInput(runningState)),
       runElapsedMs: readRunElapsedMs(input.run),
     } })
-    getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.completed', detail: `${match.tool} ${durationMs}ms` })
+    getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'tool.completed', detail: `${match.tool} ${durationMs}ms` })
 
     // Discard all shots after first successful render
     toolCalls.delete(event.toolCallId)
@@ -419,7 +419,7 @@ export class StudioRunProcessor {
       }
     })
     const durationMs = Math.max(0, Date.now() - getToolTimeStart(runningState))
-    getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failed', data: {
+    getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'tool.failed', data: {
       sessionId: input.session.id,
       runId: input.run.id,
       assistantMessageId: match.messageId,
@@ -442,7 +442,7 @@ export class StudioRunProcessor {
       runWillStop: event.metadata?.recoverable !== true,
       runElapsedMs: readRunElapsedMs(input.run),
     }, level: 'warn' })
-    getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failed', detail: `${match.tool} ${durationMs}ms` })
+    getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'tool.failed', detail: `${match.tool} ${durationMs}ms` })
     toolCalls.delete(event.toolCallId)
     return event.metadata?.recoverable !== true
   }

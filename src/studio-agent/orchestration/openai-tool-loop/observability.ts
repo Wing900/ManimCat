@@ -13,7 +13,7 @@ export function logStudioLoopStepStarted(input: {
   request: StudioLoopStepRequest
   step: number
 }) {
-  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.started', data: {
+  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind, name: 'step.started', data: {
     sessionId: input.loopInput.session.id,
     runId: input.loopInput.run.id,
     step: input.step + 1,
@@ -32,7 +32,7 @@ export function logStudioLoopStepResponse(input: {
   stepStartedAt: number
 }) {
   const choice = input.result.completion.choices[0]
-  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.response', data: {
+  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind, name: 'step.response', data: {
     sessionId: input.loopInput.session.id,
     runId: input.loopInput.run.id,
     step: input.step + 1,
@@ -50,7 +50,7 @@ export function logStudioLoopStepFinished(input: {
   failed: boolean
   stepStartedAt: number
 }) {
-  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.finished', data: {
+  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind, name: 'step.finished', data: {
     sessionId: input.loopInput.session.id,
     runId: input.loopInput.run.id,
     step: input.step + 1,

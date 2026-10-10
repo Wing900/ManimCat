@@ -17,6 +17,7 @@ export async function runAgentLoopTests(): Promise<void> {
   await run('agent loop accepts an injected scripted model', async () => {
     const persistence = createInMemoryStudioPersistence()
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-loop',
       projectId: 'project-loop',
       agentType: 'builder',

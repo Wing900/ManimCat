@@ -164,7 +164,7 @@ function logDetectedToolFailure(
     denialReason?: string
   }
 ): void {
-  getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failure.detected', data: {
+  getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'tool.failure.detected', data: {
     sessionId: input.session.id,
     runId: input.run.id,
     assistantMessageId: input.assistantMessage.id,

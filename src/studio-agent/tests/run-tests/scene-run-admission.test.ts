@@ -81,6 +81,7 @@ const COORDINATION_SOURCE = path.join(
 
 function createSession(overrides: { title?: string } = {}): StudioSession {
   return createStudioSession({
+    studioKind: 'manim',
     projectId: 'project-1',
     ownerId: OWNER_ID,
     agentType: 'builder',
@@ -854,6 +855,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     // so the fixture materializes one instead of persisting a path that exists nowhere.
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'manimcat-scoped-start-'))
     const session = createStudioSession({
+      studioKind: 'manim',
       projectId: 'project-1',
       ownerId: OWNER_ID,
       agentType: 'builder',

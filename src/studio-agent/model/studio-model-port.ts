@@ -14,7 +14,7 @@ export interface StudioModelRequest {
   runId: string
   step: number
   assistantMessageId: string
-  studioKind?: StudioKind
+  studioKind: StudioKind
   runCreatedAt: string
   requestMessageCount: number
   requestMessageCharsApprox: number

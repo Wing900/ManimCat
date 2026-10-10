@@ -556,6 +556,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
       renderResultPort: resultPort.port
     })
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: OWNER,
       projectId: 'project-1',
       agentType: 'builder',
@@ -607,6 +608,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
       renderResultPort: createThrowingResultPort()
     })
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: OWNER,
       projectId: 'project-1',
       agentType: 'builder',
@@ -636,6 +638,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
       workspaceProvider: createLocalStudioWorkspaceProvider()
     })
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: OWNER,
       projectId: 'project-1',
       agentType: 'builder',
@@ -791,6 +794,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
       [JOB_ID]: { status: 'completed', media: [{ locator: '/videos/job-1111.mp4' }] }
     })
     const session: StudioSession = createStudioSession({
+      studioKind: 'manim',
       ownerId: OWNER,
       projectId: 'project-1',
       agentType: 'builder',

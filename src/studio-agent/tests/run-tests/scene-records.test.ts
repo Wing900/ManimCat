@@ -68,6 +68,7 @@ async function createSceneFixture(): Promise<SceneFixture> {
     workspaceProvider: createLocalStudioWorkspaceProvider(),
   })
   const session = createStudioSession({
+    studioKind: 'manim',
     ownerId: OWNER,
     projectId: 'project-1',
     agentType: 'builder',
@@ -82,6 +83,7 @@ async function createSceneFixture(): Promise<SceneFixture> {
   }
 
   const otherSession = createStudioSession({
+    studioKind: 'manim',
     ownerId: OWNER,
     projectId: 'project-1',
     agentType: 'builder',

@@ -106,7 +106,7 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
   })
 
   // Stable identifiers and bounded lengths only: never the prompt text, never a filesystem path.
-  getStudioTelemetry().event({ studioKind: session.studioKind ?? 'manim', name: 'http.scene_run.requested', data: {
+  getStudioTelemetry().event({ studioKind: session.studioKind, name: 'http.scene_run.requested', data: {
     sessionId: session.id,
     sceneId: scene.id,
     projectId,
@@ -114,7 +114,7 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
     hasCustomApiConfig: customApiConfigResolution.hasUsableCustomApiConfig,
     routeByManimcatKey: customApiConfigResolution.routeByManimcatKey
   } })
-  getStudioTelemetry().timeline({ studioKind: session.studioKind ?? 'manim', name: 'scene_run.requested', detail: `${inputText.length} chars` })
+  getStudioTelemetry().timeline({ studioKind: session.studioKind, name: 'scene_run.requested', detail: `${inputText.length} chars` })
 
   const started = await deps.startRun({
     ownerId: input.ownerId,
@@ -180,14 +180,14 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
     })
   }
 
-  getStudioTelemetry().event({ studioKind: session.studioKind ?? 'manim', name: 'http.scene_run.accepted', data: {
+  getStudioTelemetry().event({ studioKind: session.studioKind, name: 'http.scene_run.accepted', data: {
     sessionId: session.id,
     sceneId: scene.id,
     runId: started.run.id,
     assistantMessageId: started.assistantMessage.id,
     durationMs: readElapsedMs(requestStartedAt)
   } })
-  getStudioTelemetry().timeline({ studioKind: session.studioKind ?? 'manim', name: 'scene_run.accepted', detail: started.run.id })
+  getStudioTelemetry().timeline({ studioKind: session.studioKind, name: 'scene_run.accepted', detail: started.run.id })
 
   sendStudioSuccess(res, {
     ...toPublicStudioSceneSnapshot(snapshot),

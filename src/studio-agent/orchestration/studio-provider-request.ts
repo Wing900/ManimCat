@@ -22,7 +22,7 @@ export async function requestStudioChatCompletion(input: {
   runId: string
   step: number
   assistantMessageId: string
-  studioKind?: StudioKind
+  studioKind: StudioKind
   runCreatedAt?: string
   requestMessageCount?: number
   requestMessageCharsApprox?: number
@@ -42,7 +42,7 @@ export async function requestStudioChatCompletion(input: {
       signal: input.signal,
     })
 
-    getStudioTelemetry().event({ studioKind: input.studioKind ?? 'manim', name: 'provider.completed', data: {
+    getStudioTelemetry().event({ studioKind: input.studioKind, name: 'provider.completed', data: {
       sessionId: input.sessionId,
       runId: input.runId,
       step: input.step,
@@ -62,7 +62,7 @@ export async function requestStudioChatCompletion(input: {
 
     return completion
   } catch (error) {
-    getStudioTelemetry().event({ studioKind: input.studioKind ?? 'manim', name: 'provider.failed', data: {
+    getStudioTelemetry().event({ studioKind: input.studioKind, name: 'provider.failed', data: {
       sessionId: input.sessionId,
       runId: input.runId,
       step: input.step,

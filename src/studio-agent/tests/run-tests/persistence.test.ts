@@ -40,6 +40,7 @@ export async function runPersistenceTests(): Promise<void> {
     const persistence = createSupabaseStudioPersistence(client)
 
     const session = createStudioSession({
+      studioKind: 'manim',
       ownerId: 'owner-1',
       projectId: 'project-1',
       agentType: 'builder',

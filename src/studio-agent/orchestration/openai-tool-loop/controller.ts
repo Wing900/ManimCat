@@ -25,7 +25,7 @@ export async function* createStudioOpenAIToolLoop(
     initialUsage: input.run.tokenUsage,
     checkpoint: onCheckpoint ? (usage) => onCheckpoint({ tokenUsage: usage }) : undefined
   })
-  getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'loop.started', detail: `maxSteps=${runtime.maxSteps}` })
+  getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'loop.started', detail: `maxSteps=${runtime.maxSteps}` })
 
   for (let step = 0; step < runtime.maxSteps; step += 1) {
     throwIfStudioRunCancelled(input.abortSignal)
@@ -63,7 +63,7 @@ export async function* createStudioOpenAIToolLoop(
 
     if (nextAction.type === 'finish') {
       await checkpoints.markSuccess()
-      getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'run.completed' })
+      getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'run.completed' })
       yield createStudioLoopFinishStepEvent(result.completion)
       return
     }
@@ -71,7 +71,7 @@ export async function* createStudioOpenAIToolLoop(
     if (nextAction.type === 'abort') {
       yield* emitStudioAssistantText(nextAction.message)
       await checkpoints.markFailure(nextAction.message)
-      getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'run.completed', detail: 'aborted' })
+      getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'run.completed', detail: 'aborted' })
       yield createStudioLoopFinishStepEvent(result.completion)
       return
     }
@@ -94,7 +94,7 @@ export async function* createStudioOpenAIToolLoop(
         const stopMessage = `Stopped after ${failedAutonomy.consecutiveFailures} consecutive failures: ${toolExecution.value.failureMessage}`
         yield* emitStudioAssistantText(stopMessage)
         await checkpoints.markStopped(stopMessage)
-        getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'run.failed', detail: toolExecution.value.failureMessage })
+        getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'run.failed', detail: toolExecution.value.failureMessage })
         yield createStudioLoopFinishStepEvent(result.completion)
         return
       }

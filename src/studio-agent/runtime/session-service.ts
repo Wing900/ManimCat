@@ -17,7 +17,7 @@ export interface StudioCreateSessionInput {
   directory?: string
   useDedicatedWorkspace?: boolean
   title?: string
-  studioKind?: StudioKind
+  studioKind: StudioKind
   agentType?: StudioSession['agentType']
   workspaceId?: string
   toolChoice?: StudioToolChoice
@@ -40,7 +40,7 @@ export function createStudioSessionService(input: {
   workspaceProvider: StudioWorkspaceProvider
 }): StudioSessionService {
   async function createSession(sessionInput: StudioCreateSessionInput): Promise<StudioSession> {
-    const studioKind = sessionInput.studioKind ?? 'manim'
+    const studioKind = sessionInput.studioKind
     const normalizedDirectory = input.workspaceProvider.normalizeDirectory(
       sessionInput.directory ?? getDefaultStudioWorkspacePath()
     )

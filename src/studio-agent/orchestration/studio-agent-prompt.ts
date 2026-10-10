@@ -22,7 +22,7 @@ interface BuildStudioAgentSystemPromptInput {
  * 构建 Studio Agent 的系统提示词：最小 Builder Core + 结构化场景事实。
  */
 export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPromptInput): string {
-  const studioKind: StudioKind = input.session.studioKind ?? 'manim'
+  const studioKind: StudioKind = input.session.studioKind
   const sections = [
     getStudioAgentSystemPrompt(input.session.agentType),
     formatStudioScene(input.session, studioKind),
