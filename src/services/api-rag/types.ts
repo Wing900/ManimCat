@@ -82,14 +82,18 @@ export interface CandidateEntry {
 }
 
 export interface ApiSearchInput {
-  query: string
+  query?: string
   symbols?: string[]
 }
+
+export type ApiSearchMode = 'verify' | 'discover' | 'hybrid'
 
 export interface ApiSearchResult {
   packageName: string
   packageVersion: string
-  query: string
+  mode: ApiSearchMode
+  /** Present only when the query ran (discover or hybrid). */
+  query?: string
   /** Baseline verdicts for the symbols the Builder named. */
   verification: VerificationEntry[]
   /** Baseline-augmented Search Catalog hits, best first. */

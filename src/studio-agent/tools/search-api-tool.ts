@@ -35,13 +35,14 @@ export function createStudioSearchApiTool(
     allowedStudioKinds: [studioKind],
     execute: async (input) => {
       const query = input?.query?.trim() ?? ''
-      if (!query) {
-        throw new Error('search_api requires a non-empty query')
+      const symbols = (input?.symbols ?? []).map((symbol) => symbol.trim()).filter(Boolean)
+      if (!query && symbols.length === 0) {
+        throw new Error('search_api requires a query, symbols, or both')
       }
 
       const result = await service.search(packageName, {
-        query,
-        symbols: input?.symbols ?? []
+        query: query || undefined,
+        symbols
       })
       const found = result.verification.filter((entry) => entry.verdict === 'FOUND').length
       const ambiguous = result.verification.filter((entry) => entry.verdict === 'AMBIGUOUS').length
@@ -52,6 +53,7 @@ export function createStudioSearchApiTool(
         metadata: {
           packageName: result.packageName,
           packageVersion: result.packageVersion,
+          mode: result.mode,
           query: result.query,
           verified: found,
           ambiguous,

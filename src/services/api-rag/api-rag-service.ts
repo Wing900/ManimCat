@@ -83,14 +83,25 @@ export class ApiRagService {
     if (!this.registrations.has(packageName)) {
       throw new Error(`API RAG is not registered for ${packageName}: it has no Search Catalog`)
     }
-    const query = input.query.trim()
-    if (!query) {
-      throw new Error('search_api requires a non-empty query')
+    const query = input.query?.trim() ?? ''
+    const requested = (input.symbols ?? []).map((symbol) => symbol.trim()).filter(Boolean)
+    if (!query && requested.length === 0) {
+      throw new Error('search_api requires a query, symbols, or both')
     }
 
     const index = await this.packageIndex(packageName)
-    const requested = (input.symbols ?? []).map((symbol) => symbol.trim()).filter(Boolean)
     const verification: VerificationEntry[] = requested.map((symbol) => index.resolver.verify(symbol))
+
+    // Verify-only: no embedding, no candidates.
+    if (!query) {
+      return {
+        packageName: index.catalog.packageName,
+        packageVersion: index.catalog.packageVersion,
+        mode: 'verify',
+        verification,
+        candidates: []
+      }
+    }
 
     const [queryEmbedding] = await this.embedding.embed([query])
     const hits = index.retriever.search(queryEmbedding, this.topK)
@@ -112,6 +123,7 @@ export class ApiRagService {
     return {
       packageName: index.catalog.packageName,
       packageVersion: index.catalog.packageVersion,
+      mode: requested.length > 0 ? 'hybrid' : 'discover',
       query,
       verification,
       candidates

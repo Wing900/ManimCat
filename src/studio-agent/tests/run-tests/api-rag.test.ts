@@ -201,7 +201,56 @@ export async function runApiRagTests(): Promise<void> {
       assert.notEqual(candidate.kind, 'unknown')
     }
 
-    await assert.rejects(() => service.search('manim', { query: '   ' }), /non-empty query/)
+    await assert.rejects(() => service.search('manim', { query: '   ' }), /requires a query, symbols, or both/)
+  })
+
+  await run('verify-only skips the query embedding and returns no candidates', async () => {
+    const service = new ApiRagService({
+      embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
+      packages: ['manim']
+    })
+    await service.ready()
+
+    const result = await service.search('manim', { symbols: ['Axes.add_coordinates', 'NoSuchApiAtAll'] })
+    assert.equal(result.mode, 'verify')
+    assert.equal(result.query, undefined)
+    assert.equal(result.candidates.length, 0)
+    assert.equal(result.verification[0].verdict, 'FOUND')
+    assert.equal(result.verification[1].verdict, 'NOT_FOUND')
+
+    // An empty query with symbols is still verify-only.
+    const whitespace = await service.search('manim', { query: '   ', symbols: ['Circle'] })
+    assert.equal(whitespace.mode, 'verify')
+    assert.equal(whitespace.candidates.length, 0)
+    assert.equal(whitespace.verification[0].verdict, 'FOUND')
+  })
+
+  await run('discover-only returns candidates without verifying any symbol', async () => {
+    const service = new ApiRagService({
+      embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
+      packages: ['manim']
+    })
+    await service.ready()
+
+    const result = await service.search('manim', { query: 'draw a circle' })
+    assert.equal(result.mode, 'discover')
+    assert.equal(result.query, 'draw a circle')
+    assert.equal(result.verification.length, 0)
+    assert.equal(result.candidates.length, API_RAG_TOP_K)
+  })
+
+  await run('an empty request with neither query nor symbols is rejected', async () => {
+    const service = new ApiRagService({
+      embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
+      packages: ['manim']
+    })
+    await service.ready()
+
+    await assert.rejects(() => service.search('manim', {}), /requires a query, symbols, or both/)
+    await assert.rejects(() => service.search('manim', { query: '', symbols: [] }), /requires a query, symbols, or both/)
   })
 
   await run('a name several APIs share is answered as AMBIGUOUS, never as FOUND', async () => {
@@ -264,6 +313,7 @@ export async function runApiRagTests(): Promise<void> {
     const payload = JSON.parse(result.output) as { verification: Array<{ verdict: string }>; candidates: unknown[] }
     assert.equal(payload.verification[0].verdict, 'FOUND')
     assert.equal(payload.candidates.length, API_RAG_TOP_K)
+    assert.equal(result.metadata?.mode, 'hybrid')
     assert.equal(result.metadata?.verified, 1)
     assert.equal(result.metadata?.ambiguous, 0)
     assert.equal(result.metadata?.notFound, 0)
@@ -271,10 +321,26 @@ export async function runApiRagTests(): Promise<void> {
     const ambiguous = await tool.execute({ query: 'draw', symbols: ['SALMON'] }, {} as never)
     const ambiguousPayload = JSON.parse(ambiguous.output) as { verification: Array<{ verdict: string }> }
     assert.equal(ambiguousPayload.verification[0].verdict, 'AMBIGUOUS')
+    assert.equal(ambiguous.metadata?.mode, 'hybrid')
     assert.equal(ambiguous.metadata?.verified, 0)
     assert.equal(ambiguous.metadata?.ambiguous, 1)
     assert.equal(ambiguous.metadata?.notFound, 0)
 
-    await assert.rejects(() => tool.execute({ query: '  ' }, {} as never), /non-empty query/)
+    // Verify-only: no query, no candidates, no embedding.
+    const verifyOnly = await tool.execute({ symbols: ['Circle'] }, {} as never)
+    const verifyPayload = JSON.parse(verifyOnly.output) as { verification: Array<{ verdict: string }>; candidates: unknown[] }
+    assert.equal(verifyPayload.verification[0].verdict, 'FOUND')
+    assert.equal(verifyPayload.candidates.length, 0)
+    assert.equal(verifyOnly.metadata?.mode, 'verify')
+    assert.equal(verifyOnly.metadata?.candidates, 0)
+
+    // Discover-only: no symbols, no verification.
+    const discoverOnly = await tool.execute({ query: 'draw a circle' }, {} as never)
+    const discoverPayload = JSON.parse(discoverOnly.output) as { verification: unknown[]; candidates: unknown[] }
+    assert.equal(discoverPayload.verification.length, 0)
+    assert.equal(discoverPayload.candidates.length, API_RAG_TOP_K)
+    assert.equal(discoverOnly.metadata?.mode, 'discover')
+
+    await assert.rejects(() => tool.execute({ query: '  ' }, {} as never), /requires a query, symbols, or both/)
   })
 }

@@ -72,7 +72,6 @@ export const searchApiToolParameters: StudioToolParameters = {
       maxItems: 12,
     },
   },
-  required: ['query'],
   additionalProperties: false,
 }
 
