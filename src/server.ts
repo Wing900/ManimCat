@@ -22,7 +22,7 @@ import { createPlotStudioTelemetryAdapter } from './studio-agent/infrastructure/
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
 
 // 导入队列处理器以启动 worker
-import './queues/processors/video.processor'
+import './rendering/queue/processors/video.processor'
 
 const app = express()
 const appLogger = createLogger('Server')
