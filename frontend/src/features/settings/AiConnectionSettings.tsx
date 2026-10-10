@@ -14,6 +14,13 @@ const MODE_LABEL_KEYS = {
   byok: 'connection.choice.byok.title',
 } as const
 
+/**
+ * Which credential the app talks to the backend with.
+ *
+ * The mode switch is a segmented control (a light track, a lighter active pill) rather than two
+ * solid blocks: on a settings page the only filled thing is the action you press. The solid ink
+ * button lives in the form below, where it belongs.
+ */
 export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettingsProps) {
   const { t } = useI18n()
   const [mode, setMode] = useState<ConnectionMode>(connection.activeMode ?? 'catkey')
@@ -21,33 +28,37 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
   const disconnect = () => onSaved({ ...connection, activeMode: null })
 
   return (
-    <div className="max-w-xl space-y-8">
-      <div className="flex gap-2">
-        {(['catkey', 'byok'] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setMode(item)}
-            className={`flex-1 rounded-2xl px-4 py-3 text-sm transition-colors ${
-              mode === item
-                ? 'bg-accent text-bg-primary font-medium'
-                : 'bg-bg-secondary/40 text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {t(MODE_LABEL_KEYS[item])}
-          </button>
-        ))}
+    <div className="space-y-8">
+      <div className="flex gap-1 rounded-2xl bg-bg-secondary/50 p-1">
+        {(['catkey', 'byok'] as const).map((item) => {
+          const active = mode === item
+          return (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setMode(item)}
+              aria-pressed={active}
+              className={`flex-1 rounded-xl px-4 py-2.5 text-sm transition-colors duration-200 ease-ui ${
+                active
+                  ? 'bg-bg-primary font-medium text-text-primary shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {t(MODE_LABEL_KEYS[item])}
+            </button>
+          )
+        })}
       </div>
 
       {mode === 'catkey' && (
         <>
           {connection.activeMode === 'catkey' && (
-            <div className="flex items-center justify-between rounded-2xl bg-bg-secondary/40 px-4 py-3">
+            <div className="flex items-center justify-between rounded-2xl bg-bg-secondary/50 px-4 py-3">
               <span className="text-sm text-text-primary">{t('connection.catkey.status.connected')}</span>
               <button
                 type="button"
                 onClick={disconnect}
-                className="text-sm font-medium text-red-600 transition-colors hover:text-red-700 dark:text-red-400"
+                className="text-sm font-medium text-red-600 transition-colors duration-200 ease-ui hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
               >
                 {t('connection.catkey.disconnect')}
               </button>

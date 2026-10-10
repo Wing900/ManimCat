@@ -40,7 +40,7 @@ export function PromptSidebar({ selection, onSelect }: Props) {
     selection.kind === 'shared' && selection.module === module;
 
   return (
-    <div className="w-56 bg-bg-secondary/20 border-r border-bg-tertiary/30 overflow-y-auto">
+    <div data-assemble="rail" className="w-56 bg-bg-secondary/20 border-r border-bg-tertiary/30 overflow-y-auto">
       <div className="p-3 space-y-4">
         {/* 角色提示词 */}
         <div>

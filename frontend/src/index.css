@@ -267,6 +267,13 @@ select option:checked {
 .page-assemble [data-assemble="stage"] { animation: assemble-fade 0.58s var(--ease-soft) 0.16s both; }
 .page-assemble [data-assemble="composer"] { animation: assemble-fade 0.40s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
 
+/* 表单页（设置 / 提示词）沿用同一份 data-assemble 约定。studio 的部件要“拼”出一台机器：
+   sidebar 整块从画外推进来。表单页部件少、距离短，位移收到 12px + 淡入，读成“落位”而不是“滑进来”。 */
+@keyframes assemble-rise { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes assemble-in-left { 0% { opacity: 0; transform: translateX(-12px); } 100% { opacity: 1; transform: translateX(0); } }
+.page-assemble [data-assemble="rail"] { animation: assemble-in-left 0.34s var(--ease-move) 0.04s both; }
+.page-assemble [data-assemble="panel"] { animation: assemble-rise 0.38s var(--ease-move) 0.10s both; }
+
 /* home 退场覆盖层：淡出 + 微缩，悄悄退到 studio 组装之下 */
 @keyframes home-leave { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.985); } }
 .page-home-leave { animation: home-leave 0.32s ease both; }

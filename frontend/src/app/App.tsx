@@ -248,7 +248,6 @@ function App() {
             onBackToHome={handleBackToHome}
             onCancel={cancel}
             onOpenDonation={() => setDonationOpen(true)}
-            onOpenProviders={() => setSettingsOpen(true)}
             onOpenPromptSettings={() => setPromptSettingsOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenGame={handleOpenGame}

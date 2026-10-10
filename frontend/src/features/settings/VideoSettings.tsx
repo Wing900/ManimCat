@@ -13,7 +13,7 @@ export function VideoSettings({ videoConfig, onUpdate }: VideoSettingsProps) {
   const bgmEnabled = videoConfig.bgm ?? DEFAULT_SETTINGS.video.bgm;
 
   return (
-    <div className="max-w-xl flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <CustomSelect
         options={[
           { value: 'low' as Quality, label: t('settings.video.quality.low') },
@@ -55,12 +55,12 @@ export function VideoSettings({ videoConfig, onUpdate }: VideoSettingsProps) {
           role="switch"
           aria-checked={bgmEnabled}
           onClick={() => onUpdate({ bgm: !bgmEnabled })}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-ui ${
             bgmEnabled ? 'bg-accent' : 'bg-text-secondary/30'
           }`}
         >
           <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 mt-0.5 ${
+            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-ui mt-0.5 ${
               bgmEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'
             }`}
           />

@@ -32,7 +32,6 @@ interface StatusContentProps {
   onResetAll: () => void;
   onBackToHome: () => void;
   onCancel: () => void;
-  onOpenProviders: () => void;
   onOpenGame: () => void;
 }
 
@@ -71,7 +70,6 @@ export function StatusContent({
   onResetAll,
   onBackToHome,
   onCancel,
-  onOpenProviders,
   onOpenGame,
 }: StatusContentProps) {
   const { t } = useI18n();
@@ -138,15 +136,6 @@ export function StatusContent({
                 <p className="text-sm font-medium text-red-900/90">{t('result.errorTitle')}</p>
                 <p className="mt-1 text-sm leading-6 text-red-900/70">{shownError}</p>
               </div>
-              {showProviderConfigHint && (
-                <button
-                  type="button"
-                  onClick={onOpenProviders}
-                  className="shrink-0 rounded-full bg-white/70 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-red-700/80 transition-colors hover:bg-white hover:text-red-700"
-                >
-                  {t('result.error.configureCustomModel')}
-                </button>
-              )}
             </div>
           </div>
 
@@ -171,7 +160,7 @@ export function StatusContent({
 
     return (
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-in" style={{ animation: 'fadeInUp 0.4s ease-out forwards' }}>
-        <div className="relative bg-red-50/80 dark:bg-red-900/20 rounded-2xl p-6 pb-11 border border-red-200/60 dark:border-red-500/25">
+        <div className="relative bg-red-50/80 dark:bg-red-900/20 rounded-2xl p-6 border border-red-200/60 dark:border-red-500/25">
           <div className="flex items-start gap-3">
             <div className="text-red-500 mt-0.5">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,16 +172,6 @@ export function StatusContent({
               <p className="text-text-secondary text-sm">{shownError}</p>
             </div>
           </div>
-
-          {showProviderConfigHint && (
-            <button
-              type="button"
-              onClick={onOpenProviders}
-              className="absolute left-6 bottom-4 text-xs text-red-700/80 dark:text-red-300/85 hover:text-red-700 dark:hover:text-red-200 underline underline-offset-2 transition-colors"
-            >
-              {t('result.error.configureCustomModel')}
-            </button>
-          )}
         </div>
 
         <div className="text-center space-y-2">

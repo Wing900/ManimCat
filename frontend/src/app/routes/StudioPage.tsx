@@ -37,7 +37,6 @@ interface StudioPageProps {
   onBackToHome: () => void;
   onCancel: () => void;
   onOpenDonation: () => void;
-  onOpenProviders: () => void;
   onOpenPromptSettings: () => void;
   onOpenSettings: () => void;
   onOpenGame: () => void;
@@ -75,7 +74,6 @@ export function StudioPage({
   onBackToHome,
   onCancel,
   onOpenDonation,
-  onOpenProviders,
   onOpenPromptSettings,
   onOpenSettings,
   onOpenGame,
@@ -96,7 +94,7 @@ export function StudioPage({
 
   return (
     <>
-      <TopLeftActions onOpenDonation={onOpenDonation} onOpenProviders={onOpenProviders} />
+      <TopLeftActions onOpenDonation={onOpenDonation} />
       <TopRightActions onOpenPromptSettings={onOpenPromptSettings} onOpenSettings={onOpenSettings} />
 
       <div
@@ -134,7 +132,6 @@ export function StudioPage({
             onResetAll={onResetAll}
             onBackToHome={onBackToHome}
             onCancel={onCancel}
-            onOpenProviders={onOpenProviders}
             onOpenGame={onOpenGame}
           />
         </div>

@@ -68,15 +68,17 @@ export function PromptSettings({ isOpen, onClose }: PromptSettingsProps) {
   return (
     <div
       className={`fixed inset-0 z-[120] flex flex-col bg-bg-primary ${
-        isExiting ? 'animate-workspace-exit' : 'animate-studio-entrance'
+        isExiting ? 'animate-workspace-exit' : 'page-assemble'
       }`}
     >
       {/* 顶栏 */}
-      <div className="h-16 bg-bg-secondary/50 border-b border-border/5 flex items-center justify-between px-6">
+      <div data-assemble="header" className="h-16 bg-bg-secondary/50 border-b border-border/5 flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <button
             onClick={onClose}
-            className="p-2.5 text-text-secondary/50 hover:text-text-primary hover:bg-bg-primary/50 rounded-2xl transition-all"
+            aria-label={t('common.back')}
+            title={t('common.back')}
+            className="p-2.5 text-text-secondary/50 hover:text-text-primary hover:bg-bg-primary/50 rounded-2xl transition-colors duration-200 ease-ui active:scale-90"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -104,7 +106,7 @@ export function PromptSettings({ isOpen, onClose }: PromptSettingsProps) {
       {/* 核心交互区 */}
       <div className="flex-1 flex overflow-hidden">
         <PromptSidebar selection={selection} onSelect={setSelection} />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div data-assemble="panel" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-10 py-8 border-b border-border/5">
             <h2 className="text-xl font-medium text-text-primary/90 tracking-tight">{getPromptTitle()}</h2>
             <p className="text-sm text-text-secondary/50 mt-2 font-light">{getPromptDescription()}</p>
