@@ -6,7 +6,7 @@ import {
   cleanupExpiredStudioWorkspaces,
   readStudioWorkspaceLastActivity,
   STUDIO_WORKSPACE_ACTIVITY_FILE,
-} from '../../workspace/studio-workspace-cleanup'
+} from '../../infrastructure/workspace/studio-workspace-cleanup'
 import { run } from './factories'
 
 async function createRoot(): Promise<string> {

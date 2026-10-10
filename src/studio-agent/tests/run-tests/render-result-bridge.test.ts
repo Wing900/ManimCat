@@ -691,8 +691,8 @@ export async function runRenderResultBridgeTests(): Promise<void> {
   })
 
   await run('the render result bridge reads the job store and never writes it', async () => {
-    const adapter = readRepoSource('src', 'studio-agent', 'manim', 'job-store-render-result-port.ts')
-    assert.match(adapter, /import \{ getBullJobStatus, getJobResult \} from '\.\.\/\.\.\/services\/job-store'/)
+    const adapter = readRepoSource('src', 'studio-agent', 'modes', 'manim', 'job-store-render-result-port.ts')
+    assert.match(adapter, /import \{ getBullJobStatus, getJobResult \} from '\.\.\/\.\.\/\.\.\/services\/job-store'/)
     assert.equal(/storeJobResult|deleteJobResult|setJobResult|videoQueue|redisClient/.test(adapter), false)
     // The adapter is not part of the barrel: importing the Studio barrel must not load Redis.
     const barrel = readRepoSource('src', 'studio-agent', 'index.ts')
@@ -711,7 +711,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const memory = readRepoSource('src', 'studio-agent', 'render', 'memory-render-store.ts')
     assert.match(memory, /canTransitionStudioRenderStatus/)
     assert.match(memory, /input\.expectedJobId/)
-    const supabase = readRepoSource('src', 'studio-agent', 'persistence', 'supabase-render-repository.ts')
+    const supabase = readRepoSource('src', 'studio-agent', 'infrastructure', 'persistence', 'supabase-render-repository.ts')
     const renderStoreBody = supabase.slice(supabase.indexOf('async transitionStatus(input)', supabase.indexOf('createSupabaseStudioRenderStore')))
     assert.match(renderStoreBody, /\.in\('status', \[\.\.\.input\.from\]\)/)
     assert.match(renderStoreBody, /\.eq\('job_id', input\.expectedJobId\)/)

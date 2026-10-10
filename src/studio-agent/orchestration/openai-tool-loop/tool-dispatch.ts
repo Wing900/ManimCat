@@ -2,7 +2,7 @@ import type { StudioProcessorStreamEvent } from '../../domain/types'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 import { buildStudioPreToolCommentary } from '../../runtime/tools/pre-tool-commentary'
 import { createStudioToolCallExecutionEvents } from '../../runtime/tools/tool-call-adapter'
-import { getStudioTelemetry, readRunElapsedMs } from '../../observability/studio-telemetry'
+import { getStudioTelemetry, readRunElapsedMs } from '../../infrastructure/telemetry/studio-telemetry'
 import type {
   StudioChatToolCall,
   StudioLoopAutonomy,

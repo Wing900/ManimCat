@@ -29,7 +29,7 @@ services:
     image: manimcat:latest
     # Compose provides the shared Redis service. Bypass the image's Hugging Face
     # single-container launcher, which owns an embedded localhost Redis instance.
-    command: ["npm", "run", "start"]
+    command: ["node", "dist/server.js"]
     # No fixed container_name: keeping it would prevent `docker compose up --scale manimcat=N`.
     #
     # Host port binding. One replica keeps stable access:

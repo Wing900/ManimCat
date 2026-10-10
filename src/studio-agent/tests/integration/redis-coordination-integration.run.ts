@@ -25,14 +25,14 @@ import {
 import {
   createStudioRunCancellationCommand,
   encodeStudioRunCancellationCommand
-} from '../../run-coordination/studio-run-cancellation-codec'
-import { createRedisStudioRunCoordinator } from '../../run-coordination/redis-studio-run-coordinator'
-import { createRedisStudioEventBroker } from '../../events/redis-studio-event-broker'
+} from '../../infrastructure/coordination/studio-run-cancellation-codec'
+import { createRedisStudioRunCoordinator } from '../../infrastructure/coordination/redis-studio-run-coordinator'
+import { createRedisStudioEventBroker } from '../../infrastructure/events/redis-studio-event-broker'
 import {
   createLegacyStudioRunScope,
   type StudioRunCoordinatorPort,
   type StudioRunLease
-} from '../../run-coordination/studio-run-coordinator'
+} from '../../infrastructure/coordination/studio-run-coordinator'
 
 const HOST = process.env.TASK09_REDIS_HOST ?? '127.0.0.1'
 const PORT = Number(process.env.TASK09_REDIS_PORT ?? '0')

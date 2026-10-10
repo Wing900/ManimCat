@@ -172,7 +172,7 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
         </button>
         <button
           type="button"
-          onClick={() => onSecretStudioOpen('matplotlib')}}
+          onClick={() => onSecretStudioOpen('matplotlib')}
           className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-bg-secondary/60 bg-bg-tertiary/30 text-text-secondary/80 hover:text-accent hover:border-accent/30 transition-colors"
         >
           {t('form.studioEntry.plot')}

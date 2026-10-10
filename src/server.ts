@@ -13,12 +13,12 @@ import { startMediaCleanupScheduler } from './services/media-cleanup'
 import {
   getStudioWorkspaceRootDirectory,
   startStudioWorkspaceCleanupScheduler
-} from './studio-agent/workspace/studio-workspace-cleanup'
+} from './studio-agent/infrastructure/workspace/studio-workspace-cleanup'
 import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
 import { getApiRagService } from './services/api-rag'
-import { setStudioTelemetry } from './studio-agent/observability/studio-telemetry'
-import { createPlotStudioTelemetryAdapter } from './studio-agent/observability/plot-studio-timing'
+import { setStudioTelemetry } from './studio-agent/infrastructure/telemetry/studio-telemetry'
+import { createPlotStudioTelemetryAdapter } from './studio-agent/infrastructure/telemetry/plot-studio-timing'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
 
 // 导入队列处理器以启动 worker

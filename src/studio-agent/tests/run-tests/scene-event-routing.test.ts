@@ -32,8 +32,8 @@ import {
   createStudioEventEnvelope,
   decodeStudioEventEnvelope,
   encodeStudioEventEnvelope
-} from '../../events/studio-event-envelope'
-import { adaptStudioEvent, type StudioExternalEvent } from '../../events/studio-event-adapter'
+} from '../../infrastructure/events/studio-event-envelope'
+import { adaptStudioEvent, type StudioExternalEvent } from '../../infrastructure/events/studio-event-adapter'
 import {
   toPublicStudioEvent,
   toPublicStudioSceneEvent,

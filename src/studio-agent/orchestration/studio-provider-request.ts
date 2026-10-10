@@ -1,6 +1,6 @@
 import type OpenAI from 'openai'
 import type { StudioKind } from '../domain/core-types'
-import { getStudioTelemetry, readElapsedMs } from '../observability/studio-telemetry'
+import { getStudioTelemetry, readElapsedMs } from '../infrastructure/telemetry/studio-telemetry'
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = parsePositiveInteger(
   process.env.STUDIO_PROVIDER_REQUEST_TIMEOUT_MS,

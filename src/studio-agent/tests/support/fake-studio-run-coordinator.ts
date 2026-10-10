@@ -5,8 +5,8 @@ import {
   type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunLease
-} from '../../run-coordination/studio-run-coordinator'
-import { createStudioRunCancellationCommand } from '../../run-coordination/studio-run-cancellation-codec'
+} from '../../infrastructure/coordination/studio-run-coordinator'
+import { createStudioRunCancellationCommand } from '../../infrastructure/coordination/studio-run-cancellation-codec'
 
 export interface RecordedCoordinationLogEntry {
   level: 'info' | 'warn' | 'error'

@@ -7,7 +7,7 @@ import type {
   StudioSession,
   StudioToolChoice,
 } from '../domain/types'
-import type { StudioPersistence } from '../persistence/studio-persistence'
+import type { StudioPersistence } from '../infrastructure/persistence/studio-persistence'
 import {
   buildStudioContinueInputText,
   buildStudioContinuationRunMetadata,
@@ -18,12 +18,12 @@ import { STUDIO_RUN_ACTIVE_STATUSES, isStudioRunTerminalStatus, STUDIO_RUN_FINAL
 import type { StudioModelPort } from '../model/studio-model-port'
 import type {
   StudioRunCoordinationServicePort
-} from '../run-coordination/studio-run-coordination-service'
+} from '../infrastructure/coordination/studio-run-coordination-service'
 import {
   createLegacyStudioRunScope,
   createSceneStudioRunScope,
   type StudioRunCoordinationScope
-} from '../run-coordination/studio-run-coordinator'
+} from '../infrastructure/coordination/studio-run-coordinator'
 import type { StudioBuilderRuntime } from './builder-runtime'
 import { cancelRunState } from './execution/session-runner-helpers'
 import { cancelStudioRunRenders } from '../render/cancel-run-renders'

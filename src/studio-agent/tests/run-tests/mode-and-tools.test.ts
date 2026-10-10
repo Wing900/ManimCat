@@ -25,7 +25,7 @@ import {
 import { createWorkspace, run } from './factories'
 import { createTestStudioRuntime } from './factories'
 import { RecordingEventBus } from '../support/recording-event-bus'
-import { adaptStudioEvent } from '../../events/studio-event-adapter'
+import { adaptStudioEvent } from '../../infrastructure/events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { getApiRagService } from '../../../services/api-rag'

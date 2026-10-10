@@ -1,6 +1,6 @@
-import { InMemoryStudioEventBus } from '../../../events/event-bus'
+import { InMemoryStudioEventBus } from '../../../infrastructure/events/event-bus'
 import { createStudioUserMessage } from '../../../domain/factories'
-import { getStudioTelemetry, readElapsedMs } from '../../../observability/studio-telemetry'
+import { getStudioTelemetry, readElapsedMs } from '../../../infrastructure/telemetry/studio-telemetry'
 import { buildStudioRenderContext } from '../render-context'
 import { loadStudioRunExecutionScope } from '../run-execution-scope-loader'
 import type { StudioRenderContext, StudioSession } from '../../../domain/types'

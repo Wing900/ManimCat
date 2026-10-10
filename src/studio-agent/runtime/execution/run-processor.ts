@@ -19,7 +19,7 @@ import {
   mergeToolMetadata,
   mergeToolStateMetadata
 } from '../tools/tool-state'
-import { getStudioTelemetry, readRunElapsedMs } from '../../observability/studio-telemetry'
+import { getStudioTelemetry, readRunElapsedMs } from '../../infrastructure/telemetry/studio-telemetry'
 
 export type StudioProcessorOutcome = 'continue' | 'stop' | 'compact'
 

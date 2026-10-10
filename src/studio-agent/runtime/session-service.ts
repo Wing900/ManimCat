@@ -6,10 +6,10 @@ import type {
   StudioSessionSnapshot,
   StudioToolChoice,
 } from '../domain/types'
-import type { StudioPersistence } from '../persistence/studio-persistence'
+import type { StudioPersistence } from '../infrastructure/persistence/studio-persistence'
 import { createStudioSessionMetadata } from './session-config'
-import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
-import { getDefaultStudioWorkspacePath } from '../workspace/default-studio-workspace'
+import type { StudioWorkspaceProvider } from '../infrastructure/workspace/studio-workspace-provider'
+import { getDefaultStudioWorkspacePath } from '../infrastructure/workspace/default-studio-workspace'
 
 export interface StudioCreateSessionInput {
   ownerId: string

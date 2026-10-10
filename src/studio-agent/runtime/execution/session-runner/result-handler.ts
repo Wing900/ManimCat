@@ -1,4 +1,4 @@
-import { InMemoryStudioEventBus } from '../../../events/event-bus'
+import { InMemoryStudioEventBus } from '../../../infrastructure/events/event-bus'
 import { extractLatestAssistantText, cancelRunState, failRunState, finalizeRunState } from '../session-runner-helpers'
 import { selectStudioRunScopeRecords } from '../../../runs/message-selection'
 import {

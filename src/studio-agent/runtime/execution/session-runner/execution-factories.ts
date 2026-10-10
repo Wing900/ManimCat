@@ -1,5 +1,5 @@
 import { createStudioOpenAIToolLoop } from '../../../orchestration/openai-tool-loop/controller'
-import { readRunElapsedMs } from '../../../observability/studio-telemetry'
+import { readRunElapsedMs } from '../../../infrastructure/telemetry/studio-telemetry'
 import type { CustomApiConfig } from '../../../../types'
 import type { StudioModelPort } from '../../../model/studio-model-port'
 import type { StudioToolChoice } from '../../../domain/types'

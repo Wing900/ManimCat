@@ -7,7 +7,7 @@ import {
   createStudioSession,
   createStudioTextPart,
 } from '../../domain/factories'
-import { createInMemoryStudioPersistence } from '../../persistence/in-memory-studio-persistence'
+import { createInMemoryStudioPersistence } from '../../infrastructure/persistence/in-memory-studio-persistence'
 import { run } from './factories'
 
 const OWNER = 'owner_delete'

@@ -1,4 +1,4 @@
-import { getStudioTelemetry, readElapsedMs, readRunElapsedMs } from '../../observability/studio-telemetry'
+import { getStudioTelemetry, readElapsedMs, readRunElapsedMs } from '../../infrastructure/telemetry/studio-telemetry'
 import type {
   StudioChatCompletion,
   StudioLoopStepRequest,

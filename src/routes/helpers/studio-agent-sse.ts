@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import type { StudioAgentEvent } from '../../studio-agent/domain/types'
-import type { StudioExternalEvent } from '../../studio-agent/events/studio-event-adapter'
-import { getStudioTelemetry } from '../../studio-agent/observability/studio-telemetry'
+import type { StudioExternalEvent } from '../../studio-agent/infrastructure/events/studio-event-adapter'
+import { getStudioTelemetry } from '../../studio-agent/infrastructure/telemetry/studio-telemetry'
 
 /**
  * Shared Server-Sent Events lifecycle for the Studio event streams.

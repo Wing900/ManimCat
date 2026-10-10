@@ -5,12 +5,12 @@ import type {
   StudioSceneSnapshot,
   StudioSession
 } from '../../studio-agent/domain/types'
-import type { StudioExternalEvent } from '../../studio-agent/events/studio-event-adapter'
+import type { StudioExternalEvent } from '../../studio-agent/infrastructure/events/studio-event-adapter'
 import type { StudioStartRunInput, StudioStartRunResult } from '../../studio-agent/runtime/run-service'
 import type { StudioEventStreamInput } from './studio-agent-sse'
 import type { StudioEffectiveCustomApiConfigResolution } from './studio-agent-api-config'
 import { createLogger } from '../../utils/logger'
-import { getStudioTelemetry, readElapsedMs } from '../../studio-agent/observability/studio-telemetry'
+import { getStudioTelemetry, readElapsedMs } from '../../studio-agent/infrastructure/telemetry/studio-telemetry'
 import { matchesStudioEventScope } from '../../studio-agent/domain/event-scope'
 import {
   toPublicStudioSceneEvent,

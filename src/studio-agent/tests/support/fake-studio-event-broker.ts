@@ -1,4 +1,4 @@
-import type { StudioEventBrokerPort } from '../../events/studio-event-broker'
+import type { StudioEventBrokerPort } from '../../infrastructure/events/studio-event-broker'
 
 /**
  * In-memory `StudioEventBrokerPort` double: no Redis, no timers, fully deterministic.

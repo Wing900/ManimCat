@@ -1,4 +1,4 @@
-import { getStudioTelemetry } from '../../../observability/studio-telemetry'
+import { getStudioTelemetry } from '../../../infrastructure/telemetry/studio-telemetry'
 import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../run-cancellation'
 import type { StudioAssistantMessage, StudioRun } from '../../../domain/types'
 import type {

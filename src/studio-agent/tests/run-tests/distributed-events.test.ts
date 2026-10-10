@@ -16,7 +16,7 @@ import {
   type StudioAgentEvent,
   type StudioWorkspaceProvider
 } from '../../index'
-import { adaptStudioEvent } from '../../events/studio-event-adapter'
+import { adaptStudioEvent } from '../../infrastructure/events/studio-event-adapter'
 import { toPublicStudioEvent } from '../../http/public-dto'
 import { FakeStudioEventBroker, RecordingStudioEventLogger } from '../support/fake-studio-event-broker'
 import { run } from './factories'
@@ -547,7 +547,7 @@ export async function runDistributedEventTests(): Promise<void> {
 
   // 17c. Redis stays behind the broker boundary.
   await run('Redis concerns stay inside the broker adapter', async () => {
-    const eventsDirectory = path.join(process.cwd(), 'src/studio-agent/events')
+    const eventsDirectory = path.join(process.cwd(), 'src/studio-agent/infrastructure/events')
     const modules = fs.readdirSync(eventsDirectory).filter((entry) => entry.endsWith('.ts')).sort()
     for (const expected of [
       'create-default-studio-event-bus.ts',
@@ -562,7 +562,7 @@ export async function runDistributedEventTests(): Promise<void> {
     }
 
     const redisAware = modules.filter((entry) =>
-      readRepoSource(path.join('src/studio-agent/events', entry)).includes("from '../../config/redis'")
+      readRepoSource(path.join('src/studio-agent/infrastructure/events', entry)).includes("from '../../../config/redis'")
     )
     assert.deepEqual(redisAware, ['redis-studio-event-broker.ts'])
 
@@ -571,7 +571,7 @@ export async function runDistributedEventTests(): Promise<void> {
     assert.equal(barrel.includes('redis-studio-event-broker'), false)
 
     // The domain port and the domain bus interface carry no transport imports.
-    const portSource = readRepoSource('src/studio-agent/events/studio-event-broker.ts')
+    const portSource = readRepoSource('src/studio-agent/infrastructure/events/studio-event-broker.ts')
     assert.equal(/from 'ioredis'/.test(portSource), false)
     const domainTypes = readRepoSource('src/studio-agent/domain/event-types.ts')
     assert.equal(/from 'ioredis'/.test(domainTypes), false)

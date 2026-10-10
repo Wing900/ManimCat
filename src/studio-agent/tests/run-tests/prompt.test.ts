@@ -5,7 +5,7 @@ import {
   WorkspacePathError,
   resolveWorkspacePath
 } from '../../index'
-import { getDefaultStudioWorkspacePath } from '../../workspace/default-studio-workspace'
+import { getDefaultStudioWorkspacePath } from '../../infrastructure/workspace/default-studio-workspace'
 import { createWorkspace, run } from './factories'
 import path from 'node:path'
 

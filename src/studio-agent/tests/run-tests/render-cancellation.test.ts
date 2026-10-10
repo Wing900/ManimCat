@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { createStudioRender, createStudioRun, createStudioSession } from '../../domain/factories'
-import { createInMemoryStudioPersistence } from '../../persistence/in-memory-studio-persistence'
-import { InMemoryStudioEventBus } from '../../events/event-bus'
+import { createInMemoryStudioPersistence } from '../../infrastructure/persistence/in-memory-studio-persistence'
+import { InMemoryStudioEventBus } from '../../infrastructure/events/event-bus'
 import { cancelStudioRunRenders } from '../../render/cancel-run-renders'
 import { createStudioRunService } from '../../runtime/run-service'
-import { StudioRunCoordinationService } from '../../run-coordination/studio-run-coordination-service'
-import { createInMemoryStudioRunCoordinator } from '../../run-coordination/in-memory-studio-run-coordinator'
+import { StudioRunCoordinationService } from '../../infrastructure/coordination/studio-run-coordination-service'
+import { createInMemoryStudioRunCoordinator } from '../../infrastructure/coordination/in-memory-studio-run-coordinator'
 import { run, createTestManimRenderDriver, createTestDriverRegistry } from './factories'
 
 export async function runRenderCancellationTests(): Promise<void> {

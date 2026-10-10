@@ -24,11 +24,11 @@ import {
   studioCreateSceneRequestSchema,
   studioSceneOrderRequestSchema
 } from './helpers/studio-agent-scene-request'
-import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/default-studio-workspace'
+import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/infrastructure/workspace/default-studio-workspace'
 import { requireStudioPrincipal } from '../studio-agent/auth/principal'
 import { createLogger } from '../utils/logger'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
-import { getStudioTelemetry, readElapsedMs } from '../studio-agent/observability/studio-telemetry'
+import { getStudioTelemetry, readElapsedMs } from '../studio-agent/infrastructure/telemetry/studio-telemetry'
 import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
 import {
   toPublicStudioEvent,

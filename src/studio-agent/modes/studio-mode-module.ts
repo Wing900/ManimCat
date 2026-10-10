@@ -2,8 +2,8 @@ import type { ApiCatalogPackage } from '../../services/api-rag'
 import type { StudioRenderDriver } from '../render/studio-render-driver'
 import type { StudioToolDefinition } from '../domain/types'
 import { getStudioModeDefinition, type StudioModeDefinition } from './studio-mode'
-import { createManimStudioRenderTool } from '../manim/tools/manim-render-tool'
-import { createPlotStudioRenderTool } from '../plot/tools/plot-render-tool'
+import { createManimStudioRenderTool } from './manim/tools/manim-render-tool'
+import { createPlotStudioRenderTool } from './matplotlib/tools/plot-render-tool'
 
 /** A lazily constructed Tool. The factory closes over whatever the Mode already holds. */
 export type StudioToolFactory = () => StudioToolDefinition

@@ -1,84 +1,110 @@
-# =========================================
-# 阶段 1: 准备 Node 环境
-# =========================================
-FROM node:22-bookworm-slim AS node_base
+# syntax=docker/dockerfile:1
 
-# =========================================
-# 阶段 2: 构建最终镜像 (基于 Manim)
-# =========================================
-FROM manimcommunity/manim:stable
-USER root
+ARG MANIM_VERSION=0.20.1
 
-# 1. 复制 Node.js (从 node_base 偷过来)
-COPY --from=node_base /usr/local/bin /usr/local/bin
-COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
+# The upstream image remains the authority for Manim's tested Minimal TeX Live.
+# Only the TeX tree is copied out; the upstream Jupyter-enabled Python venv is discarded.
+FROM manimcommunity/manim:v${MANIM_VERSION} AS manim_tex
 
-# 2. 【关键】安装 Redis 和中文字体，并刷新字体缓存
-# 使用阿里云源加速
-RUN sed -i \
-    -e 's/deb.debian.org/mirrors.aliyun.com/g' \
-    -e 's|http://mirrors.aliyun.com|https://mirrors.aliyun.com|g' \
-    /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && \
-    apt-get install -y redis-server fontconfig \
-    fonts-noto-cjk fonts-noto-cjk-extra \
-    fonts-wqy-zenhei fonts-wqy-microhei fonts-lxgw-wenkai \
-    ffmpeg curl ca-certificates && \
-    fc-cache -f -v
+# Hugging Face source sync can omit binary tracks. Fetch them in a disposable stage so
+# curl and its package metadata never enter the runtime image.
+FROM alpine:3.22 AS audio_assets
+RUN apk add --no-cache ca-certificates curl \
+    && mkdir -p /tracks \
+    && for file in \
+        clavier-music-soft-piano-music-312509.mp3 \
+        the_mountain-soft-piano-background-444129.mp3 \
+        viacheslavstarostin-relaxing-soft-piano-music-431679.mp3; do \
+        curl -fL --retry 8 --retry-delay 3 --connect-timeout 10 --max-time 120 \
+            -o "/tracks/$file" \
+            "https://raw.githubusercontent.com/Wing900/ManimCat/main/src/audio/tracks/$file"; \
+    done
 
-# 2.1 安装 Python 运行时与静态检查依赖
-#     显式声明 matplotlib，避免依赖基础镜像的隐式预装状态。
-RUN python -m pip install --no-cache-dir matplotlib
+# Build a clean Manim venv without the upstream [jupyterlab] extra.
+FROM python:3.14-slim AS manim_builder
+ARG MANIM_VERSION
+RUN apt-get update -qq \
+    && apt-get install --no-install-recommends -y \
+        build-essential \
+        cmake \
+        gcc \
+        libegl-dev \
+        libffi-dev \
+        libcairo2-dev \
+        libpango1.0-dev \
+        make \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH
+RUN pip install --no-cache-dir \
+        "manim==${MANIM_VERSION}" \
+        matplotlib
+
+# Compile both applications, then retain production Node dependencies only.
+FROM node:22-bookworm-slim AS node_builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+COPY scripts/prune-onnxruntime-web.mjs ./scripts/
+RUN npm ci \
+    && npm --prefix frontend ci
+COPY tsconfig.json ./
+COPY frontend ./frontend
+COPY src ./src
+COPY data ./data
+RUN npm run build \
+    && node scripts/prune-onnxruntime-web.mjs \
+    && npm prune --omit=dev
+
+# Runtime contains rendering and serving capabilities only.
+FROM python:3.14-slim AS runtime
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH=/opt/venv/bin:/usr/local/texlive/bin/armhf-linux:/usr/local/texlive/bin/aarch64-linux:/usr/local/texlive/bin/x86_64-linux:$PATH
+ENV NODE_ENV=production
+
+RUN apt-get update -qq \
+    && apt-get install --no-install-recommends -y \
+        ca-certificates \
+        ffmpeg \
+        fontconfig \
+        fonts-noto-cjk \
+        fonts-noto-core \
+        ghostscript \
+        libegl1 \
+        libffi8 \
+        libgl1 \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libpangoft2-1.0-0 \
+        libcairo2 \
+        libstdc++6 \
+        redis-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f
+
+COPY --from=manim_tex /usr/local/texlive /usr/local/texlive
+COPY --from=manim_builder /opt/venv /opt/venv
+COPY --from=node_builder /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
+COPY --from=node_builder /app/package.json ./package.json
+COPY --from=node_builder /app/node_modules ./node_modules
+COPY --from=node_builder /app/dist ./dist
+COPY --from=node_builder /app/public ./public
+COPY --from=node_builder /app/data ./data
+COPY --from=node_builder /app/src/prompts/templates ./src/prompts/templates
+COPY --from=node_builder /app/src/studio-agent/prompts/templates ./src/studio-agent/prompts/templates
+COPY --from=audio_assets /tracks ./src/audio/tracks
+COPY start-with-redis-hf.cjs ./
 
-# 3. 复制 package.json（裁剪脚本必须在这一层之前就位）
-COPY package.json package-lock.json* ./
-COPY frontend/package.json frontend/package-lock.json* ./frontend/
-COPY scripts/prune-onnxruntime-web.mjs ./scripts/
-
-# 4. 设置 npm 淘宝源
-RUN npm config set registry https://registry.npmmirror.com
-
-# 5. 安装依赖，并在同一层裁掉 ONNX Runtime 里用不到的 124MB
-#    必须同层：换成一个单独的 RUN，删掉的字节仍然留在上一层，镜像不会变小。
-RUN npm install && npm --prefix frontend install && node scripts/prune-onnxruntime-web.mjs
-
-# 6. 复制源码并构建 React
-COPY . .
-
-# 7. 下载 BGM 音频文件（HF Space 同步时可能排除二进制文件）
-#    之前写法使用了 `... && ... && ... || true`，会把前面下载失败静默吞掉。
-RUN set -eux; \
-    mkdir -p src/audio/tracks; \
-    for file in \
-      clavier-music-soft-piano-music-312509.mp3 \
-      the_mountain-soft-piano-background-444129.mp3 \
-      viacheslavstarostin-relaxing-soft-piano-music-431679.mp3; do \
-      rm -f "src/audio/tracks/$file"; \
-      for url in \
-        "https://raw.githubusercontent.com/Wing900/ManimCat/main/src/audio/tracks/$file" \
-        "https://github.com/Wing900/ManimCat/raw/main/src/audio/tracks/$file"; do \
-        echo "Downloading $file from $url"; \
-        if curl -fL --retry 8 --retry-delay 3 --connect-timeout 10 --max-time 120 -o "src/audio/tracks/$file" "$url"; then \
-          break; \
-        fi; \
-      done; \
-      if [ ! -s "src/audio/tracks/$file" ]; then \
-        echo "WARNING: failed to download $file"; \
-        rm -f "src/audio/tracks/$file"; \
-      fi; \
-    done; \
-    echo "Downloaded tracks:"; \
-    ls -lh src/audio/tracks || true; \
-    track_count="$(find src/audio/tracks -maxdepth 1 -type f -name '*.mp3' | wc -l)"; \
-    echo "BGM track count: $track_count"; \
-    if [ "$track_count" -eq 0 ]; then \
-      echo "ERROR: no BGM tracks available after download"; \
-      exit 1; \
-    fi
-
-RUN npm run build
+RUN mkdir -p \
+        /app/.studio-workspace \
+        /app/media \
+        /app/public/images \
+        /app/public/videos \
+        /app/tmp \
+        /data/redis
 
 ENV PORT=7860
 EXPOSE 7860

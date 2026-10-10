@@ -54,8 +54,8 @@ import {
   type StudioScene,
   type StudioSession
 } from '../../index'
-import { createManimStudioRenderTool } from '../../manim/tools/manim-render-tool'
-import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
+import { createManimStudioRenderTool } from '../../modes/manim/tools/manim-render-tool'
+import { createPlotStudioRenderTool } from '../../modes/matplotlib/tools/plot-render-tool'
 import { createManimRenderDriver, createMatplotlibRenderDriver, createUnavailableStudioRenderResultPort } from '../../index'
 import { createTestDriverRegistry } from './factories'
 import {
@@ -75,7 +75,8 @@ const COORDINATION_SOURCE = path.join(
   process.cwd(),
   'src',
   'studio-agent',
-  'run-coordination',
+  'infrastructure',
+  'coordination',
   'redis-studio-run-coordinator.ts'
 )
 

@@ -4,9 +4,9 @@ import path from 'node:path'
 import { createLogger } from '../../utils/logger'
 import { createStudioScene, createStudioSceneId } from '../domain/factories'
 import type { StudioRender, StudioScene, StudioSceneSnapshot } from '../domain/types'
-import type { StudioPersistence } from '../persistence/studio-persistence'
+import type { StudioPersistence } from '../infrastructure/persistence/studio-persistence'
 import type { StudioRenderResultReconciler } from '../render/render-result-reconciler'
-import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
+import type { StudioWorkspaceProvider } from '../infrastructure/workspace/studio-workspace-provider'
 import { resolveSafeWorkspacePath } from '../tools/workspace-paths'
 import {
   StudioSceneOrderRejectedError,

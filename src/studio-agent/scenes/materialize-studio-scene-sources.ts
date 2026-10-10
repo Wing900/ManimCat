@@ -1,7 +1,7 @@
 import { lstat, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { STUDIO_SCENE_DIRECTORY } from './studio-scene-service'
-import { STUDIO_WORKSPACE_ACTIVITY_FILE } from '../workspace/studio-workspace-cleanup'
+import { STUDIO_WORKSPACE_ACTIVITY_FILE } from '../infrastructure/workspace/studio-workspace-cleanup'
 
 /**
  * Writes a Session's Scene sources into its workspace before a Run starts.

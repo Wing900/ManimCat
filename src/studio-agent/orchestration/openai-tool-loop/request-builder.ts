@@ -1,6 +1,6 @@
 import type { StudioAssistantMessage } from '../../domain/types'
 import { createOpenAICompatibleStudioModelAdapter } from '../../model/studio-model-port'
-import { getStudioTelemetry } from '../../observability/studio-telemetry'
+import { getStudioTelemetry } from '../../infrastructure/telemetry/studio-telemetry'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
 import { listStudioMessagesForRun } from '../../runs/message-selection'
 import type { StudioTokenUsageTracker } from '../../runs/studio-token-usage-tracker'

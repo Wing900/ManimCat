@@ -1,10 +1,10 @@
 import type { StudioAgentEvent, StudioEventBus, StudioRender } from '../domain/types'
-import { InMemoryStudioEventBus } from '../events/event-bus'
-import { adaptStudioEvent, type StudioExternalEvent } from '../events/studio-event-adapter'
-import type { StudioPersistence } from '../persistence/studio-persistence'
+import { InMemoryStudioEventBus } from '../infrastructure/events/event-bus'
+import { adaptStudioEvent, type StudioExternalEvent } from '../infrastructure/events/studio-event-adapter'
+import type { StudioPersistence } from '../infrastructure/persistence/studio-persistence'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
-import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
+import type { StudioWorkspaceProvider } from '../infrastructure/workspace/studio-workspace-provider'
 import type { ApiRagService } from '../../services/api-rag'
 import {
   createStudioRenderDriverRegistry,
@@ -14,7 +14,7 @@ import type { StudioModeModule } from '../modes/studio-mode-module'
 import {
   StudioRunCoordinationService,
   type StudioRunCoordinationServicePort
-} from '../run-coordination/studio-run-coordination-service'
+} from '../infrastructure/coordination/studio-run-coordination-service'
 import { configureStudioToolRegistry } from './studio-tool-registry'
 import { createStudioSessionService, type StudioSessionService } from './session-service'
 import { createStudioSceneService, type StudioSceneService } from '../scenes/studio-scene-service'

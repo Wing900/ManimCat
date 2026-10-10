@@ -53,7 +53,7 @@ import {
   type StudioEventBusRuntime,
   type StudioRunCoordinationRuntime
 } from '../../index'
-import type { StudioPersistence } from '../../persistence/studio-persistence'
+import type { StudioPersistence } from '../../infrastructure/persistence/studio-persistence'
 import { handleFailedRun, finalizeSuccessfulRun } from '../../runtime/execution/session-runner/result-handler'
 import type { StudioSessionRunnerDependencies } from '../../runtime/execution/session-runner/dependency-center'
 import type { StudioBuilderRuntime } from '../../runtime/builder-runtime'
@@ -1771,7 +1771,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
 
   // 35.
   await run('security: Redis concerns stay inside the coordination adapter', async () => {
-    const directory = path.join(process.cwd(), 'src/studio-agent/run-coordination')
+    const directory = path.join(process.cwd(), 'src/studio-agent/infrastructure/coordination')
     const modules = fs.readdirSync(directory).filter((entry) => entry.endsWith('.ts')).sort()
     assert.deepEqual(modules, [
       'create-default-studio-run-coordination.ts',
@@ -1786,18 +1786,18 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     ])
 
     const redisAware = modules.filter((entry) =>
-      readRepoSource(path.join('src/studio-agent/run-coordination', entry)).includes("from '../../config/redis'")
+      readRepoSource(path.join('src/studio-agent/infrastructure/coordination', entry)).includes("from '../../../config/redis'")
     )
     assert.deepEqual(redisAware, ['redis-studio-run-coordinator.ts'])
 
     const ioredisAware = modules.filter((entry) =>
-      /from 'ioredis'/.test(readRepoSource(path.join('src/studio-agent/run-coordination', entry)))
+      /from 'ioredis'/.test(readRepoSource(path.join('src/studio-agent/infrastructure/coordination', entry)))
     )
     assert.deepEqual(ioredisAware, ['redis-studio-run-coordinator.ts'])
 
     const barrel = readRepoSource('src/studio-agent/index.ts')
     assert.equal(barrel.includes('redis-studio-run-coordinator'), false)
-    assert.equal(readRepoSource('src/studio-agent/run-coordination/index.ts').includes("export * from './redis-studio-run-coordinator'"), false)
+    assert.equal(readRepoSource('src/studio-agent/infrastructure/coordination/index.ts').includes("export * from './redis-studio-run-coordinator'"), false)
 
     const runServiceSource = readRepoSource('src/studio-agent/runtime/run-service.ts')
     for (const forbidden of ['ioredis', 'config/redis', 'setinterval', 'createredis', 'pub/sub', 'redis.call']) {
@@ -1837,7 +1837,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     assert.equal(serialized.includes('leaseId'), false)
 
     // The public event codec and DTO layer know nothing about cancellation commands.
-    const envelopeSource = readRepoSource('src/studio-agent/events/studio-event-envelope.ts')
+    const envelopeSource = readRepoSource('src/studio-agent/infrastructure/events/studio-event-envelope.ts')
     assert.equal(/cancellation/i.test(envelopeSource), false)
     const publicDtoSource = readRepoSource('src/studio-agent/http/public-dto.ts')
     assert.equal(/cancellation|commandId/i.test(publicDtoSource), false)
@@ -2177,7 +2177,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     })
 
     // The Redis adapter must use this validator on the pipelined marker reply.
-    const adapterSource = readRepoSource('src/studio-agent/run-coordination/redis-studio-run-coordinator.ts')
+    const adapterSource = readRepoSource('src/studio-agent/infrastructure/coordination/redis-studio-run-coordinator.ts')
     assert.ok(adapterSource.includes('assertStudioRunCancellationMarkerWritten(results?.[0])'))
 
     // And the marker read must reject a payload that disagrees with its key.
@@ -2360,7 +2360,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     assert.equal(decodeStudioRunCancellationCommand(atBound).ok, true)
 
     // And the bound must be applied before `trim()` and before `JSON.parse()`.
-    const codecSource = readRepoSource('src/studio-agent/run-coordination/studio-run-cancellation-codec.ts')
+    const codecSource = readRepoSource('src/studio-agent/infrastructure/coordination/studio-run-cancellation-codec.ts')
     const boundIndex = codecSource.indexOf('raw.length > STUDIO_RUN_CANCELLATION_MAX_PAYLOAD_LENGTH')
     const trimIndex = codecSource.indexOf('!raw.trim()')
     const parseIndex = codecSource.indexOf('JSON.parse(raw)')

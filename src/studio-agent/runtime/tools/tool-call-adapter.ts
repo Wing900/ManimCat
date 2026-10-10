@@ -10,7 +10,7 @@ import type { StudioToolRegistry } from '../../tools/registry'
 import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
 import type { StudioRunExecutionScope } from '../../domain/run-execution-scope'
 import { buildStudioPreToolCommentary } from './pre-tool-commentary'
-import { getStudioTelemetry, readRunElapsedMs } from '../../observability/studio-telemetry'
+import { getStudioTelemetry, readRunElapsedMs } from '../../infrastructure/telemetry/studio-telemetry'
 import { WorkspacePathError } from '../../tools/workspace-paths'
 import { StudioWorkspaceWriteDeniedError } from '../../tools/workspace-access-policy'
 

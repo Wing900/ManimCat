@@ -4,7 +4,7 @@ import { StudioTokenUsageTracker } from '../../runs/studio-token-usage-tracker'
 import { determineStudioAgentLoopAction } from './loop-policy'
 import { appendStudioAssistantConversationTurn, emitStudioAssistantText } from './message-assembly'
 import { createStudioLoopFinishStepEvent, logStudioLoopStepFinished } from './observability'
-import { getStudioTelemetry } from '../../observability/studio-telemetry'
+import { getStudioTelemetry } from '../../infrastructure/telemetry/studio-telemetry'
 import {
   buildStudioLoopStepRequest,
   createStudioLoopRuntime,

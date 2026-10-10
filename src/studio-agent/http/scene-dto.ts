@@ -1,4 +1,4 @@
-import type { StudioExternalEvent } from '../events/studio-event-adapter'
+import type { StudioExternalEvent } from '../infrastructure/events/studio-event-adapter'
 import { projectStudioSceneToolPresentation, readStudioSceneToolPresentationStatus } from './scene-tool-presentation'
 import { readStudioPublicMediaLocator } from '../render/studio-public-media-locator'
 import { toPublicStudioRun } from './run-dto'
