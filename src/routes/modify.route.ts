@@ -102,6 +102,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
         editCode: code,
         editInstructions: sanitizedInstructions,
         customApiConfig: effectiveCustomApiConfig,
+        catKeyId: accessContext.mode === 'catkey' ? accessContext.catKeyId : undefined,
         promptOverrides,
         videoConfig,
         clientId,

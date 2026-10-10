@@ -84,6 +84,14 @@ export interface VideoJobData {
   outputMode: OutputMode
   timestamp: string
   clientId?: string
+  /**
+   * The CatKey paying for this Job, or undefined for BYOK.
+   *
+   * Carried in the payload because the worker is the only place that knows the final totals, and
+   * by then the request's AccessContext is long gone. It is an id, not a credential: the worker
+   * never needs to authenticate upstream, it only needs to say who to bill.
+   */
+  catKeyId?: string
   preGeneratedCode?: string
   editCode?: string
   editInstructions?: string

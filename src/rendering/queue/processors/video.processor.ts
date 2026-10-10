@@ -13,10 +13,39 @@ import type { VideoJobData } from '../../../types'
 import { runEditFlow, runGenerationFlow, runPreGeneratedFlow } from './video-processor-flows'
 import { getRetryMeta, shouldDisableQueueRetry, storeProcessingStage } from './video-processor-utils'
 import { getCurrentJobLogSummary, getCurrentJobTokenUsage, runWithJobLogContext } from '../../job/job-log-context'
+import { recordTokenUsage, type TokenUsageTotals } from '../../../access'
 
 const logger = createLogger('VideoProcessor')
 const activeExecutions = new Map<string, Promise<unknown>>()
 const JOB_HEARTBEAT_MS = 15_000
+
+const EMPTY_TOKEN_TOTALS: TokenUsageTotals = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  measuredCalls: 0,
+  unmeasuredCalls: 0
+}
+
+/**
+ * Writes this Job's cumulative usage to the CatKey ledger.
+ *
+ * Called only on a terminal outcome. Intermediate failed attempts are skipped on purpose: the
+ * upsert is keyed on the Job id, so the attempt that finally succeeds would overwrite them anyway,
+ * and a Job that never succeeds should not leave a half-counted row behind.
+ *
+ * The recorder itself decides whether anything is metered — an absent `catKeyId` means BYOK — so
+ * there is no mode check here.
+ */
+async function recordJobTokenUsage(data: VideoJobData): Promise<void> {
+  await recordTokenUsage({
+    catKeyId: data.catKeyId,
+    model: data.customApiConfig?.model ?? '',
+    sourceKind: 'workflow_job',
+    sourceId: data.jobId,
+    totals: getCurrentJobTokenUsage()?.totals ?? EMPTY_TOKEN_TOTALS
+  })
+}
 
 function emitJobSummary(args: {
   jobId: string
@@ -112,6 +141,7 @@ async function executeVideoJob(job: any): Promise<unknown> {
         attempt: retryMeta.currentAttempt,
         maxAttempts: retryMeta.maxAttempts
       })
+      await recordJobTokenUsage(data)
       return result
     }
 
@@ -128,6 +158,7 @@ async function executeVideoJob(job: any): Promise<unknown> {
         attempt: retryMeta.currentAttempt,
         maxAttempts: retryMeta.maxAttempts
       })
+      await recordJobTokenUsage(data)
       return result
     }
 
@@ -143,6 +174,7 @@ async function executeVideoJob(job: any): Promise<unknown> {
       attempt: retryMeta.currentAttempt,
       maxAttempts: retryMeta.maxAttempts
     })
+    await recordJobTokenUsage(data)
     return result
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -218,6 +250,10 @@ async function executeVideoJob(job: any): Promise<unknown> {
       attempt: currentRetryMeta.currentAttempt,
       maxAttempts: currentRetryMeta.maxAttempts
     })
+
+    // Terminal failure: the attempt consumed tokens it will never be credited for by a retry, so
+    // the row is written here. `preserved-completed` returned above and must not reach this point.
+    await recordJobTokenUsage(data)
 
     throw error
   }

@@ -116,6 +116,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
         referenceImages: sanitizedReferenceImages,
         preGeneratedCode: code,
         customApiConfig: effectiveCustomApiConfig,
+        catKeyId: accessContext.mode === 'catkey' ? accessContext.catKeyId : undefined,
         promptOverrides,
         videoConfig,
         clientId,
