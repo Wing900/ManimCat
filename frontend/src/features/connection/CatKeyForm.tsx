@@ -8,10 +8,9 @@ interface CatKeyFormProps {
   connection: ConnectionSettings
   submitLabel: string
   onSaved: (connection: ConnectionSettings) => void
-  onBack?: () => void
 }
 
-export function CatKeyForm({ connection, submitLabel, onSaved, onBack }: CatKeyFormProps) {
+export function CatKeyForm({ connection, submitLabel, onSaved }: CatKeyFormProps) {
   const { t } = useI18n()
   const [key, setKey] = useState(connection.catkey.key)
   const [error, setError] = useState<string | null>(null)
@@ -56,26 +55,14 @@ export function CatKeyForm({ connection, submitLabel, onSaved, onBack }: CatKeyF
         </p>
       )}
 
-      <div className="flex gap-3">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={testing}
-            className="rounded-2xl bg-bg-primary/50 px-6 py-4 text-sm font-medium text-text-secondary transition-all hover:bg-bg-tertiary hover:text-text-primary active:scale-95 disabled:opacity-50"
-          >
-            {t('connection.back')}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={testing}
-          className="flex-1 rounded-2xl bg-accent px-6 py-4 text-sm font-medium text-bg-primary shadow-md shadow-accent/10 transition-all hover:bg-accent/90 active:scale-95 disabled:opacity-50"
-        >
-          {testing ? t('connection.testing') : submitLabel}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={testing}
+        className="w-full rounded-2xl bg-accent px-6 py-4 text-sm font-medium text-bg-primary shadow-md shadow-accent/10 transition-colors duration-200 ease-ui hover:bg-accent/90 active:scale-95 disabled:opacity-50"
+      >
+        {testing ? t('connection.testing') : submitLabel}
+      </button>
     </div>
   )
 }

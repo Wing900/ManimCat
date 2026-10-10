@@ -24,6 +24,14 @@ const MODE_LABEL_KEYS = {
 export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettingsProps) {
   const { t } = useI18n()
   const [mode, setMode] = useState<ConnectionMode>(connection.activeMode ?? 'catkey')
+  const [direction, setDirection] = useState<'left' | 'right'>('right')
+
+  // 药丸往哪边滑，下面的表单就从哪边进来，两步读成一个动作。
+  const selectMode = (next: ConnectionMode) => {
+    if (next === mode) return
+    setDirection(next === 'byok' ? 'right' : 'left')
+    setMode(next)
+  }
 
   const disconnect = () => onSaved({ ...connection, activeMode: null })
 
@@ -43,7 +51,7 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
             <button
               key={item}
               type="button"
-              onClick={() => setMode(item)}
+              onClick={() => selectMode(item)}
               aria-pressed={active}
               className={`relative flex-1 rounded-xl px-4 py-2.5 text-sm transition-colors duration-200 ease-ui ${
                 active ? 'font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
@@ -55,29 +63,32 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
         })}
       </div>
 
-      {mode === 'catkey' && (
-        <>
-          {connection.activeMode === 'catkey' && (
-            <div className="flex items-center justify-between rounded-2xl bg-bg-secondary/50 px-4 py-3">
-              <span className="text-sm text-text-primary">{t('connection.catkey.status.connected')}</span>
-              <button
-                type="button"
-                onClick={disconnect}
-                className="text-sm font-medium text-red-600 transition-colors duration-200 ease-ui hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-              >
-                {t('connection.catkey.disconnect')}
-              </button>
-            </div>
-          )}
-          <CatKeyForm
-            connection={connection}
-            submitLabel={t('connection.catkey.verifyAndSave')}
-            onSaved={onSaved}
-          />
-        </>
-      )}
+      {/* 换模式 = 换表单，所以这里重挂；顺带把上一张表单的校验报错也清掉，方向交给上面的 direction。 */}
+      <div key={mode} className={direction === 'right' ? 'panel-in-right' : 'panel-in-left'}>
+        {mode === 'catkey' && (
+          <div className="space-y-8">
+            {connection.activeMode === 'catkey' && (
+              <div className="flex items-center justify-between rounded-2xl bg-bg-secondary/50 px-4 py-3">
+                <span className="text-sm text-text-primary">{t('connection.catkey.status.connected')}</span>
+                <button
+                  type="button"
+                  onClick={disconnect}
+                  className="text-sm font-medium text-red-600 transition-colors duration-200 ease-ui hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  {t('connection.catkey.disconnect')}
+                </button>
+              </div>
+            )}
+            <CatKeyForm
+              connection={connection}
+              submitLabel={t('connection.catkey.verifyAndSave')}
+              onSaved={onSaved}
+            />
+          </div>
+        )}
 
-      {mode === 'byok' && <ByokForm connection={connection} onSaved={onSaved} />}
+        {mode === 'byok' && <ByokForm connection={connection} onSaved={onSaved} />}
+      </div>
     </div>
   )
 }

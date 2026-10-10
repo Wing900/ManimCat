@@ -290,9 +290,16 @@ select option:checked {
 @keyframes panel-in { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
 .panel-in { animation: panel-in 0.26s var(--ease-move) both; }
 
+/* 同一层里左右两格互切（CatKey / BYOK、弹窗的选择→表单）：新内容从它对应的那一侧进来，
+   方向跟着手指走，接上药丸的位移。 */
+@keyframes panel-in-right { 0% { opacity: 0; transform: translateX(10px); } 100% { opacity: 1; transform: translateX(0); } }
+@keyframes panel-in-left { 0% { opacity: 0; transform: translateX(-10px); } 100% { opacity: 1; transform: translateX(0); } }
+.panel-in-right { animation: panel-in-right 0.26s var(--ease-move) both; }
+.panel-in-left { animation: panel-in-left 0.26s var(--ease-move) both; }
+
 @media (prefers-reduced-motion: reduce) {
   .page-slide-in, .page-slide-out, .page-assemble [data-assemble], .page-home-leave,
-  .menu-in, .panel-in, [data-assemble] { animation: none !important; }
+  .menu-in, .panel-in, .panel-in-right, .panel-in-left, [data-assemble] { animation: none !important; }
 }
 
 /* ==========================================================

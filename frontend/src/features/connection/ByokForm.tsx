@@ -14,10 +14,9 @@ import { useConnectionTest } from './use-connection-test'
 interface ByokFormProps {
   connection: ConnectionSettings
   onSaved: (connection: ConnectionSettings) => void
-  onBack?: () => void
 }
 
-export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
+export function ByokForm({ connection, onSaved }: ByokFormProps) {
   const { t } = useI18n()
   const [provider, setProvider] = useState(connection.byok.provider)
   const [apiKey, setApiKey] = useState(connection.byok.apiKey)
@@ -47,22 +46,19 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
     },
   })
 
-  const handleTest = async () => {
+  /**
+   * One action, and it is not a way around the check: the credentials are proven against
+   * `/api/access/verify` first, and only a proven set is written. There is deliberately no plain
+   * "save" — a half-working provider must not be able to walk through the door.
+   */
+  const handleSubmit = async () => {
     setError(null)
     if (!complete) {
       setError(t('connection.test.requiredUrlKeyModel'))
       return
     }
-    await verify(build())
-  }
-
-  const handleSave = () => {
-    setError(null)
-    if (!complete) {
-      setError(t('connection.test.requiredUrlKeyModel'))
-      return
-    }
-    onSaved(build())
+    const next = build()
+    if (await verify(next)) onSaved(next)
   }
 
   const changeProvider = (next: 'openai-compatible' | 'google') => {
@@ -143,34 +139,14 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
         </p>
       )}
 
-      <div className="flex gap-3">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={testing}
-            className="rounded-2xl bg-bg-primary/50 px-6 py-4 text-sm font-medium text-text-secondary transition-colors duration-200 ease-ui hover:bg-bg-tertiary hover:text-text-primary active:scale-95 disabled:opacity-50"
-          >
-            {t('connection.back')}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleTest}
-          disabled={testing}
-          className="rounded-2xl bg-bg-secondary/50 px-6 py-4 text-sm font-medium text-text-primary transition-colors duration-200 ease-ui hover:bg-bg-tertiary active:scale-95 disabled:opacity-50"
-        >
-          {testing ? t('connection.testing') : t('connection.byok.test')}
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={testing}
-          className="flex-1 rounded-2xl bg-accent px-6 py-4 text-sm font-medium text-bg-primary shadow-md shadow-accent/10 transition-colors duration-200 ease-ui hover:bg-accent/90 active:scale-95 disabled:opacity-50"
-        >
-          {t('connection.byok.save')}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={testing}
+        className="w-full rounded-2xl bg-accent px-6 py-4 text-sm font-medium text-bg-primary shadow-md shadow-accent/10 transition-colors duration-200 ease-ui hover:bg-accent/90 active:scale-95 disabled:opacity-50"
+      >
+        {testing ? t('connection.testing') : t('connection.byok.testAndSave')}
+      </button>
     </div>
   )
 }
