@@ -104,17 +104,28 @@ export async function runApiRagTests(): Promise<void> {
 
   await run('Search Catalog registration is driven by the committed data', async () => {
     assert.equal(readSearchCatalogSync('manim') !== null, true)
-    // Plot stays unregistered until its Search Catalog is written.
-    assert.equal(readSearchCatalogSync('matplotlib'), null)
+    assert.equal(readSearchCatalogSync('matplotlib') !== null, true)
     assert.match(searchCatalogPath('manim').replace(/\\/g, '/'), /data\/api-catalog\/manim\/search\.json$/)
+    assert.match(searchCatalogPath('matplotlib').replace(/\\/g, '/'), /data\/api-catalog\/matplotlib\/search\.json$/)
 
     const service = new ApiRagService({
       embedding: createDeterministicEmbedding(),
       packages: ['manim', 'matplotlib']
     })
-    assert.deepEqual(service.registeredPackages, ['manim'])
-    assert.equal(service.isRegistered('matplotlib'), false)
-    await assert.rejects(() => service.search('matplotlib', { query: 'draw a line' }), /not registered/)
+    assert.deepEqual(service.registeredPackages, ['manim', 'matplotlib'])
+    await service.ready()
+    const plot = await service.search('matplotlib', { query: 'draw a line' })
+    assert.equal(plot.packageName, 'matplotlib')
+    assert.equal(plot.candidates.length, API_RAG_TOP_K)
+
+    // A package whose catalog file is absent is simply not registered.
+    const single = new ApiRagService({
+      embedding: createDeterministicEmbedding(),
+      packages: ['manim']
+    })
+    assert.deepEqual(single.registeredPackages, ['manim'])
+    assert.equal(single.isRegistered('matplotlib'), false)
+    await assert.rejects(() => single.search('matplotlib', { query: 'draw a line' }), /not registered/)
   })
 
   await run('cosine retriever normalizes, ranks and rejects a dimension mismatch', async () => {

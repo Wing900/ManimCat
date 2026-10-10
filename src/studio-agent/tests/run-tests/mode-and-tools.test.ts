@@ -143,10 +143,10 @@ export async function runModeAndToolTests(): Promise<void> {
     const bare = createSharedStudioTools().map((tool) => tool.name)
     assert.deepEqual(bare, ['read', 'glob', 'grep', 'ls', 'write', 'edit'])
 
-    // Only a package with a Search Catalog gets a search_api, and each one owns one Studio kind.
+    // Every registered package owns one Studio kind: manim for scenes, plot for figures.
     const tools = createSharedStudioTools({ apiRagService: getApiRagService() })
     const searchTools = tools.filter((tool) => tool.name === 'search_api')
-    assert.deepEqual(searchTools.map((tool) => tool.allowedStudioKinds), [['manim']])
+    assert.deepEqual(searchTools.map((tool) => tool.allowedStudioKinds), [['manim'], ['plot']])
     assert.ok(searchTools.every((tool) => tool.allowedAgents.includes('builder')))
   })
 
