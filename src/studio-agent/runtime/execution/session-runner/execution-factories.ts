@@ -1,5 +1,6 @@
 import { createStudioOpenAIToolLoop } from '../../../orchestration/openai-tool-loop/controller'
 import { readRunElapsedMs } from '../../../infrastructure/telemetry/studio-telemetry'
+import { recordTokenUsage } from '../../../../access'
 import type { CustomApiConfig } from '../../../../types'
 import type { StudioModelPort } from '../../../model/studio-model-port'
 import type { StudioToolChoice } from '../../../domain/types'
@@ -67,6 +68,19 @@ export function createAgentLoopExecution(
           sessionId: input.prepared.input.session.id,
           run: nextRun
         })
+
+        // The checkpoint that persists `token_usage` onto the Run also writes the CatKey ledger, so
+        // the two can never disagree about how much this Run has spent. Step-boundary checkpoints
+        // carry metadata only and are skipped. BYOK runs have no catKeyId and write nothing.
+        if (patch.tokenUsage) {
+          await recordTokenUsage({
+            catKeyId: input.prepared.input.catKeyId,
+            model: input.customApiConfig?.model ?? '',
+            sourceKind: 'studio_run',
+            sourceId: nextRun.id,
+            totals: patch.tokenUsage
+          })
+        }
       }
     })
   }

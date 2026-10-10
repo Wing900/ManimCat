@@ -59,6 +59,8 @@ export interface StudioSceneRunRequestInput {
   ownerId: string
   /** The connection that produced this request; CatKey config may not be overridden. */
   mode: ConnectionMode
+  /** Forwarded to the Run so its token-usage checkpoint can write the CatKey ledger. */
+  catKeyId?: string
   sessionId: string
   sceneId: string
   body: unknown
@@ -131,6 +133,7 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
     // before the agent starts, so the agent always reads what the user is actually looking at.
     sceneSources: parsed.code,
     customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
+    catKeyId: input.catKeyId,
     toolChoice: parsed.toolChoice
   })
 

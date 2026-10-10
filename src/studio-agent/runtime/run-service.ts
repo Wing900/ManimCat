@@ -45,16 +45,28 @@ export interface StudioStartRunInput {
    */
   sceneSources?: Record<string, string>
   customApiConfig?: CustomApiConfig
+  /**
+   * The CatKey paying for this Run, or undefined for BYOK.
+   *
+   * Carried so the checkpoint that persists `token_usage` can also write the CatKey ledger. The
+   * id is not a credential: the Studio side never authenticates upstream, it only says who to bill.
+   */
+  catKeyId?: string
   modelPort?: StudioModelPort
   toolChoice?: StudioToolChoice
 }
 
+/**
+ * Continue an existing Run. The continuation inherits the source Run's CatKey, because the work it
+ * pays for belongs to the same browser that started it.
+ */
 export interface StudioContinueRunInput {
   ownerId: string
   projectId: string
   sourceRunId: string
   inputText?: string
   customApiConfig?: CustomApiConfig
+  catKeyId?: string
   modelPort?: StudioModelPort
   toolChoice?: StudioToolChoice
 }
@@ -215,6 +227,7 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       sceneId: sourceRun.sceneId,
       inputText: runInput.inputText?.trim() || buildStudioContinueInputText(autonomy.stopReason),
       customApiConfig: runInput.customApiConfig,
+      catKeyId: runInput.catKeyId,
       modelPort: runInput.modelPort,
       toolChoice: runInput.toolChoice,
       runMetadata: buildStudioContinuationRunMetadata({

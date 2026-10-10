@@ -28,6 +28,7 @@ import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/infrastructu
 import { requireStudioPrincipal } from '../studio-agent/auth/principal'
 import { createLogger } from '../shared/logging/logger'
 import { requireAccessContext } from '../http/access-context'
+import type { AccessContext } from '../access'
 import { getStudioTelemetry, readElapsedMs } from '../studio-agent/infrastructure/telemetry/studio-telemetry'
 import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
 import {
@@ -41,6 +42,16 @@ import {
 
 const router = express.Router()
 const logger = createLogger('StudioAgentRoute')
+
+/**
+ * The CatKey that pays for this request, or undefined for BYOK.
+ *
+ * Studio never authenticates upstream, so all it needs from the connection is who to bill; the
+ * recorder treats an absent id as "do not meter".
+ */
+function readCatKeyId(accessContext: AccessContext): string | undefined {
+  return accessContext.mode === 'catkey' ? accessContext.catKeyId : undefined
+}
 
 /**
  * Wired dependencies of the Scene endpoints. The route authenticates and validates the path
@@ -290,6 +301,7 @@ router.post('/studio-agent/sessions/:sessionId/scenes/:sceneId/runs', accessMidd
     sceneId: params.sceneId,
     body: req.body,
     routedCustomApiConfig: accessContext.providerConfig,
+    catKeyId: readCatKeyId(accessContext),
     deps: studioSceneRouteDependencies,
   })
 }))
@@ -333,6 +345,7 @@ router.post('/studio-agent/runs', accessMiddleware, asyncHandler(async (req, res
     session,
     inputText,
     customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
+    catKeyId: readCatKeyId(accessContext),
     toolChoice: parsed.toolChoice
   })
 
@@ -398,6 +411,7 @@ router.post('/studio-agent/runs/:runId/continue', accessMiddleware, asyncHandler
     sourceRunId: req.params.runId,
     inputText: parsed.inputText,
     customApiConfig: customApiConfigResolution.effectiveCustomApiConfig,
+    catKeyId: readCatKeyId(accessContext),
     toolChoice: parsed.toolChoice
   })
 

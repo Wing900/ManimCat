@@ -40,6 +40,8 @@ export interface StudioRunRequestInput {
   sceneId?: string
   inputText: string
   customApiConfig?: CustomApiConfig
+  /** Forwarded verbatim so the token-usage checkpoint can write the CatKey ledger. */
+  catKeyId?: string
   modelPort?: StudioModelPort
   toolChoice?: StudioToolChoice
   runMetadata?: Record<string, unknown>
