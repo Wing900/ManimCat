@@ -42,7 +42,8 @@ function shouldShowProviderConfigHint(message: string | null): boolean {
   }
 
   return (
-    message.includes('MANIMCAT_ROUTE_API_URLS') ||
+    message.includes('自定义 API 配置不完整') ||
+    message.includes('incomplete provider configuration') ||
     message.includes('未配置上游 AI') ||
     message.includes('model 为空') ||
     message.includes('no upstream AI is configured') ||

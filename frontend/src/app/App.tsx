@@ -7,7 +7,7 @@ import { useGame2048 } from '../features/workflow/hooks/useGame2048';
 import { useTabTitle } from '../shared/hooks/useTabTitle';
 import { AiModifyModal } from '../features/workflow/components/AiModifyModal';
 import { SettingsModal } from '../features/provider-settings/SettingsModal';
-import { DonationModal } from '../features/provider-settings/DonationModal';
+import { DonationModal } from '../features/donation/DonationModal';
 import { ProviderConfigModal } from '../features/provider-settings/ProviderConfigModal';
 import { PromptSettings } from '../features/prompts/PromptSettings';
 import { StudioPage } from './routes/StudioPage';

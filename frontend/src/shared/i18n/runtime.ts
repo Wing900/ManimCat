@@ -42,8 +42,17 @@ export function localizeApiMessage(message: string): string {
   if (message.includes('无效的 API 密钥')) {
     return 'Invalid API key.';
   }
-  if (message.includes('服务未配置 MANIMCAT_ROUTE_KEYS')) {
-    return 'The service is not configured with MANIMCAT_ROUTE_KEYS.';
+  if (message.includes('无法识别的 API 密钥格式')) {
+    return 'Unrecognized API key format. Use a CatKey (mc_…) or a local BYOK id (byok_…).';
+  }
+  if (message.includes('该 CatKey 已被停用')) {
+    return 'This CatKey has been revoked.';
+  }
+  if (message.includes('服务端未配置 CatKey 上游')) {
+    return 'The service has no CatKey upstream configured.';
+  }
+  if (message.includes('自定义 API 配置不完整')) {
+    return 'Incomplete provider configuration: apiUrl, apiKey and model are all required.';
   }
   if (message.includes('任务已失效')) {
     return 'The job expired, possibly after a server restart. Please submit it again.';
