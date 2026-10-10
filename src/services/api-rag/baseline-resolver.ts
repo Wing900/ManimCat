@@ -30,6 +30,12 @@ interface ResolvedMember {
   member: ApiCatalogMemberRecord
 }
 
+/** One symbol reference and every canonical tied with it at the best rank level. */
+interface SymbolMatch {
+  path: string
+  tied: string[]
+}
+
 function normalize(reference: string): string {
   return reference.trim().replace(/\(.*$/, '').trim().toLowerCase()
 }
@@ -50,14 +56,32 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
   const isModulePath = (canonical: string): boolean => catalog.symbols[canonical]?.kind === 'module'
 
   /**
-   * Candidate order for one lowercase key: a class beats the module of the same name,
-   * and a shorter path beats a deeper alias. `axes` must reach `matplotlib.axes.Axes`
-   * even though the `matplotlib.axes` module claims the same lowercase key.
+   * Rank level of one candidate: a class beats the module of the same name, and a shorter path
+   * beats a deeper alias. Two candidates on the same level have no principled winner between them.
    */
+  function rankLevel(canonical: string): string {
+    const moduleRank = isModulePath(canonical) ? '1' : '0'
+    return `${moduleRank}:${String(canonical.split('.').length).padStart(3, '0')}`
+  }
+
   function pickOrder(canonical: string): string {
-    const symbol = catalog.symbols[canonical]
-    const moduleRank = symbol?.kind === 'module' ? '1' : '0'
-    return `${moduleRank}:${String(canonical.split('.').length).padStart(3, '0')}:${canonical}`
+    return `${rankLevel(canonical)}:${canonical}`
+  }
+
+  /** The best candidate among every bucket, plus every candidate tied with it. */
+  function matchOf(candidates: readonly string[]): SymbolMatch | undefined {
+    const ranked = [...new Set(candidates)].sort((left, right) =>
+      pickOrder(left).localeCompare(pickOrder(right))
+    )
+    const canonical = ranked[0]
+    if (!canonical) {
+      return undefined
+    }
+    const level = rankLevel(canonical)
+    return {
+      path: canonical,
+      tied: ranked.filter((candidate) => rankLevel(candidate) === level)
+    }
   }
 
   function indexPath(key: string, canonical: string): void {
@@ -128,7 +152,7 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
     return actualName ? members[actualName] : undefined
   }
 
-  function symbolFor(reference: string): ApiCatalogSymbolRecord | undefined {
+  function symbolMatch(reference: string): SymbolMatch | undefined {
     const trimmed = reference.trim()
     const clean = normalize(trimmed)
     if (!clean) {
@@ -137,18 +161,21 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
 
     const exact = exactIndex.get(trimmed) ?? exactIndex.get(trimmed.replace(/\(.*$/, '').trim())
     if (exact) {
-      return catalog.symbols[exact]
+      return { path: exact, tied: [exact] }
     }
 
-    const direct = pathIndex.get(clean)?.[0] ?? pathIndex.get(`${packagePrefix}${clean}`)?.[0]
-    if (direct) {
-      return catalog.symbols[direct]
-    }
+    // Every bucket competes together: a bare `axes` may be a module path, a class short name and a
+    // function short name at once, and only ranking them side by side exposes the tie.
+    return matchOf([
+      ...(pathIndex.get(`${packagePrefix}${clean}`) ?? []),
+      ...(pathIndex.get(clean) ?? []),
+      ...(shortNameIndex.get(clean) ?? [])
+    ])
+  }
 
-    // A short name resolves to the first candidate the index ranks, so `Axes` reaches the
-    // class while `axes` as a module path still resolves through the exact path above.
-    const shortMatch = shortNameIndex.get(clean)?.[0]
-    return shortMatch ? catalog.symbols[shortMatch] : undefined
+  function symbolFor(reference: string): ApiCatalogSymbolRecord | undefined {
+    const match = symbolMatch(reference)
+    return match ? catalog.symbols[match.path] : undefined
   }
 
   function memberFor(reference: string): ResolvedMember | undefined {
@@ -217,6 +244,11 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
     resolve,
     verify(reference): VerificationEntry {
       const requested = reference.trim()
+      const match = symbolMatch(requested)
+      if (match && match.tied.length > 1) {
+        return { requested, verdict: 'AMBIGUOUS', candidates: match.tied }
+      }
+
       const resolved = resolve(requested)
       if (!resolved) {
         return { requested, verdict: 'NOT_FOUND' }

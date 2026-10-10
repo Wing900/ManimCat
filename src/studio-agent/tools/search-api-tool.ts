@@ -29,8 +29,8 @@ export function createStudioSearchApiTool(
     name: SEARCH_API_TOOL_NAME,
     parameters: searchApiToolParameters,
     description:
-      'Search the verified API catalog before writing code that calls it. ' +
-      'Never call an API the result does not name.',
+      'Search the verified API catalog before writing code that calls it. Never call an API the ' +
+      'result does not name, and pick from the APIs an ambiguous name lists.',
     allowedAgents: ['builder'],
     allowedStudioKinds: [studioKind],
     execute: async (input) => {
@@ -44,6 +44,7 @@ export function createStudioSearchApiTool(
         symbols: input?.symbols ?? []
       })
       const found = result.verification.filter((entry) => entry.verdict === 'FOUND').length
+      const ambiguous = result.verification.filter((entry) => entry.verdict === 'AMBIGUOUS').length
 
       return {
         title: `API search: ${studioKind}`,
@@ -53,7 +54,8 @@ export function createStudioSearchApiTool(
           packageVersion: result.packageVersion,
           query: result.query,
           verified: found,
-          notFound: result.verification.length - found,
+          ambiguous,
+          notFound: result.verification.length - found - ambiguous,
           candidates: result.candidates.length
         }
       } satisfies StudioToolResult

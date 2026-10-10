@@ -58,11 +58,14 @@ export type SearchCatalog = Record<string, string>
 
 export interface VerificationEntry {
   requested: string
-  verdict: 'FOUND' | 'NOT_FOUND'
+  /** AMBIGUOUS means several equally good APIs share the requested name: pick from `candidates`. */
+  verdict: 'FOUND' | 'NOT_FOUND' | 'AMBIGUOUS'
   canonicalSymbol?: string
   kind?: string
   owner?: string
   signature?: string
+  /** Canonical paths that share the request with equal rank. Present on AMBIGUOUS. */
+  candidates?: string[]
 }
 
 export interface CandidateEntry {

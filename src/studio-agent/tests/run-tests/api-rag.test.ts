@@ -35,6 +35,8 @@ function createDeterministicEmbedding(): EmbeddingModel {
   }
 }
 
+
+
 export async function runApiRagTests(): Promise<void> {
   await run('baseline catalog loads from data/api-catalog and matches its package', async () => {
     const catalog = await loadBaselineCatalog('manim')
@@ -176,6 +178,31 @@ export async function runApiRagTests(): Promise<void> {
     await assert.rejects(() => service.search('manim', { query: '   ' }), /non-empty query/)
   })
 
+  await run('a name several APIs share is answered as AMBIGUOUS, never as FOUND', async () => {
+    const catalog = await loadBaselineCatalog('matplotlib')
+    const resolver = createBaselineResolver(catalog)
+
+    // matplotlib.artist.get and matplotlib.pyplot.get rank identically, so no rule may pick one.
+    const shared = resolver.verify('get')
+    assert.equal(shared.verdict, 'AMBIGUOUS')
+    assert.deepEqual(shared.candidates, ['matplotlib.artist.get', 'matplotlib.pyplot.get'])
+    assert.equal(shared.canonicalSymbol, undefined)
+
+    // A class and a function that share a name are ambiguous; an exact path never is.
+    assert.equal(resolver.verify('axes').verdict, 'AMBIGUOUS')
+    assert.deepEqual(resolver.verify('axes').candidates, [
+      'matplotlib.axes.Axes',
+      'matplotlib.pyplot.axes'
+    ])
+    assert.equal(resolver.verify('matplotlib.axes').verdict, 'FOUND')
+    assert.equal(resolver.verify('matplotlib.axes').canonicalSymbol, 'matplotlib.axes')
+
+    // A class still beats the module that shares its lowercase name, so Manim stays unambiguous.
+    const manim = createBaselineResolver(await loadBaselineCatalog('manim'))
+    assert.equal(manim.verify('axes').verdict, 'FOUND')
+    assert.equal(manim.verify('axes').canonicalSymbol, 'manim.Axes')
+  })
+
   await run('the search_api tool passes structured JSON to the Builder', async () => {
     const service = new ApiRagService({
       embedding: createDeterministicEmbedding(),
@@ -191,6 +218,15 @@ export async function runApiRagTests(): Promise<void> {
     assert.equal(payload.verification[0].verdict, 'FOUND')
     assert.equal(payload.candidates.length, API_RAG_TOP_K)
     assert.equal(result.metadata?.verified, 1)
+    assert.equal(result.metadata?.ambiguous, 0)
+    assert.equal(result.metadata?.notFound, 0)
+
+    const ambiguous = await tool.execute({ query: 'draw', symbols: ['SALMON'] }, {} as never)
+    const ambiguousPayload = JSON.parse(ambiguous.output) as { verification: Array<{ verdict: string }> }
+    assert.equal(ambiguousPayload.verification[0].verdict, 'AMBIGUOUS')
+    assert.equal(ambiguous.metadata?.verified, 0)
+    assert.equal(ambiguous.metadata?.ambiguous, 1)
+    assert.equal(ambiguous.metadata?.notFound, 0)
 
     await assert.rejects(() => tool.execute({ query: '  ' }, {} as never), /non-empty query/)
   })
