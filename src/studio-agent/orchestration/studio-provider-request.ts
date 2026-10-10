@@ -1,5 +1,6 @@
 import type OpenAI from 'openai'
-import { logPlotStudioTiming, readElapsedMs } from '../observability/plot-studio-timing'
+import type { StudioKind } from '../domain/core-types'
+import { getStudioTelemetry, readElapsedMs } from '../observability/studio-telemetry'
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = parsePositiveInteger(
   process.env.STUDIO_PROVIDER_REQUEST_TIMEOUT_MS,
@@ -21,7 +22,7 @@ export async function requestStudioChatCompletion(input: {
   runId: string
   step: number
   assistantMessageId: string
-  studioKind?: string
+  studioKind?: StudioKind
   runCreatedAt?: string
   requestMessageCount?: number
   requestMessageCharsApprox?: number
@@ -41,7 +42,7 @@ export async function requestStudioChatCompletion(input: {
       signal: input.signal,
     })
 
-    logPlotStudioTiming(input.studioKind, 'provider.completed', {
+    getStudioTelemetry().event({ studioKind: input.studioKind ?? 'manim', name: 'provider.completed', data: {
       sessionId: input.sessionId,
       runId: input.runId,
       step: input.step,
@@ -57,11 +58,11 @@ export async function requestStudioChatCompletion(input: {
       requestMessageCharsApprox: input.requestMessageCharsApprox ?? null,
       requestToolSchemaCharsApprox: input.requestToolSchemaCharsApprox ?? null,
       runElapsedMs: input.runCreatedAt ? readElapsedMs(new Date(input.runCreatedAt).getTime()) : null,
-    })
+    } })
 
     return completion
   } catch (error) {
-    logPlotStudioTiming(input.studioKind, 'provider.failed', {
+    getStudioTelemetry().event({ studioKind: input.studioKind ?? 'manim', name: 'provider.failed', data: {
       sessionId: input.sessionId,
       runId: input.runId,
       step: input.step,
@@ -73,7 +74,7 @@ export async function requestStudioChatCompletion(input: {
       requestMessageCharsApprox: input.requestMessageCharsApprox ?? null,
       requestToolSchemaCharsApprox: input.requestToolSchemaCharsApprox ?? null,
       runElapsedMs: input.runCreatedAt ? readElapsedMs(new Date(input.runCreatedAt).getTime()) : null,
-    }, 'warn')
+    }, level: 'warn' })
     throw error
   }
 }

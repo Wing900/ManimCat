@@ -17,6 +17,8 @@ import {
 import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
 import { getApiRagService } from './services/api-rag'
+import { setStudioTelemetry } from './studio-agent/observability/studio-telemetry'
+import { createPlotStudioTelemetryAdapter } from './studio-agent/observability/plot-studio-timing'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
 
 // 导入队列处理器以启动 worker
@@ -68,6 +70,10 @@ async function startServer(): Promise<void> {
     // listener opens: a missing or malformed catalog must abort startup instead of
     // leaving the product able to answer with invented APIs.
     await getApiRagService().ready()
+
+    // The shared Runtime emits neutral telemetry events; the Matplotlib adapter wires them
+    // to the existing Chinese-label logger and console timeline.
+    setStudioTelemetry(createPlotStudioTelemetryAdapter())
 
     if (!stopMediaCleanupScheduler) {
       stopMediaCleanupScheduler = startMediaCleanupScheduler()

@@ -10,7 +10,7 @@ import type { StudioToolRegistry } from '../../tools/registry'
 import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
 import type { StudioRunExecutionScope } from '../../domain/run-execution-scope'
 import { buildStudioPreToolCommentary } from './pre-tool-commentary'
-import { logPlotStudioTiming, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { getStudioTelemetry, readRunElapsedMs } from '../../observability/studio-telemetry'
 import { WorkspacePathError } from '../../tools/workspace-paths'
 import { StudioWorkspaceWriteDeniedError } from '../../tools/workspace-access-policy'
 
@@ -164,7 +164,7 @@ function logDetectedToolFailure(
     denialReason?: string
   }
 ): void {
-  logPlotStudioTiming(input.session.studioKind, 'tool.failure.detected', {
+  getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failure.detected', data: {
     sessionId: input.session.id,
     runId: input.run.id,
     assistantMessageId: input.assistantMessage.id,
@@ -183,7 +183,7 @@ function logDetectedToolFailure(
     denialReason: details.denialReason,
     inputSummary: summarizeToolInput(input.toolInput),
     runElapsedMs: readRunElapsedMs(input.run),
-  }, 'warn')
+  }, level: 'warn' })
 }
 
 function toWorkspacePathFailureDetails(error: unknown): {

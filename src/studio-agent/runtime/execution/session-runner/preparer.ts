@@ -1,6 +1,6 @@
 import { InMemoryStudioEventBus } from '../../../events/event-bus'
 import { createStudioUserMessage } from '../../../domain/factories'
-import { logPlotStudioTiming, readElapsedMs } from '../../../observability/plot-studio-timing'
+import { getStudioTelemetry, readElapsedMs } from '../../../observability/studio-telemetry'
 import { buildStudioRenderContext } from '../render-context'
 import { loadStudioRunExecutionScope } from '../run-execution-scope-loader'
 import type { StudioRenderContext, StudioSession } from '../../../domain/types'
@@ -57,13 +57,13 @@ export async function prepareRun(
   )
   const eventBus = deps.sharedEventBus ?? new InMemoryStudioEventBus()
 
-  logPlotStudioTiming(input.session.studioKind, 'run.started', {
+  getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'run.started', data: {
     sessionId: input.session.id,
     runId: persistedRun.id,
     assistantMessageId: assistantMessage.id,
     prepareDurationMs: readElapsedMs(prepareStartedAt),
     hasCustomApiConfig: hasUsableCustomApiConfig(input.customApiConfig),
-  })
+  } })
 
   const runningRun = deps.runStore
     ? await deps.runStore.update(input.session.ownerId, persistedRun.id, { status: 'running' }) ?? { ...persistedRun, status: 'running' }

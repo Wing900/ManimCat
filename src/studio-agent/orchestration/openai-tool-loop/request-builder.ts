@@ -1,6 +1,6 @@
 import type { StudioAssistantMessage } from '../../domain/types'
 import { createOpenAICompatibleStudioModelAdapter } from '../../model/studio-model-port'
-import { logTimeline } from '../../observability/plot-studio-timing'
+import { getStudioTelemetry } from '../../observability/studio-telemetry'
 import { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
 import { listStudioMessagesForRun } from '../../runs/message-selection'
 import type { StudioTokenUsageTracker } from '../../runs/studio-token-usage-tracker'
@@ -78,7 +78,7 @@ export async function requestStudioLoopStep(input: {
     request: input.request,
     step: input.step
   })
-  logTimeline(input.loopInput.session.studioKind, 'step.started', `step ${input.step + 1}, ${input.runtime.conversation.length} msgs`)
+  getStudioTelemetry().timeline({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.started', detail: `step ${input.step + 1}, ${input.runtime.conversation.length} msgs` })
 
   // One provider invocation, one usage increment, checkpointed before the loop continues.
   const completion = await input.usageTracker.trackProviderCall({
@@ -116,11 +116,7 @@ export async function requestStudioLoopStep(input: {
     step: input.step,
     stepStartedAt: input.stepStartedAt
   })
-  logTimeline(
-    input.loopInput.session.studioKind,
-    'step.response',
-    `${choice?.finish_reason ?? 'unknown'}, ${result.toolCalls.length} toolCalls`
-  )
+  getStudioTelemetry().timeline({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.response', detail: `${choice?.finish_reason ?? 'unknown'}, ${result.toolCalls.length} toolCalls` })
 
   return result
 }

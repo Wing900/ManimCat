@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import type { StudioAgentEvent } from '../../studio-agent/domain/types'
 import type { StudioExternalEvent } from '../../studio-agent/events/studio-event-adapter'
-import { logPlotStudioTiming, logTimeline } from '../../studio-agent/observability/plot-studio-timing'
+import { getStudioTelemetry } from '../../studio-agent/observability/studio-telemetry'
 
 /**
  * Shared Server-Sent Events lifecycle for the Studio event streams.
@@ -79,10 +79,10 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
     try {
       release()
     } catch (error) {
-      logPlotStudioTiming('matplotlib', 'events.stream.unsubscribe_failed', {
+      getStudioTelemetry().event({ studioKind: 'matplotlib', name: 'events.stream.unsubscribe_failed', data: {
         ...logContext,
         reason: sanitizeReason(error)
-      }, 'warn')
+      }, level: 'warn' })
     }
   }
 
@@ -104,8 +104,8 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
       releaseSubscription(release)
     }
 
-    logPlotStudioTiming('matplotlib', 'events.client.disconnected', logContext)
-    logTimeline('matplotlib', 'sse.disconnected')
+    getStudioTelemetry().event({ studioKind: 'matplotlib', name: 'events.client.disconnected', data: logContext })
+    getStudioTelemetry().timeline({ studioKind: 'matplotlib', name: 'sse.disconnected' })
 
     try {
       res.end()
@@ -136,7 +136,7 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
       res.write(`data: ${JSON.stringify(payload)}\n\n`)
       return true
     } catch (error) {
-      logPlotStudioTiming('matplotlib', failureLog, { ...logContext, reason: sanitizeReason(error) }, 'warn')
+      getStudioTelemetry().event({ studioKind: 'matplotlib', name: failureLog, data: { ...logContext, reason: sanitizeReason(error) }, level: 'warn' })
       teardown()
       return false
     }
@@ -148,8 +148,8 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders?.()
 
-    logPlotStudioTiming('matplotlib', 'events.client.connected', logContext)
-    logTimeline('matplotlib', 'sse.connected')
+    getStudioTelemetry().event({ studioKind: 'matplotlib', name: 'events.client.connected', data: logContext })
+    getStudioTelemetry().timeline({ studioKind: 'matplotlib', name: 'sse.connected' })
 
     heartbeatHandle = clock.setInterval(() => {
       if (closed) {
@@ -200,7 +200,7 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
   } catch (error) {
     // Setup failed before the protocol was established: the caller's status line may still be
     // writable, so the route keeps responsibility for any JSON error and this helper only releases.
-    logPlotStudioTiming('matplotlib', 'events.stream.setup_failed', { ...logContext, reason: sanitizeReason(error) }, 'warn')
+    getStudioTelemetry().event({ studioKind: 'matplotlib', name: 'events.stream.setup_failed', data: { ...logContext, reason: sanitizeReason(error) }, level: 'warn' })
     teardown()
   }
 }

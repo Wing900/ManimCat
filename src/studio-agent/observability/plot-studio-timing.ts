@@ -1,4 +1,5 @@
 import { createLogger } from '../../utils/logger'
+import type { StudioTelemetry, StudioTelemetryEvent } from './studio-telemetry'
 
 const logger = createLogger('PlotStudioTiming')
 const IMPORTANT_PLOT_STUDIO_EVENTS = new Set([
@@ -68,21 +69,20 @@ export function logPlotStudioTiming(
   })
 }
 
-export function readElapsedMs(startedAt: number): number {
-  return Math.max(0, Date.now() - startedAt)
-}
-
-export function readRunElapsedMs(run: { createdAt?: string }): number | null {
-  if (!run.createdAt) {
-    return null
+/**
+ * The Matplotlib-specific telemetry adapter: Chinese labels, important-event filtering and
+ * the console timeline. Installed once at startup so the shared Runtime can emit neutral
+ * events without knowing any of this.
+ */
+export function createPlotStudioTelemetryAdapter(): StudioTelemetry {
+  return {
+    event({ studioKind, name, data, level }: StudioTelemetryEvent) {
+      logPlotStudioTiming(studioKind, name, data ?? {}, level)
+    },
+    timeline({ studioKind, name, detail }: StudioTelemetryEvent & { detail?: string }) {
+      logTimeline(studioKind, name, detail)
+    }
   }
-
-  const createdAt = new Date(run.createdAt).getTime()
-  if (!Number.isFinite(createdAt)) {
-    return null
-  }
-
-  return Math.max(0, Date.now() - createdAt)
 }
 
 function toChinesePlotStudioEventLabel(event: string): string {

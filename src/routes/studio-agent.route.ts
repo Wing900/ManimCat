@@ -28,7 +28,7 @@ import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/workspace/de
 import { requireStudioPrincipal } from '../studio-agent/auth/principal'
 import { createLogger } from '../utils/logger'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
-import { logPlotStudioTiming, logTimeline, readElapsedMs } from '../studio-agent/observability/plot-studio-timing'
+import { getStudioTelemetry, readElapsedMs } from '../studio-agent/observability/studio-telemetry'
 import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
 import {
   toPublicStudioEvent,
@@ -318,14 +318,14 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     routedCustomApiConfig
   })
 
-  logPlotStudioTiming(session.studioKind, 'http.run.requested', {
+  getStudioTelemetry().event({ studioKind: session.studioKind ?? 'manim', name: 'http.run.requested', data: {
     sessionId,
     projectId,
     inputLength: inputText.length,
     hasCustomApiConfig: customApiConfigResolution.hasUsableCustomApiConfig,
     routeByManimcatKey: customApiConfigResolution.routeByManimcatKey,
-  })
-  logTimeline(session.studioKind, 'run.requested', JSON.stringify(inputText.slice(0, 20)))
+  } })
+  getStudioTelemetry().timeline({ studioKind: session.studioKind ?? 'manim', name: 'run.requested', detail: JSON.stringify(inputText.slice(0, 20)) })
 
   const started = await studioRuntime.startRun({
     ownerId: principal.ownerId,
@@ -360,13 +360,13 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     })
   }
 
-  logPlotStudioTiming(session.studioKind, 'http.run.accepted', {
+  getStudioTelemetry().event({ studioKind: session.studioKind ?? 'manim', name: 'http.run.accepted', data: {
     sessionId,
     runId: started.run.id,
     assistantMessageId: started.assistantMessage.id,
     durationMs: readElapsedMs(requestStartedAt),
-  })
-  logTimeline(session.studioKind, 'run.accepted', started.run.id)
+  } })
+  getStudioTelemetry().timeline({ studioKind: session.studioKind ?? 'manim', name: 'run.accepted', detail: started.run.id })
 
   const snapshot = await studioRuntime.getSessionSnapshot(principal.ownerId, session.id)
   if (!snapshot) {

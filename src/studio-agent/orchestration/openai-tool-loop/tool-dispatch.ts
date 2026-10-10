@@ -2,7 +2,7 @@ import type { StudioProcessorStreamEvent } from '../../domain/types'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 import { buildStudioPreToolCommentary } from '../../runtime/tools/pre-tool-commentary'
 import { createStudioToolCallExecutionEvents } from '../../runtime/tools/tool-call-adapter'
-import { logPlotStudioTiming, logTimeline, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { getStudioTelemetry, readRunElapsedMs } from '../../observability/studio-telemetry'
 import type {
   StudioChatToolCall,
   StudioLoopAutonomy,
@@ -67,7 +67,7 @@ async function* executeStudioSingleToolCall(
 
   if (!parsedInput.ok) {
     const fatal = autonomy.consecutiveFailures + 1 >= autonomy.maxConsecutiveFailures
-    logPlotStudioTiming(input.session.studioKind, 'tool.failure.detected', {
+    getStudioTelemetry().event({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failure.detected', data: {
       sessionId: input.session.id,
       runId: input.run.id,
       assistantMessageId: runtime.currentAssistantMessage.id,
@@ -78,8 +78,8 @@ async function* executeStudioSingleToolCall(
       error: parsedInput.error,
       rawArgumentsPreview: summarizeRawArguments(toolCall.function.arguments),
       runElapsedMs: readRunElapsedMs(input.run),
-    }, 'warn')
-    logTimeline(input.session.studioKind, 'tool.failure', `${toolName} argument_parse`)
+    }, level: 'warn' })
+    getStudioTelemetry().timeline({ studioKind: input.session.studioKind ?? 'manim', name: 'tool.failure', detail: `${toolName} argument_parse` })
     yield {
       type: 'tool-input-start',
       id: toolCallId,

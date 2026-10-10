@@ -1,4 +1,4 @@
-import { logPlotStudioTiming, readElapsedMs, readRunElapsedMs } from '../../observability/plot-studio-timing'
+import { getStudioTelemetry, readElapsedMs, readRunElapsedMs } from '../../observability/studio-telemetry'
 import type {
   StudioChatCompletion,
   StudioLoopStepRequest,
@@ -13,7 +13,7 @@ export function logStudioLoopStepStarted(input: {
   request: StudioLoopStepRequest
   step: number
 }) {
-  logPlotStudioTiming(input.loopInput.session.studioKind, 'step.started', {
+  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.started', data: {
     sessionId: input.loopInput.session.id,
     runId: input.loopInput.run.id,
     step: input.step + 1,
@@ -22,7 +22,7 @@ export function logStudioLoopStepStarted(input: {
     requestMessageCharsApprox: input.request.requestMessageCharsApprox,
     requestToolSchemaCharsApprox: input.request.requestToolSchemaCharsApprox,
     runElapsedMs: readRunElapsedMs(input.loopInput.run),
-  })
+  } })
 }
 
 export function logStudioLoopStepResponse(input: {
@@ -32,7 +32,7 @@ export function logStudioLoopStepResponse(input: {
   stepStartedAt: number
 }) {
   const choice = input.result.completion.choices[0]
-  logPlotStudioTiming(input.loopInput.session.studioKind, 'step.response', {
+  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.response', data: {
     sessionId: input.loopInput.session.id,
     runId: input.loopInput.run.id,
     step: input.step + 1,
@@ -41,7 +41,7 @@ export function logStudioLoopStepResponse(input: {
     assistantTextLength: input.result.assistantText.length,
     stepDurationMs: readElapsedMs(input.stepStartedAt),
     runElapsedMs: readRunElapsedMs(input.loopInput.run),
-  })
+  } })
 }
 
 export function logStudioLoopStepFinished(input: {
@@ -50,14 +50,14 @@ export function logStudioLoopStepFinished(input: {
   failed: boolean
   stepStartedAt: number
 }) {
-  logPlotStudioTiming(input.loopInput.session.studioKind, 'step.finished', {
+  getStudioTelemetry().event({ studioKind: input.loopInput.session.studioKind ?? 'manim', name: 'step.finished', data: {
     sessionId: input.loopInput.session.id,
     runId: input.loopInput.run.id,
     step: input.step + 1,
     status: input.failed ? 'failed' : 'completed',
     stepDurationMs: readElapsedMs(input.stepStartedAt),
     runElapsedMs: readRunElapsedMs(input.loopInput.run),
-  })
+  } })
 }
 
 export function createStudioLoopFinishStepEvent(completion: StudioChatCompletion) {

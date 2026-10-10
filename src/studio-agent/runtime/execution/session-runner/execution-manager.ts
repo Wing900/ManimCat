@@ -1,4 +1,4 @@
-import { logPlotStudioTiming } from '../../../observability/plot-studio-timing'
+import { getStudioTelemetry } from '../../../observability/studio-telemetry'
 import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../run-cancellation'
 import type { StudioAssistantMessage, StudioRun } from '../../../domain/types'
 import type {
@@ -18,7 +18,7 @@ export async function executePreparedStream(
   try {
     throwIfStudioRunCancelled(abortSignal)
     if (execution.startLog) {
-      logPlotStudioTiming(prepared.input.session.studioKind, execution.startLog.event, execution.startLog.payload)
+      getStudioTelemetry().event({ studioKind: prepared.input.session.studioKind ?? 'manim', name: execution.startLog.event, data: execution.startLog.payload })
     }
 
     const outcome = await deps.processor.processStream({
