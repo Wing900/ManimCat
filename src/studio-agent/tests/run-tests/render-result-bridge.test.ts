@@ -711,7 +711,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const memory = readRepoSource('src', 'studio-agent', 'render', 'memory-render-store.ts')
     assert.match(memory, /canTransitionStudioRenderStatus/)
     assert.match(memory, /input\.expectedJobId/)
-    const supabase = readRepoSource('src', 'studio-agent', 'persistence', 'supabase-studio-persistence.ts')
+    const supabase = readRepoSource('src', 'studio-agent', 'persistence', 'supabase-render-repository.ts')
     const renderStoreBody = supabase.slice(supabase.indexOf('async transitionStatus(input)', supabase.indexOf('createSupabaseStudioRenderStore')))
     assert.match(renderStoreBody, /\.in\('status', \[\.\.\.input\.from\]\)/)
     assert.match(renderStoreBody, /\.eq\('job_id', input\.expectedJobId\)/)

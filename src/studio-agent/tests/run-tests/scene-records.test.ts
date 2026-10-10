@@ -272,7 +272,11 @@ export async function runSceneRecordTests(): Promise<void> {
   })
 
   await run('supabase scene queries filter on scene and owner', async () => {
-    const source = readStudioSource('src', 'studio-agent', 'persistence', 'supabase-studio-persistence.ts')
+    const source = [
+      readStudioSource('src', 'studio-agent', 'persistence', 'supabase-message-repository.ts'),
+      readStudioSource('src', 'studio-agent', 'persistence', 'supabase-run-repository.ts'),
+      readStudioSource('src', 'studio-agent', 'persistence', 'supabase-render-repository.ts'),
+    ].join('\n')
     const bodies = extractMethodBodies(source, 'async listBySceneId(')
     assert.equal(bodies.length, 3, 'one Scene query per message, Run and render store')
 
