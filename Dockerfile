@@ -42,7 +42,7 @@ COPY frontend/package.json frontend/package-lock.json* ./frontend/
 RUN npm config set registry https://registry.npmmirror.com
 
 # 5. 安装依赖
-RUN npm install && npm --prefix frontend install
+RUN npm ci && npm --prefix frontend install
 
 # 6. 复制源码并构建 React
 COPY . .
