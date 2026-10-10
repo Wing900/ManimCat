@@ -16,7 +16,6 @@ import metricsRouter from './metrics.route'
 import aiTestRouter from './ai-test.route'
 import aiModelsRouter from './ai-models.route'
 import referenceImageUploadRouter from './reference-image-upload.route'
-import historyRouter from './history.route'
 import renderFailuresRouter from './render-failures.route'
 import problemFrameRouter from './problem-frame.route'
 import studioAgentRouter from './studio-agent.route'
@@ -35,7 +34,6 @@ router.use('/api', promptsRouter)
 router.use('/api', aiTestRouter)
 router.use('/api', aiModelsRouter)
 router.use('/api', referenceImageUploadRouter)
-router.use('/api', historyRouter)
 router.use('/api', problemFrameRouter)
 router.use('/api', studioAgentRouter)
 router.use('/api/metrics', metricsRouter)

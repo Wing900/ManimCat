@@ -89,6 +89,5 @@ export function printConfig(): void {
   console.log(`  - CORS Origin: ${appConfig.cors.origin}`)
   console.log(`  - LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`)
   console.log(`  - PROD_SUMMARY_LOG_ONLY: ${process.env.PROD_SUMMARY_LOG_ONLY ?? '(unset, defaults to true in production)'}`)
-  console.log(`  - ENABLE_HISTORY_DB: ${process.env.ENABLE_HISTORY_DB || 'false'}`)
   console.log(`  - ENABLE_STUDIO_DB: ${process.env.ENABLE_STUDIO_DB || 'false'}`)
 }

@@ -9,7 +9,6 @@ import { JobCancelledError } from '../utils/errors'
 import { getCancelReason, isJobCancelled, markJobCancelled } from './job-cancel-store'
 import { cancelManimProcess } from '../utils/manim-process-registry'
 import { deleteJobStage, getJobResult, storeJobResult } from './job-store'
-import { createHistory } from '../database'
 import type { OutputMode } from '../types'
 
 const logger = createLogger('JobCancel')

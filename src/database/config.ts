@@ -4,7 +4,6 @@
  */
 
 export interface DatabaseConfig {
-  historyEnabled: boolean
   studioEnabled: boolean
   supabaseUrl: string
   supabaseKey: string
@@ -12,7 +11,6 @@ export interface DatabaseConfig {
 
 export function getDatabaseConfig(): DatabaseConfig {
   return {
-    historyEnabled: process.env.ENABLE_HISTORY_DB === 'true',
     studioEnabled: process.env.ENABLE_STUDIO_DB === 'true',
     supabaseUrl: process.env.SUPABASE_URL?.trim() || '',
     supabaseKey: process.env.SUPABASE_KEY?.trim() || '',
@@ -22,14 +20,6 @@ export function getDatabaseConfig(): DatabaseConfig {
 export function isSupabaseConfigured(): boolean {
   const cfg = getDatabaseConfig()
   return Boolean(cfg.supabaseUrl) && Boolean(cfg.supabaseKey)
-}
-
-/**
- * 检查历史记录数据库配置是否就绪
- */
-export function isDatabaseReady(): boolean {
-  const cfg = getDatabaseConfig()
-  return cfg.historyEnabled && isSupabaseConfigured()
 }
 
 /**

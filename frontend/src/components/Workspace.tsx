@@ -1,9 +1,8 @@
 /**
- * 工作空间 - 合并 历史记录 / 提示词管理 / 用量统计
+ * 工作空间 - 提示词管理 / 用量统计
  */
 
 import { useState, type ReactNode } from 'react';
-import { HistoryPanel } from './HistoryPanel';
 import { usePrompts } from '../hooks/usePrompts';
 import { PromptSidebar } from './PromptSidebar';
 import { UsageDashboardContent } from './UsageDashboard';
@@ -11,7 +10,7 @@ import type { RoleType, SharedModuleType } from '../types/api';
 import { useI18n } from '../i18n';
 import { useModalTransition } from '../hooks/useModalTransition';
 
-type WorkspaceModule = 'history' | 'prompts' | 'usage';
+type WorkspaceModule = 'prompts' | 'usage';
 
 interface WorkspaceProps {
   isOpen: boolean;
@@ -20,7 +19,7 @@ interface WorkspaceProps {
   onReusePrompt?: (prompt: string) => void;
 }
 
-export function Workspace({ isOpen, onClose, initialModule = 'history', onReusePrompt }: WorkspaceProps) {
+export function Workspace({ isOpen, onClose, initialModule = 'prompts', onReusePrompt }: WorkspaceProps) {
   const { t } = useI18n();
   const { shouldRender, isExiting } = useModalTransition(isOpen, 650);
   const [activeModule, setActiveModule] = useState<WorkspaceModule>(initialModule);
@@ -38,21 +37,11 @@ export function Workspace({ isOpen, onClose, initialModule = 'history', onReuseP
   if (!shouldRender) return null;
 
   const breadcrumbMap: Record<WorkspaceModule, string> = {
-    history: t('workspace.breadcrumb.history'),
     prompts: t('workspace.breadcrumb.prompts'),
     usage: t('workspace.breadcrumb.usage'),
   };
 
   const railItems: { id: WorkspaceModule; label: string; icon: ReactNode }[] = [
-    {
-      id: 'history',
-      label: t('workspace.rail.history'),
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-    },
     {
       id: 'prompts',
       label: t('workspace.rail.prompts'),
@@ -172,12 +161,6 @@ export function Workspace({ isOpen, onClose, initialModule = 'history', onReuseP
 
         {/* 模块展示区 */}
         <div className="flex-1 flex overflow-hidden">
-          {activeModule === 'history' && (
-            <main className="flex-1 p-10 overflow-y-auto bg-bg-primary/30 animate-fade-in">
-              <HistoryPanel isActive={activeModule === 'history'} onReusePrompt={onReusePrompt} />
-            </main>
-          )}
-
           {activeModule === 'prompts' && (
             <div className="flex-1 flex overflow-hidden animate-fade-in">
               <PromptSidebar selection={selection} onSelect={setSelection} />

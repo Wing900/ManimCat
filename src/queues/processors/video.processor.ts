@@ -6,7 +6,6 @@
 import { videoQueue } from '../../config/bull'
 import { storeJobResult, touchJobTracking } from '../../services/job-store'
 import { clearJobCancelled } from '../../services/job-cancel-store'
-import { createHistory } from '../../database'
 import { JobCancelledError } from '../../utils/errors'
 import { createLogger } from '../../utils/logger'
 import type { VideoJobData } from '../../types'
@@ -205,23 +204,6 @@ async function executeVideoJob(job: any): Promise<unknown> {
       return {
         success: true,
         source: 'preserved-completed-result',
-      }
-    }
-
-    // 写入持久化历史记录（保存错误原因和提示词）
-    if (data.clientId && storeOutcome === 'stored') {
-      try {
-        await createHistory({
-          client_id: data.clientId,
-          prompt: concept,
-          code: null,  // 失败时没有代码
-          output_mode: outputMode as 'video' | 'image',
-          quality: quality as 'low' | 'medium' | 'high',
-          status: 'failed',
-          error: errorMessage
-        })
-      } catch (histErr) {
-        logger.warn('Failed to write history record', { jobId, error: histErr })
       }
     }
 

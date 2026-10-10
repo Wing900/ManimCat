@@ -7,7 +7,6 @@ import type {
   ModifyRequest,
   UsageMetricsResponse,
   PromptLocale,
-  HistoryListResponse,
   ProblemFramingRequest,
   ProblemFramingResponse
 } from '../types/api';
@@ -207,38 +206,3 @@ export async function getUsageMetrics(days = 7, signal?: AbortSignal): Promise<U
   return response.json();
 }
 
-// ============================================================================
-// History API
-// ============================================================================
-
-export async function getHistoryList(
-  page = 1,
-  pageSize = 12,
-  signal?: AbortSignal
-): Promise<HistoryListResponse> {
-  const response = await fetch(
-    `${API_BASE}/history?page=${page}&pageSize=${pageSize}`,
-    { headers: { ...getAuthHeaders(), 'x-client-id': getClientId() }, signal }
-  );
-
-  if (!response.ok) {
-    throw new Error(await parseApiErrorMessage(response, translate('history.loadFailed')));
-  }
-
-  return response.json();
-}
-
-export async function deleteHistoryRecord(
-  id: string,
-  signal?: AbortSignal
-): Promise<void> {
-  const response = await fetch(`${API_BASE}/history/${id}`, {
-    method: 'DELETE',
-    headers: { ...getAuthHeaders(), 'x-client-id': getClientId() },
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiErrorMessage(response, 'Delete failed'));
-  }
-}

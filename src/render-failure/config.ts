@@ -1,7 +1,7 @@
-import { isDatabaseReady } from '../database'
+import { isSupabaseConfigured } from '../database'
 
 export function isRenderFailureFeatureEnabled(): boolean {
-  return process.env.ENABLE_RENDER_FAILURE_LOG === 'true' && isDatabaseReady()
+  return process.env.ENABLE_RENDER_FAILURE_LOG === 'true' && isSupabaseConfigured()
 }
 
 export function getRenderFailureAdminToken(): string {

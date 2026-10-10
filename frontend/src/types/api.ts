@@ -261,22 +261,3 @@ export interface UsageMetricsResponse {
 export interface ApiError {
   error: string;
 }
-
-/** 历史记录 */
-export interface HistoryRecord {
-  id: string;
-  prompt: string;
-  code: string | null;
-  output_mode: OutputMode;
-  quality: Quality;
-  status: 'completed' | 'failed';
-  created_at: string;
-}
-
-export interface HistoryListResponse {
-  records: HistoryRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
