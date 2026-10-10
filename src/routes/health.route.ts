@@ -13,7 +13,7 @@ import { redisClient } from '../config/redis'
 import { checkQueueHealth, getQueueStats } from '../config/bull'
 import { appConfig } from '../config/app'
 import { asyncHandler } from '../middlewares/error-handler'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import type { HealthCheckResponse } from '../types'
 import { getManimcatRouteStats } from '../utils/manimcat-routing'
 

@@ -1,4 +1,4 @@
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import type { GenerationResult } from './analysis-step'
 import type { OutputMode, VideoJobData } from '../../../types'
 import { renderVideo } from './render-video'

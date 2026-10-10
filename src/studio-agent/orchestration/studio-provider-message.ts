@@ -1,6 +1,6 @@
 import type OpenAI from 'openai'
 import type { StudioAssistantMessage, StudioMessageStore } from '../domain/types'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 
 const logger = createLogger('StudioProviderMessage')
 

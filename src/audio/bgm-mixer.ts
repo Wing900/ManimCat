@@ -2,7 +2,7 @@ import { execFile } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 
 const logger = createLogger('BgmMixer')
 

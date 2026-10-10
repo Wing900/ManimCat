@@ -1,7 +1,7 @@
 import type OpenAI from 'openai'
 import type { ReferenceImage, VisionImageDetail } from '../../types'
 import type { StudioAssistantMessage, StudioMessage, StudioToolPart } from '../domain/types'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import {
   type StudioStoredAssistantPayload,
   type StudioStoredAssistantToolCall,

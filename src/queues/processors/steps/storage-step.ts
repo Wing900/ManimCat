@@ -6,7 +6,7 @@
 import { storeJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import type { RenderResult } from './render-step-types'
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import { normalizeTimings } from '../../../utils/timings'
 import { getCurrentJobTokenUsage } from '../../../services/job-log-context'
 

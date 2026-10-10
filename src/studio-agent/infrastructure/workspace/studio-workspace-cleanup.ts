@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 
 const logger = createLogger('StudioWorkspaceCleanup')
 

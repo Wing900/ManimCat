@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import { createStudioScene, createStudioSceneId } from '../domain/factories'
 import type { StudioRender, StudioScene, StudioSceneSnapshot } from '../domain/types'
 import type { StudioPersistence } from '../infrastructure/persistence/studio-persistence'

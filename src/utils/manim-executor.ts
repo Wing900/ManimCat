@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import { createLogger } from './logger'
+import { createLogger } from '../shared/logging/logger'
 import {
   registerManimProcess,
   cancelManimProcess,

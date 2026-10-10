@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import type { StudioScene, StudioSceneStore, StudioSession } from '../../domain/types'
 import {
   createLegacyRunExecutionScope,

@@ -1,6 +1,6 @@
 import { promises as fs, type Dirent } from 'fs'
 import path from 'path'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 
 const logger = createLogger('MediaCleanup')
 

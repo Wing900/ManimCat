@@ -5,7 +5,7 @@
 
 import { Router, type Request, type Response } from 'express'
 import { getQueueStats } from '../config/bull'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import {
   getMemoryPeakSnapshot,
   getProcessMemorySnapshot,

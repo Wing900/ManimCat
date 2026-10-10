@@ -4,7 +4,7 @@ import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import type { Response } from 'express'
 import type { StudioRender } from '../../studio-agent/domain/types'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import { sendStudioError } from './studio-agent-responses'
 
 const logger = createLogger('StudioRenderMedia')

@@ -1,7 +1,7 @@
 import { promises as fs, type Dirent } from 'fs'
 import path from 'path'
 import { redisClient } from '../../config/redis'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 
 const logger = createLogger('StorageMetrics')
 

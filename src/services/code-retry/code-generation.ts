@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import { cleanManimCode } from '../../utils/manim-code-cleaner'
 import { getClient } from './client'
 import type { ChatMessage, CodeRetryContext, RetryCheckpoint } from './types'

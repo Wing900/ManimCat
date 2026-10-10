@@ -4,7 +4,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import { AuthenticationError } from '../utils/errors'
 import { extractBearerToken } from '../utils/auth-utils'
 import { getAllowedManimcatApiKeys, hasManimcatApiKey } from '../utils/manimcat-auth'

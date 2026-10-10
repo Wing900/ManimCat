@@ -1,7 +1,7 @@
 ﻿import { default as Bull, type Queue, type QueueOptions } from 'bull'
 import Redis from 'ioredis'
 import { REDIS_KEYS } from './redis'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import { terminateManimProcess } from '../utils/manim-process-registry'
 
 const logger = createLogger('BullQueue')

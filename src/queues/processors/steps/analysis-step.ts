@@ -5,7 +5,7 @@
 
 import { generateTwoStageAIManimCode } from '../../../services/concept-designer'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../../../types'
 
 const logger = createLogger('AnalysisStep')

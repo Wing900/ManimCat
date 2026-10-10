@@ -1,7 +1,7 @@
 import type Redis from 'ioredis'
 import { randomUUID } from 'node:crypto'
 import { redisClient } from '../../../config/redis'
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import {
   STUDIO_RUN_ADMISSION_NAMESPACE,
   canonicalStudioRunScopeKey,

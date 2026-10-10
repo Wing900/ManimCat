@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import { recordJobTokenUsage } from './job-log-context'
 
 interface ChatCompletionTextOptions {

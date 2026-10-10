@@ -1,4 +1,4 @@
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import type { StudioEventBus } from '../../domain/types'
 import { DistributedStudioEventBus } from './distributed-studio-event-bus'
 import { InMemoryStudioEventBus } from './event-bus'

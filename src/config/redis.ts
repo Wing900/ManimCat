@@ -4,7 +4,7 @@
  */
 
 import Redis from 'ioredis'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 
 const logger = createLogger('Redis')
 

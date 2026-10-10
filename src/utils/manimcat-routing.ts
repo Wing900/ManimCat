@@ -1,4 +1,4 @@
-import { createLogger } from './logger'
+import { createLogger } from '../shared/logging/logger'
 import type { CustomApiConfig } from '../types'
 
 const logger = createLogger('ManimcatRouting')

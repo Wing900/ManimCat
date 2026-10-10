@@ -8,7 +8,7 @@ import { storeJobResult } from '../../infrastructure/redis/job/redis-job-result-
 import { touchJobTracking } from '../../infrastructure/redis/job/redis-job-tracking-store'
 import { clearJobCancelled } from '../../services/job-cancel-store'
 import { JobCancelledError } from '../../utils/errors'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import type { VideoJobData } from '../../types'
 import { runEditFlow, runGenerationFlow, runPreGeneratedFlow } from './video-processor-flows'
 import { getRetryMeta, shouldDisableQueueRetry, storeProcessingStage } from './video-processor-utils'

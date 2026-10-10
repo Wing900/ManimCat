@@ -1,4 +1,4 @@
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import { createDefaultStudioPersistence } from '../infrastructure/persistence/create-default-studio-persistence'
 import { createLocalStudioWorkspaceProvider } from '../infrastructure/workspace/local-studio-workspace-provider'
 import { createBullManimRenderPort } from '../modes/manim/bull-manim-render-port'

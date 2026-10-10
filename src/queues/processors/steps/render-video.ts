@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { createLogger } from '../../../utils/logger'
+import { createLogger } from '../../../shared/logging/logger'
 import { cleanManimCode } from '../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../utils/manim-executor'
 import { findVideoFile } from '../../../utils/file-utils'

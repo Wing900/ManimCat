@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import { generateConceptDesignerPrompt, getRoleSystemPrompt } from '../../prompts'
 import type { OutputMode, PromptOverrides, ReferenceImage } from '../../types'
 import {

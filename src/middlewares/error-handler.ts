@@ -5,7 +5,7 @@
 
 import type { Request, Response, NextFunction } from 'express'
 import { formatError, getStatusCode, isOperationalError } from '../utils/errors'
-import { logger } from '../utils/logger'
+import { logger } from '../shared/logging/logger'
 
 /**
  * 错误处理中间件

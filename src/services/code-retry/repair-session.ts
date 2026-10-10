@@ -1,4 +1,4 @@
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import type { ApiCatalogPackage, ApiRagService } from '../api-rag'
 import type { ChatMessage, CodePatchSet, RetryCheckpoint } from './types'
 import { parseCodeRetryAction } from './action-parser'

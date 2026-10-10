@@ -5,7 +5,7 @@
  */
 
 import OpenAI from 'openai'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../types'
 import { createCustomOpenAIClient } from '../infrastructure/ai-provider/provider-client-factory'
 import { generateSceneDesignStage } from './concept-designer/scene-design-stage'

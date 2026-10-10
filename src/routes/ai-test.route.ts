@@ -8,7 +8,7 @@ import OpenAI from 'openai'
 import { z } from 'zod'
 import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import { testBackendAIConnection } from '../infrastructure/ai-provider/provider-connection-probe'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 

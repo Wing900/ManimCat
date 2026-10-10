@@ -8,7 +8,7 @@ import express from 'express'
 import type { Server } from 'http'
 import { redisClient } from './config/redis'
 import { closeQueue } from './config/bull'
-import { createLogger } from './utils/logger'
+import { createLogger } from './shared/logging/logger'
 import { startMediaCleanupScheduler } from './services/media-cleanup'
 import {
   getStudioWorkspaceRootDirectory,

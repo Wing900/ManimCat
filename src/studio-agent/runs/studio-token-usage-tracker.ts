@@ -1,4 +1,4 @@
-import { createLogger } from '../../utils/logger'
+import { createLogger } from '../../shared/logging/logger'
 import type { StudioTokenUsage } from '../domain/types'
 import {
   accumulateStudioTokenUsage,

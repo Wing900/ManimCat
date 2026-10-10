@@ -4,7 +4,7 @@
  */
 
 import { videoQueue } from '../config/bull'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import { JobCancelledError } from '../utils/errors'
 import { getCancelReason, isJobCancelled, markJobCancelled } from './job-cancel-store'
 import { cancelManimProcess } from '../utils/manim-process-registry'

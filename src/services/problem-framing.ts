@@ -1,7 +1,7 @@
 import { createCustomOpenAIClient } from '../infrastructure/ai-provider/provider-client-factory'
 import { createChatCompletionText } from './openai-stream'
 import { buildTokenParams } from '../utils/reasoning-model'
-import { createLogger } from '../utils/logger'
+import { createLogger } from '../shared/logging/logger'
 import { getRoleSystemPrompt, getRoleUserPrompt } from '../prompts'
 import { buildVisionUserMessage, shouldRetryWithoutImages } from './concept-designer-utils'
 import type { CustomApiConfig, PromptLocale, PromptOverrides, ReferenceImage } from '../types'
