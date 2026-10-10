@@ -4,7 +4,7 @@
 
 import OpenAI from 'openai'
 import type { CustomApiConfig } from '../../types'
-import { createCustomOpenAIClient } from '../openai-client-factory'
+import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 
 /**
  * 获取 OpenAI 客户端

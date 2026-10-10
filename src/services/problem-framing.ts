@@ -1,4 +1,4 @@
-import { createCustomOpenAIClient } from './openai-client-factory'
+import { createCustomOpenAIClient } from '../infrastructure/ai-provider/provider-client-factory'
 import { createChatCompletionText } from './openai-stream'
 import { buildTokenParams } from '../utils/reasoning-model'
 import { createLogger } from '../utils/logger'

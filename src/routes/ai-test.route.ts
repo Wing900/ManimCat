@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { createLogger } from '../utils/logger'
-import { testBackendAIConnection } from '../services/openai-client'
+import { testBackendAIConnection } from '../infrastructure/ai-provider/provider-connection-probe'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 
 const router = express.Router()

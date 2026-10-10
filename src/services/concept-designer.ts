@@ -7,7 +7,7 @@
 import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../types'
-import { createCustomOpenAIClient } from './openai-client-factory'
+import { createCustomOpenAIClient } from '../infrastructure/ai-provider/provider-client-factory'
 import { generateSceneDesignStage } from './concept-designer/scene-design-stage'
 import { generateCodeFromDesignStage } from './concept-designer/code-from-design-stage'
 

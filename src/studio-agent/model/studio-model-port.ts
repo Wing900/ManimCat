@@ -2,7 +2,7 @@ import type { StudioKind } from '../domain/core-types'
 import type OpenAI from 'openai'
 import type { CustomApiConfig } from '../../types'
 import type { StudioToolChoice } from '../domain/types'
-import { createCustomOpenAIClient } from '../../services/openai-client-factory'
+import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 import { requestStudioChatCompletion } from '../orchestration/studio-provider-request'
 
 export interface StudioModelRequest {

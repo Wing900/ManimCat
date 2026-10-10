@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import { createLogger } from '../utils/logger'
 import { generateCodeEditPrompt, getRoleSystemPrompt, getSharedModule } from '../prompts'
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../types'
-import { createCustomOpenAIClient } from './openai-client-factory'
+import { createCustomOpenAIClient } from '../infrastructure/ai-provider/provider-client-factory'
 import { createChatCompletionText } from './openai-stream'
 import { buildTokenParams } from '../utils/reasoning-model'
 
