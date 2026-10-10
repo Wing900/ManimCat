@@ -5,26 +5,14 @@ import { useGeneration } from './useGeneration'
 import { cancelJob, generateAnimation, getJobStatus, modifyAnimation } from '../../../infrastructure/api/api'
 import { I18nProvider } from '../../../shared/i18n/index'
 
-vi.mock('../lib/api', () => ({
+vi.mock('../../../infrastructure/api/api', () => ({
   generateAnimation: vi.fn(),
   getJobStatus: vi.fn(),
   cancelJob: vi.fn(),
   modifyAnimation: vi.fn(),
 }))
 
-vi.mock('../lib/settings', () => ({
-  loadSettings: () => ({
-    video: { timeout: 1200 },
-    api: {},
-  }),
-}))
-
-vi.mock('../lib/ai-providers', () => ({
-  getActiveProvider: () => null,
-  providerToCustomApiConfig: () => null,
-}))
-
-vi.mock('./usePrompts', () => ({
+vi.mock('../../prompts/hooks/usePrompts', () => ({
   loadPrompts: () => undefined,
 }))
 
