@@ -250,7 +250,7 @@ function App() {
             onCancel={cancel}
             onOpenDonation={() => setDonationOpen(true)}
             onOpenProviders={() => setProvidersOpen(true)}
-            onOpenWorkspace={() => setPromptSettingsOpen(true)}
+            onOpenPromptSettings={() => setPromptSettingsOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenGame={handleOpenGame}
             problemOpen={problemFraming.status !== 'idle'}
