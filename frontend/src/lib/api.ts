@@ -5,7 +5,6 @@ import type {
   ApiError,
   PromptDefaults,
   ModifyRequest,
-  UsageMetricsResponse,
   PromptLocale,
   ProblemFramingRequest,
   ProblemFramingResponse
@@ -191,18 +190,5 @@ export async function cancelJob(jobId: string, options: RequestAuthOptions = {})
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response, translate('api.cancelFailed')));
   }
-}
-
-export async function getUsageMetrics(days = 7, signal?: AbortSignal): Promise<UsageMetricsResponse> {
-  const response = await fetch(`${API_BASE}/metrics/usage?days=${days}`, {
-    headers: getAuthHeaders(),
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiErrorMessage(response, translate('api.usageFailed')));
-  }
-
-  return response.json();
 }
 

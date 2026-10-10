@@ -1,28 +1,23 @@
 /**
- * 工作空间 - 提示词管理 / 用量统计
+ * 工作空间 - 提示词管理
  */
 
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { usePrompts } from '../hooks/usePrompts';
 import { PromptSidebar } from './PromptSidebar';
-import { UsageDashboardContent } from './UsageDashboard';
 import type { RoleType, SharedModuleType } from '../types/api';
 import { useI18n } from '../i18n';
 import { useModalTransition } from '../hooks/useModalTransition';
 
-type WorkspaceModule = 'prompts' | 'usage';
-
 interface WorkspaceProps {
   isOpen: boolean;
   onClose: () => void;
-  initialModule?: WorkspaceModule;
   onReusePrompt?: (prompt: string) => void;
 }
 
-export function Workspace({ isOpen, onClose, initialModule = 'prompts', onReusePrompt }: WorkspaceProps) {
+export function Workspace({ isOpen, onClose, onReusePrompt }: WorkspaceProps) {
   const { t } = useI18n();
   const { shouldRender, isExiting } = useModalTransition(isOpen, 650);
-  const [activeModule, setActiveModule] = useState<WorkspaceModule>(initialModule);
 
   const {
     isLoading: promptsLoading,
@@ -35,32 +30,6 @@ export function Workspace({ isOpen, onClose, initialModule = 'prompts', onReuseP
   } = usePrompts();
 
   if (!shouldRender) return null;
-
-  const breadcrumbMap: Record<WorkspaceModule, string> = {
-    prompts: t('workspace.breadcrumb.prompts'),
-    usage: t('workspace.breadcrumb.usage'),
-  };
-
-  const railItems: { id: WorkspaceModule; label: string; icon: ReactNode }[] = [
-    {
-      id: 'prompts',
-      label: t('workspace.rail.prompts'),
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'usage',
-      label: t('workspace.rail.usage'),
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19h16M6 16V9m6 7V5m6 11v-4" />
-        </svg>
-      ),
-    },
-  ];
 
   const getPromptTitle = () => {
     const roleLabels: Record<RoleType, string> = {
@@ -122,7 +91,7 @@ export function Workspace({ isOpen, onClose, initialModule = 'prompts', onReuseP
         </div>
 
         <div className="flex items-center gap-6">
-          {activeModule === 'prompts' && isModified && (
+          {isModified && (
             <div className="flex items-center gap-3 animate-fade-in">
               <span className="text-[10px] uppercase tracking-widest text-accent-rgb/60">{t('prompts.modified')}</span>
               <button
@@ -134,7 +103,7 @@ export function Workspace({ isOpen, onClose, initialModule = 'prompts', onReuseP
             </div>
           )}
           <div className="text-[10px] text-text-secondary/30 uppercase tracking-[0.25em] font-light">
-            Workspace / <span className="text-text-secondary/60 font-medium">{breadcrumbMap[activeModule]}</span>
+            Workspace / <span className="text-text-secondary/60 font-medium">{t('workspace.breadcrumb.prompts')}</span>
           </div>
         </div>
       </div>
@@ -143,62 +112,48 @@ export function Workspace({ isOpen, onClose, initialModule = 'prompts', onReuseP
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧 Rail 导航 */}
         <aside className="w-20 bg-bg-secondary/20 border-r border-border/5 flex flex-col items-center py-8 gap-4">
-          {railItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveModule(item.id)}
-              className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-300 ${
-                activeModule === item.id
-                  ? 'bg-bg-tertiary text-text-primary shadow-sm'
-                  : 'text-text-secondary/40 hover:text-text-primary hover:bg-bg-secondary/50'
-              }`}
-              title={item.label}
-            >
-              {item.icon}
-            </button>
-          ))}
+          <button
+            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-bg-tertiary text-text-primary shadow-sm"
+            title={t('workspace.rail.prompts')}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+          </button>
         </aside>
 
         {/* 模块展示区 */}
         <div className="flex-1 flex overflow-hidden">
-          {activeModule === 'prompts' && (
-            <div className="flex-1 flex overflow-hidden animate-fade-in">
-              <PromptSidebar selection={selection} onSelect={setSelection} />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="px-10 py-8 border-b border-border/5">
-                  <h2 className="text-xl font-medium text-text-primary/90 tracking-tight">{getPromptTitle()}</h2>
-                  <p className="text-sm text-text-secondary/50 mt-2 font-light">{getPromptDescription()}</p>
-                </div>
-                <div className="flex-1 p-8 overflow-hidden">
-                  {promptsLoading ? (
-                    <div className="h-full flex items-center justify-center text-text-secondary/30 text-sm tracking-widest uppercase">
-                      {t('common.loading')}
-                    </div>
-                  ) : (
-                    <textarea
-                      value={promptContent}
-                      onChange={e => setCurrentContent(e.target.value)}
-                      className="w-full h-full px-8 py-8 bg-bg-secondary/30 border border-border/5 rounded-[2rem] text-[15px] text-text-primary/80 font-mono leading-relaxed resize-none focus:outline-none focus:border-accent-rgb/20 focus:bg-bg-secondary/50 transition-all shadow-inner scrollbar-hide"
-                      placeholder={t('prompts.placeholder')}
-                    />
-                  )}
-                </div>
-                <div className="px-10 py-5 border-t border-border/5 flex items-center justify-between text-[10px] uppercase tracking-widest text-text-secondary/30 font-light">
-                  <span>{t('prompts.characters', { count: promptContent.length })}</span>
-                  <span className="flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-green-500/40 animate-pulse" />
-                    {t('prompts.autosave')}
-                  </span>
-                </div>
+          <div className="flex-1 flex overflow-hidden animate-fade-in">
+            <PromptSidebar selection={selection} onSelect={setSelection} />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-10 py-8 border-b border-border/5">
+                <h2 className="text-xl font-medium text-text-primary/90 tracking-tight">{getPromptTitle()}</h2>
+                <p className="text-sm text-text-secondary/50 mt-2 font-light">{getPromptDescription()}</p>
+              </div>
+              <div className="flex-1 p-8 overflow-hidden">
+                {promptsLoading ? (
+                  <div className="h-full flex items-center justify-center text-text-secondary/30 text-sm tracking-widest uppercase">
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <textarea
+                    value={promptContent}
+                    onChange={e => setCurrentContent(e.target.value)}
+                    className="w-full h-full px-8 py-8 bg-bg-secondary/30 border border-border/5 rounded-[2rem] text-[15px] text-text-primary/80 font-mono leading-relaxed resize-none focus:outline-none focus:border-accent-rgb/20 focus:bg-bg-secondary/50 transition-all shadow-inner scrollbar-hide"
+                    placeholder={t('prompts.placeholder')}
+                  />
+                )}
+              </div>
+              <div className="px-10 py-5 border-t border-border/5 flex items-center justify-between text-[10px] uppercase tracking-widest text-text-secondary/30 font-light">
+                <span>{t('prompts.characters', { count: promptContent.length })}</span>
+                <span className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-green-500/40 animate-pulse" />
+                  {t('prompts.autosave')}
+                </span>
               </div>
             </div>
-          )}
-
-          {activeModule === 'usage' && (
-            <main className="flex-1 overflow-y-auto bg-bg-primary/30 animate-fade-in">
-              <UsageDashboardContent isActive={activeModule === 'usage'} />
-            </main>
-          )}
+          </div>
         </div>
       </div>
     </div>

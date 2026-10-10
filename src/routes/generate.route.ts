@@ -14,7 +14,6 @@ import express from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import { videoQueue } from '../config/bull'
 import { deleteJobStage, storeJobStage } from '../services/job-store'
-import { recordUsageSubmission } from '../services/usage-metrics'
 import { createLogger } from '../utils/logger'
 import { ValidationError } from '../utils/errors'
 import { asyncHandler } from '../middlewares/error-handler'
@@ -155,8 +154,6 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     ])
     throw error
   }
-
-  await recordUsageSubmission('generate', outputMode)
 
   logger.info('动画请求已加入队列', { jobId })
 

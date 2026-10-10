@@ -10,7 +10,6 @@
 import { redisClient, REDIS_KEYS, generateRedisKey } from '../config/redis'
 import { videoQueue } from '../config/bull'
 import { getCancelReason } from './job-cancel-store'
-import { recordUsageFinalization } from './usage-metrics'
 import { JobCancelledError } from '../utils/errors'
 import { createLogger } from '../utils/logger'
 import type { CompletedJobResult, FailedJobResult, JobResult, ProcessingStage } from '../types'
@@ -194,17 +193,6 @@ export async function storeJobResult(
     }, { guardTerminalResult: false })
     logger.info('任务结果已存储', { jobId, status: result.status })
 
-    const isCancelled = result.status === 'failed' ? Boolean(result.data.cancelReason) : false
-    const renderMs = result.status === 'completed' ? result.data.timings?.total : undefined
-    const outputMode = result.data.outputMode
-
-    await recordUsageFinalization({
-      jobId,
-      status: result.status,
-      outputMode,
-      isCancelled,
-      renderMs
-    })
     return 'stored'
   } catch (error) {
     logger.error('存储任务结果失败', { jobId, error })
