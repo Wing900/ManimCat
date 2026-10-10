@@ -69,14 +69,14 @@ export async function runPromptTests() {
       agentType: 'builder',
       title: 'Plot Prompt Session',
       directory,
-      studioKind: 'plot'
+      studioKind: 'matplotlib'
     })
 
     const prompt = buildStudioAgentSystemPrompt({
       session
     })
 
-    assert.match(prompt, /\nkind: plot\n/)
+    assert.match(prompt, /\nkind: matplotlib\n/)
     assert.match(prompt, /\nlabel: Matplotlib Studio\n/)
     assert.match(prompt, /\nlanguage: python\n/)
     assert.match(prompt, /\noutputs: image\n/)
@@ -108,7 +108,7 @@ export async function runPromptTests() {
         agentType: 'builder',
         title: 'Prompt Budget Session',
         directory: plotDirectory,
-        studioKind: 'plot'
+        studioKind: 'matplotlib'
       })
     })
 
@@ -169,7 +169,7 @@ export async function runPromptTests() {
         agentType: 'builder',
         title: 'Prompt Regression Session',
         directory: await createWorkspace(),
-        studioKind: 'plot'
+        studioKind: 'matplotlib'
       })
     })
 

@@ -1,3 +1,4 @@
+import type { StudioKind } from '../../domain/core-types'
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import os from 'node:os'
@@ -68,7 +69,7 @@ interface SceneFixture {
 }
 
 async function createFixture(options?: {
-  studioKind?: 'manim' | 'plot'
+  studioKind?: StudioKind
   sceneCount?: number
 }): Promise<SceneFixture> {
   const workspace = await mkdtemp(path.join(os.tmpdir(), 'manimcat-scene-boundary-'))
@@ -1222,7 +1223,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
   })
 
   await run('trusted plot render output paths remain unaffected by the generic write policy', async () => {
-    const fixture = await createFixture({ studioKind: 'plot' })
+    const fixture = await createFixture({ studioKind: 'matplotlib' })
     const renderPort = new RecordingPlotRenderPort()
     const registry = configureStudioToolRegistry({
       registry: new StudioToolRegistry(),
@@ -1249,7 +1250,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       executionScope: scope,
       renderStore: fixture.persistence.renderStore
     })
-    const renderTool = registry.require('render', 'plot')
+    const renderTool = registry.require('render', 'matplotlib')
     const rendered = await renderTool.execute({ concept: 'fixture plot', code: 'print("plot")\n' }, context)
 
     assert.equal(renderPort.executed.length, 1)

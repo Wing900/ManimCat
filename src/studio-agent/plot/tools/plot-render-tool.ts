@@ -25,7 +25,7 @@ export function createPlotStudioRenderTool(
     parameters: plotRenderToolParameters,
     description: 'Execute the matplotlib source and persist the plot images.',
     allowedAgents: ['builder'],
-    allowedStudioKinds: ['plot'],
+    allowedStudioKinds: ['matplotlib'],
     execute: async (input, context) =>
       executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
   }
@@ -51,14 +51,14 @@ async function executePlotRenderTool(
         runId: context.run.id,
         // The Run is the authoritative scope source; a Legacy Run leaves the key absent.
         sceneId: context.run.sceneId,
-        kind: 'plot',
+        kind: 'matplotlib',
         title,
         concept: input.concept,
         outputMode: 'image',
         quality: 'medium',
         status: 'running',
         metadata: {
-          studioKind: 'plot',
+          studioKind: 'matplotlib',
           outputMode: 'image'
         },
       })
@@ -70,7 +70,7 @@ async function executePlotRenderTool(
         title,
         metadata: {
           renderId: render.id,
-          studioKind: 'plot'
+          studioKind: 'matplotlib'
         }
       })
 

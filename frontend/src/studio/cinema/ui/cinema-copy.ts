@@ -40,5 +40,5 @@ export type CinemaUnitKey =
 
 /** Resolve the per-kind translation key for a unit-noun label. */
 export function cinemaUnitKey(kind: StudioKind, key: CinemaUnitKey): TranslationKey {
-  return kind === 'plot' ? `studio.cinema.plot.${key}` : `studio.cinema.${key}`
+  return kind === 'matplotlib' ? `studio.cinema.plot.${key}` : `studio.cinema.${key}`
 }

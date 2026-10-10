@@ -79,7 +79,7 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
     try {
       release()
     } catch (error) {
-      logPlotStudioTiming('plot', 'events.stream.unsubscribe_failed', {
+      logPlotStudioTiming('matplotlib', 'events.stream.unsubscribe_failed', {
         ...logContext,
         reason: sanitizeReason(error)
       }, 'warn')
@@ -104,8 +104,8 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
       releaseSubscription(release)
     }
 
-    logPlotStudioTiming('plot', 'events.client.disconnected', logContext)
-    logTimeline('plot', 'sse.disconnected')
+    logPlotStudioTiming('matplotlib', 'events.client.disconnected', logContext)
+    logTimeline('matplotlib', 'sse.disconnected')
 
     try {
       res.end()
@@ -136,7 +136,7 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
       res.write(`data: ${JSON.stringify(payload)}\n\n`)
       return true
     } catch (error) {
-      logPlotStudioTiming('plot', failureLog, { ...logContext, reason: sanitizeReason(error) }, 'warn')
+      logPlotStudioTiming('matplotlib', failureLog, { ...logContext, reason: sanitizeReason(error) }, 'warn')
       teardown()
       return false
     }
@@ -148,8 +148,8 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders?.()
 
-    logPlotStudioTiming('plot', 'events.client.connected', logContext)
-    logTimeline('plot', 'sse.connected')
+    logPlotStudioTiming('matplotlib', 'events.client.connected', logContext)
+    logTimeline('matplotlib', 'sse.connected')
 
     heartbeatHandle = clock.setInterval(() => {
       if (closed) {
@@ -200,7 +200,7 @@ export function openStudioAgentEventStream(input: StudioEventStreamInput): void 
   } catch (error) {
     // Setup failed before the protocol was established: the caller's status line may still be
     // writable, so the route keeps responsibility for any JSON error and this helper only releases.
-    logPlotStudioTiming('plot', 'events.stream.setup_failed', { ...logContext, reason: sanitizeReason(error) }, 'warn')
+    logPlotStudioTiming('matplotlib', 'events.stream.setup_failed', { ...logContext, reason: sanitizeReason(error) }, 'warn')
     teardown()
   }
 }

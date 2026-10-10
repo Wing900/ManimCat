@@ -113,7 +113,7 @@ function createDefaultDependencies(
 export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseStudioCinemaSessionResult {
   const { studioKind } = input
   const overridesRef = useRef(input.overrides)
-  const title = studioKind === 'plot' ? 'Plot Studio' : 'Manim Studio'
+  const title = studioKind === 'matplotlib' ? 'Plot Studio' : 'Manim Studio'
 
   // Every history read and write goes through this port, so an injected store is the *only* storage
   // the hook touches (correction R5) and a spec can assert that no global storage is used.

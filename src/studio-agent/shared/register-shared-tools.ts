@@ -12,7 +12,7 @@ import type { StudioToolRegistry } from '../tools/registry'
 /** A catalog package answers exactly one Studio kind. */
 const PACKAGE_STUDIO_KINDS: Record<ApiCatalogPackage, StudioKind> = {
   manim: 'manim',
-  matplotlib: 'plot'
+  matplotlib: 'matplotlib'
 }
 
 /**

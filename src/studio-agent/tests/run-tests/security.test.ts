@@ -77,7 +77,7 @@ export async function runSecurityTests(): Promise<void> {
     const render = createStudioRender({
       ownerId: session.ownerId,
       sessionId: session.id,
-      kind: 'plot',
+      kind: 'matplotlib',
       title: 'Plot',
       concept: 'plot',
       outputMode: 'image',
@@ -154,7 +154,7 @@ export async function runSecurityTests(): Promise<void> {
     const registry = new StudioToolRegistry()
     const manimRender = createManimStudioRenderTool({ submit: async ({ jobId }) => ({ jobId }) })
     registry.register(manimRender)
-    assert.equal(registry.get('render', 'plot'), null)
+    assert.equal(registry.get('render', 'matplotlib'), null)
     assert.equal(registry.require('render', 'manim'), manimRender)
     assert.deepEqual(
       buildStudioChatTools(registry, 'builder', 'manim')[0]?.function.parameters,

@@ -1,7 +1,18 @@
 import type { StudioFileAttachment } from './message-types'
 
 export type StudioAgentType = 'builder'
-export type StudioKind = 'manim' | 'plot'
+export type StudioKind = 'manim' | 'matplotlib'
+
+/**
+ * Normalizes an external `studioKind` value into the domain enum. The old protocol value
+ * `'plot'` is read as `'matplotlib'`; unknown values are rejected as `undefined`.
+ */
+export function normalizeStudioKind(value: string): StudioKind | undefined {
+  if (value === 'manim') return 'manim'
+  if (value === 'matplotlib' || value === 'plot') return 'matplotlib'
+  return undefined
+}
+
 export type StudioToolChoice = 'auto' | 'required' | 'none'
 
 export interface StudioPrincipal {

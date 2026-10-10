@@ -12,6 +12,7 @@
  *   ├─ Legacy Holder    at most 1, excludes every Scene of that Session
  *   └─ Scene Holders    at most 1 per Scene, siblings run concurrently
  */
+import type { StudioKind } from '../../domain/core-types'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -277,7 +278,7 @@ class FakeRedisCommandSurface {
   disconnect(): void {}
 }
 
-function createToolContext(studioKind: 'manim' | 'plot', sceneId?: string): StudioRuntimeBackedToolContext {
+function createToolContext(studioKind: StudioKind, sceneId?: string): StudioRuntimeBackedToolContext {
   const session = createSession({ title: `${studioKind} render scope` })
   return {
     projectId: session.projectId,
@@ -1119,7 +1120,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
         }
       }
     })
-    const plotContext = createToolContext('plot', 'scene-b')
+    const plotContext = createToolContext('matplotlib', 'scene-b')
     await plotTool.execute({ concept: 'line', code: 'import matplotlib' }, plotContext)
     assert.deepEqual(Object.keys(plotRequests[0] ?? {}).sort(), [
       'code',
@@ -1143,7 +1144,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     assert.equal(failedRenders[0]?.status, 'failed')
     assert.equal(failedRenders[0]?.sceneId, 'scene-a', 'the failed update keeps the immutable scope')
 
-    const plotContext = createToolContext('plot', 'scene-b')
+    const plotContext = createToolContext('matplotlib', 'scene-b')
     const completingPlot = createPlotStudioRenderTool({
       async execute() {
         return {
@@ -1166,7 +1167,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
         throw new Error('plot execution failed')
       }
     })
-    const failingPlotContext = createToolContext('plot', 'scene-c')
+    const failingPlotContext = createToolContext('matplotlib', 'scene-c')
     await assert.rejects(
       () => failingPlot.execute({ concept: 'line', code: 'import matplotlib' }, failingPlotContext),
       /plot execution failed/

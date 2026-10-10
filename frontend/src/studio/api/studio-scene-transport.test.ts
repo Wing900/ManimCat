@@ -143,7 +143,7 @@ describe('studio scene transport contract', () => {
           id: 'render-1',
           sessionId: 's',
           sceneId: 'scene-3',
-          kind: 'plot',
+          kind: 'matplotlib',
           title: 'render',
           status: 'queued',
           concept: 'c',

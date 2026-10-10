@@ -854,7 +854,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
       ownerId: OWNER_ID,
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
-      kind: 'plot',
+      kind: 'matplotlib',
       title: 'render',
       concept: 'concept',
       outputMode: 'image',

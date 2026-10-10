@@ -1,4 +1,5 @@
 import { isStudioEventScopeIdentifier } from '../protocol/studio-agent-events'
+import { normalizeStudioKind } from '../protocol/studio-agent-types'
 import type {
   StudioAgentType,
   StudioKind,
@@ -299,7 +300,7 @@ function readRenderStatus(value: unknown): StudioRenderStatus | undefined {
 }
 
 function readStudioKind(value: unknown): StudioKind | undefined {
-  return value === 'manim' || value === 'plot' ? value : undefined
+  return typeof value === 'string' ? normalizeStudioKind(value) : undefined
 }
 
 function readAgentType(value: unknown): StudioAgentType | undefined {

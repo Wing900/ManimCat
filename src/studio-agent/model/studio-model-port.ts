@@ -1,3 +1,4 @@
+import type { StudioKind } from '../domain/core-types'
 import type OpenAI from 'openai'
 import type { CustomApiConfig } from '../../types'
 import type { StudioToolChoice } from '../domain/types'
@@ -13,7 +14,7 @@ export interface StudioModelRequest {
   runId: string
   step: number
   assistantMessageId: string
-  studioKind?: 'manim' | 'plot'
+  studioKind?: StudioKind
   runCreatedAt: string
   requestMessageCount: number
   requestMessageCharsApprox: number

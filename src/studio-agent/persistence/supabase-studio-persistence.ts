@@ -15,6 +15,7 @@ import type {
   StudioSessionStore,
   StudioUserMessage,
 } from '../domain/types'
+import { normalizeStudioKind } from '../domain/core-types'
 import type { StudioPersistence } from './studio-persistence'
 import { readStudioTokenUsage } from '../runs/token-usage'
 import { canTransitionStudioRunStatus } from '../runs/run-status-transitions'
@@ -954,7 +955,7 @@ function asAttachments(value: JsonRecord[] | null): StudioRender['attachments'] 
 
 function readStudioKindFromMetadata(metadata: JsonRecord | null): StudioSession['studioKind'] | undefined {
   const value = metadata?.studioKind
-  return value === 'plot' || value === 'manim' ? value : undefined
+  return typeof value === 'string' ? normalizeStudioKind(value) : undefined
 }
 
 /**

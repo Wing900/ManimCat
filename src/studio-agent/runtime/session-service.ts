@@ -96,5 +96,5 @@ export function createStudioSessionService(input: {
 }
 
 function getDefaultSessionTitle(studioKind: StudioKind): string {
-  return studioKind === 'plot' ? 'Plot Studio Session' : 'Manim Studio Session'
+  return studioKind === 'matplotlib' ? 'Plot Studio Session' : 'Manim Studio Session'
 }

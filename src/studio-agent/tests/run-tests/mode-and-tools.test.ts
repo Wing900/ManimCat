@@ -1,3 +1,4 @@
+import type { StudioKind } from '../../domain/core-types'
 import assert from 'node:assert/strict'
 import {
   createLegacyRunExecutionScope,
@@ -24,7 +25,7 @@ import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { getApiRagService } from '../../../services/api-rag'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 
-function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToolContext {
+function createToolContext(studioKind: StudioKind): StudioRuntimeBackedToolContext {
   const session = createStudioSession({
     ownerId: 'owner-test',
     projectId: 'project-1',
@@ -65,7 +66,7 @@ export async function runModeAndToolTests(): Promise<void> {
       projectId: 'project-1',
       directory: await createWorkspace(),
       useDedicatedWorkspace: false,
-      studioKind: 'plot',
+      studioKind: 'matplotlib',
       agentType: 'builder'
     })
 
@@ -81,7 +82,7 @@ export async function runModeAndToolTests(): Promise<void> {
     const session = createStudioSession({
       ownerId: 'owner-context',
       projectId: 'project-1',
-      studioKind: 'plot',
+      studioKind: 'matplotlib',
       agentType: 'builder',
       title: 'Render context',
       directory: '/workspace/plot'
@@ -90,7 +91,7 @@ export async function runModeAndToolTests(): Promise<void> {
     const older = createStudioRender({
       ownerId: session.ownerId,
       sessionId: session.id,
-      kind: 'plot',
+      kind: 'matplotlib',
       title: 'Older',
       concept: 'older',
       outputMode: 'image',
@@ -100,7 +101,7 @@ export async function runModeAndToolTests(): Promise<void> {
     const latest = createStudioRender({
       ownerId: session.ownerId,
       sessionId: session.id,
-      kind: 'plot',
+      kind: 'matplotlib',
       title: 'Latest',
       concept: 'latest',
       outputMode: 'image',
@@ -111,7 +112,7 @@ export async function runModeAndToolTests(): Promise<void> {
     const otherOwnerRender = createStudioRender({
       ownerId: 'owner-other',
       sessionId: session.id,
-      kind: 'plot',
+      kind: 'matplotlib',
       title: 'Hidden',
       concept: 'hidden',
       outputMode: 'image',
@@ -137,7 +138,7 @@ export async function runModeAndToolTests(): Promise<void> {
   await run('studio modes differ only in scene facts, never in render behavior', async () => {
     // No Mode renders on its own: the Builder calls the `render` Tool for both kinds.
     const manim = getStudioModeDefinition('manim')
-    const plot = getStudioModeDefinition('plot')
+    const plot = getStudioModeDefinition('matplotlib')
     assert.deepEqual(Object.keys(manim).sort(), [
       'codeLanguage',
       'kind',
@@ -158,7 +159,7 @@ export async function runModeAndToolTests(): Promise<void> {
     // Every registered package owns one Studio kind: manim for scenes, plot for figures.
     const tools = createSharedStudioTools({ apiRagService: getApiRagService() })
     const searchTools = tools.filter((tool) => tool.name === 'search_api')
-    assert.deepEqual(searchTools.map((tool) => tool.allowedStudioKinds), [['manim'], ['plot']])
+    assert.deepEqual(searchTools.map((tool) => tool.allowedStudioKinds), [['manim'], ['matplotlib']])
     assert.ok(searchTools.every((tool) => tool.allowedAgents.includes('builder')))
   })
 
@@ -233,10 +234,10 @@ export async function runModeAndToolTests(): Promise<void> {
 
   await run('Plot render tool uses an injected render port', async () => {
     const execution: PlotRenderExecution = {
-      outputDir: '/workspace/plot/renders/plot-test',
-      scriptPath: '/workspace/plot/renders/plot-test/plot_script.py',
+      outputDir: '/workspace/matplotlib/renders/plot-test',
+      scriptPath: '/workspace/matplotlib/renders/plot-test/plot_script.py',
       imageDataUris: ['data:image/png;base64,test'],
-      imagePaths: ['/workspace/plot/renders/plot-test/plot_1.png'],
+      imagePaths: ['/workspace/matplotlib/renders/plot-test/plot_1.png'],
       stdout: 'ok',
       stderr: ''
     }
@@ -247,7 +248,7 @@ export async function runModeAndToolTests(): Promise<void> {
         return execution
       }
     })
-    const context = createToolContext('plot')
+    const context = createToolContext('matplotlib')
     const eventBus = new RecordingEventBus()
     context.eventBus = eventBus
 

@@ -22,8 +22,8 @@ const STUDIO_MODES: Record<StudioKind, StudioModeDefinition> = {
     outputModes: ['video', 'image'],
     runtimeSummary: 'Generate, inspect, render, and repair Manim Python.'
   },
-  plot: {
-    kind: 'plot',
+  matplotlib: {
+    kind: 'matplotlib',
     label: 'Matplotlib Studio',
     codeLanguage: 'python',
     outputModes: ['image'],

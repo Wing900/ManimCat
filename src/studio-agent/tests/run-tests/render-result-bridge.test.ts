@@ -429,7 +429,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const otherScene = sceneRender({ sceneId: 'scene-2', status: 'queued', jobId: JOB_ID })
     const otherOwner = sceneRender({ sceneId: 'scene-1', status: 'queued', jobId: JOB_ID, ownerId: FOREIGN_OWNER })
     const legacy = sceneRender({ status: 'queued', jobId: JOB_ID })
-    const plot = sceneRender({ sceneId: 'scene-1', status: 'queued', jobId: JOB_ID, kind: 'plot' })
+    const plot = sceneRender({ sceneId: 'scene-1', status: 'queued', jobId: JOB_ID, kind: 'matplotlib' })
     const withoutJob = sceneRender({ sceneId: 'scene-1', status: 'queued', jobId: undefined })
     const finished = sceneRender({ sceneId: 'scene-1', status: 'completed', jobId: JOB_ID })
 

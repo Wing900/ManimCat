@@ -1,8 +1,11 @@
 import { z } from 'zod'
 import { customApiConfigSchema } from '../schemas/common'
+import { normalizeStudioKind } from '../../studio-agent/domain/core-types'
 
 const studioToolChoiceSchema = z.enum(['auto', 'required', 'none'])
-const studioKindSchema = z.enum(['manim', 'plot'])
+const studioKindSchema = z
+  .enum(['manim', 'plot', 'matplotlib'])
+  .transform((value) => normalizeStudioKind(value) ?? 'manim')
 
 const studioRunControlRequestSchema = z.object({
   projectId: z.string().trim().min(1).optional(),

@@ -146,14 +146,14 @@ describe('cinema display rules', () => {
     expect(readStudioCinemaFeedbackKey('manim', 'scene_create_failed')).toBe(
       'studio.cinema.feedbackSceneCreateFailed',
     )
-    expect(readStudioCinemaFeedbackKey('plot', 'scene_create_failed')).toBe(
+    expect(readStudioCinemaFeedbackKey('matplotlib', 'scene_create_failed')).toBe(
       'studio.cinema.plot.feedbackSceneCreateFailed',
     )
     expect(readStudioCinemaFeedbackKey('manim', 'stream_resync')).toBe('studio.cinema.feedbackStreamResync')
     expect(readStudioCinemaFeedbackTone('scene_create_failed')).toBe('error')
     expect(readStudioCinemaFeedbackTone('stream_resync')).toBe('warning')
     expect(readStudioCinemaSubmitBlockedKey('manim', 'active_run')).toBe('studio.cinema.submitBlockedActiveRun')
-    expect(readStudioCinemaSubmitBlockedKey('plot', 'active_run')).toBe('studio.cinema.plot.submitBlockedActiveRun')
+    expect(readStudioCinemaSubmitBlockedKey('matplotlib', 'active_run')).toBe('studio.cinema.plot.submitBlockedActiveRun')
     expect(readStudioCinemaSubmitBlockedKey('manim', 'reconciliation')).toBe(
       'studio.cinema.submitBlockedReconciliation',
     )

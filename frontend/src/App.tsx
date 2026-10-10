@@ -96,7 +96,7 @@ function App() {
     }
 
     setActiveStudioKind(studioKind);
-    const target = studioKind === 'plot' ? 'plot-studio' : 'manim-studio';
+    const target = studioKind === 'matplotlib' ? 'plot-studio' : 'manim-studio';
 
     if (readPrefersReducedMotion()) {
       setScreen(target);

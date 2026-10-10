@@ -29,7 +29,7 @@ const PLOT_STUDIO_EVENT_LABELS: Record<string, string> = {
 }
 
 export function isPlotStudioKind(studioKind?: string | null): boolean {
-  return studioKind === 'plot'
+  return studioKind === 'matplotlib'
 }
 
 /**

@@ -26,7 +26,7 @@ interface InputFormProps {
 
 const STUDIO_KEYWORDS: Record<string, StudioKind> = {
   hellomanim: 'manim',
-  helloplot: 'plot',
+  helloplot: 'matplotlib',
 };
 const TRIGGER_DELAY_MS = 1200;
 
@@ -172,7 +172,7 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
         </button>
         <button
           type="button"
-          onClick={() => onSecretStudioOpen('plot')}
+          onClick={() => onSecretStudioOpen('matplotlib')}}
           className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-bg-secondary/60 bg-bg-tertiary/30 text-text-secondary/80 hover:text-accent hover:border-accent/30 transition-colors"
         >
           {t('form.studioEntry.plot')}
