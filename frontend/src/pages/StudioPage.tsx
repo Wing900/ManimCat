@@ -38,7 +38,7 @@ interface StudioPageProps {
   onCancel: () => void;
   onOpenDonation: () => void;
   onOpenProviders: () => void;
-  onOpenWorkspace: () => void;
+  onOpenPromptSettings: () => void;
   onOpenSettings: () => void;
   onOpenGame: () => void;
   problemOpen: boolean;
@@ -76,7 +76,7 @@ export function StudioPage({
   onCancel,
   onOpenDonation,
   onOpenProviders,
-  onOpenWorkspace,
+  onOpenPromptSettings,
   onOpenSettings,
   onOpenGame,
   problemOpen,
@@ -97,7 +97,7 @@ export function StudioPage({
   return (
     <>
       <TopLeftActions onOpenDonation={onOpenDonation} onOpenProviders={onOpenProviders} />
-      <TopRightActions onOpenWorkspace={onOpenWorkspace} onOpenSettings={onOpenSettings} />
+      <TopRightActions onOpenPromptSettings={onOpenPromptSettings} onOpenSettings={onOpenSettings} />
 
       <div
         className={`mx-auto px-4 min-h-screen flex flex-col justify-center ${isCompleted ? 'max-w-5xl' : 'max-w-4xl'}`}

@@ -9,7 +9,7 @@ import { AiModifyModal } from './components/AiModifyModal';
 import { SettingsModal } from './components/SettingsModal';
 import { DonationModal } from './components/DonationModal';
 import { ProviderConfigModal } from './components/ProviderConfigModal';
-import { Workspace } from './components/Workspace';
+import { PromptSettings } from './components/PromptSettings';
 import { StudioPage } from './pages/StudioPage';
 import { Game2048Page } from './pages/Game2048Page';
 import { StudioShell } from './studio/StudioShell';
@@ -39,7 +39,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
   const [providersOpen, setProvidersOpen] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [promptSettingsOpen, setPromptSettingsOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [currentCode, setCurrentCode] = useState('');
   const [concept, setConcept] = useState('');
@@ -250,7 +250,7 @@ function App() {
             onCancel={cancel}
             onOpenDonation={() => setDonationOpen(true)}
             onOpenProviders={() => setProvidersOpen(true)}
-            onOpenWorkspace={() => setWorkspaceOpen(true)}
+            onOpenWorkspace={() => setPromptSettingsOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenGame={handleOpenGame}
             problemOpen={problemFraming.status !== 'idle'}
@@ -331,7 +331,7 @@ function App() {
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={() => undefined} />
       <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
       <ProviderConfigModal isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={() => undefined} />
-      <Workspace isOpen={workspaceOpen} onClose={() => setWorkspaceOpen(false)} />
+      <PromptSettings isOpen={promptSettingsOpen} onClose={() => setPromptSettingsOpen(false)} />
       <AiModifyModal
         isOpen={aiModifyOpen}
         loading={isBusy}

@@ -2,19 +2,19 @@ import { ThemeToggle } from '../ThemeToggle';
 import { useI18n } from '../../i18n';
 
 interface TopRightActionsProps {
-  onOpenWorkspace: () => void;
+  onOpenPromptSettings: () => void;
   onOpenSettings: () => void;
 }
 
-export function TopRightActions({ onOpenWorkspace, onOpenSettings }: TopRightActionsProps) {
+export function TopRightActions({ onOpenPromptSettings, onOpenSettings }: TopRightActionsProps) {
   const { locale, toggleLocale, t } = useI18n();
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
       <button
-        onClick={onOpenWorkspace}
+        onClick={onOpenPromptSettings}
         className="p-2.5 text-text-secondary/70 hover:text-text-secondary hover:bg-bg-secondary/50 rounded-full transition-all active:scale-90 active:duration-75"
-        title={t('topbar.workspace')}
+        title={t('topbar.prompts')}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
