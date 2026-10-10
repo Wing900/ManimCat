@@ -218,14 +218,19 @@ function createHandlerFixture(options?: {
   snapshot?: StudioSceneSnapshot | null
   snapshotThrows?: boolean
 }): HandlerFixture {
+  // The handler specs address the Session by the constant, and `createStudioSession` only ever mints a
+  // generated id, so the fixture's default Session carries the file's canonical one.
   const session = options?.session === undefined
-    ? createStudioSession({
-        ownerId: OWNER_ID,
-        projectId: 'project-scene-events',
-        agentType: 'builder',
-        title: 'Scene handler',
-        directory: 'workspace-scene-handler'
-      })
+    ? {
+        ...createStudioSession({
+          ownerId: OWNER_ID,
+          projectId: 'project-scene-events',
+          agentType: 'builder',
+          title: 'Scene handler',
+          directory: 'workspace-scene-handler'
+        }),
+        id: SESSION_ID
+      }
     : options.session
   const scene = options?.scene === undefined
     ? createStudioScene({
@@ -665,11 +670,16 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     assert.equal(legacyBlock.includes('sceneId'), false)
     assert.ok(legacyBlock.includes("'A studio run is already active for this session'"))
 
-    // Positive internal contract: the handler is the one place that names the owner, and it hands
-    // the authorized identity to both the scope lookup and admission.
-    assert.equal(handlerSource.match(/ownerId: input\.ownerId/g)?.length, 2)
-    assert.equal(handlerSource.match(/deps\.startRun\(/g)?.length, 1)
-    assert.equal(handlerSource.match(/deps\.getSession\(/g)?.length, 1)
+    // Positive internal contract: the Run handler is the one place that names the owner, and it hands
+    // the authorized identity to both the scope lookup and admission. The Scene stream handler lives in
+    // the same file and authorizes separately, so the count stops where that handler begins.
+    const [runHandlerSource] = handlerSource.split('export async function handleStudioSceneEventStreamRequest')
+    assert.ok(runHandlerSource)
+    assert.equal(runHandlerSource.match(/ownerId: input\.ownerId/g)?.length, 2)
+    assert.equal(runHandlerSource.match(/deps\.startRun\(/g)?.length, 1)
+    // The handler never looks the Session up itself: it hands the authorized lookup to the scope
+    // resolver, once.
+    assert.equal(runHandlerSource.match(/getSession: deps\.getSession/g)?.length, 1)
     assert.ok(handlerSource.includes('parseStudioCreateSceneRunRequest(input.body)'))
     // No public message may name an internal identity or a lease.
     assert.equal(/lease|Redis|redis/i.test(handlerSource), false)
@@ -1086,7 +1096,9 @@ export async function runSceneEventRoutingTests(): Promise<void> {
 
     const projection = toPublicStudioSceneSnapshot(snapshot)
     const serialized = JSON.stringify(projection)
-    for (const leak of ['ENOENT', 'D:/private', 'raw diagnostic', 'diagnostics']) {
+    // `"diagnostics"` is the key form: the count summary below legitimately reads `2 diagnostics.`,
+    // while the raw checker bag must never cross a Scene boundary under its own name.
+    for (const leak of ['ENOENT', 'D:/private', 'raw diagnostic', '"diagnostics"']) {
       assert.equal(serialized.includes(leak), false, `static check projection leaked: ${leak}`)
     }
 
@@ -1139,6 +1151,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
 
   await run('static-check through the scene event stream and the legacy stream split cleanly', async () => {
     const diagnosticLine = 'manim:9:1 ENOENT: D:/private/scene_0002.py raw diagnostic'
+    // The check is a phase of the render Tool, and the phase marker is what the projection reads.
     const completed: StudioExternalEvent = {
       type: 'tool.result',
       properties: {
@@ -1146,12 +1159,17 @@ export async function runSceneEventRoutingTests(): Promise<void> {
         sceneId: SCENE_A,
         runId: 'run-1',
         messageId: 'message-1',
-        toolName: 'static-check',
+        toolName: 'render',
         callId: 'call-static',
         status: 'completed',
         title: 'Static check scenes/scene_0002.py',
         output: diagnosticLine,
-        metadata: { path: 'scenes/scene_0002.py', diagnosticCount: 1, diagnostics: [{ message: diagnosticLine }] }
+        metadata: {
+          phase: 'static-check',
+          path: 'scenes/scene_0002.py',
+          diagnosticCount: 1,
+          diagnostics: [{ message: diagnosticLine }]
+        }
       }
     }
 
@@ -1175,7 +1193,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
         sceneId: SCENE_A,
         runId: 'run-1',
         messageId: 'message-1',
-        toolName: 'static-check',
+        toolName: 'render',
         callId: 'call-static',
         status: 'failed',
         output: 'ENOENT: D:/private/scene_0002.py',

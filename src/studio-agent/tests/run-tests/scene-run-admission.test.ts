@@ -14,6 +14,7 @@
  */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import {
   createLegacyRunExecutionScope,
@@ -399,10 +400,13 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     await coordinator.start(() => {})
 
     const holderA = await coordinator.tryAcquire(scopeA())
+    // The sibling is acquired half a TTL later, so only A's lease runs out below: two leases taken
+    // at the same instant share one expiry, and then there is no live sibling left to preserve.
+    clock += 500
     const holderB = await coordinator.tryAcquire(scopeB())
     assert.ok(holderA && holderB)
 
-    clock += 1_001
+    clock += 501
     const reacquiredA = await coordinator.tryAcquire(scopeA())
     assert.ok(reacquiredA, 'the expired Scene is free again')
     assert.equal(await coordinator.tryAcquire(scopeB()), null, 'the live sibling is untouched')
@@ -541,9 +545,14 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     assert.equal((await holder.service.reserveScope({ ownerId: OWNER_ID, scope: scopeA() })).status, 'reserved')
     assert.equal((await failing.reserveScope({ ownerId: OWNER_ID, scope: scopeB() })).status, 'coordination_unavailable')
     assert.equal(holder.service.getScopeLease(scopeA()) !== null, true, 'the unrelated scope stays held')
-    assert.equal(await coordinator.tryAcquire(scopeB()), null, 'the failed scope must still be held by the failing service')
+    // No renewal mechanism means no safe ownership, so the failed reservation rolls its own lease
+    // back instead of holding a scope it could never renew.
+    assert.ok(await coordinator.tryAcquire(scopeB()), 'the failed scope was rolled back')
+    assert.equal(holder.service.getScopeLease(scopeA()) !== null, true, 'the rollback stayed on its own scope')
+
+    // close() is terminal for the shared coordinator, so no admission can follow it.
     await failing.close()
-    assert.ok(await coordinator.tryAcquire(scopeB()), 'closing released the scope that failed to schedule')
+    await assert.rejects(() => coordinator.tryAcquire(scopeB()), /coordinator is not started/)
   })
 
   // 17.
@@ -608,6 +617,9 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     const coordinator = createInMemoryStudioRunCoordinator({ leaseTtlMs: 1_000, now: () => clock })
     const { service, scheduler } = memoryService({ coordinator, now: () => clock })
     await service.reserveScope({ ownerId: OWNER_ID, scope: scopeA() })
+    // Half a TTL later, so the sibling's lease outlives A's: the sweep below then aborts A while B is
+    // still renewable, and both entries exercise different paths in one tick.
+    clock += 500
     await service.reserveScope({ ownerId: OWNER_ID, scope: scopeB() })
 
     let abortsA = 0
@@ -628,10 +640,11 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     })
 
     // A expires; B is renewed on the same tick, so both entries are exercised together.
-    clock += 900
+    clock += 700
     scheduler.runTick()
     await service.whenIdle()
-    clock += 200
+    // A later sweep proves a lost lease is not aborted twice while the sibling keeps renewing.
+    clock += 400
     scheduler.runTick()
     await service.whenIdle()
 
@@ -833,13 +846,28 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 28.
   await run('scene admission: a scoped start persists Run and both messages with one identical sceneId', async () => {
     const persistence = createInMemoryStudioPersistence()
-    const session = createSession()
+    // A Scene Run validates its current source as a real workspace file before the model is invoked,
+    // so the fixture materializes one instead of persisting a path that exists nowhere.
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'manimcat-scoped-start-'))
+    const session = createStudioSession({
+      projectId: 'project-1',
+      ownerId: OWNER_ID,
+      agentType: 'builder',
+      title: 'Scene admission',
+      directory: workspace
+    })
+    await persistence.sessionStore.create(session)
+    fs.mkdirSync(path.join(workspace, 'scenes'), { recursive: true })
+    fs.writeFileSync(path.join(workspace, 'scenes', 'scene_0.py'), '# source of scene_0\n', 'utf8')
     const scene = await seedScene(persistence, session, 0)
     const runtime = new StudioBuilderRuntime({
       registry: new StudioToolRegistry(),
       messageStore: persistence.messageStore,
       partStore: persistence.partStore,
       runStore: persistence.runStore,
+      // A Scene Run resolves its current source through this store, so a scoped start without one
+      // fails closed before the model is invoked.
+      sceneStore: persistence.sceneStore,
       renderStore: persistence.renderStore,
       eventBus: new InMemoryStudioEventBus()
     })
@@ -861,7 +889,14 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       inputText: 'scoped start',
       modelPort
     })
+    // A cancelled Run rejects its completion promise, exactly as the run service owns with a catch;
+    // an unowned rejection would end the process instead of the spec. The catch is attached before
+    // the abort, because it is the abort that settles the promise.
+    const cancelled = handle.completion.catch((error: unknown) => error)
     handle.abort('spec cleanup')
+    const reason = await cancelled
+    assert.ok(reason instanceof Error, 'a cancelled Run rejects its completion')
+    assert.equal(reason.message, 'spec cleanup', 'the cancellation reason is the rejection')
 
     const runs = await persistence.runStore.listBySceneId(OWNER_ID, scene.id)
     assert.equal(runs.length, 1)
@@ -905,7 +940,9 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       inputText: 'legacy start',
       modelPort
     })
+    const cancelled = handle.completion.catch((error: unknown) => error)
     handle.abort('spec cleanup')
+    assert.ok((await cancelled) instanceof Error, 'a cancelled Legacy Run rejects its completion too')
 
     const runs = await persistence.runStore.listBySessionId(OWNER_ID, session.id)
     assert.equal(runs.length, 1)
@@ -1063,6 +1100,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       'jobId',
       'outputMode',
       'quality',
+      'signal',
       'workspaceDirectory'
     ])
     assert.equal('sceneId' in (manimRequests[0] ?? {}), false, 'the render port payload is untouched')
@@ -1083,7 +1121,12 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
     }, createPassingStudioStaticCheckPort())
     const plotContext = createToolContext('plot', 'scene-b')
     await plotTool.execute({ concept: 'line', code: 'import matplotlib' }, plotContext)
-    assert.deepEqual(Object.keys(plotRequests[0] ?? {}).sort(), ['code', 'concept'])
+    assert.deepEqual(Object.keys(plotRequests[0] ?? {}).sort(), [
+      'code',
+      'renderId',
+      'signal',
+      'workspaceDirectory'
+    ])
     assert.equal('sceneId' in (plotRequests[0] ?? {}), false, 'the plot port payload is untouched')
   })
 

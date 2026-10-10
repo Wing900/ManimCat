@@ -116,7 +116,10 @@ export interface StudioVerifiedWorkspaceFile {
  * Authorizes one workspace mutation and returns the exact path it may touch.
  *
  * `session-workspace` keeps the existing boundary (`resolveSafeWorkspacePath`) so Legacy behavior
- * is unchanged, including creating a new file. `exact-file` additionally requires the normalized
+ * is unchanged, and Legacy writes are overwrites: the model writes files a Scene's materialization
+ * already put on disk, so a target that does not exist is not created — it resolves to the nearest
+ * existing ancestor, which is why creation lives in the Scene and render entries instead. `exact-file`
+ * additionally requires the normalized
  * requested path to equal the authorized path and then delegates to `verifyExactWorkspaceFile`,
  * which is the single filesystem validator shared with the runtime preflight.
  */

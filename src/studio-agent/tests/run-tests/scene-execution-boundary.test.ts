@@ -109,6 +109,28 @@ async function createFixture(options?: {
   return { workspace, session, persistence, scenes }
 }
 
+/**
+ * Creates a file symlink, reporting whether this host allows one.
+ *
+ * A file symlink needs SeCreateSymbolicLinkPrivilege on Windows (Developer Mode or an elevated
+ * shell) while a directory junction needs nothing, so the specs proving "a symlink is never a valid
+ * source" skip those cases on an unprivileged Windows host. CI runs on Linux, where the rule stays
+ * covered; the skip is printed rather than passed over silently.
+ */
+async function tryCreateFileSymlink(target: string, linkPath: string): Promise<boolean> {
+  try {
+    await symlink(target, linkPath, 'file')
+    return true
+  } catch (error) {
+    const code = (error as { code?: string }).code
+    if (code === 'EPERM' || code === 'EACCES' || code === 'ENOTSUP') {
+      console.log(`SKIP: cannot create the file symlink ${linkPath} on this host (${code})`)
+      return false
+    }
+    throw error
+  }
+}
+
 function sessionRunnerFor(fixture: SceneFixture, registry: StudioToolRegistry): StudioSessionRunner {
   return new StudioSessionRunner({
     registry,
@@ -140,6 +162,7 @@ function toolContext(input: {
   run: StudioRun
   executionScope: StudioRunExecutionScope
   eventBus?: InMemoryStudioEventBus
+  renderStore?: StudioRuntimeBackedToolContext['renderStore']
 }): StudioRuntimeBackedToolContext {
   return {
     projectId: input.session.projectId,
@@ -151,7 +174,7 @@ function toolContext(input: {
       agent: 'builder'
     }),
     eventBus: input.eventBus ?? new InMemoryStudioEventBus(),
-    renderStore: new InMemoryStudioRenderStore(),
+    renderStore: input.renderStore ?? new InMemoryStudioRenderStore(),
     executionScope: input.executionScope
   }
 }
@@ -493,16 +516,16 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     await writeFile(path.join(realDirectory, 'real.py'), '# real source\n', 'utf8')
     await symlink(realDirectory, linkedDirectory, 'junction')
     await mkdir(path.join(scenesDirectory, 'a_directory.py'), { recursive: true })
-    await symlink(
+    const symlinkedCurrentSource = path.join(scenesDirectory, 'symlinked_current.py')
+    const canSymlinkFile = await tryCreateFileSymlink(
       path.join(scenesDirectory, 'scene_0000.py'),
-      path.join(scenesDirectory, 'symlinked_current.py'),
-      'file'
+      symlinkedCurrentSource
     )
 
     const brokenSources = [
       { id: 'scene_missing_file', sourcePath: path.join(scenesDirectory, 'never_written.py') },
       { id: 'scene_directory_source', sourcePath: path.join(scenesDirectory, 'a_directory.py') },
-      { id: 'scene_symlink_source', sourcePath: path.join(scenesDirectory, 'symlinked_current.py') },
+      ...(canSymlinkFile ? [{ id: 'scene_symlink_source', sourcePath: symlinkedCurrentSource }] : []),
       { id: 'scene_symlink_ancestor_source', sourcePath: path.join(linkedDirectory, 'real.py') }
     ]
 
@@ -741,7 +764,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
   await run('legacy render context retains session-wide latest-render behavior', async () => {
     const fixture = await createFixture()
     const renderStore = fixture.persistence.renderStore
-    await renderStore.create(createStudioRender({
+    const sceneRender = await renderStore.create(createStudioRender({
       ownerId: OWNER_ID,
       sessionId: fixture.session.id,
       sceneId: 'scene_0001',
@@ -751,15 +774,20 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       outputMode: 'video',
       status: 'completed'
     }))
-    const legacyRender = await renderStore.create(createStudioRender({
-      ownerId: OWNER_ID,
-      sessionId: fixture.session.id,
-      kind: 'manim',
-      title: 'legacy render',
-      concept: 'legacy',
-      outputMode: 'video',
-      status: 'completed'
-    }))
+    // Explicitly the newer render: two renders created in the same millisecond tie on `updatedAt`, and
+    // a legacy context would then take whichever came first in insertion order.
+    const legacyRender = await renderStore.create({
+      ...createStudioRender({
+        ownerId: OWNER_ID,
+        sessionId: fixture.session.id,
+        kind: 'manim',
+        title: 'legacy render',
+        concept: 'legacy',
+        outputMode: 'video',
+        status: 'completed'
+      }),
+      updatedAt: new Date(Date.parse(sceneRender.updatedAt) + 1_000).toISOString()
+    })
 
     const context = await buildStudioRenderContext({
       ownerId: OWNER_ID,
@@ -1050,36 +1078,38 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const realSource = path.join(realDirectory, 'linked_source.py')
     await writeFile(realSource, '# real\n', 'utf8')
     const linkedSource = path.join(fixture.workspace, 'scenes', 'linked_source.py')
-    await symlink(realSource, linkedSource, 'file')
-    await fixture.persistence.sceneStore.create(createStudioScene({
-      ownerId: fixture.session.ownerId,
-      sessionId: fixture.session.id,
-      id: 'scene_linked_source',
-      position: 4,
-      sourcePath: linkedSource
-    }))
+    const canSymlinkFile = await tryCreateFileSymlink(realSource, linkedSource)
+    if (canSymlinkFile) {
+      await fixture.persistence.sceneStore.create(createStudioScene({
+        ownerId: fixture.session.ownerId,
+        sessionId: fixture.session.id,
+        id: 'scene_linked_source',
+        position: 4,
+        sourcePath: linkedSource
+      }))
 
-    // The preflight refuses to assemble a scope for a symlinked current source.
-    await assert.rejects(
-      () => loadScope(fixture, 'scene_linked_source'),
-      (error: unknown) => error instanceof StudioRunExecutionScopeError && error.reason === 'unsafe_scene_source'
-    )
+      // The preflight refuses to assemble a scope for a symlinked current source.
+      await assert.rejects(
+        () => loadScope(fixture, 'scene_linked_source'),
+        (error: unknown) => error instanceof StudioRunExecutionScopeError && error.reason === 'unsafe_scene_source'
+      )
 
-    // The mutation layer independently denies the same target, so preflight and authorization
-    // cannot drift: a scope assembled by hand for the symlink still refuses to write through it.
-    const sourcedScope = createSceneRunExecutionScope({
-      rootDirectory: fixture.workspace,
-      sceneId: 'scene_linked_source',
-      currentSourcePath: linkedSource,
-      currentSourceRelativePath: 'scenes/linked_source.py',
-      scenes: [],
-      relativePath: 'scenes/linked_source.py'
-    })
-    const sourcedContext = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_linked_source' }), executionScope: sourcedScope })
-    await assert.rejects(
-      () => createStudioWriteTool().execute({ path: 'scenes/linked_source.py', content: 'x' }, sourcedContext),
-      (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'symlink_target'
-    )
+      // The mutation layer independently denies the same target, so preflight and authorization
+      // cannot drift: a scope assembled by hand for the symlink still refuses to write through it.
+      const sourcedScope = createSceneRunExecutionScope({
+        rootDirectory: fixture.workspace,
+        sceneId: 'scene_linked_source',
+        currentSourcePath: linkedSource,
+        currentSourceRelativePath: 'scenes/linked_source.py',
+        scenes: [],
+        relativePath: 'scenes/linked_source.py'
+      })
+      const sourcedContext = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_linked_source' }), executionScope: sourcedScope })
+      await assert.rejects(
+        () => createStudioWriteTool().execute({ path: 'scenes/linked_source.py', content: 'x' }, sourcedContext),
+        (error: unknown) => error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'symlink_target'
+      )
+    }
 
     // In-workspace symlink ancestor: containment passes, the ancestor walk must still reject it.
     const linkedDirectory = path.join(fixture.workspace, 'scenes', 'linked_dir')
@@ -1164,13 +1194,18 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const legacyScope = createLegacyRunExecutionScope({ rootDirectory: fixture.workspace })
     const context = toolContext({ session: fixture.session, run: runFor(fixture.session), executionScope: legacyScope })
 
-    const created = await createStudioWriteTool().execute({ path: 'legacy/new_file.py', content: 'print(1)\n' }, context)
-    assert.equal(created.metadata?.path, 'legacy/new_file.py')
-    assert.equal(await readFile(path.join(fixture.workspace, 'legacy', 'new_file.py'), 'utf8'), 'print(1)\n')
+    // The product overwrites files that are already on disk (a Scene source is materialized before its
+    // Run); the model never creates one. The path outside `scenes/` is what makes this session-wide.
+    const target = path.join(fixture.workspace, 'legacy', 'existing.py')
+    await mkdir(path.dirname(target), { recursive: true })
+    await writeFile(target, 'print(0)\n', 'utf8')
 
-    await createStudioEditTool().execute({ path: 'legacy/new_file.py', search: 'print(1)', replace: 'print(2)' }, context)
-    assert.equal(await readFile(path.join(fixture.workspace, 'legacy', 'new_file.py'), 'utf8'), 'print(2)\n')
+    const written = await createStudioWriteTool().execute({ path: 'legacy/existing.py', content: 'print(1)\n' }, context)
+    assert.equal(written.metadata?.path, 'legacy/existing.py')
+    assert.equal(await readFile(target, 'utf8'), 'print(1)\n')
 
+    await createStudioEditTool().execute({ path: 'legacy/existing.py', search: 'print(1)', replace: 'print(2)' }, context)
+    assert.equal(await readFile(target, 'utf8'), 'print(2)\n')
   })
 
   await run('exact-file policy objects are immutable snapshots', async () => {
@@ -1349,7 +1384,11 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
   await run('trusted plot render output paths remain unaffected by the generic write policy', async () => {
     const fixture = await createFixture({ studioKind: 'plot' })
     const renderPort = new RecordingPlotRenderPort()
-    const registry = configureStudioToolRegistry({ registry: new StudioToolRegistry(), plotRenderPort: renderPort })
+    const registry = configureStudioToolRegistry({
+      registry: new StudioToolRegistry(),
+      plotRenderPort: renderPort,
+      staticCheckPort: createPassingStudioStaticCheckPort()
+    })
     const model = new ScriptedStudioModel([completion('rendered')])
     const handle = await sessionRunnerFor(fixture, registry).startBackgroundRun({
       projectId: PROJECT_ID,
@@ -1363,7 +1402,12 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     // The Run itself does not render without a tool call, so render directly through the Tool with
     // the same scope: the Port may write wherever it wants, outside the exact-file write policy.
     const scope = await loadScope(fixture, 'scene_0001')
-    const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
+    const context = toolContext({
+      session: fixture.session,
+      run: runFor(fixture.session, { sceneId: 'scene_0001' }),
+      executionScope: scope,
+      renderStore: fixture.persistence.renderStore
+    })
     const renderTool = registry.require('render', 'plot')
     const rendered = await renderTool.execute({ concept: 'fixture plot', code: 'print("plot")\n' }, context)
 
@@ -1382,7 +1426,12 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const fixture = await createFixture({ studioKind: 'manim' })
     const renderPort = new RecordingManimRenderPort()
     const scope = await loadScope(fixture, 'scene_0001')
-    const context = toolContext({ session: fixture.session, run: runFor(fixture.session, { sceneId: 'scene_0001' }), executionScope: scope })
+    const context = toolContext({
+      session: fixture.session,
+      run: runFor(fixture.session, { sceneId: 'scene_0001' }),
+      executionScope: scope,
+      renderStore: fixture.persistence.renderStore
+    })
 
     const rendered = await createStudioRenderTool(renderPort, createPassingStudioStaticCheckPort()).execute(
       { concept: 'fixture manim', code: 'print("manim")\n' },

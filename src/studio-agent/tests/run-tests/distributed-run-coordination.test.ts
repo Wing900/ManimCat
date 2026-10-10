@@ -1774,7 +1774,8 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       'studio-infrastructure-runtime.ts',
       'studio-run-cancellation-codec.ts',
       'studio-run-coordination-service.ts',
-      'studio-run-coordinator.ts'
+      'studio-run-coordinator.ts',
+      'studio-run-scope.ts'
     ])
 
     const redisAware = modules.filter((entry) =>

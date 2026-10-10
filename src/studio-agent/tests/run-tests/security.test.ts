@@ -15,6 +15,7 @@ import {
   readWorkspaceFile,
   writeWorkspaceFile,
   StudioToolRegistry,
+  StudioWorkspaceWriteDeniedError,
   createStudioReadTool,
   createStudioRenderTool,
 } from '../../index'
@@ -134,6 +135,8 @@ export async function runSecurityTests(): Promise<void> {
       () => readWorkspaceFile(workspace, 'linked/outside/secret.py'),
       /Path escapes workspace/
     )
+    // The read path answers with `WorkspacePathError`; a write authorizes through the workspace
+    // write policy instead, so its denial is the typed error and its closed reason enum.
     await assert.rejects(
       () => writeWorkspaceFile({
         baseDirectory: workspace,
@@ -141,7 +144,8 @@ export async function runSecurityTests(): Promise<void> {
         content: 'blocked',
         access: createLegacyRunExecutionScope({ rootDirectory: workspace }).workspaceAccess
       }),
-      /Path escapes workspace/
+      (error: unknown) =>
+        error instanceof StudioWorkspaceWriteDeniedError && error.reason === 'outside_workspace'
     )
     assert.equal(await readFile(path.join(outside, 'secret.py'), 'utf8'), 'secret')
   })

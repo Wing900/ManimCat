@@ -8,6 +8,7 @@ import {
   readStudioRenderReconcileWindow
 } from './render-result-fairness'
 import type { StudioRenderResult, StudioRenderResultMedia } from './render-result-types'
+import { STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH } from './render-result-types'
 import {
   canTransitionStudioRenderStatus,
   isStudioRenderActiveStatus,
@@ -169,7 +170,9 @@ export interface StudioRenderResultTransition {
  * - an observation that matches the stored status *and* attachments is not written or published
  *   again, so repeated reconciliation is idempotent;
  * - `completed` writes the public attachments the job really produced, or records the media
- *   capability gap when it produced none.
+ *   capability gap when it produced none;
+ * - a `failed` write keeps bounded failure text, because this function is what writes the row and no
+ *   Port may be able to bloat it.
  */
 export function readStudioRenderResultTransition(
   render: StudioRender,
@@ -198,7 +201,7 @@ export function readStudioRenderResultTransition(
       from: [render.status],
       patch:
         result.status === 'failed' && result.error
-          ? { status: 'failed', error: result.error }
+          ? { status: 'failed', error: result.error.slice(0, STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH) }
           : { status: result.status }
     }
   }

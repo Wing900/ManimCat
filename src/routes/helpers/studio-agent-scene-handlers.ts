@@ -236,7 +236,7 @@ export async function handleStudioSceneEventStreamRequest(
     subscribeExternalEvents: deps.subscribeExternalEvents,
     filter: (event: StudioAgentEvent): boolean =>
       matchesStudioEventScope(event, { sessionId: authorized.session.id, sceneId }),
-    serializeEvent: (event: StudioExternalEvent): StudioExternalEvent => toPublicStudioSceneEvent(event),
+    serializeEvent: toPublicStudioSceneEvent,
     clock: deps.clock
   })
 }

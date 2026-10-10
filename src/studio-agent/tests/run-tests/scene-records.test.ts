@@ -675,7 +675,9 @@ export async function runSceneRecordTests(): Promise<void> {
 
     assert.equal(countMatches(handler, /404, 'NOT_FOUND'/g), 1)
     assert.equal(countMatches(handler, /'Scene not found'/g), 1)
-    assert.match(handler, /\{\s*sessionId: req\.params\.sessionId,\s*sceneId: req\.params\.sceneId\s*\}/)
+    // Identity is parsed once, before any store lookup, so the body names the two validated path
+    // params and nothing else: no ownership fact can reach the response.
+    assert.match(handler, /\{\s*sessionId: params\.sessionId,\s*sceneId: params\.sceneId\s*\}/)
     // The only owner reference is the principal lookup: no ownership fact reaches the body.
     assert.equal(countMatches(handler, /ownerId/g), 1)
     assert.equal(countMatches(handler, /toPublicStudioSceneSnapshot/g), 1)
