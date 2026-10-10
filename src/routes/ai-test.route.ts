@@ -6,7 +6,7 @@
 import express, { type Request, type Response } from 'express'
 import OpenAI from 'openai'
 import { z } from 'zod'
-import { asyncHandler } from '../middlewares/error-handler'
+import { asyncHandler } from '../http/middleware/async-route'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { createLogger } from '../shared/logging/logger'
 import { testBackendAIConnection } from '../infrastructure/ai-provider/provider-connection-probe'

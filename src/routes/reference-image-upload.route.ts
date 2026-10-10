@@ -2,7 +2,7 @@ import express from 'express'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
-import { asyncHandler } from '../middlewares/error-handler'
+import { asyncHandler } from '../http/middleware/async-route'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { ValidationError } from '../utils/errors'
 

@@ -10,7 +10,7 @@
  */
 
 import express, { type Request, type Response } from 'express'
-import { asyncHandler } from '../middlewares/error-handler'
+import { asyncHandler } from '../http/middleware/async-route'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { assertJobAccess, getJobAccessCreatedAt } from '../services/job-access-store'
 import { createLogger } from '../shared/logging/logger'

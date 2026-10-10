@@ -11,7 +11,7 @@ import { deleteJobStage } from '../infrastructure/redis/job/redis-job-state-stor
 import { storeJobStage } from '../infrastructure/redis/job/redis-job-state-store'
 import { createLogger } from '../shared/logging/logger'
 import { ValidationError } from '../utils/errors'
-import { asyncHandler } from '../middlewares/error-handler'
+import { asyncHandler } from '../http/middleware/async-route'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import type { GenerateResponse } from '../types'
 import { requirePromptOverrideAuth } from '../utils/auth-utils'

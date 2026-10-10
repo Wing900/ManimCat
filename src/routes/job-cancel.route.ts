@@ -4,7 +4,7 @@
  */
 
 import express, { type Request, type Response } from 'express'
-import { asyncHandler } from '../middlewares/error-handler'
+import { asyncHandler } from '../http/middleware/async-route'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { assertJobAccess } from '../services/job-access-store'
 import { cancelJob } from '../services/job-cancel'

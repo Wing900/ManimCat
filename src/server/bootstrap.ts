@@ -2,7 +2,8 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import path from 'path'
 import { appConfig, isDevelopment, printConfig, validateConfig } from '../config/app'
 import { corsMiddleware } from '../middlewares/cors'
-import { errorHandler, notFoundHandler } from '../middlewares/error-handler'
+import { errorHandler } from '../http/middleware/error-response-handler'
+import { notFoundHandler } from '../http/middleware/not-found-handler'
 import routes from '../routes'
 
 interface LoggerLike {

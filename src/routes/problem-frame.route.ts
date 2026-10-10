@@ -1,6 +1,6 @@
 import express from 'express'
 import { z } from 'zod'
-import { asyncHandler } from '../middlewares/error-handler'
+import { asyncHandler } from '../http/middleware/async-route'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { ValidationError } from '../utils/errors'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
