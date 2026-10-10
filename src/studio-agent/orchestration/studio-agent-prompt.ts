@@ -24,7 +24,7 @@ interface BuildStudioAgentSystemPromptInput {
 export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPromptInput): string {
   const studioKind: StudioKind = input.session.studioKind ?? 'manim'
   const sections = [
-    getStudioAgentSystemPrompt(input.session.agentType, studioKind),
+    getStudioAgentSystemPrompt(input.session.agentType),
     formatStudioScene(input.session, studioKind),
   ]
 
@@ -46,9 +46,6 @@ export function buildStudioAgentSystemPrompt(input: BuildStudioAgentSystemPrompt
  */
 function formatStudioScene(session: StudioSession, studioKind: StudioKind): string {
   const mode = getStudioModeDefinition(studioKind)
-  const automaticRenderAfter = mode.autoRenderAfterTools.length
-    ? mode.autoRenderAfterTools.join(', ')
-    : 'none'
 
   return [
     '<studio_scene>',
@@ -58,7 +55,6 @@ function formatStudioScene(session: StudioSession, studioKind: StudioKind): stri
     `language: ${mode.codeLanguage}`,
     `outputs: ${mode.outputModes.join(', ')}`,
     `workspace: ${session.directory}`,
-    `automatic_render_after: ${automaticRenderAfter}`,
     '</studio_scene>',
   ].join('\n')
 }

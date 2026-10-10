@@ -9,7 +9,6 @@ import { grepToolParameters } from './tool-parameters'
 
 interface GrepToolInput {
   query?: string
-  pattern?: string
   path?: string
 }
 
@@ -27,9 +26,9 @@ async function executeGrepTool(
   input: GrepToolInput,
   context: StudioRuntimeBackedToolContext
 ): Promise<StudioToolResult> {
-  const query = input.query ?? input.pattern
+  const query = input.query
   if (!query) {
-    throw new Error('Grep tool requires "query" or "pattern"')
+    throw new Error('Grep tool requires "query"')
   }
 
   const files = await walkWorkspaceFiles(context.session.directory, input.path ?? '.')

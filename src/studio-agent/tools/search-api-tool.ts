@@ -29,8 +29,8 @@ export function createStudioSearchApiTool(
     name: SEARCH_API_TOOL_NAME,
     parameters: searchApiToolParameters,
     description:
-      'Search the verified API catalog. Pass "query" as a lowercase verb + object + context sentence, ' +
-      'and pass "symbols" with the exact API names you intend to call so they can be verified.',
+      'Search the verified API catalog before writing code that calls it. ' +
+      'Never call an API the result does not name.',
     allowedAgents: ['builder'],
     allowedStudioKinds: [studioKind],
     execute: async (input) => {

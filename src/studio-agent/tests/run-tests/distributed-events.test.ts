@@ -9,7 +9,6 @@ import {
   createStudioEventEnvelope,
   createStudioRender,
   createStudioRun,
-  createStudioRuntimeService,
   decodeStudioEventEnvelope,
   encodeStudioEventEnvelope,
   resolveStudioEventChannel,
@@ -21,6 +20,7 @@ import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { toPublicStudioEvent } from '../../http/public-dto'
 import { FakeStudioEventBroker, RecordingStudioEventLogger } from '../support/fake-studio-event-broker'
 import { run } from './factories'
+import { createTestStudioRuntime } from './factories'
 
 const SESSION_A = 'sess-a'
 const SESSION_B = 'sess-b'
@@ -431,7 +431,7 @@ export async function runDistributedEventTests(): Promise<void> {
   // 15. Runtime external-event adaptation remains unchanged for remote events.
   await run('runtime external-event adaptation works for remote events', async () => {
     const { bus, broker } = createDistributedBus()
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence: createInMemoryStudioPersistence(),
       workspaceProvider,
       eventBus: bus

@@ -1,14 +1,15 @@
 import { createStudioRender } from '../../domain/factories'
 import type { StudioFileAttachment, StudioToolDefinition, StudioToolResult } from '../../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
-import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
-import {
-  createUnconfiguredPlotRenderPort,
-  type PlotRenderExecution,
-  type PlotRenderPort
-} from '../plot-render-port'
+import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
+import type { PlotRenderExecution, PlotRenderPort } from '../plot-render-port'
 import { plotRenderToolParameters } from '../../tools/tool-parameters'
 import { publishStudioRenderUpdated } from '../../render/render-events'
+import {
+  executeStudioRenderLifecycle,
+  studioRenderFailureMessage,
+  studioRenderFailureStatus
+} from '../../render/render-lifecycle'
 import { toWorkspaceRelativePath } from '../../tools/workspace-paths'
 
 interface PlotRenderToolInput {
@@ -17,7 +18,7 @@ interface PlotRenderToolInput {
 }
 
 export function createPlotStudioRenderTool(
-  renderPort: PlotRenderPort = createUnconfiguredPlotRenderPort()
+  renderPort: PlotRenderPort
 ): StudioToolDefinition<PlotRenderToolInput> {
   return {
     name: 'render',
@@ -38,88 +39,88 @@ async function executePlotRenderTool(
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
   }
-  if (!context.renderStore) {
-    throw new Error('Render store is unavailable')
-  }
 
   const title = `Plot render: ${input.concept.slice(0, 80)}`
-  const render = createStudioRender({
-    ownerId: context.session.ownerId,
-    sessionId: context.session.id,
-    runId: context.run.id,
-    // The Run is the authoritative scope source; a Legacy Run leaves the key absent.
-    sceneId: context.run.sceneId,
-    kind: 'plot',
-    title,
-    concept: input.concept,
-    outputMode: 'image',
-    quality: 'medium',
-    status: 'running',
-    metadata: {
-      studioKind: 'plot',
-      outputMode: 'image'
+
+  return executeStudioRenderLifecycle({
+    context,
+    createRender: () => {
+      const render = createStudioRender({
+        ownerId: context.session.ownerId,
+        sessionId: context.session.id,
+        runId: context.run.id,
+        // The Run is the authoritative scope source; a Legacy Run leaves the key absent.
+        sceneId: context.run.sceneId,
+        kind: 'plot',
+        title,
+        concept: input.concept,
+        outputMode: 'image',
+        quality: 'medium',
+        status: 'running',
+        metadata: {
+          studioKind: 'plot',
+          outputMode: 'image'
+        },
+      })
+      render.metadata = { ...(render.metadata ?? {}), renderId: render.id }
+      return render
     },
-  })
-  render.metadata = { ...(render.metadata ?? {}), renderId: render.id }
-  const createdRender = await context.renderStore.create(render)
-  publishStudioRenderUpdated(context.eventBus, createdRender)
+    execute: async (render, renderStore) => {
+      context.setToolMetadata?.({
+        title,
+        metadata: {
+          renderId: render.id,
+          studioKind: 'plot'
+        }
+      })
 
-  context.setToolMetadata?.({
-    title,
-    metadata: {
-      renderId: render.id,
-      studioKind: 'plot'
-    }
-  })
-
-  try {
-    throwIfStudioRunCancelled(context.abortSignal)
-    const execution = await renderPort.execute({
-      workspaceDirectory: context.session.directory,
-      renderId: render.id,
-      code: input.code,
-      signal: context.abortSignal,
-    })
-    throwIfStudioRunCancelled(context.abortSignal)
-    const attachments = buildAttachments(execution.imageDataUris, execution.imagePaths)
-    const completed = await context.renderStore.update(context.session.ownerId, render.id, {
-      status: 'completed',
-      attachments,
-      metadata: {
-        ...(render.metadata ?? {}),
-        imageCount: execution.imageDataUris.length,
-        scriptPath: toWorkspaceRelativePath(context.session.directory, execution.scriptPath).replace(/\\/g, '/'),
-        imagePaths: execution.imagePaths.map((imagePath) => toWorkspaceRelativePath(context.session.directory, imagePath).replace(/\\/g, '/')),
-      },
-    })
-    if (!completed) {
-      throw new Error('Render record disappeared before completion')
-    }
-    publishStudioRenderUpdated(context.eventBus, completed)
-
-    return {
-      title,
-      output: `plot_render_id: ${render.id}`,
-      attachments,
-      metadata: {
+      const execution = await renderPort.execute({
+        workspaceDirectory: context.session.directory,
         renderId: render.id,
-        phase: 'render',
-        diagnosticCount: 0,
-        imageCount: execution.imageDataUris.length,
-        scriptPath: completed.metadata?.scriptPath,
-        imagePaths: completed.metadata?.imagePaths,
-      },
+        code: input.code,
+        signal: context.abortSignal,
+      })
+      throwIfStudioRunCancelled(context.abortSignal)
+      const attachments = buildAttachments(execution.imageDataUris, execution.imagePaths)
+      const completed = await renderStore.update(context.session.ownerId, render.id, {
+        status: 'completed',
+        attachments,
+        metadata: {
+          ...(render.metadata ?? {}),
+          imageCount: execution.imageDataUris.length,
+          scriptPath: toWorkspaceRelativePath(context.session.directory, execution.scriptPath).replace(/\\/g, '/'),
+          imagePaths: execution.imagePaths.map((imagePath) => toWorkspaceRelativePath(context.session.directory, imagePath).replace(/\\/g, '/')),
+        },
+      })
+      if (!completed) {
+        throw new Error('Render record disappeared before completion')
+      }
+      publishStudioRenderUpdated(context.eventBus, completed)
+
+      return {
+        title,
+        output: `plot_render_id: ${render.id}`,
+        attachments,
+        metadata: {
+          renderId: render.id,
+          phase: 'render',
+          diagnosticCount: 0,
+          imageCount: execution.imageDataUris.length,
+          scriptPath: completed.metadata?.scriptPath,
+          imagePaths: completed.metadata?.imagePaths,
+        },
+      }
+    },
+    markFailed: async (render, renderStore, error) => {
+      const failedRender = await renderStore.update(context.session.ownerId, render.id, {
+        status: studioRenderFailureStatus(error),
+        error: studioRenderFailureMessage(error),
+      })
+      if (failedRender) {
+        publishStudioRenderUpdated(context.eventBus, failedRender)
+      }
     }
-  } catch (error) {
-    const failedRender = await context.renderStore.update(context.session.ownerId, render.id, {
-      status: isStudioRunCancelledError(error) ? 'cancelled' : 'failed',
-      error: error instanceof Error ? error.message : String(error),
-    })
-    if (failedRender) {
-      publishStudioRenderUpdated(context.eventBus, failedRender)
-    }
-    throw error
-  }
+  })
 }
 
 function buildAttachments(imageDataUris: string[], imagePaths: string[]): StudioFileAttachment[] {

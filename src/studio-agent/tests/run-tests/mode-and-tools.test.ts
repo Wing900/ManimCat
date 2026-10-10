@@ -5,11 +5,10 @@ import {
   buildStudioRenderContext,
   createInMemoryStudioPersistence,
   createLocalStudioWorkspaceProvider,
-  createStudioRenderTool,
+  createManimStudioRenderTool,
   createStudioRender,
   createStudioRun,
   createStudioSession,
-  createStudioRuntimeService,
   InMemoryStudioEventBus,
   InMemoryStudioRenderStore,
   type ManimRenderSubmissionInput,
@@ -17,6 +16,7 @@ import {
   type StudioRuntimeBackedToolContext
 } from '../../index'
 import { createWorkspace, run } from './factories'
+import { createTestStudioRuntime } from './factories'
 import { RecordingEventBus } from '../support/recording-event-bus'
 import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
@@ -56,7 +56,7 @@ function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToo
 
 export async function runModeAndToolTests(): Promise<void> {
   await run('runtime owns session snapshot assembly', async () => {
-    const service = createStudioRuntimeService({
+    const service = createTestStudioRuntime({
       persistence: createInMemoryStudioPersistence(),
       workspaceProvider: createLocalStudioWorkspaceProvider()
     })
@@ -134,9 +134,21 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.equal(context.latestRender?.error, 'plot failed')
   })
 
-  await run('studio modes own their automatic render policy', async () => {
-    assert.deepEqual(getStudioModeDefinition('manim').autoRenderAfterTools, [])
-    assert.deepEqual(getStudioModeDefinition('plot').autoRenderAfterTools, ['write', 'edit'])
+  await run('studio modes differ only in scene facts, never in render behavior', async () => {
+    // No Mode renders on its own: the Builder calls the `render` Tool for both kinds.
+    const manim = getStudioModeDefinition('manim')
+    const plot = getStudioModeDefinition('plot')
+    assert.deepEqual(Object.keys(manim).sort(), [
+      'codeLanguage',
+      'kind',
+      'label',
+      'outputModes',
+      'runtimeSummary'
+    ])
+    assert.deepEqual(Object.keys(plot).sort(), Object.keys(manim).sort())
+    assert.deepEqual(manim.outputModes, ['video', 'image'])
+    assert.deepEqual(plot.outputModes, ['image'])
+    assert.notEqual(manim.codeLanguage, plot.codeLanguage)
   })
 
   await run('shared tool set excludes question interaction and registers one search_api per ready package', async () => {
@@ -152,7 +164,7 @@ export async function runModeAndToolTests(): Promise<void> {
 
   await run('Manim render tool uses an injected render port', async () => {
     const calls: ManimRenderSubmissionInput[] = []
-    const tool = createStudioRenderTool({
+    const tool = createManimStudioRenderTool({
       async submit(input) {
         calls.push(input)
         return { jobId: input.jobId }
@@ -202,7 +214,7 @@ export async function runModeAndToolTests(): Promise<void> {
         return renderStore.listBySceneId(ownerId, sceneId)
       },
     }
-    const tool = createStudioRenderTool({
+    const tool = createManimStudioRenderTool({
       async submit() {
         order.push('submit')
         throw new Error('queue unavailable')

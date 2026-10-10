@@ -4,7 +4,6 @@ import path from 'node:path'
 import {
   createInMemoryStudioPersistence,
   createLocalStudioWorkspaceProvider,
-  createStudioRuntimeService,
   createStudioSceneService,
   createStudioSceneId,
   createStudioSession,
@@ -18,6 +17,7 @@ import {
 } from '../../index'
 import { toPublicStudioScene, toPublicStudioSnapshot } from '../../http/public-dto'
 import { createWorkspace, run } from './factories'
+import { createTestStudioRuntime } from './factories'
 
 /** Scene ids are Python module stems: `scene_` plus lowercase hex, or any plain identifier. */
 const PYTHON_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -405,7 +405,7 @@ export async function runSceneFoundationTests(): Promise<void> {
     assert.equal(publicScene.id, scene.id)
     assert.equal(publicScene.position, scene.position)
 
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider(),
     })
@@ -422,7 +422,7 @@ export async function runSceneFoundationTests(): Promise<void> {
 
   await run('a legacy session snapshot returns an empty scene list', async () => {
     const { persistence, session } = await createTestSession()
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider(),
     })
@@ -436,7 +436,7 @@ export async function runSceneFoundationTests(): Promise<void> {
 
   await run('existing snapshot fields stay present beside scenes', async () => {
     const { persistence, session } = await createTestSession()
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider(),
     })

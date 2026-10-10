@@ -7,7 +7,6 @@ import {
   createStudioAssistantMessage,
   createStudioRender,
   createStudioRun,
-  createStudioRuntimeService,
   createStudioSession,
   createStudioUserMessage,
   type StudioCreateSceneOutcome,
@@ -20,6 +19,7 @@ import {
 } from '../../index'
 import { toPublicStudioSceneSnapshot, toPublicStudioSnapshot } from '../../http/public-dto'
 import { createWorkspace, run } from './factories'
+import { createTestStudioRuntime } from './factories'
 
 const OWNER = 'owner-a'
 const FOREIGN_OWNER = 'owner-b'
@@ -54,7 +54,7 @@ function assertCreatedScene(outcome: StudioCreateSceneOutcome): StudioScene {
 
 interface SceneFixture {
   persistence: StudioPersistence
-  runtime: ReturnType<typeof createStudioRuntimeService>
+  runtime: ReturnType<typeof createTestStudioRuntime>
   session: StudioSession
   scenes: StudioScene[]
   otherSession: StudioSession
@@ -63,7 +63,7 @@ interface SceneFixture {
 
 async function createSceneFixture(): Promise<SceneFixture> {
   const persistence = createInMemoryStudioPersistence()
-  const runtime = createStudioRuntimeService({
+  const runtime = createTestStudioRuntime({
     persistence,
     workspaceProvider: createLocalStudioWorkspaceProvider(),
   })

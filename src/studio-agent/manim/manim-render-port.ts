@@ -17,14 +17,6 @@ export interface ManimRenderPort {
   cancel?: (jobId: string) => Promise<'cancelled' | 'completed' | 'failed'>
 }
 
-export function createUnconfiguredManimRenderPort(): ManimRenderPort {
-  return {
-    async submit() {
-      throw new Error('Manim render port is not configured')
-    }
-  }
-}
-
 export function createManimRenderJobId(): string {
   return uuidv4()
 }

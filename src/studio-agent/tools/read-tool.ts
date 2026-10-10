@@ -5,7 +5,6 @@ import { readToolParameters } from './tool-parameters'
 
 interface ReadToolInput {
   path?: string
-  file?: string
 }
 
 export function createStudioReadTool(): StudioToolDefinition<ReadToolInput> {
@@ -22,9 +21,9 @@ async function executeReadTool(
   input: ReadToolInput,
   context: StudioRuntimeBackedToolContext
 ): Promise<StudioToolResult> {
-  const target = input.path ?? input.file
+  const target = input.path
   if (!target) {
-    throw new Error('Read tool requires "path" or "file"')
+    throw new Error('Read tool requires "path"')
   }
 
   const file = await readWorkspaceFile(context.session.directory, target)

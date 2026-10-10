@@ -17,11 +17,3 @@ export interface PlotRenderExecution {
 export interface PlotRenderPort {
   execute: (input: PlotRenderInput) => Promise<PlotRenderExecution>
 }
-
-export function createUnconfiguredPlotRenderPort(): PlotRenderPort {
-  return {
-    async execute() {
-      throw new Error('Matplotlib render port is not configured')
-    }
-  }
-}

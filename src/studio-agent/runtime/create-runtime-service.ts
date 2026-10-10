@@ -5,8 +5,9 @@ import type { StudioPersistence } from '../persistence/studio-persistence'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
-import { getApiRagService, type ApiRagService } from '../../services/api-rag'
-import { createInMemoryStudioRunCoordinator } from '../run-coordination/in-memory-studio-run-coordinator'
+import type { ApiRagService } from '../../services/api-rag'
+import type { ManimRenderPort } from '../manim/manim-render-port'
+import type { PlotRenderPort } from '../plot/plot-render-port'
 import {
   StudioRunCoordinationService,
   type StudioRunCoordinationServicePort
@@ -17,10 +18,7 @@ import { createStudioSceneService, type StudioSceneService } from '../scenes/stu
 import {
   createStudioRenderResultReconciler
 } from '../render/render-result-reconciler'
-import {
-  createUnavailableStudioRenderResultPort,
-  type StudioRenderResultPort
-} from '../render/render-result-port'
+import type { StudioRenderResultPort } from '../render/render-result-port'
 import {
   createStudioRunService,
   type StudioRunService,
@@ -29,26 +27,18 @@ import {
 interface CreateStudioRuntimeServiceInput {
   persistence: StudioPersistence
   workspaceProvider: StudioWorkspaceProvider
+  /** The single API RAG service, built at the composition root. */
+  apiRagService: ApiRagService
+  /** Where a Manim render is submitted. Production injects the job queue. */
+  manimRenderPort: ManimRenderPort
+  /** Where a plot render is executed. Production injects the sandboxed runner. */
+  plotRenderPort: PlotRenderPort
+  /** Render result source. Production injects the job store adapter. */
+  renderResultPort: StudioRenderResultPort
+  /** Run coordination (session leases + cancellation). Production injects the Redis service. */
+  runCoordination: StudioRunCoordinationServicePort
   registry?: StudioToolRegistry
   eventBus?: StudioEventBus
-  manimRenderPort?: import('../manim/manim-render-port').ManimRenderPort
-  plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
-  /**
-   * The single API RAG service. Defaults to the process-wide instance so production and
-   * tests register the same tools; the composition root injects nothing else.
-   */
-  apiRagService?: ApiRagService
-  /**
-   * Render result source. Production injects the job store adapter at the composition root;
-   * the default answers `unknown`, so an in-memory runtime never touches the queue.
-   */
-  renderResultPort?: StudioRenderResultPort
-  /**
-   * Run coordination (session leases + cancellation). Defaults to an in-memory coordinator so
-   * single-instance and test runtimes behave exactly as before; production injects the
-   * Redis-backed service from the composition root.
-   */
-  runCoordination?: StudioRunCoordinationServicePort
 }
 
 export interface StudioRuntimeService extends StudioSessionService, StudioRunService, StudioSceneService {
@@ -76,7 +66,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     registry,
     manimRenderPort: input.manimRenderPort,
     plotRenderPort: input.plotRenderPort,
-    apiRagService: input.apiRagService ?? getApiRagService(),
+    apiRagService: input.apiRagService,
   })
   const runtime = new StudioBuilderRuntime({
     registry,
@@ -95,7 +85,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     persistence: input.persistence,
     workspaceProvider: input.workspaceProvider,
     renderResultReconciler: createStudioRenderResultReconciler({
-      resultPort: input.renderResultPort ?? createUnavailableStudioRenderResultPort(),
+      resultPort: input.renderResultPort,
       renderStore: input.persistence.renderStore,
       eventBus
     })
@@ -105,11 +95,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     persistence: input.persistence,
     runtime,
     eventBus,
-    coordination: input.runCoordination ?? new StudioRunCoordinationService({
-      coordinator: createInMemoryStudioRunCoordinator(),
-      runStore: input.persistence.runStore,
-      eventBus,
-    }),
+    coordination: input.runCoordination,
   })
 
   return {

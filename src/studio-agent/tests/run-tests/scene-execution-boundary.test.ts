@@ -13,7 +13,7 @@ import {
   createStudioLsTool,
   createStudioReadTool,
   createStudioRender,
-  createStudioRenderTool,
+  createManimStudioRenderTool,
   createStudioRun,
   createStudioScene,
   createStudioSession,
@@ -46,9 +46,8 @@ import { createStudioLoopRuntime, buildStudioLoopStepRequest } from '../../orche
 import { createStudioOpenAIToolLoop } from '../../orchestration/openai-tool-loop/controller'
 import { configureStudioToolRegistry } from '../../runtime/studio-tool-registry'
 import { buildStudioAgentSystemPrompt } from '../../orchestration/studio-agent-prompt'
-import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 import { ScriptedStudioModel } from '../support/scripted-studio-model'
-import { run } from './factories'
+import { createDetachedApiRagService, run } from './factories'
 
 /**
  * Task 11B2B — Scene context assembly and Tool write boundary.
@@ -259,32 +258,6 @@ class RecordingManimRenderPort implements ManimRenderPort {
     })
     return { jobId: input.jobId }
   }
-}
-
-/** Stub mutation tool that reports the path the auto-render closure is allowed to trust. */
-function stubMutationTool(name: string, resultPath: string | null): StudioToolDefinition {
-  return {
-    name,
-    parameters: { type: 'object', properties: {}, required: [] } as never,
-    description: `stub ${name}`,
-    allowedAgents: ['builder'],
-    execute: async (): Promise<StudioToolResult> => ({
-      title: `stub ${name}`,
-      output: 'ok',
-      metadata: resultPath ? { path: resultPath } : {}
-    })
-  }
-}
-
-/**
- * Registry with exactly the plot render Tool plus the mutating Tool under test: the shared tool set
- * is deliberately not registered, so a stub cannot collide with the real `write` tool name.
- */
-function autoRenderRegistry(renderPort: PlotRenderPort, mutationTool: StudioToolDefinition<any>): StudioToolRegistry {
-  const registry = new StudioToolRegistry()
-  registry.register(createPlotStudioRenderTool(renderPort))
-  registry.register(mutationTool)
-  return registry
 }
 
 async function collect<T>(generator: AsyncGenerator<T>): Promise<T[]> {
@@ -1229,134 +1202,6 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     assert.equal(accepted.metadata?.path, 'scenes/scene_0001.py')
   })
 
-  // ------------------------------------------------------------------------- auto-render closure
-
-  await run('scene auto-render reads the normalized successful Tool result path', async () => {
-    const fixture = await createFixture({ studioKind: 'plot' })
-    const sceneId = 'scene_0001'
-    const renderPort = new RecordingPlotRenderPort()
-    const registry = autoRenderRegistry(renderPort, stubMutationTool('write', 'scenes/scene_0001.py'))
-    const model = new ScriptedStudioModel([
-      toolCallCompletion('call-write', 'write', { path: path.join(fixture.workspace, 'scenes', 'scene_0001.py'), content: 'ignored' }),
-      completion('done')
-    ])
-    const runner = sessionRunnerFor(fixture, registry)
-    const handle = await runner.startBackgroundRun({
-      projectId: PROJECT_ID,
-      session: fixture.session,
-      sceneId,
-      inputText: 'draw',
-      modelPort: model
-    })
-    await handle.completion
-
-    assert.equal(renderPort.executed.length, 1)
-    assert.equal(renderPort.executed[0]?.code, '# source of scene_0001\n')
-    assert.equal(renderPort.executed[0]?.workspaceDirectory, fixture.workspace)
-  })
-
-  await run('a forged absolute raw argument cannot make auto-render read outside the workspace', async () => {
-    const fixture = await createFixture({ studioKind: 'plot' })
-    const outsideRoot = await mkdtemp(path.join(os.tmpdir(), 'manimcat-outside-render-'))
-    const outsideFile = path.join(outsideRoot, 'secret.py')
-    await writeFile(outsideFile, '# outside secret\n', 'utf8')
-
-    const renderPort = new RecordingPlotRenderPort()
-    // The Tool reports a trusted in-workspace path; the raw arguments name the outside file.
-    const registry = autoRenderRegistry(renderPort, stubMutationTool('write', 'scenes/scene_0001.py'))
-    const model = new ScriptedStudioModel([
-      toolCallCompletion('call-forged', 'write', { path: outsideFile, content: 'x' }),
-      completion('done')
-    ])
-    const handle = await sessionRunnerFor(fixture, registry).startBackgroundRun({
-      projectId: PROJECT_ID,
-      session: fixture.session,
-      sceneId: 'scene_0001',
-      inputText: 'draw',
-      modelPort: model
-    })
-    await handle.completion
-
-    assert.equal(renderPort.executed.length, 1)
-    assert.equal(renderPort.executed[0]?.code, '# source of scene_0001\n')
-    assert.equal(JSON.stringify(renderPort.executed).includes('outside secret'), false)
-
-    // The same closure with the real write Tool: the absolute write is denied, so nothing renders.
-    const deniedPort = new RecordingPlotRenderPort()
-    const deniedRegistry = autoRenderRegistry(deniedPort, createStudioWriteTool())
-    const deniedModel = new ScriptedStudioModel([
-      toolCallCompletion('call-denied', 'write', { path: outsideFile, content: 'x' }),
-      completion('done')
-    ])
-    const deniedHandle = await sessionRunnerFor(fixture, deniedRegistry).startBackgroundRun({
-      projectId: PROJECT_ID,
-      session: fixture.session,
-      sceneId: 'scene_0001',
-      inputText: 'draw',
-      modelPort: deniedModel
-    })
-    await deniedHandle.completion
-
-    assert.equal(deniedPort.executed.length, 0)
-    assert.equal(await readFile(outsideFile, 'utf8'), '# outside secret\n')
-  })
-
-  await run('a missing or untrusted Tool result path skips auto-render', async () => {
-    const fixture = await createFixture({ studioKind: 'plot' })
-    const renderPort = new RecordingPlotRenderPort()
-    const registry = autoRenderRegistry(renderPort, stubMutationTool('write', null))
-    const model = new ScriptedStudioModel([
-      toolCallCompletion('call-untrusted', 'write', { path: 'scenes/scene_0001.py' }),
-      completion('done')
-    ])
-    const handle = await sessionRunnerFor(fixture, registry).startBackgroundRun({
-      projectId: PROJECT_ID,
-      session: fixture.session,
-      sceneId: 'scene_0001',
-      inputText: 'draw',
-      modelPort: model
-    })
-    await handle.completion
-
-    assert.equal(renderPort.executed.length, 0)
-  })
-
-  await run('scene auto-render accepts only the current source', async () => {
-    const fixture = await createFixture({ studioKind: 'plot' })
-    const renderPort = new RecordingPlotRenderPort()
-    const registry = autoRenderRegistry(renderPort, stubMutationTool('write', 'scenes/scene_0000.py'))
-    const model = new ScriptedStudioModel([
-      toolCallCompletion('call-sibling', 'write', { path: 'scenes/scene_0000.py' }),
-      completion('done')
-    ])
-    const handle = await sessionRunnerFor(fixture, registry).startBackgroundRun({
-      projectId: PROJECT_ID,
-      session: fixture.session,
-      sceneId: 'scene_0001',
-      inputText: 'draw',
-      modelPort: model
-    })
-    await handle.completion
-
-    assert.equal(renderPort.executed.length, 0)
-
-    const acceptingPort = new RecordingPlotRenderPort()
-    const acceptingRegistry = autoRenderRegistry(acceptingPort, stubMutationTool('write', 'scenes/scene_0001.py'))
-    const acceptingModel = new ScriptedStudioModel([
-      toolCallCompletion('call-current', 'write', { path: 'scenes/scene_0001.py' }),
-      completion('done')
-    ])
-    const acceptedHandle = await sessionRunnerFor(fixture, acceptingRegistry).startBackgroundRun({
-      projectId: PROJECT_ID,
-      session: fixture.session,
-      sceneId: 'scene_0001',
-      inputText: 'draw',
-      modelPort: acceptingModel
-    })
-    await acceptedHandle.completion
-    assert.equal(acceptingPort.executed.length, 1)
-  })
-
   await run('read, list and grep tools can still inspect a sibling scene source', async () => {
     const fixture = await createFixture()
     const scope = await loadScope(fixture, 'scene_0001')
@@ -1372,7 +1217,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const glob = await createStudioGlobTool().execute({ pattern: 'scenes/*.py' }, context)
     assert.ok(glob.output.includes('scenes/scene_0000.py'))
 
-    const grep = await createStudioGrepTool().execute({ pattern: 'source of scene_0000', path: 'scenes' }, context)
+    const grep = await createStudioGrepTool().execute({ query: 'source of scene_0000', path: 'scenes' }, context)
     assert.ok(grep.output.includes('scene_0000.py'))
   })
 
@@ -1381,7 +1226,9 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const renderPort = new RecordingPlotRenderPort()
     const registry = configureStudioToolRegistry({
       registry: new StudioToolRegistry(),
-      plotRenderPort: renderPort
+      manimRenderPort: { submit: async ({ jobId }) => ({ jobId }) },
+      plotRenderPort: renderPort,
+      apiRagService: createDetachedApiRagService()
     })
     const model = new ScriptedStudioModel([completion('rendered')])
     const handle = await sessionRunnerFor(fixture, registry).startBackgroundRun({
@@ -1393,8 +1240,8 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     })
     await handle.completion
 
-    // The Run itself does not render without a tool call, so render directly through the Tool with
-    // the same scope: the Port may write wherever it wants, outside the exact-file write policy.
+    // A Run renders only when the Builder calls this Tool, so call it directly with the Run scope:
+    // the Port may write wherever it wants, outside the exact-file write policy.
     const scope = await loadScope(fixture, 'scene_0001')
     const context = toolContext({
       session: fixture.session,
@@ -1427,7 +1274,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       renderStore: fixture.persistence.renderStore
     })
 
-    const rendered = await createStudioRenderTool(renderPort).execute(
+    const rendered = await createManimStudioRenderTool(renderPort).execute(
       { concept: 'fixture manim', code: 'print("manim")\n' },
       context
     )

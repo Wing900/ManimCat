@@ -6,7 +6,6 @@ import { editToolParameters } from './tool-parameters'
 
 interface EditToolInput {
   path?: string
-  file?: string
   search?: string
   replace?: string
   replaceAll?: boolean
@@ -23,7 +22,7 @@ export function createStudioEditTool(): StudioToolDefinition<EditToolInput> {
 }
 
 async function executeEditTool(input: EditToolInput, context: StudioRuntimeBackedToolContext): Promise<StudioToolResult> {
-  const target = input.path ?? input.file
+  const target = input.path
   if (!target || typeof input.search !== 'string' || typeof input.replace !== 'string') {
     throw new Error('Edit tool requires "path", "search", and "replace"')
   }

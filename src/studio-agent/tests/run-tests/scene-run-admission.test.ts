@@ -53,7 +53,7 @@ import {
   type StudioScene,
   type StudioSession
 } from '../../index'
-import { createStudioRenderTool } from '../../tools/render-tool'
+import { createManimStudioRenderTool } from '../../manim/tools/manim-render-tool'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 import {
   FakeStudioRunCoordinator,
@@ -1061,7 +1061,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a scoped Manim render copies run.sceneId', async () => {
     const context = createToolContext('manim', 'scene-a')
-    const tool = createStudioRenderTool({ async submit() { return { jobId: 'job-1' } } })
+    const tool = createManimStudioRenderTool({ async submit() { return { jobId: 'job-1' } } })
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1074,7 +1074,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a Legacy Manim render leaves sceneId absent', async () => {
     const context = createToolContext('manim')
-    const tool = createStudioRenderTool({ async submit() { return { jobId: 'job-2' } } })
+    const tool = createManimStudioRenderTool({ async submit() { return { jobId: 'job-2' } } })
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1086,7 +1086,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: render ports receive unchanged payloads (scope stays persistence-only)', async () => {
     const manimRequests: Array<Record<string, unknown>> = []
-    const manimTool = createStudioRenderTool({
+    const manimTool = createManimStudioRenderTool({
       async submit(input) {
         manimRequests.push({ ...input })
         return { jobId: input.jobId }
@@ -1133,7 +1133,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: render failure and update paths keep the persisted scope', async () => {
     const manimContext = createToolContext('manim', 'scene-a')
-    const failingManim = createStudioRenderTool({
+    const failingManim = createManimStudioRenderTool({
       async submit() {
         throw new Error('queue unavailable')
       }

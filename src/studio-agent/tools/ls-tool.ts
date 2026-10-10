@@ -5,7 +5,6 @@ import { lsToolParameters } from './tool-parameters'
 
 interface LsToolInput {
   path?: string
-  directory?: string
 }
 
 export function createStudioLsTool(): StudioToolDefinition<LsToolInput> {
@@ -24,7 +23,7 @@ async function executeLsTool(
 ): Promise<StudioToolResult> {
   const listing = await listWorkspaceDirectory(
     context.session.directory,
-    input.path ?? input.directory ?? '.'
+    input.path ?? '.'
   )
   const relativePath = toWorkspaceRelativePath(context.session.directory, listing.absolutePath).replace(/\\/g, '/')
   const output = truncateToolText(listing.entries.join('\n') || '(empty directory)')

@@ -10,7 +10,6 @@ import {
   createStudioRender,
   createStudioRenderResultReconciler,
   createStudioRun,
-  createStudioRuntimeService,
   createStudioScene,
   createStudioSession,
   isStudioPublicMediaLocator,
@@ -36,6 +35,7 @@ import {
 } from '../../index'
 import { toPublicStudioSceneAttachment, toPublicStudioSceneSnapshot } from '../../http/public-dto'
 import { createWorkspace, run } from './factories'
+import { createTestStudioRuntime } from './factories'
 
 /**
  * Render result bridge specs (task 11C1M).
@@ -550,7 +550,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
     const resultPort = createRecordingResultPort({
       [JOB_ID]: { status: 'completed', media: [{ locator: '/videos/job-1111.mp4', mimeType: 'video/mp4' }] }
     })
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider(),
       renderResultPort: resultPort.port
@@ -601,7 +601,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
 
   await run('a failing result source leaves the Scene read model readable', async () => {
     const persistence = createInMemoryStudioPersistence()
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider(),
       renderResultPort: createThrowingResultPort()
@@ -631,7 +631,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
 
   await run('a runtime without a job store never touches the queue', async () => {
     const persistence = createInMemoryStudioPersistence()
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider()
     })
@@ -813,7 +813,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
       sceneRender({ sessionId: session.id, status: 'queued', jobId: JOB_ID, sceneId: undefined })
     )
 
-    const runtime = createStudioRuntimeService({
+    const runtime = createTestStudioRuntime({
       persistence,
       workspaceProvider: createLocalStudioWorkspaceProvider(),
       renderResultPort: resultPort.port

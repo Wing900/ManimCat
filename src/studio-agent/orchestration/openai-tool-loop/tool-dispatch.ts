@@ -1,16 +1,8 @@
-import path from 'node:path'
 import type { StudioProcessorStreamEvent } from '../../domain/types'
-import {
-  isSameSessionRelativePath,
-  isSceneRunExecutionScope,
-  normalizeSessionRelativePath
-} from '../../domain/run-execution-scope'
-import { readWorkspaceFile } from '../../tools/workspace-paths'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 import { buildStudioPreToolCommentary } from '../../runtime/tools/pre-tool-commentary'
 import { createStudioToolCallExecutionEvents } from '../../runtime/tools/tool-call-adapter'
 import { logPlotStudioTiming, logTimeline, readRunElapsedMs } from '../../observability/plot-studio-timing'
-import { getStudioModeDefinition } from '../../modes/studio-mode'
 import type {
   StudioChatToolCall,
   StudioLoopAutonomy,
@@ -48,42 +40,17 @@ export async function* executeStudioToolCallsForStep(
     if (toolResult.value.failureMessage) {
       return { failureMessage: toolResult.value.failureMessage }
     }
-
-    // Apply the mode-declared automatic render policy after successful edits. The path comes from
-    // the successful Tool result itself, never from the raw model arguments.
-    const mode = getStudioModeDefinition(input.session.studioKind)
-    if (mode.autoRenderAfterTools.includes(toolCall.function.name) && !toolResult.value.failureMessage) {
-      const autoRender = executeAutoRender(input, runtime, toolCall, autonomy, toolResult.value.trustedResultPath)
-      let autoResult: IteratorResult<StudioProcessorStreamEvent, { transcript: string; failureMessage: string | null }>
-      while (true) {
-        autoResult = await autoRender.next()
-        if (autoResult.done) {
-          break
-        }
-        yield autoResult.value
-      }
-
-      if (autoResult.value.transcript) {
-        runtime.conversation.push({
-          role: 'tool',
-          tool_call_id: `auto_render_${toolCall.id}`,
-          content: autoResult.value.transcript
-        })
-      }
-    }
   }
 
   return { failureMessage: null }
 }
 
 /**
- * Internal structured outcome of one Tool call. The normalized path of a successful mutation is
- * carried here, so auto-render never has to reparse the model arguments or the transcript.
+ * Internal structured outcome of one Tool call.
  */
 interface StudioSingleToolCallOutcome {
   transcript: string
   failureMessage: string | null
-  trustedResultPath: string | null
 }
 
 async function* executeStudioSingleToolCall(
@@ -140,13 +107,11 @@ async function* executeStudioSingleToolCall(
 
     return {
       transcript: parsedInput.error,
-      failureMessage: parsedInput.error,
-      trustedResultPath: null
+      failureMessage: parsedInput.error
     }
   }
 
   let transcript = ''
-  let trustedResultPath: string | null = null
   for await (const event of createStudioToolCallExecutionEvents({
     projectId: input.projectId,
     session: input.session,
@@ -169,9 +134,6 @@ async function* executeStudioSingleToolCall(
         })
   })) {
     transcript = studioEventToTranscript(event, transcript)
-    if (event.type === 'tool-result') {
-      trustedResultPath = readTrustedResultPath(event.metadata)
-    }
     if (event.type === 'tool-error') {
       const fatal = autonomy.consecutiveFailures + 1 >= autonomy.maxConsecutiveFailures
       yield {
@@ -184,8 +146,7 @@ async function* executeStudioSingleToolCall(
       }
       return {
         transcript,
-        failureMessage: event.error,
-        trustedResultPath: null
+        failureMessage: event.error
       }
     }
 
@@ -194,15 +155,8 @@ async function* executeStudioSingleToolCall(
 
   return {
     transcript,
-    failureMessage: null,
-    trustedResultPath
+    failureMessage: null
   }
-}
-
-/** The normalized Session-relative path a successful Tool reported, or `null` when it has none. */
-function readTrustedResultPath(metadata: Record<string, unknown> | undefined): string | null {
-  const candidate = metadata?.path
-  return typeof candidate === 'string' ? candidate : null
 }
 
 function summarizeRawArguments(rawArguments: string): string {
@@ -242,73 +196,4 @@ function studioEventToTranscript(event: StudioProcessorStreamEvent, current: str
     return `Tool execution failed: ${event.error}`
   }
   return current
-}
-
-async function* executeAutoRender(
-  input: StudioOpenAIToolLoopInput,
-  runtime: StudioLoopRuntime,
-  writeToolCall: StudioChatToolCall,
-  autonomy: StudioLoopAutonomy,
-  trustedResultPath: string | null
-): AsyncGenerator<StudioProcessorStreamEvent, { transcript: string; failureMessage: string | null }> {
-  // Only a mutation that reported a trusted path may auto-render; the raw model arguments are
-  // never read here, so a forged absolute path cannot pull a file from outside the workspace.
-  const relativePath = trustedResultPath ? normalizeSessionRelativePath(trustedResultPath) : null
-  if (!relativePath) {
-    logTimeline(input.session.studioKind, 'auto-render.skip', 'no trusted tool result path')
-    return { transcript: '', failureMessage: null }
-  }
-
-  // A Scene Run may only auto-render its own authorized source, even though the model could name
-  // a readable sibling file.
-  const scope = input.executionScope
-  if (isSceneRunExecutionScope(scope) && !isSameSessionRelativePath(relativePath, scope.workspaceAccess.relativePath)) {
-    logTimeline(input.session.studioKind, 'auto-render.skip', 'tool result outside the scene write scope')
-    return { transcript: '', failureMessage: null }
-  }
-
-  let code: string
-  try {
-    code = (await readWorkspaceFile(input.session.directory, relativePath)).content
-  } catch {
-    logTimeline(input.session.studioKind, 'auto-render.skip', `cannot read ${relativePath}`)
-    return { transcript: '', failureMessage: null }
-  }
-
-  if (!code.trim()) {
-    return { transcript: '', failureMessage: null }
-  }
-
-  const fileName = path.basename(relativePath)
-  const concept = `Auto-render after write: ${fileName}`
-  const autoRenderCallId = `auto_render_${writeToolCall.id}`
-
-  logTimeline(input.session.studioKind, 'auto-render.started', fileName)
-
-  for await (const event of createStudioToolCallExecutionEvents({
-    projectId: input.projectId,
-    session: input.session,
-    run: input.run,
-    assistantMessage: runtime.currentAssistantMessage,
-    toolCallId: autoRenderCallId,
-    toolName: 'render',
-    toolInput: { concept, code },
-    registry: input.registry,
-    eventBus: input.eventBus,
-    renderStore: input.renderStore,
-    executionScope: input.executionScope,
-    setToolMetadata: (callId, metadata) => input.setToolMetadata(runtime.currentAssistantMessage, callId, metadata),
-    abortSignal: input.abortSignal,
-    commentary: null,
-  })) {
-    if (event.type === 'tool-result') {
-      logTimeline(input.session.studioKind, 'auto-render.completed', fileName)
-    }
-    if (event.type === 'tool-error') {
-      logTimeline(input.session.studioKind, 'auto-render.failed', `${fileName}: ${event.error}`)
-    }
-    yield event
-  }
-
-  return { transcript: '', failureMessage: null }
 }

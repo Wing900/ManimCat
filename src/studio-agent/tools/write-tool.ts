@@ -6,7 +6,6 @@ import { writeToolParameters } from './tool-parameters'
 
 interface WriteToolInput {
   path?: string
-  file?: string
   content?: string
 }
 
@@ -21,9 +20,9 @@ export function createStudioWriteTool(): StudioToolDefinition<WriteToolInput> {
 }
 
 async function executeWriteTool(input: WriteToolInput, context: StudioRuntimeBackedToolContext): Promise<StudioToolResult> {
-  const target = input.path ?? input.file
+  const target = input.path
   if (!target) {
-    throw new Error('Write tool requires "path" or "file"')
+    throw new Error('Write tool requires "path"')
   }
 
   const result = await writeWorkspaceFile({

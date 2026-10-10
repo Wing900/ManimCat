@@ -56,12 +56,12 @@ export async function runPromptTests() {
     assert.match(prompt, /\nlanguage: manim-python\n/)
     assert.match(prompt, /\noutputs: video, image\n/)
     assert.ok(prompt.includes(`\nworkspace: ${directory}\n`))
-    assert.match(prompt, /\nautomatic_render_after: none\n/)
+    assert.doesNotMatch(prompt, /automatic_render_after/)
     assert.doesNotMatch(prompt, /<studio_render_context>/)
     assert.doesNotMatch(prompt, /<studio_documentation>/)
   })
 
-  await run('plot scene carries auto-render facts without a domain manual', async () => {
+  await run('the scene facts are kind-specific and the render instruction is shared', async () => {
     const directory = await createWorkspace()
     const session = createStudioSession({
       ownerId: 'owner-test',
@@ -82,7 +82,9 @@ export async function runPromptTests() {
     assert.match(prompt, /\noutputs: image\n/)
     assert.doesNotMatch(prompt, /\nlanguage: manim-python\n/)
     assert.ok(prompt.includes(`\nworkspace: ${directory}\n`))
-    assert.match(prompt, /\nautomatic_render_after: write, edit\n/)
+    assert.doesNotMatch(prompt, /automatic_render_after/)
+    // The Builder is told to render for both kinds, so no Mode has to render on its own.
+    assert.match(prompt, /When the Scene source is complete, call `render` to produce the output\./)
     assert.doesNotMatch(prompt, /<studio_render_context>/)
     assert.doesNotMatch(prompt, /<studio_documentation>/)
   })
