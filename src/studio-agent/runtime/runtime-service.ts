@@ -3,7 +3,10 @@ import { createDefaultStudioPersistence } from '../persistence/create-default-st
 import { createLocalStudioWorkspaceProvider } from '../workspace/local-studio-workspace-provider'
 import { createBullManimRenderPort } from '../manim/bull-manim-render-port'
 import { createJobStoreStudioRenderResultPort } from '../manim/job-store-render-result-port'
+import { createManimRenderDriver } from '../manim/manim-render-driver'
 import { createMatplotlibPlotRenderPort } from '../plot/matplotlib-plot-render-port'
+import { createMatplotlibRenderDriver } from '../plot/plot-render-driver'
+import { createManimMode, createMatplotlibMode } from '../modes/studio-mode-module'
 import { getApiRagService } from '../../services/api-rag'
 import { createDefaultStudioEventBus } from '../events/create-default-studio-event-bus'
 import { createRedisStudioEventBroker } from '../events/redis-studio-event-broker'
@@ -48,13 +51,20 @@ export const studioInfrastructureRuntime = createStudioInfrastructureRuntime({
 export const studioRuntime = createStudioRuntimeService({
   persistence,
   workspaceProvider,
-  manimRenderPort: createBullManimRenderPort(),
-  plotRenderPort: createMatplotlibPlotRenderPort(),
+  modes: [
+    createManimMode(
+      createManimRenderDriver({
+        renderPort: createBullManimRenderPort(),
+        resultPort: createJobStoreStudioRenderResultPort(),
+      })
+    ),
+    createMatplotlibMode(
+      createMatplotlibRenderDriver({
+        renderPort: createMatplotlibPlotRenderPort(),
+      })
+    ),
+  ],
   apiRagService,
   eventBus: studioEventRuntime.eventBus,
   runCoordination: studioRunCoordinationRuntime.service,
-  // The Studio render of a Scene is completed by the Manim job in the existing queue, so the
-  // composition root is where the job store adapter is injected: the runtime and every test that
-  // imports it stay free of the shared Redis client.
-  renderResultPort: createJobStoreStudioRenderResultPort(),
 })

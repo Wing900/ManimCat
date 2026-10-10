@@ -1,5 +1,5 @@
-import type { ApiCatalogPackage, ApiRagService } from '../../services/api-rag'
-import type { StudioKind, StudioToolDefinition } from '../domain/types'
+import type { ApiRagService } from '../../services/api-rag'
+import type { StudioToolDefinition } from '../domain/types'
 import { createStudioEditTool } from '../tools/edit-tool'
 import { createStudioGlobTool } from '../tools/glob-tool'
 import { createStudioGrepTool } from '../tools/grep-tool'
@@ -8,12 +8,7 @@ import { createStudioReadTool } from '../tools/read-tool'
 import { createStudioSearchApiTool } from '../tools/search-api-tool'
 import { createStudioWriteTool } from '../tools/write-tool'
 import type { StudioToolRegistry } from '../tools/registry'
-
-/** A catalog package answers exactly one Studio kind. */
-const PACKAGE_STUDIO_KINDS: Record<ApiCatalogPackage, StudioKind> = {
-  manim: 'manim',
-  matplotlib: 'matplotlib'
-}
+import type { StudioModeModule } from '../modes/studio-mode-module'
 
 /**
  * Named Tool dependencies. Positional arguments would grow fragile as more Tool
@@ -21,6 +16,7 @@ const PACKAGE_STUDIO_KINDS: Record<ApiCatalogPackage, StudioKind> = {
  */
 export interface SharedStudioToolDependencies {
   apiRagService?: ApiRagService
+  modes?: readonly StudioModeModule[]
 }
 
 export function registerSharedStudioTools(
@@ -44,18 +40,21 @@ export function createSharedStudioTools(
     createStudioEditTool() as StudioToolDefinition
   ]
 
-  // One search_api per package that has a Search Catalog. A package without one stays
-  // invisible to the Builder instead of answering from a weaker query path.
+  // One search_api per Mode whose API catalog package is registered. A package without a
+  // Search Catalog stays invisible to the Builder instead of answering from a weaker path.
   const apiRagService = dependencies?.apiRagService
-  if (apiRagService) {
-    for (const packageName of apiRagService.registeredPackages) {
-      tools.push(
-        createStudioSearchApiTool({
-          service: apiRagService,
-          packageName,
-          studioKind: PACKAGE_STUDIO_KINDS[packageName]
-        }) as StudioToolDefinition
-      )
+  const modes = dependencies?.modes
+  if (apiRagService && modes) {
+    for (const mode of modes) {
+      if (apiRagService.isRegistered(mode.apiCatalogPackage)) {
+        tools.push(
+          createStudioSearchApiTool({
+            service: apiRagService,
+            packageName: mode.apiCatalogPackage,
+            studioKind: mode.definition.kind
+          }) as StudioToolDefinition
+        )
+      }
     }
   }
 

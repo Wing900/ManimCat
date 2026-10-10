@@ -11,6 +11,8 @@ import {
   createManimRenderDriver,
   createMatplotlibRenderDriver,
   createUnavailableStudioRenderResultPort,
+  createManimMode,
+  createMatplotlibMode,
   createStudioRender,
   createStudioRun,
   createStudioSession,
@@ -160,7 +162,16 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.deepEqual(bare, ['read', 'glob', 'grep', 'ls', 'write', 'edit'])
 
     // Every registered package owns one Studio kind: manim for scenes, plot for figures.
-    const tools = createSharedStudioTools({ apiRagService: getApiRagService() })
+    const modes = [
+      createManimMode(createManimRenderDriver({
+        renderPort: { submit: async ({ jobId }) => ({ jobId }) },
+        resultPort: createUnavailableStudioRenderResultPort()
+      })),
+      createMatplotlibMode(createMatplotlibRenderDriver({
+        renderPort: { execute: async () => ({ outputDir: '', scriptPath: '', imageDataUris: [], imagePaths: [], stdout: '', stderr: '' }) }
+      })),
+    ]
+    const tools = createSharedStudioTools({ apiRagService: getApiRagService(), modes })
     const searchTools = tools.filter((tool) => tool.name === 'search_api')
     assert.deepEqual(searchTools.map((tool) => tool.allowedStudioKinds), [['manim'], ['matplotlib']])
     assert.ok(searchTools.every((tool) => tool.allowedAgents.includes('builder')))

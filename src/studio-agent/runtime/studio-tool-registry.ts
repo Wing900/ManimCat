@@ -1,31 +1,25 @@
 import type { ApiRagService } from '../../services/api-rag'
 import type { StudioToolRegistry } from '../tools/registry'
-import { registerManimStudioTools } from '../manim/register-manim-tools'
-import { registerPlotStudioTools } from '../plot/register-plot-tools'
 import { registerSharedStudioTools } from '../shared/register-shared-tools'
-import type { StudioRenderDriverRegistry } from '../render/studio-render-driver'
+import type { StudioModeModule } from '../modes/studio-mode-module'
 
 /**
- * Every port is passed in. A missing port is a wiring error at construction, not a Tool that
- * fails the first time the model calls it.
+ * Every Mode's Tools are registered from its Module. A missing Module is a wiring error
+ * at construction, not a Tool that fails the first time the model calls it.
  */
 export function configureStudioToolRegistry(input: {
   registry: StudioToolRegistry
-  driverRegistry: StudioRenderDriverRegistry
+  modes: readonly StudioModeModule[]
   apiRagService: ApiRagService
 }): StudioToolRegistry {
   registerSharedStudioTools(input.registry, {
-    apiRagService: input.apiRagService
+    apiRagService: input.apiRagService,
+    modes: input.modes
   })
-  const manimDriver = input.driverRegistry.resolve('manim')
-  if (!manimDriver) {
-    throw new Error('No render driver is registered for manim')
+  for (const mode of input.modes) {
+    for (const factory of mode.tools) {
+      input.registry.register(factory())
+    }
   }
-  registerManimStudioTools(input.registry, manimDriver)
-  const plotDriver = input.driverRegistry.resolve('matplotlib')
-  if (!plotDriver) {
-    throw new Error('No render driver is registered for matplotlib')
-  }
-  registerPlotStudioTools(input.registry, plotDriver)
   return input.registry
 }

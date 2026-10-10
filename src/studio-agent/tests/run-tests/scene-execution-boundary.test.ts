@@ -50,6 +50,7 @@ import { buildStudioRenderContext } from '../../runtime/execution/render-context
 import { createStudioLoopRuntime, buildStudioLoopStepRequest } from '../../orchestration/openai-tool-loop/request-builder'
 import { createStudioOpenAIToolLoop } from '../../orchestration/openai-tool-loop/controller'
 import { configureStudioToolRegistry } from '../../runtime/studio-tool-registry'
+import { createManimMode, createMatplotlibMode } from '../../modes/studio-mode-module'
 import { buildStudioAgentSystemPrompt } from '../../orchestration/studio-agent-prompt'
 import { ScriptedStudioModel } from '../support/scripted-studio-model'
 import { createDetachedApiRagService, run } from './factories'
@@ -1231,13 +1232,17 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const renderPort = new RecordingPlotRenderPort()
     const registry = configureStudioToolRegistry({
       registry: new StudioToolRegistry(),
-      driverRegistry: createStudioRenderDriverRegistry([
-        createManimRenderDriver({
-          renderPort: { submit: async ({ jobId }) => ({ jobId }) },
-          resultPort: createUnavailableStudioRenderResultPort()
-        }),
-        createMatplotlibRenderDriver({ renderPort: renderPort })
-      ]),
+      modes: [
+        createManimMode(
+          createManimRenderDriver({
+            renderPort: { submit: async ({ jobId }) => ({ jobId }) },
+            resultPort: createUnavailableStudioRenderResultPort()
+          })
+        ),
+        createMatplotlibMode(
+          createMatplotlibRenderDriver({ renderPort: renderPort })
+        ),
+      ],
       apiRagService: createDetachedApiRagService()
     })
     const model = new ScriptedStudioModel([completion('rendered')])

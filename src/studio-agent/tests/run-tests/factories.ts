@@ -21,6 +21,8 @@ import {
   createUnavailableStudioRenderResultPort,
   StudioRunCoordinationService,
   createInMemoryStudioRunCoordinator,
+  createManimRenderDriver,
+  createMatplotlibRenderDriver,
   type StudioEventBus,
   type StudioPersistence,
   type StudioRenderResultPort,
@@ -30,6 +32,7 @@ import {
   type ManimRenderPort,
   type PlotRenderPort
 } from '../../index'
+import { createManimMode, createMatplotlibMode } from '../../modes/studio-mode-module'
 import {
   createStudioRenderDriverRegistry,
   type StudioRenderDriver,
@@ -63,13 +66,12 @@ export function createTestStudioRuntime(options: {
   runCoordination?: StudioRunCoordinationServicePort
 }): StudioRuntimeService {
   const eventBus = options.eventBus ?? new InMemoryStudioEventBus()
-  return createStudioRuntimeService({
-    persistence: options.persistence,
-    workspaceProvider: options.workspaceProvider,
-    eventBus,
-    apiRagService: options.apiRagService ?? createDetachedApiRagService(),
-    manimRenderPort: options.manimRenderPort ?? { submit: async ({ jobId }) => ({ jobId }) },
-    plotRenderPort: options.plotRenderPort ?? {
+  const manimDriver = createManimRenderDriver({
+    renderPort: options.manimRenderPort ?? { submit: async ({ jobId }) => ({ jobId }) },
+    resultPort: options.renderResultPort ?? createUnavailableStudioRenderResultPort(),
+  })
+  const plotDriver = createMatplotlibRenderDriver({
+    renderPort: options.plotRenderPort ?? {
       execute: async () => ({
         outputDir: '',
         scriptPath: '',
@@ -79,7 +81,13 @@ export function createTestStudioRuntime(options: {
         stderr: ''
       })
     },
-    renderResultPort: options.renderResultPort ?? createUnavailableStudioRenderResultPort(),
+  })
+  return createStudioRuntimeService({
+    persistence: options.persistence,
+    workspaceProvider: options.workspaceProvider,
+    eventBus,
+    modes: [createManimMode(manimDriver), createMatplotlibMode(plotDriver)],
+    apiRagService: options.apiRagService ?? createDetachedApiRagService(),
     runCoordination: options.runCoordination ?? new StudioRunCoordinationService({
       coordinator: createInMemoryStudioRunCoordinator(),
       runStore: options.persistence.runStore,

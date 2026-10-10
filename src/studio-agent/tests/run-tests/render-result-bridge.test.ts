@@ -702,7 +702,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
 
     // The composition root is where the queue-aware adapter is injected.
     const composition = readRepoSource('src', 'studio-agent', 'runtime', 'runtime-service.ts')
-    assert.match(composition, /renderResultPort: createJobStoreStudioRenderResultPort\(\)/)
+    assert.match(composition, /createJobStoreStudioRenderResultPort\(\)/)
 
     // One conditional write contract, expressed in the write itself, in both backends.
     const memory = readRepoSource('src', 'studio-agent', 'render', 'memory-render-store.ts')

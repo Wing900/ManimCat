@@ -81,4 +81,5 @@ export * from './orchestration/openai-tool-loop/controller'
 export * from './orchestration/openai-tool-loop/types'
 
 export * from './modes/studio-mode'
+export * from './modes/studio-mode-module'
 export * from './model/studio-model-port'

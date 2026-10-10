@@ -6,14 +6,11 @@ import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { ApiRagService } from '../../services/api-rag'
-import type { ManimRenderPort } from '../manim/manim-render-port'
-import type { PlotRenderPort } from '../plot/plot-render-port'
-import { createManimRenderDriver } from '../manim/manim-render-driver'
-import { createMatplotlibRenderDriver } from '../plot/plot-render-driver'
 import {
   createStudioRenderDriverRegistry,
   type StudioRenderDriverRegistry
 } from '../render/studio-render-driver'
+import type { StudioModeModule } from '../modes/studio-mode-module'
 import {
   StudioRunCoordinationService,
   type StudioRunCoordinationServicePort
@@ -24,7 +21,6 @@ import { createStudioSceneService, type StudioSceneService } from '../scenes/stu
 import {
   createStudioRenderResultReconciler
 } from '../render/render-result-reconciler'
-import type { StudioRenderResultPort } from '../render/render-result-port'
 import {
   createStudioRunService,
   type StudioRunService,
@@ -35,12 +31,8 @@ interface CreateStudioRuntimeServiceInput {
   workspaceProvider: StudioWorkspaceProvider
   /** The single API RAG service, built at the composition root. */
   apiRagService: ApiRagService
-  /** Where a Manim render is submitted. Production injects the job queue. */
-  manimRenderPort: ManimRenderPort
-  /** Where a plot render is executed. Production injects the sandboxed runner. */
-  plotRenderPort: PlotRenderPort
-  /** Render result source. Production injects the job store adapter. */
-  renderResultPort: StudioRenderResultPort
+  /** One Mode Module per Studio kind. The composition root builds these from concrete ports. */
+  modes: readonly StudioModeModule[]
   /** Run coordination (session leases + cancellation). Production injects the Redis service. */
   runCoordination: StudioRunCoordinationServicePort
   registry?: StudioToolRegistry
@@ -69,15 +61,15 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
   const registry = input.registry ?? new StudioToolRegistry()
   const eventBus: StudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
 
-  // One driver per Mode wraps its Port; the registry is the only thing the shared layer imports.
-  const driverRegistry: StudioRenderDriverRegistry = createStudioRenderDriverRegistry([
-    createManimRenderDriver({ renderPort: input.manimRenderPort, resultPort: input.renderResultPort }),
-    createMatplotlibRenderDriver({ renderPort: input.plotRenderPort }),
-  ])
+  // The driver registry is derived from the Mode Modules: the shared Run/Render layer
+  // resolves a driver by kind without importing a concrete port.
+  const driverRegistry: StudioRenderDriverRegistry = createStudioRenderDriverRegistry(
+    input.modes.map((mode) => mode.renderDriver)
+  )
 
   configureStudioToolRegistry({
     registry,
-    driverRegistry,
+    modes: input.modes,
     apiRagService: input.apiRagService,
   })
   const runtime = new StudioBuilderRuntime({
