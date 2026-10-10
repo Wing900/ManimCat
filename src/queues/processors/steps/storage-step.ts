@@ -3,7 +3,7 @@
  * 存储任务结果到 Redis
  */
 
-import { storeJobResult } from '../../../services/job-store'
+import { storeJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import type { RenderResult } from './render-step-types'
 import { createLogger } from '../../../utils/logger'

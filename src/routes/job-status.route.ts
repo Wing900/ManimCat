@@ -14,7 +14,9 @@ import { asyncHandler } from '../middlewares/error-handler'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { assertJobAccess, getJobAccessCreatedAt } from '../services/job-access-store'
 import { createLogger } from '../utils/logger'
-import { getJobResult, getBullJobStatus, getJobStage, getJobTrackingState } from '../services/job-store'
+import { getJobResult, getBullJobStatus } from '../infrastructure/redis/job/redis-job-result-store'
+import { getJobStage } from '../infrastructure/redis/job/redis-job-state-store'
+import { getJobTrackingState } from '../infrastructure/redis/job/redis-job-tracking-store'
 import { getRequestClientId } from '../utils/request-client-id'
 
 const router = express.Router()

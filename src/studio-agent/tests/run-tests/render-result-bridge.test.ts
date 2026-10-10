@@ -692,7 +692,7 @@ export async function runRenderResultBridgeTests(): Promise<void> {
 
   await run('the render result bridge reads the job store and never writes it', async () => {
     const adapter = readRepoSource('src', 'studio-agent', 'modes', 'manim', 'job-store-render-result-port.ts')
-    assert.match(adapter, /import \{ getBullJobStatus, getJobResult \} from '\.\.\/\.\.\/\.\.\/services\/job-store'/)
+    assert.match(adapter, /import \{ getBullJobStatus, getJobResult \} from '\.\.\/\.\.\/\.\.\/infrastructure\/redis\/job\/redis-job-result-store'/)
     assert.equal(/storeJobResult|deleteJobResult|setJobResult|videoQueue|redisClient/.test(adapter), false)
     // The adapter is not part of the barrel: importing the Studio barrel must not load Redis.
     const barrel = readRepoSource('src', 'studio-agent', 'index.ts')

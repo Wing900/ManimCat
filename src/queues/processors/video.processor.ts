@@ -4,7 +4,8 @@
  */
 
 import { videoQueue } from '../../config/bull'
-import { storeJobResult, touchJobTracking } from '../../services/job-store'
+import { storeJobResult } from '../../infrastructure/redis/job/redis-job-result-store'
+import { touchJobTracking } from '../../infrastructure/redis/job/redis-job-tracking-store'
 import { clearJobCancelled } from '../../services/job-cancel-store'
 import { JobCancelledError } from '../../utils/errors'
 import { createLogger } from '../../utils/logger'

@@ -28,6 +28,6 @@ export async function storeProcessingStage(
     submittedAt?: string
   }
 ): Promise<void> {
-  const { storeJobStage } = await import('../../services/job-store')
+  const { storeJobStage } = await import('../../infrastructure/redis/job/redis-job-state-store')
   await storeJobStage(jobId, stage, options)
 }

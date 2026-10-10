@@ -7,7 +7,7 @@ import { findVideoFile } from '../../../utils/file-utils'
 import { addBackgroundMusic } from '../../../audio/bgm-mixer'
 import { ensureJobNotCancelled } from '../../../services/job-cancel'
 import { isJobCancelled } from '../../../services/job-cancel-store'
-import { storeJobStage } from '../../../services/job-store'
+import { storeJobStage } from '../../../infrastructure/redis/job/redis-job-state-store'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
 import { resolveRenderCacheWorkspace } from '../../../utils/render-cache-workspace'
 import {

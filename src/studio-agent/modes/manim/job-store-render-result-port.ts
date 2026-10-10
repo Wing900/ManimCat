@@ -1,5 +1,5 @@
 import type { CompletedJobResult, FailedJobResult } from '../../../types'
-import { getBullJobStatus, getJobResult } from '../../../services/job-store'
+import { getBullJobStatus, getJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
 import { readStudioPublicMediaLocator } from '../../render/studio-public-media-locator'
 import type { StudioRenderResultPort } from '../../render/render-result-port'
 import {
