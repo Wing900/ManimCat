@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useI18n } from '../../shared/i18n/index'
+import { CustomSelect } from '../../shared/components/CustomSelect'
 import { FloatingInput } from '../../shared/components/FloatingInput'
 import {
   BYOK_PATTERN,
@@ -78,20 +79,15 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <label htmlFor="byok-provider" className="text-xs font-medium text-text-secondary">
-          {t('connection.byok.provider')}
-        </label>
-        <select
-          id="byok-provider"
-          value={provider}
-          onChange={(event) => changeProvider(event.target.value as 'openai-compatible' | 'google')}
-          className="w-full rounded-2xl bg-bg-secondary/50 px-4 py-4 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20"
-        >
-          <option value="openai-compatible">{t('connection.byok.provider.openai')}</option>
-          <option value="google">{t('connection.byok.provider.google')}</option>
-        </select>
-      </div>
+      <CustomSelect
+        label={t('connection.byok.provider')}
+        options={[
+          { value: 'openai-compatible' as const, label: t('connection.byok.provider.openai') },
+          { value: 'google' as const, label: t('connection.byok.provider.google') },
+        ]}
+        value={provider}
+        onChange={changeProvider}
+      />
 
       <FloatingInput
         id="byok-api-key"
@@ -120,23 +116,25 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
       <button
         type="button"
         onClick={() => setAdvanced((prev) => !prev)}
-        className="text-xs font-medium text-accent"
+        className="text-xs font-medium text-accent transition-colors duration-200 ease-ui"
       >
         {t('connection.byok.advanced')}
       </button>
 
       {advanced && (
-        <FloatingInput
-          id="byok-base-url"
-          type="text"
-          label={t('connection.byok.baseUrl')}
-          value={apiUrl}
-          placeholder="https://…/v1"
-          onChange={(value) => {
-            setApiUrl(value)
-            setError(null)
-          }}
-        />
+        <div className="panel-in">
+          <FloatingInput
+            id="byok-base-url"
+            type="text"
+            label={t('connection.byok.baseUrl')}
+            value={apiUrl}
+            placeholder="https://…/v1"
+            onChange={(value) => {
+              setApiUrl(value)
+              setError(null)
+            }}
+          />
+        </div>
       )}
 
       {(error || status) && (
@@ -151,7 +149,7 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
             type="button"
             onClick={onBack}
             disabled={testing}
-            className="rounded-2xl bg-bg-primary/50 px-6 py-4 text-sm font-medium text-text-secondary transition-all hover:bg-bg-tertiary hover:text-text-primary active:scale-95 disabled:opacity-50"
+            className="rounded-2xl bg-bg-primary/50 px-6 py-4 text-sm font-medium text-text-secondary transition-colors duration-200 ease-ui hover:bg-bg-tertiary hover:text-text-primary active:scale-95 disabled:opacity-50"
           >
             {t('connection.back')}
           </button>
@@ -160,7 +158,7 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
           type="button"
           onClick={handleTest}
           disabled={testing}
-          className="rounded-2xl bg-bg-secondary/50 px-6 py-4 text-sm font-medium text-text-primary transition-all hover:bg-bg-tertiary active:scale-95 disabled:opacity-50"
+          className="rounded-2xl bg-bg-secondary/50 px-6 py-4 text-sm font-medium text-text-primary transition-colors duration-200 ease-ui hover:bg-bg-tertiary active:scale-95 disabled:opacity-50"
         >
           {testing ? t('connection.testing') : t('connection.byok.test')}
         </button>
@@ -168,7 +166,7 @@ export function ByokForm({ connection, onSaved, onBack }: ByokFormProps) {
           type="button"
           onClick={handleSave}
           disabled={testing}
-          className="flex-1 rounded-2xl bg-accent px-6 py-4 text-sm font-medium text-bg-primary shadow-md shadow-accent/10 transition-all hover:bg-accent/90 active:scale-95 disabled:opacity-50"
+          className="flex-1 rounded-2xl bg-accent px-6 py-4 text-sm font-medium text-bg-primary shadow-md shadow-accent/10 transition-colors duration-200 ease-ui hover:bg-accent/90 active:scale-95 disabled:opacity-50"
         >
           {t('connection.byok.save')}
         </button>

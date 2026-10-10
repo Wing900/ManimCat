@@ -282,8 +282,17 @@ select option:checked {
 .page-slide-out { animation: page-slide-out-right 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; will-change: transform; }
 .page-slide-in { animation: page-slide-in-left 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; will-change: transform; }
 
+/* 下拉菜单：从触发按钮下方长出来。位移很小，只用来交代“我从哪来”；缩放原点是顶边中点。 */
+@keyframes menu-in { 0% { opacity: 0; transform: translateY(-6px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+.menu-in { animation: menu-in 0.18s var(--ease-enter) both; transform-origin: top center; }
+
+/* 分区切换：面板落位。内容换了才播，所以挂在以 section 为 key 的元素上（见 SettingsPage）。 */
+@keyframes panel-in { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
+.panel-in { animation: panel-in 0.26s var(--ease-move) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .page-slide-in, .page-slide-out, .page-assemble [data-assemble], .page-home-leave { animation: none !important; }
+  .page-slide-in, .page-slide-out, .page-assemble [data-assemble], .page-home-leave,
+  .menu-in, .panel-in, [data-assemble] { animation: none !important; }
 }
 
 /* ==========================================================

@@ -29,7 +29,7 @@ export function FloatingInput({
     <div className={`relative ${containerClassName}`.trim()}>
       <label
         htmlFor={id}
-        className={`absolute left-4 -top-2.5 px-2 bg-bg-secondary text-xs font-medium text-text-secondary transition-all ${labelClassName}`.trim()}
+        className={`absolute left-4 -top-2.5 px-2 bg-bg-primary text-xs font-medium text-text-secondary transition-colors duration-200 ease-ui ${labelClassName}`.trim()}
       >
         {label}
       </label>
@@ -40,7 +40,7 @@ export function FloatingInput({
         list={datalistId}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all ${inputClassName}`.trim()}
+        className={`w-full px-4 py-4 bg-bg-secondary/50 rounded-2xl text-sm text-text-primary placeholder-text-secondary/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-colors duration-200 ease-ui ${inputClassName}`.trim()}
       />
       {datalistId ? (
         <datalist id={datalistId}>

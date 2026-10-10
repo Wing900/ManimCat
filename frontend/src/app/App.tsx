@@ -36,9 +36,9 @@ function App() {
   const game = useGame2048();
   useTabTitle(status, stage);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [overlay, setOverlay] = useState<'settings' | 'prompts' | null>(null);
+  const [overlayClosing, setOverlayClosing] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
-  const [promptSettingsOpen, setPromptSettingsOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [currentCode, setCurrentCode] = useState('');
   const [concept, setConcept] = useState('');
@@ -128,6 +128,26 @@ function App() {
     transitionTimerRef.current = window.setTimeout(() => {
       setScreen('classic');
       setExitSliding(false);
+      transitionTimerRef.current = null;
+    }, PAGE_SLIDE_MS);
+  };
+
+  /**
+   * Leaving Settings / Prompts borrows the studio's exit: the page slides off to the right (iOS pop)
+   * while the screen underneath slides back in from the left. App owns both halves so the two
+   * movements stay in step; the page itself only picks the outgoing class.
+   */
+  const closeOverlay = () => {
+    if (readPrefersReducedMotion()) {
+      setOverlay(null);
+      return;
+    }
+
+    setOverlayClosing(true);
+    if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = window.setTimeout(() => {
+      setOverlay(null);
+      setOverlayClosing(false);
       transitionTimerRef.current = null;
     }, PAGE_SLIDE_MS);
   };
@@ -248,8 +268,8 @@ function App() {
             onBackToHome={handleBackToHome}
             onCancel={cancel}
             onOpenDonation={() => setDonationOpen(true)}
-            onOpenPromptSettings={() => setPromptSettingsOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenPromptSettings={() => setOverlay('prompts')}
+            onOpenSettings={() => setOverlay('settings')}
             onOpenGame={handleOpenGame}
             problemOpen={problemFraming.status !== 'idle'}
             problemStatus={problemFraming.status === 'idle' ? 'loading' : problemFraming.status}
@@ -314,7 +334,9 @@ function App() {
             ? 'relative z-[95] page-slide-out'
             : entering
               ? 'relative z-[82] page-assemble'
-              : ''
+              : overlayClosing
+                ? 'page-slide-in'
+                : ''
         }
       >
         {renderScreen(screen)}
@@ -328,8 +350,8 @@ function App() {
       `}</style>
 
       <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
-      {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
-      <PromptSettings isOpen={promptSettingsOpen} onClose={() => setPromptSettingsOpen(false)} />
+      {overlay === 'settings' && <SettingsPage exiting={overlayClosing} onClose={closeOverlay} />}
+      {overlay === 'prompts' && <PromptSettings exiting={overlayClosing} onClose={closeOverlay} />}
       <AiModifyModal
         isOpen={aiModifyOpen}
         loading={isBusy}

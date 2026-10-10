@@ -9,21 +9,22 @@ import { AiConnectionSettings } from './AiConnectionSettings'
 import { VideoSettings } from './VideoSettings'
 
 interface SettingsPageProps {
+  /** Driven by App: leaves with the studio's own horizontal slide rather than unmounting in place. */
+  exiting: boolean
   onClose: () => void
 }
 
 /**
  * Settings, as a page rather than a modal.
  *
- * Shape is copied from the two screens that already work this way (`PromptSettings`, and the studio
- * shell behind it): a light bar on top with a bare left arrow, a rail on the left, content on the
- * right. The content column is centred instead of hugging the rail, so the page reads as one thing
- * rather than a sidebar with a leftover.
+ * Shape is copied from the studio and the Prompt Manager: a light bar on top with a bare left arrow,
+ * a rail on the left, one centred content column on the right.
  *
- * Entry is the same `page-assemble` contract the studio uses (`index.css`): every part carries a
- * `data-assemble` name and arrives on its own stagger. Nothing here animates on its own.
+ * Both ends of the visit are owned elsewhere: App runs the `page-assemble` stagger on entry and the
+ * `page-slide-out` / `page-slide-in` pop on exit, exactly as it already does for the studio. Nothing
+ * here animates on its own.
  */
-export function SettingsPage({ onClose }: SettingsPageProps) {
+export function SettingsPage({ exiting, onClose }: SettingsPageProps) {
   const { t } = useI18n()
   const connection = useConnection()
   const [section, setSection] = useState<SettingsSection>('ai')
@@ -43,10 +44,14 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   }
 
   return (
-    <div className="page-assemble fixed inset-0 z-[120] flex flex-col bg-bg-primary">
+    <div
+      className={`fixed inset-0 z-[120] flex flex-col bg-bg-primary ${
+        exiting ? 'page-slide-out' : 'page-assemble'
+      }`}
+    >
       <header
         data-assemble="header"
-        className="flex h-16 shrink-0 items-center gap-3 border-b border-border/5 bg-bg-secondary/50 px-6"
+        className="flex h-16 shrink-0 items-center border-b border-border/5 bg-bg-secondary/50 px-6"
       >
         <button
           type="button"
@@ -59,10 +64,9 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 w-1.5 rounded-full bg-accent/40" />
-          <span className="text-lg font-medium tracking-tight text-text-primary/90">{t('settings.title')}</span>
-        </div>
+        <span className="ml-3 text-lg font-medium tracking-tight text-text-primary/90">
+          {t('settings.title')}
+        </span>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -78,7 +82,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                 aria-current={active ? 'page' : undefined}
                 className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition-colors duration-200 ease-ui ${
                   active
-                    ? 'bg-ink/[0.07] font-medium text-text-primary'
+                    ? 'bg-ink/[0.06] font-medium text-text-primary'
                     : 'text-text-secondary hover:bg-bg-secondary/60 hover:text-text-primary'
                 }`}
               >
@@ -90,7 +94,8 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         </nav>
 
         <main data-assemble="panel" className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-xl px-8 py-10">
+          {/* key 换了才重挂，动画跟着内容走：切分区是“落位”，再点同一个分区不会再播一遍。 */}
+          <div key={section} className="panel-in mx-auto w-full max-w-xl px-8 py-10">
             {section === 'ai' ? (
               <AiConnectionSettings connection={connection} onSaved={saveConnection} />
             ) : (

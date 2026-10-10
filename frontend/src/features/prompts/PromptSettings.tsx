@@ -6,16 +6,15 @@ import { usePrompts } from './hooks/usePrompts';
 import { PromptSidebar } from './PromptSidebar';
 import type { RoleType, SharedModuleType } from '../../shared/types/api';
 import { useI18n } from '../../shared/i18n/index';
-import { useModalTransition } from '../../shared/hooks/useModalTransition';
 
 interface PromptSettingsProps {
-  isOpen: boolean;
+  /** Driven by App: leaves with the studio's own slide rather than unmounting in place. */
+  exiting: boolean;
   onClose: () => void;
 }
 
-export function PromptSettings({ isOpen, onClose }: PromptSettingsProps) {
+export function PromptSettings({ exiting, onClose }: PromptSettingsProps) {
   const { t } = useI18n();
-  const { shouldRender, isExiting } = useModalTransition(isOpen, 650);
 
   const {
     isLoading: promptsLoading,
@@ -26,8 +25,6 @@ export function PromptSettings({ isOpen, onClose }: PromptSettingsProps) {
     restoreCurrent,
     hasOverride,
   } = usePrompts();
-
-  if (!shouldRender) return null;
 
   const getPromptTitle = () => {
     const roleLabels: Record<RoleType, string> = {
@@ -68,7 +65,7 @@ export function PromptSettings({ isOpen, onClose }: PromptSettingsProps) {
   return (
     <div
       className={`fixed inset-0 z-[120] flex flex-col bg-bg-primary ${
-        isExiting ? 'animate-workspace-exit' : 'page-assemble'
+        exiting ? 'page-slide-out' : 'page-assemble'
       }`}
     >
       {/* 顶栏 */}

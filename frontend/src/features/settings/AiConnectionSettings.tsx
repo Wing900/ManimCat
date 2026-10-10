@@ -29,7 +29,14 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
 
   return (
     <div className="space-y-8">
-      <div className="flex gap-1 rounded-2xl bg-bg-secondary/50 p-1">
+      <div className="relative flex rounded-2xl bg-bg-secondary/50 p-1">
+        {/* 药丸自己滑过去，而不是两个背景互相关。位移是这里唯一的运动，所以它读得出来。 */}
+        <span
+          aria-hidden="true"
+          className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-xl bg-bg-primary shadow-sm transition-transform duration-300 ease-move ${
+            mode === 'byok' ? 'translate-x-full' : 'translate-x-0'
+          }`}
+        />
         {(['catkey', 'byok'] as const).map((item) => {
           const active = mode === item
           return (
@@ -38,10 +45,8 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
               type="button"
               onClick={() => setMode(item)}
               aria-pressed={active}
-              className={`flex-1 rounded-xl px-4 py-2.5 text-sm transition-colors duration-200 ease-ui ${
-                active
-                  ? 'bg-bg-primary font-medium text-text-primary shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary'
+              className={`relative flex-1 rounded-xl px-4 py-2.5 text-sm transition-colors duration-200 ease-ui ${
+                active ? 'font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               {t(MODE_LABEL_KEYS[item])}

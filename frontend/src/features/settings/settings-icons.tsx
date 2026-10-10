@@ -1,12 +1,14 @@
 import type { SVGProps } from 'react'
 
 /**
- * Marks for the Settings page, drawn in the project's own hand.
+ * Marks for the Settings rail, drawn in the project's own hand.
  *
- * The house style comes from `ManimCatLogo`: one flat ink geometry (`#455a64` via `ink`, or whatever
- * `currentColor` the row already carries), round caps and joins, no fills, no gradients, no icon
- * dependency. The cat is never a picture — it is one silhouette detail (ears) attached to the idea
- * the glyph is about, the way the logo hangs a head off the shoulder of the M.
+ * The house style comes from `ManimCatLogo`: one flat ink geometry (`currentColor`, so a row keeps
+ * its own text colour), round caps and joins, no fills, no gradients, no icon dependency.
+ *
+ * These are deliberately three strokes or fewer. An earlier pass hung cat ears off each shape; at
+ * the rail's 22px the ears and the body merged into one black blob, so the cat lives in the wordmark
+ * and the rail stays legible.
  */
 type IconProps = SVGProps<SVGSVGElement>
 
@@ -17,7 +19,7 @@ function mark(props: IconProps) {
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 1.7,
+    strokeWidth: 1.6,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
     'aria-hidden': true,
@@ -27,32 +29,26 @@ function mark(props: IconProps) {
 }
 
 /**
- * AI connection: a cat-eared node joined to a four-point spark.
+ * AI connection: the link itself — two hooks closing on a shared bar.
  *
- * The left shape is the local side (this app, cat); the spark is the model on the far end; the short
- * bar between them is the link itself. It replaces the old three-nodes "share" glyph, which said
- * "providers" — a word this app no longer uses.
+ * This credential decides which model the far end talks to, so the glyph is the thing the setting
+ * is about, not a metaphor for it.
  */
 export function AiConnectionMark(props: IconProps) {
   return (
     <svg {...mark(props)}>
-      <circle cx="7" cy="13" r="3.4" />
-      <path d="M4.8 10.4 4.1 7.9" />
-      <path d="M9.2 10.4 9.9 7.9" />
-      <path d="M10.6 13h3.2" />
-      <path d="M17.2 9.8 18.2 12l2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z" />
+      <path d="M9.9 13.4a3.6 3.6 0 0 0 5.4.4l2.3-2.3a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3" />
+      <path d="M14.1 10.6a3.6 3.6 0 0 0-5.4-.4l-2.3 2.3a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3" />
     </svg>
   )
 }
 
-/** Video settings: a frame with cat ears and a play triangle. */
+/** Video output: a frame and a play head. */
 export function VideoMark(props: IconProps) {
   return (
     <svg {...mark(props)}>
-      <path d="M4.6 8.4 5.2 4.9 8.4 6.7" />
-      <path d="M19.4 8.4 18.8 4.9 15.6 6.7" />
-      <rect x="4.6" y="6.7" width="14.8" height="12.6" rx="2.8" />
-      <path d="M10.4 11.6 15 14.4l-4.6 2.8z" />
+      <rect x="3.2" y="5.6" width="17.6" height="12.8" rx="3.2" />
+      <path d="M10.4 9.6 15.2 12l-4.8 2.4z" />
     </svg>
   )
 }

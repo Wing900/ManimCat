@@ -47,7 +47,7 @@ export function CustomSelect<T = string>({
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      <label className="absolute left-3 -top-2 px-1.5 bg-bg-secondary text-xs font-medium text-text-secondary">
+      <label className="absolute left-3 -top-2 px-1.5 bg-bg-primary text-xs font-medium text-text-secondary">
         {label}
       </label>
 
@@ -56,14 +56,14 @@ export function CustomSelect<T = string>({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="w-full px-4 py-3.5 pr-10 bg-bg-secondary/50 rounded-2xl text-left text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary/60"
+        className="w-full px-4 py-3.5 pr-10 bg-bg-secondary/50 rounded-2xl text-left text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-colors duration-200 ease-ui cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary/60"
       >
         <span>{selectedOption?.label}</span>
       </button>
 
       {/* 下拉箭头 */}
       <svg
-        className={`absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary pointer-events-none transition-transform duration-200 ${
+        className={`absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary pointer-events-none transition-transform duration-200 ease-move ${
           isOpen ? 'rotate-180' : ''
         }`}
         fill="none"
@@ -75,7 +75,7 @@ export function CustomSelect<T = string>({
 
       {/* 下拉菜单 */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-bg-secondary rounded-2xl shadow-xl shadow-black/10 overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="menu-in absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl bg-bg-secondary shadow-xl shadow-black/10">
           {options.map((option) => {
             const isSelected = typeof option.value === 'number' && typeof value === 'number'
               ? option.value === value
@@ -89,7 +89,7 @@ export function CustomSelect<T = string>({
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className={`w-full px-4 py-3.5 text-left transition-colors hover:bg-bg-secondary/70 ${
+                className={`w-full px-4 py-3.5 text-left transition-colors duration-150 ease-ui hover:bg-bg-secondary/70 ${
                   isSelected ? 'bg-bg-secondary/50' : ''
                 }`}
               >
