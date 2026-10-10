@@ -2,7 +2,7 @@
  * Redis Job State Store
  */
 
-import { redisClient } from '../../../config/redis'
+import { redisClient } from '../config'
 import type { ProcessingStage } from '../../../rendering/job/job-types'
 
 const STAGE_PREFIX = 'job:stage:'

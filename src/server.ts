@@ -6,17 +6,17 @@
 import 'dotenv/config'
 import express from 'express'
 import type { Server } from 'http'
-import { redisClient } from './config/redis'
-import { closeQueue } from './config/bull'
+import { redisClient } from './infrastructure/redis/config'
+import { closeQueue } from './rendering/queue/bull-config'
 import { createLogger } from './shared/logging/logger'
-import { startMediaCleanupScheduler } from './services/media-cleanup'
+import { startMediaCleanupScheduler } from './operations/cleanup/media-cleanup'
 import {
   getStudioWorkspaceRootDirectory,
   startStudioWorkspaceCleanupScheduler
 } from './studio-agent/infrastructure/workspace/studio-workspace-cleanup'
 import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
-import { getApiRagService } from './services/api-rag'
+import { getApiRagService } from './knowledge/api-rag'
 import { setStudioTelemetry } from './studio-agent/infrastructure/telemetry/studio-telemetry'
 import { createPlotStudioTelemetryAdapter } from './studio-agent/infrastructure/telemetry/plot-studio-timing'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'

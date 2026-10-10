@@ -5,10 +5,10 @@
 
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../middlewares/auth.middleware'
-import { assertJobAccess } from '../services/job-access-store'
-import { cancelJob } from '../services/job-cancel'
-import { ValidationError } from '../utils/errors'
+import { authMiddleware } from '../http/middleware/auth'
+import { assertJobAccess } from '../rendering/job/job-access-store'
+import { cancelJob } from '../rendering/job/job-cancel'
+import { ValidationError } from '../shared/errors/errors'
 import { getRequestClientId } from '../utils/request-client-id'
 
 const router = express.Router()

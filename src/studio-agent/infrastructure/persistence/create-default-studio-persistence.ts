@@ -1,5 +1,5 @@
-import { getSupabaseClient } from '../../../database/client'
-import { isStudioDatabaseReady } from '../../../database/config'
+import { getSupabaseClient } from '../../../infrastructure/database/client'
+import { isStudioDatabaseReady } from '../../../infrastructure/database/config'
 import { createLogger } from '../../../shared/logging/logger'
 import { createInMemoryStudioPersistence } from './in-memory-studio-persistence'
 import { createSupabaseStudioPersistence } from './supabase-studio-persistence'

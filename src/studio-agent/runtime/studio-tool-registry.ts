@@ -1,4 +1,4 @@
-import type { ApiRagService } from '../../services/api-rag'
+import type { ApiRagService } from '../../knowledge/api-rag'
 import type { StudioToolRegistry } from '../tools/registry'
 import { registerSharedStudioTools } from '../shared/register-shared-tools'
 import type { StudioModeModule } from '../modes/studio-mode-module'

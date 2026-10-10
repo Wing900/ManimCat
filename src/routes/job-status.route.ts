@@ -11,8 +11,8 @@
 
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../middlewares/auth.middleware'
-import { assertJobAccess, getJobAccessCreatedAt } from '../services/job-access-store'
+import { authMiddleware } from '../http/middleware/auth'
+import { assertJobAccess, getJobAccessCreatedAt } from '../rendering/job/job-access-store'
 import { createLogger } from '../shared/logging/logger'
 import { getJobResult, getBullJobStatus } from '../infrastructure/redis/job/redis-job-result-store'
 import { getJobStage } from '../infrastructure/redis/job/redis-job-state-store'

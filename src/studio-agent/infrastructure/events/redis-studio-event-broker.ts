@@ -1,5 +1,5 @@
 import type Redis from 'ioredis'
-import { redisClient } from '../../../config/redis'
+import { redisClient } from '../../../infrastructure/redis/config'
 import { createLogger } from '../../../shared/logging/logger'
 import {
   resolveStudioEventChannel,

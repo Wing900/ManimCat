@@ -2,7 +2,7 @@
  * Redis Job Tracking Store
  */
 
-import { redisClient } from '../../../config/redis'
+import { redisClient } from '../config'
 import type { JobTrackingState, StoreJobStageOptions } from '../../../rendering/job/job-types'
 
 const TRACKING_PREFIX = 'job:tracking:'

@@ -3,7 +3,7 @@ import {
   exportRenderFailureEvents,
   getRenderFailureAdminToken,
   isRenderFailureAdminEnabled
-} from '../render-failure'
+} from '../operations/render-failures'
 import type { OutputMode } from '../types'
 
 const router = express.Router()

@@ -1,5 +1,5 @@
 import type { Request } from 'express'
-import { AuthenticationError } from './errors'
+import { AuthenticationError } from '../shared/errors/errors'
 import { getAllowedManimcatApiKeys, hasManimcatApiKey } from './manimcat-auth'
 
 export function extractBearerToken(authHeader: string | string[] | undefined): string {

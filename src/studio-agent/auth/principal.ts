@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { Response } from 'express'
-import { AuthenticationError } from '../../utils/errors'
+import { AuthenticationError } from '../../shared/errors/errors'
 import type { StudioPrincipal } from '../domain/types'
 
 /**

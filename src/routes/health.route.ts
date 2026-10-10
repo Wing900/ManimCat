@@ -9,8 +9,8 @@
  */
 
 import express, { type Request, type Response } from 'express'
-import { redisClient } from '../config/redis'
-import { checkQueueHealth, getQueueStats } from '../config/bull'
+import { redisClient } from '../infrastructure/redis/config'
+import { checkQueueHealth, getQueueStats } from '../rendering/queue/bull-config'
 import { appConfig } from '../config/app'
 import { asyncHandler } from '../http/middleware/async-route'
 import { createLogger } from '../shared/logging/logger'

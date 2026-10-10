@@ -28,7 +28,7 @@ import { RecordingEventBus } from '../support/recording-event-bus'
 import { adaptStudioEvent } from '../../infrastructure/events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
-import { getApiRagService } from '../../../services/api-rag'
+import { getApiRagService } from '../../../knowledge/api-rag'
 
 function createToolContext(studioKind: StudioKind): StudioRuntimeBackedToolContext {
   const session = createStudioSession({

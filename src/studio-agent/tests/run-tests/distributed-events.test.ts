@@ -562,7 +562,7 @@ export async function runDistributedEventTests(): Promise<void> {
     }
 
     const redisAware = modules.filter((entry) =>
-      readRepoSource(path.join('src/studio-agent/infrastructure/events', entry)).includes("from '../../../config/redis'")
+      readRepoSource(path.join('src/studio-agent/infrastructure/events', entry)).includes("from '../../../infrastructure/redis/config'")
     )
     assert.deepEqual(redisAware, ['redis-studio-event-broker.ts'])
 

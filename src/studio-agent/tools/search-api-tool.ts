@@ -1,4 +1,4 @@
-import type { ApiCatalogPackage, ApiRagService } from '../../services/api-rag'
+import type { ApiCatalogPackage, ApiRagService } from '../../knowledge/api-rag'
 import type { StudioKind, StudioToolDefinition, StudioToolResult } from '../domain/types'
 import { searchApiToolParameters } from './tool-parameters'
 

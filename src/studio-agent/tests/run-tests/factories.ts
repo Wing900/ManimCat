@@ -15,7 +15,7 @@ import {
 } from '../../index'
 import type { StudioSession, StudioRun, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
-import { ApiRagService } from '../../../services/api-rag/api-rag-service'
+import { ApiRagService } from '../../../knowledge/api-rag/api-rag-service'
 import {
   createStudioRuntimeService,
   createUnavailableStudioRenderResultPort,

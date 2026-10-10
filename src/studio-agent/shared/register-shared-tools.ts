@@ -1,4 +1,4 @@
-import type { ApiRagService } from '../../services/api-rag'
+import type { ApiRagService } from '../../knowledge/api-rag'
 import type { StudioToolDefinition } from '../domain/types'
 import { createStudioEditTool } from '../tools/edit-tool'
 import { createStudioGlobTool } from '../tools/glob-tool'

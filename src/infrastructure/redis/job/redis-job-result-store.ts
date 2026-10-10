@@ -4,8 +4,8 @@
  * Also hosts getBullJobStatus (queue read) for Public Contract continuity.
  */
 
-import { redisClient, REDIS_KEYS, generateRedisKey } from '../../../config/redis'
-import { videoQueue } from '../../../config/bull'
+import { redisClient, REDIS_KEYS, generateRedisKey } from '../config'
+import { videoQueue } from '../../../rendering/queue/bull-config'
 import type { JobResult } from '../../../rendering/job/job-types'
 import type { StoreJobResultOutcome } from '../../../rendering/job/job-types'
 import type { JobResultStore } from '../../../rendering/job/job-result-store'

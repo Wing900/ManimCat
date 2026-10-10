@@ -574,7 +574,7 @@ export async function runSceneRecordTests(): Promise<void> {
   })
 
   await run('the scene scope migration keeps legacy rows nullable', async () => {
-    const migration = readStudioSource('src', 'database', 'migrations', '011_add_studio_scene_scope.sql')
+    const migration = readStudioSource('src', 'infrastructure', 'database', 'migrations', '011_add_studio_scene_scope.sql')
 
     for (const table of ['studio_messages', 'studio_runs', 'studio_renders']) {
       assert.match(
@@ -590,7 +590,7 @@ export async function runSceneRecordTests(): Promise<void> {
   })
 
   await run('the migration binds a scene to its own session', async () => {
-    const migration = readStudioSource('src', 'database', 'migrations', '011_add_studio_scene_scope.sql')
+    const migration = readStudioSource('src', 'infrastructure', 'database', 'migrations', '011_add_studio_scene_scope.sql')
 
     assert.match(migration, /add constraint studio_scenes_id_session_key unique \(id, session_id\);/)
     for (const [table, name] of [
@@ -613,7 +613,7 @@ export async function runSceneRecordTests(): Promise<void> {
   })
 
   await run('deleting a scene cascades its scoped records', async () => {
-    const migration = readStudioSource('src', 'database', 'migrations', '011_add_studio_scene_scope.sql')
+    const migration = readStudioSource('src', 'infrastructure', 'database', 'migrations', '011_add_studio_scene_scope.sql')
 
     for (const name of [
       'studio_messages_scene_session_fkey',

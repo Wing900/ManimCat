@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middlewares/auth.middleware'
+import { authMiddleware } from '../http/middleware/auth'
 import { asyncHandler } from '../http/middleware/async-route'
 import { studioRuntime } from '../studio-agent/runtime/runtime-service'
 import {

@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 import { createLogger } from '../shared/logging/logger'
-import { getProcessMemory } from './process-memory'
+import { getProcessMemory } from '../shared/process-memory'
 import type { ManimExecuteOptions, ManimExecutionResult } from './manim-executor'
 
 const logger = createLogger('ManimExecutorRuntime')

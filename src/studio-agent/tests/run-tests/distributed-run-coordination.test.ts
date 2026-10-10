@@ -1786,7 +1786,7 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
     ])
 
     const redisAware = modules.filter((entry) =>
-      readRepoSource(path.join('src/studio-agent/infrastructure/coordination', entry)).includes("from '../../../config/redis'")
+      readRepoSource(path.join('src/studio-agent/infrastructure/coordination', entry)).includes("from '../../../infrastructure/redis/config'")
     )
     assert.deepEqual(redisAware, ['redis-studio-run-coordinator.ts'])
 

@@ -12,13 +12,13 @@
 
 import express from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import { videoQueue } from '../config/bull'
+import { videoQueue } from '../rendering/queue/bull-config'
 import { deleteJobStage } from '../infrastructure/redis/job/redis-job-state-store'
 import { storeJobStage } from '../infrastructure/redis/job/redis-job-state-store'
 import { createLogger } from '../shared/logging/logger'
-import { ValidationError } from '../utils/errors'
+import { ValidationError } from '../shared/errors/errors'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../middlewares/auth.middleware'
+import { authMiddleware } from '../http/middleware/auth'
 import type { GenerateResponse } from '../types'
 import { requirePromptOverrideAuth } from '../utils/auth-utils'
 import { hasPromptOverrides } from '../utils/prompt-overrides'
@@ -31,7 +31,7 @@ import {
 } from '../workflow/generation/request-preparation'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
-import { deleteJobAccess, storeJobAccess } from '../services/job-access-store'
+import { deleteJobAccess, storeJobAccess } from '../rendering/job/job-access-store'
 import { buildClassicRenderCacheKey } from '../utils/render-cache-workspace'
 
 const router = express.Router()

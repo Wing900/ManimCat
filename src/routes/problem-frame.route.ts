@@ -1,10 +1,10 @@
 import express from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../middlewares/auth.middleware'
-import { ValidationError } from '../utils/errors'
+import { authMiddleware } from '../http/middleware/auth'
+import { ValidationError } from '../shared/errors/errors'
 import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
-import { generateProblemFramingPlan } from '../services/problem-framing'
+import { generateProblemFramingPlan } from '../workflow/problem-framing/problem-framing'
 import { customApiConfigSchema, promptOverridesSchema } from './schemas/common'
 import { referenceImagesSchema } from './helpers/reference-images'
 

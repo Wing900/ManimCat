@@ -1,4 +1,4 @@
-import type { ApiCatalogPackage } from '../../services/api-rag'
+import type { ApiCatalogPackage } from '../../knowledge/api-rag'
 import type { StudioRenderDriver } from '../render/studio-render-driver'
 import type { StudioToolDefinition } from '../domain/types'
 import { getStudioModeDefinition, type StudioModeDefinition } from './studio-mode'

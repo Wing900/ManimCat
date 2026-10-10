@@ -383,7 +383,7 @@ export async function runSceneFoundationTests(): Promise<void> {
 
   await run('the scene migration keeps rows tied to their session', async () => {
     const migration = fs.readFileSync(
-      path.join(process.cwd(), 'src', 'database', 'migrations', '010_create_studio_scenes.sql'),
+      path.join(process.cwd(), 'src', 'infrastructure', 'database', 'migrations', '010_create_studio_scenes.sql'),
       'utf8'
     )
 

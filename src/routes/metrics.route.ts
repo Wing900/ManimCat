@@ -4,16 +4,16 @@
  */
 
 import { Router, type Request, type Response } from 'express'
-import { getQueueStats } from '../config/bull'
+import { getQueueStats } from '../rendering/queue/bull-config'
 import { createLogger } from '../shared/logging/logger'
 import {
   getMemoryPeakSnapshot,
   getProcessMemorySnapshot,
   resetMemoryPeaks,
   startMemoryPeakSampler
-} from './metrics/memory-peak'
-import { getCPUInfo, getRuntimeInfo, getSystemMemory } from './metrics/system-metrics'
-import { getDiskUsage, getRedisMemory } from './metrics/storage-metrics'
+} from '../operations/metrics/memory-peak'
+import { getCPUInfo, getRuntimeInfo, getSystemMemory } from '../operations/metrics/system-metrics'
+import { getDiskUsage, getRedisMemory } from '../operations/metrics/storage-metrics'
 
 const router = Router()
 const logger = createLogger('Metrics')

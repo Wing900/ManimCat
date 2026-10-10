@@ -5,7 +5,7 @@ import type { StudioPersistence } from '../infrastructure/persistence/studio-per
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../infrastructure/workspace/studio-workspace-provider'
-import type { ApiRagService } from '../../services/api-rag'
+import type { ApiRagService } from '../../knowledge/api-rag'
 import {
   createStudioRenderDriverRegistry,
   type StudioRenderDriverRegistry

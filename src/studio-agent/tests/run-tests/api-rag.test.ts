@@ -1,23 +1,23 @@
 import assert from 'node:assert/strict'
-import { createBaselineResolver } from '../../../services/api-rag/baseline-resolver'
+import { createBaselineResolver } from '../../../knowledge/api-rag/baseline-resolver'
 import {
   baselineCatalogPath,
   loadBaselineCatalog,
   searchCatalogPath,
   validateBaselineCatalog
-} from '../../../services/api-rag/baseline-catalog'
-import { createCosineRetriever, l2Normalize } from '../../../services/api-rag/cosine-retriever'
-import { ApiRagService } from '../../../services/api-rag/api-rag-service'
+} from '../../../knowledge/api-rag/baseline-catalog'
+import { createCosineRetriever, l2Normalize } from '../../../knowledge/api-rag/cosine-retriever'
+import { ApiRagService } from '../../../knowledge/api-rag/api-rag-service'
 import {
   assertSearchCatalogResolvable,
   readSearchCatalog,
   validateSearchCatalog
-} from '../../../services/api-rag/search-catalog'
-import { API_RAG_TOP_K, type EmbeddingModel } from '../../../services/api-rag/types'
+} from '../../../knowledge/api-rag/search-catalog'
+import { API_RAG_TOP_K, type EmbeddingModel } from '../../../knowledge/api-rag/types'
 import {
   loadSearchVectors,
   type SearchVectorsSource
-} from '../../../services/api-rag/search-vectors'
+} from '../../../knowledge/api-rag/search-vectors'
 import { createStudioSearchApiTool, SEARCH_API_TOOL_NAME } from '../../tools/search-api-tool'
 import { run } from './factories'
 

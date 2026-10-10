@@ -1,9 +1,9 @@
 import type { ManimRenderPort } from './manim-render-port'
-import { videoQueue } from '../../../config/bull'
+import { videoQueue } from '../../../rendering/queue/bull-config'
 import { getJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
 import { storeJobStage } from '../../../infrastructure/redis/job/redis-job-state-store'
 import { resolveJobTimeoutMs } from '../../../utils/job-timeout'
-import { cancelJob } from '../../../services/job-cancel'
+import { cancelJob } from '../../../rendering/job/job-cancel'
 import { throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 
 export function createBullManimRenderPort(): ManimRenderPort {
