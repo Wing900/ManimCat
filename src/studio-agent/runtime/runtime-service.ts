@@ -5,7 +5,6 @@ import { createBullManimRenderPort } from '../manim/bull-manim-render-port'
 import { createJobStoreStudioRenderResultPort } from '../manim/job-store-render-result-port'
 import { createMatplotlibPlotRenderPort } from '../plot/matplotlib-plot-render-port'
 import { createDefaultStudioKnowledgeProvider } from '../knowledge/create-default-studio-knowledge-provider'
-import { createDefaultStudioStaticCheckPort } from '../static-check/create-default-studio-static-check-port'
 import { createDefaultStudioEventBus } from '../events/create-default-studio-event-bus'
 import { createRedisStudioEventBroker } from '../events/redis-studio-event-broker'
 import { createDefaultStudioRunCoordination } from '../run-coordination/create-default-studio-run-coordination'
@@ -17,8 +16,6 @@ const persistence = createDefaultStudioPersistence()
 const workspaceProvider = createLocalStudioWorkspaceProvider()
 // Built once so the Runtime Manim Catalog provider keeps its cache across tool calls.
 const knowledgeProvider = createDefaultStudioKnowledgeProvider()
-// Built once so no static check Adapter is constructed per tool call.
-const staticCheckPort = createDefaultStudioStaticCheckPort()
 
 // Studio event delivery: distributed by default, so an SSE client on one replica receives
 // events produced by a Run executing on another. The Redis broker factory is injected here
@@ -53,7 +50,6 @@ export const studioRuntime = createStudioRuntimeService({
   manimRenderPort: createBullManimRenderPort(),
   plotRenderPort: createMatplotlibPlotRenderPort(),
   knowledgeProvider,
-  staticCheckPort,
   eventBus: studioEventRuntime.eventBus,
   runCoordination: studioRunCoordinationRuntime.service,
   // The Studio render of a Scene is completed by the Manim job in the existing queue, so the

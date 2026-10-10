@@ -1049,109 +1049,8 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     assert.equal('error' in sceneToolEvent.properties, false)
   })
 
-  await run('a completed pre-render check publishes a count summary instead of its raw diagnostics', async () => {
-    const assistant = createStudioAssistantMessage({ sessionId: SESSION_ID, sceneId: SCENE_A, agent: 'builder' })
-    const diagnosticLine = 'manim:12:3 ENOENT: D:/private/scene_0001.py raw diagnostic exploded'
-    const staticCheckPart: StudioToolPart = {
-      ...createStudioToolPart({
-        messageId: assistant.id,
-        sessionId: SESSION_ID,
-        tool: 'render',
-        callId: 'call-static',
-        raw: JSON.stringify({ path: 'scenes/scene_0001.py' })
-      }),
-      state: {
-        status: 'completed',
-        input: { path: 'scenes/scene_0001.py' },
-        output: diagnosticLine,
-        title: 'Static check scenes/scene_0001.py',
-        time: { start: 0, end: 1 },
-        metadata: {
-          phase: 'static-check',
-          path: 'scenes/scene_0001.py',
-          kind: 'manim',
-          outputMode: 'video',
-          diagnosticCount: 2,
-          truncated: false,
-          diagnostics: [{ message: diagnosticLine }]
-        }
-      }
-    }
-    const scene = createStudioScene({
-      ownerId: OWNER_ID,
-      sessionId: SESSION_ID,
-      id: SCENE_A,
-      position: 0,
-      sourcePath: 'scenes/scene_0001.py'
-    })
-    const snapshot: StudioSceneSnapshot = {
-      scene,
-      messages: [
-        createStudioUserMessage({ sessionId: SESSION_ID, sceneId: SCENE_A, text: 'check' }),
-        { ...assistant, parts: [staticCheckPart] }
-      ],
-      runs: [],
-      renders: []
-    }
-
-    const projection = toPublicStudioSceneSnapshot(snapshot)
-    const serialized = JSON.stringify(projection)
-    // `"diagnostics"` is the key form: the count summary below legitimately reads `2 diagnostics.`,
-    // while the raw checker bag must never cross a Scene boundary under its own name.
-    for (const leak of ['ENOENT', 'D:/private', 'raw diagnostic', '"diagnostics"']) {
-      assert.equal(serialized.includes(leak), false, `static check projection leaked: ${leak}`)
-    }
-
-    const publicPart = projection.messages[1]
-    assert.ok(publicPart && publicPart.role === 'assistant')
-    const publicTool = publicPart.parts[0]
-    assert.ok(publicTool && publicTool.type === 'tool')
-    assert.equal(publicTool.state.status, 'completed')
-    // The stable summary replaces the raw lines; the public counts and the title survive.
-    assert.equal(publicTool.state.output, 'Static check completed: 2 diagnostics.')
-    assert.equal(publicTool.state.title, 'Static check scenes/scene_0001.py')
-    assert.equal(publicTool.state.metadata?.diagnosticCount, 2)
-    assert.equal(publicTool.state.metadata?.path, 'scenes/scene_0001.py')
-
-    // The internal record is copied, never rewritten: the model and the store keep the raw lines.
-    assert.equal(staticCheckPart.state.status === 'completed' ? staticCheckPart.state.output : '', diagnosticLine)
-    assert.deepEqual(
-      (staticCheckPart.state as { metadata?: Record<string, unknown> }).metadata?.diagnostics,
-      [{ message: diagnosticLine }]
-    )
-
-    // A zero count has its own stable wording and a missing count stays honest.
-    const zero = toPublicStudioSceneToolState(
-      {
-        status: 'completed',
-        input: { path: 'scenes/scene_0001.py' },
-        output: diagnosticLine,
-        title: 'Static check scenes/scene_0001.py',
-        time: { start: 0, end: 1 },
-        metadata: { phase: 'static-check', path: 'scenes/scene_0001.py', diagnosticCount: 0 }
-      },
-      'render'
-    )
-    assert.equal(zero.output, 'Static check completed: no diagnostics.')
-    assert.equal(
-      toPublicStudioSceneToolState(
-        {
-          status: 'completed',
-          input: {},
-          output: diagnosticLine,
-          title: 'Static check scenes/scene_0001.py',
-          time: { start: 0, end: 1 },
-          metadata: { phase: 'static-check' }
-        },
-        'render'
-      ).output,
-      'Static check completed.'
-    )
-  })
-
-  await run('static-check through the scene event stream and the legacy stream split cleanly', async () => {
-    const diagnosticLine = 'manim:9:1 ENOENT: D:/private/scene_0002.py raw diagnostic'
-    // The check is a phase of the render Tool, and the phase marker is what the projection reads.
+  await run('both streams keep a completed tool result while only the scene stream filters it', async () => {
+    const resultText = 'manim:9:1 raw result of scenes/scene_0002.py'
     const completed: StudioExternalEvent = {
       type: 'tool.result',
       properties: {
@@ -1160,55 +1059,33 @@ export async function runSceneEventRoutingTests(): Promise<void> {
         runId: 'run-1',
         messageId: 'message-1',
         toolName: 'render',
-        callId: 'call-static',
+        callId: 'call-render',
         status: 'completed',
-        title: 'Static check scenes/scene_0002.py',
-        output: diagnosticLine,
+        title: 'Render scene_0002.py',
+        output: resultText,
         metadata: {
-          phase: 'static-check',
+          renderId: 'render-1',
+          jobId: 'job-1',
           path: 'scenes/scene_0002.py',
-          diagnosticCount: 1,
-          diagnostics: [{ message: diagnosticLine }]
+          sourcePath: 'D:/private/scene_0002.py'
         }
       }
     }
 
-    const sceneEventProjected = toPublicStudioSceneEvent(completed)
-    const sceneSerialized = JSON.stringify(sceneEventProjected)
-    for (const leak of ['ENOENT', 'D:/private', 'raw diagnostic', 'diagnostics']) {
-      assert.equal(sceneSerialized.includes(leak), false, `scene static check event leaked: ${leak}`)
-    }
-    assert.equal(sceneEventProjected.properties.output, 'Static check completed: 1 diagnostic.')
-    assert.equal(sceneEventProjected.properties.sceneId, SCENE_A)
-    assert.deepEqual(sceneEventProjected.properties.metadata, {
-      path: 'scenes/scene_0002.py',
-      diagnosticCount: 1
-    })
-
-    // A failed static check publishes neither result text nor the internal error.
-    const failed: StudioExternalEvent = {
-      type: 'tool.result',
-      properties: {
-        sessionId: SESSION_ID,
-        sceneId: SCENE_A,
-        runId: 'run-1',
-        messageId: 'message-1',
-        toolName: 'render',
-        callId: 'call-static',
-        status: 'failed',
-        output: 'ENOENT: D:/private/scene_0002.py',
-        error: 'ENOENT: D:/private/scene_0002.py'
-      }
-    }
-    const failedProjected = toPublicStudioSceneEvent(failed)
-    assert.equal('output' in failedProjected.properties, false)
-    assert.equal('error' in failedProjected.properties, false)
-    assert.equal(failedProjected.properties.status, 'failed')
-
-    // The legacy Session stream keeps the raw diagnostics of the same event.
+    // The legacy Session stream is not routed through the Scene projection: it keeps the event as sent.
     const legacy = toPublicStudioEvent(completed)
-    assert.equal(legacy.properties.output, diagnosticLine)
+    assert.equal(legacy.properties.output, resultText)
     assert.deepEqual(legacy.properties.metadata, completed.properties.metadata)
+
+    // The Scene stream keeps the working result and drops the keys its whitelist does not name.
+    const sceneProjected = toPublicStudioSceneEvent(completed)
+    assert.equal(sceneProjected.properties.output, resultText)
+    assert.equal(sceneProjected.properties.sceneId, SCENE_A)
+    assert.deepEqual(sceneProjected.properties.metadata, {
+      renderId: 'render-1',
+      jobId: 'job-1',
+      path: 'scenes/scene_0002.py'
+    })
 
     // Every other Tool keeps its compatibility passthrough: read output is the user's work result.
     const readEvent: StudioExternalEvent = {

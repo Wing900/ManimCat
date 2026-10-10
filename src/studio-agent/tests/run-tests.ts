@@ -6,7 +6,6 @@ import { runSecurityTests } from './run-tests/security.test'
 import { runAgentLoopTests } from './run-tests/agent-loop.test'
 import { runKnowledgeTests } from './run-tests/knowledge.test'
 import { runMatplotlibKnowledgeTests } from './run-tests/matplotlib-knowledge.test'
-import { runStaticCheckTests } from './run-tests/static-check.test'
 import { runTokenUsageTests } from './run-tests/token-usage.test'
 import { runDistributedEventTests } from './run-tests/distributed-events.test'
 import { runDistributedRunCoordinationTests } from './run-tests/distributed-run-coordination.test'
@@ -28,16 +27,10 @@ async function main() {
   await runLoopTests()
   await runReasoningContentTests()
   await runModeAndToolTests()
-  // Ordered ahead of runSecurityTests(): a known-failing assertion there aborts main(), and these
-  // suites must not be skipped silently because of it.
-  await runSceneSourceMaterializationTests()
-  await runRenderCancellationTests()
-  await runStudioWorkspaceCleanupTests()
   await runSecurityTests()
   await runAgentLoopTests()
   await runKnowledgeTests()
   await runMatplotlibKnowledgeTests()
-  await runStaticCheckTests()
   await runRenderMediaHandoffTests()
   await runTokenUsageTests()
   await runDistributedEventTests()
@@ -50,6 +43,9 @@ async function main() {
   await runSceneEventRoutingTests()
   await runRenderResultBridgeTests()
   await runSessionDeleteTests()
+  await runSceneSourceMaterializationTests()
+  await runRenderCancellationTests()
+  await runStudioWorkspaceCleanupTests()
   console.log('All studio-agent tests passed')
 }
 

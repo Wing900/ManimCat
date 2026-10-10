@@ -1,5 +1,5 @@
 import { createStudioRender } from '../../domain/factories'
-import type { StudioFileAttachment, StudioKind, StudioToolDefinition, StudioToolResult } from '../../domain/types'
+import type { StudioFileAttachment, StudioToolDefinition, StudioToolResult } from '../../domain/types'
 import type { StudioRuntimeBackedToolContext } from '../../runtime/tools/tool-runtime-context'
 import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../../runtime/execution/run-cancellation'
 import {
@@ -8,9 +8,6 @@ import {
   type PlotRenderPort
 } from '../plot-render-port'
 import { plotRenderToolParameters } from '../../tools/tool-parameters'
-import { createUnconfiguredStudioStaticCheckPort } from '../../static-check/create-default-studio-static-check-port'
-import type { StudioStaticCheckPort } from '../../static-check/studio-static-check-types'
-import { runStudioStaticCheckGate } from '../../static-check/static-check-gate'
 import { publishStudioRenderUpdated } from '../../render/render-events'
 import { toWorkspaceRelativePath } from '../../tools/workspace-paths'
 
@@ -20,57 +17,29 @@ interface PlotRenderToolInput {
 }
 
 export function createPlotStudioRenderTool(
-  renderPort: PlotRenderPort = createUnconfiguredPlotRenderPort(),
-  staticCheckPort: StudioStaticCheckPort = createUnconfiguredStudioStaticCheckPort()
+  renderPort: PlotRenderPort = createUnconfiguredPlotRenderPort()
 ): StudioToolDefinition<PlotRenderToolInput> {
   return {
     name: 'render',
     parameters: plotRenderToolParameters,
-    description:
-      'Check the matplotlib source, then execute it and persist the plot images. If the check fails nothing is executed and the diagnostics come back.',
+    description: 'Execute the matplotlib source and persist the plot images.',
     allowedAgents: ['builder'],
     allowedStudioKinds: ['plot'],
     execute: async (input, context) =>
-      executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort, staticCheckPort)
+      executePlotRenderTool(input, context as StudioRuntimeBackedToolContext, renderPort)
   }
 }
 
 async function executePlotRenderTool(
   input: PlotRenderToolInput,
   context: StudioRuntimeBackedToolContext,
-  renderPort: PlotRenderPort,
-  staticCheckPort: StudioStaticCheckPort
+  renderPort: PlotRenderPort
 ): Promise<StudioToolResult> {
   if (!input.concept?.trim() || !input.code?.trim()) {
     throw new Error('Render tool requires non-empty "concept" and "code"')
   }
   if (!context.renderStore) {
     throw new Error('Render store is unavailable')
-  }
-
-  const kind: StudioKind = context.session.studioKind ?? 'plot'
-
-  // Check first: nothing is reserved and no plot image is produced when the source is broken.
-  const check = await runStudioStaticCheckGate({
-    port: staticCheckPort,
-    kind,
-    code: input.code,
-    outputMode: 'image',
-    signal: context.abortSignal
-  })
-  throwIfStudioRunCancelled(context.abortSignal)
-  if (!check.passed) {
-    return {
-      title: `Static check: ${input.concept.slice(0, 80)}`,
-      output: check.output,
-      metadata: {
-        phase: 'static-check',
-        kind,
-        outputMode: 'image',
-        diagnosticCount: check.result.diagnostics.length,
-        diagnostics: check.result.diagnostics
-      }
-    }
   }
 
   const title = `Plot render: ${input.concept.slice(0, 80)}`

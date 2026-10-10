@@ -38,9 +38,6 @@ import {
   type StudioScene,
   type StudioSceneStore,
   type StudioSession,
-  type StudioStaticCheckPort,
-  type StudioStaticCheckRequest,
-  type StudioStaticCheckResult,
   type StudioToolDefinition,
   type StudioToolResult
 } from '../../index'
@@ -51,7 +48,7 @@ import { configureStudioToolRegistry } from '../../runtime/studio-tool-registry'
 import { buildStudioAgentSystemPrompt } from '../../orchestration/studio-agent-prompt'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 import { ScriptedStudioModel } from '../support/scripted-studio-model'
-import { createPassingStudioStaticCheckPort, run } from './factories'
+import { run } from './factories'
 
 /**
  * Task 11B2B — Scene context assembly and Tool write boundary.
@@ -250,8 +247,6 @@ class RecordingPlotRenderPort implements PlotRenderPort {
   }
 }
 
-/** Static-check Port double: records the exact code the Tool handed to the static checker. */
-
 /** Manim render Port double: records the workspace and code of every submitted job. */
 class RecordingManimRenderPort implements ManimRenderPort {
   readonly submitted: Array<{ jobId: string; workspaceDirectory: string; code: string }> = []
@@ -287,7 +282,7 @@ function stubMutationTool(name: string, resultPath: string | null): StudioToolDe
  */
 function autoRenderRegistry(renderPort: PlotRenderPort, mutationTool: StudioToolDefinition<any>): StudioToolRegistry {
   const registry = new StudioToolRegistry()
-  registry.register(createPlotStudioRenderTool(renderPort, createPassingStudioStaticCheckPort()))
+  registry.register(createPlotStudioRenderTool(renderPort))
   registry.register(mutationTool)
   return registry
 }
@@ -1386,8 +1381,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const renderPort = new RecordingPlotRenderPort()
     const registry = configureStudioToolRegistry({
       registry: new StudioToolRegistry(),
-      plotRenderPort: renderPort,
-      staticCheckPort: createPassingStudioStaticCheckPort()
+      plotRenderPort: renderPort
     })
     const model = new ScriptedStudioModel([completion('rendered')])
     const handle = await sessionRunnerFor(fixture, registry).startBackgroundRun({
@@ -1433,7 +1427,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
       renderStore: fixture.persistence.renderStore
     })
 
-    const rendered = await createStudioRenderTool(renderPort, createPassingStudioStaticCheckPort()).execute(
+    const rendered = await createStudioRenderTool(renderPort).execute(
       { concept: 'fixture manim', code: 'print("manim")\n' },
       context
     )

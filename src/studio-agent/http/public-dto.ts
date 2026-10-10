@@ -66,7 +66,7 @@ export function toPublicStudioSnapshot(snapshot: StudioSessionSnapshot): PublicS
  * A Scene response is the end-user-facing read model, so it is built from an explicit whitelist of
  * public fields instead of by deleting one private field from a server record. Everything that can
  * carry server state — the internal failure text, the private source path, arbitrary Tool metadata,
- * raw static diagnostics (replaced by a public count summary), model-supplied Tool input, absolute
+ * model-supplied Tool input, absolute
  * filesystem paths — is either absent from these types or dropped by the converters. The legacy
  * Session DTOs and the Session SSE stream keep their existing shapes and are not routed through this
  * projection.
@@ -114,8 +114,7 @@ export interface PublicStudioSceneRender {
 /**
  * Public Tool state. `input`, `raw` and `error` are deliberately absent: the model-supplied
  * argument echo and the internal failure text stay server-side for a Scene read. The title/output
- * pair is decided by `projectStudioSceneToolPresentation`, so a failed Tool publishes no result
- * text and a completed static check publishes counts instead of raw diagnostics.
+ * pair is decided by `projectStudioSceneToolPresentation`, so a failed Tool publishes no result text.
  */
 export interface PublicStudioSceneToolState {
   status: StudioToolState['status']
@@ -193,9 +192,9 @@ export interface PublicStudioSceneSnapshot {
 
 /**
  * Metadata keys a Scene read may expose. The list is deliberately closed: a key that is not here
- * never crosses the boundary, so a new internal field cannot leak by accident. `diagnostics`
- * (raw checker output), `error`, `sourcePath`, `workspaceDirectory`, `allowedRoots` and every
- * model-supplied `input`/`raw` bag are absent on purpose.
+ * never crosses the boundary, so a new internal field cannot leak by accident. `error`, `sourcePath`,
+ * `workspaceDirectory`, `allowedRoots` and every model-supplied `input`/`raw` bag are absent on
+ * purpose.
  */
 const PUBLIC_STUDIO_SCENE_METADATA_KEYS: ReadonlySet<string> = new Set([
   'path',
@@ -209,7 +208,6 @@ const PUBLIC_STUDIO_SCENE_METADATA_KEYS: ReadonlySet<string> = new Set([
   'quality',
   'studioKind',
   'kind',
-  'diagnosticCount',
   'imageCount',
   'scriptPath',
   'imagePaths',
@@ -541,9 +539,8 @@ export function toPublicStudioEvent(event: StudioExternalEvent): StudioExternalE
 /**
  * Scene-stream sanitizer. Same redaction as the Session stream plus the Scene whitelist: Run and
  * Render are re-derived, a `tool.result` keeps its status, title, public media and a public Tool
- * presentation (a completed static check becomes a count summary; a failed Tool keeps no result
- * text) while its Scene scope stays. Streaming text and the model's own Tool argument echo pass
- * through unchanged.
+ * presentation (a failed Tool keeps no result text) while its Scene scope stays. Streaming text and
+ * the model's own Tool argument echo pass through unchanged.
  */
 export function toPublicStudioSceneEvent(event: StudioExternalEvent): StudioExternalEvent {
   if (event.type === 'run.updated') {

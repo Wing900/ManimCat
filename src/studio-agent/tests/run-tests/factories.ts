@@ -12,8 +12,7 @@ import {
   StudioBuilderRuntime,
   StudioToolRegistry,
   type StudioAssistantMessage,
-  type StudioRuntimeBackedToolContext,
-  type StudioStaticCheckPort
+  type StudioRuntimeBackedToolContext
 } from '../../index'
 import type { StudioSession, StudioRun, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
 
@@ -67,19 +66,4 @@ export async function findLastAssistantMessageWithTool(messageStore: InMemoryStu
   return [...messages]
     .reverse()
     .find((message): message is StudioAssistantMessage => message.role === 'assistant' && message.parts.some((part) => part.type === 'tool'))
-}
-
-/**
- * A check Port that always passes.
- *
- * The render Tools gate on a static check before they reserve anything, and that Port is injected
- * rather than defaulted: an unconfigured Port fails loudly, so every test that exercises a render
- * Tool states its check outcome explicitly.
- */
-export function createPassingStudioStaticCheckPort(): StudioStaticCheckPort {
-  return {
-    async check(request) {
-      return { kind: request.kind, outputMode: request.outputMode ?? 'video', diagnostics: [] }
-    }
-  }
 }

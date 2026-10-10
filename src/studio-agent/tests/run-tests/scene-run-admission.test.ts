@@ -64,7 +64,7 @@ import {
   type Deferred
 } from '../support/fake-studio-run-coordinator'
 import { RecordingEventBus } from '../support/recording-event-bus'
-import { createPassingStudioStaticCheckPort, run } from './factories'
+import { run } from './factories'
 
 const OWNER_ID = 'owner-1'
 // Sources are read from the repository root, exactly as the other source-inspection specs do.
@@ -1061,7 +1061,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a scoped Manim render copies run.sceneId', async () => {
     const context = createToolContext('manim', 'scene-a')
-    const tool = createStudioRenderTool({ async submit() { return { jobId: 'job-1' } } }, createPassingStudioStaticCheckPort())
+    const tool = createStudioRenderTool({ async submit() { return { jobId: 'job-1' } } })
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1074,7 +1074,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a Legacy Manim render leaves sceneId absent', async () => {
     const context = createToolContext('manim')
-    const tool = createStudioRenderTool({ async submit() { return { jobId: 'job-2' } } }, createPassingStudioStaticCheckPort())
+    const tool = createStudioRenderTool({ async submit() { return { jobId: 'job-2' } } })
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1091,7 +1091,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
         manimRequests.push({ ...input })
         return { jobId: input.jobId }
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     const manimContext = createToolContext('manim', 'scene-a')
     await manimTool.execute({ concept: 'circle', code: 'class Scene: pass', outputMode: 'image', quality: 'high' }, manimContext)
     assert.deepEqual(Object.keys(manimRequests[0] ?? {}).sort(), [
@@ -1118,7 +1118,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
           stderr: ''
         }
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     const plotContext = createToolContext('plot', 'scene-b')
     await plotTool.execute({ concept: 'line', code: 'import matplotlib' }, plotContext)
     assert.deepEqual(Object.keys(plotRequests[0] ?? {}).sort(), [
@@ -1137,7 +1137,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       async submit() {
         throw new Error('queue unavailable')
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     await assert.rejects(() => failingManim.execute({ concept: 'circle', code: 'class Scene: pass' }, manimContext), /queue unavailable/)
     const failedRenders = await manimContext.renderStore!.listBySceneId(manimContext.session.ownerId, 'scene-a')
     assert.equal(failedRenders[0]?.status, 'failed')
@@ -1155,7 +1155,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
           stderr: ''
         }
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     await completingPlot.execute({ concept: 'line', code: 'import matplotlib' }, plotContext)
     const completed = await plotContext.renderStore!.listBySceneId(plotContext.session.ownerId, 'scene-b')
     assert.equal(completed[0]?.status, 'completed')
@@ -1165,7 +1165,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       async execute() {
         throw new Error('plot execution failed')
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     const failingPlotContext = createToolContext('plot', 'scene-c')
     await assert.rejects(
       () => failingPlot.execute({ concept: 'line', code: 'import matplotlib' }, failingPlotContext),

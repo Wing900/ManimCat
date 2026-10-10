@@ -10,7 +10,6 @@
   },
   "include": [
     "src/studio-agent/**/*.ts",
-    "src/services/static-guard/**/*.ts",
     "src/services/openai-client*.ts",
     "src/services/openai-stream.ts",
     "src/config/**/*.ts",

@@ -16,7 +16,7 @@ import {
   type PlotRenderExecution,
   type StudioRuntimeBackedToolContext
 } from '../../index'
-import { createPassingStudioStaticCheckPort, createWorkspace, run } from './factories'
+import { createWorkspace, run } from './factories'
 import { RecordingEventBus } from '../support/recording-event-bus'
 import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
@@ -159,7 +159,7 @@ export async function runModeAndToolTests(): Promise<void> {
         calls.push(input)
         return { jobId: input.jobId }
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     const context = createToolContext('manim')
 
     const result = await tool.execute({
@@ -209,7 +209,7 @@ export async function runModeAndToolTests(): Promise<void> {
         order.push('submit')
         throw new Error('queue unavailable')
       }
-    }, createPassingStudioStaticCheckPort())
+    })
 
     await assert.rejects(() => tool.execute({ concept: 'broken queue', code: 'class Scene: pass' }, context), /queue unavailable/)
     assert.deepEqual(order, ['create', 'submit', 'transition:failed'])
@@ -236,7 +236,7 @@ export async function runModeAndToolTests(): Promise<void> {
         receivedCode = input.code
         return execution
       }
-    }, createPassingStudioStaticCheckPort())
+    })
     const context = createToolContext('plot')
     const eventBus = new RecordingEventBus()
     context.eventBus = eventBus

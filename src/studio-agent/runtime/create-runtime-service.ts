@@ -6,7 +6,6 @@ import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
 import type { StudioKnowledgeProvider } from '../knowledge/studio-knowledge-types'
-import type { StudioStaticCheckPort } from '../static-check/studio-static-check-types'
 import { createInMemoryStudioRunCoordinator } from '../run-coordination/in-memory-studio-run-coordinator'
 import {
   StudioRunCoordinationService,
@@ -35,7 +34,6 @@ interface CreateStudioRuntimeServiceInput {
   manimRenderPort?: import('../manim/manim-render-port').ManimRenderPort
   plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
   knowledgeProvider?: StudioKnowledgeProvider
-  staticCheckPort?: StudioStaticCheckPort
   /**
    * Render result source. Production injects the job store adapter at the composition root;
    * the default answers `unknown`, so an in-memory runtime never touches the queue.
@@ -75,7 +73,6 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     manimRenderPort: input.manimRenderPort,
     plotRenderPort: input.plotRenderPort,
     knowledgeProvider: input.knowledgeProvider,
-    staticCheckPort: input.staticCheckPort,
   })
   const runtime = new StudioBuilderRuntime({
     registry,

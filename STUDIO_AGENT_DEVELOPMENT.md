@@ -16,7 +16,7 @@ Shared Agent Runtime
     ├── Manim Studio Mode
     └── Matplotlib Studio Mode
     ↓
-write/edit → static_check → render → failure_feedback → repair
+write/edit → render → failure_feedback → repair
 ```
 
 文档知识暂时只保留接入口。后续爬取的 Manim 和 matplotlib 文档分别接入对应 Mode 的 `DocumentationContext`。
@@ -216,27 +216,6 @@ File Mutation
 
 ### 6.3 领域工具
 
-#### `static_check`
-
-检查当前 Workspace 中的目标 Python 文件。
-
-统一返回：
-
-```ts
-interface StaticCheckResult {
-  ok: boolean
-  issues: Array<{
-    file: string
-    line?: number
-    column?: number
-    severity: 'error' | 'warning'
-    message: string
-  }>
-}
-```
-
-具体检查规则由 Studio Mode 决定。
-
 #### `render`
 
 执行当前 Studio Mode 的渲染任务。
@@ -282,11 +261,10 @@ Manim Mode 调用 Manim Render Port；Matplotlib Mode 调用 Plot Render Port。
 2. 读取 Workspace 和相关文档上下文
 3. 读取已有代码
 4. 生成或修改 Python
-5. 执行 static_check
-6. 检查通过后执行 render
-7. 返回输出或失败信息
-8. 失败时有限次修复
-9. 达到成功、用户取消或上限后结束
+5. 执行 render
+6. 返回输出或失败信息
+7. 失败时有限次修复
+8. 达到成功、用户取消或上限后结束
 ```
 
 Manim 与 Matplotlib 共享循环协议，Mode 决定每一步的工具语义和反馈格式。
@@ -297,13 +275,13 @@ Manim 与 Matplotlib 共享循环协议，Mode 决定每一步的工具语义和
 
 - 固定 Shared Runtime 与 Studio Mode 的边界
 - 收敛 Manim / Plot 的工具注册方式
-- 统一 `static_check` 和 `render` 结果
+- 统一 render 结果
 - 保留 Session、Run、Message、Part、Render 持久化与事件流
 
 ### P1
 
 - 保持 `DocumentationContextProvider` 接口稳定
-- 将 Prompt、检查器、渲染器、失败解析器按 Mode 归组
+- 将 Prompt、渲染器、失败解析器按 Mode 归组
 - 保持有限次自动修复流程
 - 减少 Runtime 内部的 `studioKind` 分支
 
@@ -322,9 +300,8 @@ Manim Studio 和 Matplotlib Studio 都能完成：
 用户描述
   → 生成代码
   → 写入 Workspace
-  → Static Check
   → Render
   → 返回产物
 ```
 
-渲染失败时，Agent 能读取结构化错误，修改代码并在上限内重新检查和渲染。两种 Mode 的差异集中在 Mode 层，Shared Runtime 保持稳定。
+渲染失败时，Agent 能读取结构化错误，修改代码并在上限内重新渲染。两种 Mode 的差异集中在 Mode 层，Shared Runtime 保持稳定。
