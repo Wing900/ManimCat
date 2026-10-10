@@ -8,7 +8,7 @@ import { dedupeSharedBlocksInMessages } from '../prompt-dedup'
 import { createChatCompletionText } from '../openai-stream'
 import { buildTokenParams } from '../../utils/reasoning-model'
 import { applyPatchSetToCode, extractTargetLine } from './utils'
-import { RuntimeManimApiProvider } from '../manim-api'
+import { getApiRagService } from '../api-rag'
 import { runRepairSession } from './repair-session'
 import { inferAutomaticApiRequests } from './api-hints'
 
@@ -42,23 +42,23 @@ export async function retryCodeGeneration(
   }
 
   const retryPrompt = buildRetryPrompt(context, errorMessage, attempt, currentCode, codeSnippet)
-  const apiProvider = new RuntimeManimApiProvider()
+  const apiRagService = getApiRagService()
 
   try {
     const automaticRequests = inferAutomaticApiRequests(currentCode, errorMessage)
     const automaticResults = await Promise.all(
-      automaticRequests.map((request) => apiProvider.lookup(request))
+      automaticRequests.map((request) => apiRagService.search('manim', request))
     )
     const automaticApiContext = automaticResults.length > 0
       ? `\n\n[[AUTOMATIC_API_CONTEXT]]\n${automaticResults
-          .map((result) => result.content)
-          .join('\n\n---\n\n')}\n[[END]]\nUse this runtime-verified context. If it is insufficient, return an API_REQUEST.`
+          .map((result) => JSON.stringify(result, null, 2))
+          .join('\n\n---\n\n')}\n[[END]]\nUse this verified API context. If it is insufficient, return an API_REQUEST.`
       : ''
 
     logger.info('Automatic retry API context resolved', {
       attempt,
-      requests: automaticRequests.map((request) => request.symbols[0]),
-      statuses: automaticResults.map((result) => result.status)
+      queries: automaticRequests.map((request) => request.query),
+      candidates: automaticResults.map((result) => result.candidates.length)
     })
 
     const requestMessages: ChatMessage[] = dedupeSharedBlocksInMessages(
@@ -71,7 +71,8 @@ export async function retryCodeGeneration(
 
     const session = await runRepairSession({
       messages: requestMessages,
-      apiProvider,
+      apiRagService,
+      packageName: 'manim',
       concept: context.concept,
       attempt,
       onCheckpoint,

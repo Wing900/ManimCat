@@ -1,5 +1,5 @@
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
-import type { ManimApiRequest } from '../manim-api'
+import type { ApiSearchInput } from '../api-rag'
 import type { RenderFailureCategory } from './render-failure-policy'
 
 export interface ChatMessage {
@@ -25,7 +25,7 @@ export interface CodePatchSet {
 
 export type CodeRetryAction =
   | { type: 'patch'; patchSet: CodePatchSet }
-  | { type: 'api-request'; request: ManimApiRequest }
+  | { type: 'api-request'; request: ApiSearchInput }
 
 export interface CodeRetryOptions {
   context: CodeRetryContext

@@ -17,6 +17,7 @@
     "test:studio-agent": "tsc -p tsconfig.studio-agent-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/studio-agent/tests/run-tests.js && node dist-tests/src/studio-agent/tests/reasoning-content.run.js"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.1",
     "@supabase/supabase-js": "^2.99.2",
     "@types/react-syntax-highlighter": "^15.5.13",
     "bull": "^4.16.5",

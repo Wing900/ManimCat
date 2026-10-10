@@ -16,6 +16,7 @@ import {
 } from './studio-agent/workspace/studio-workspace-cleanup'
 import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
+import { getApiRagService } from './services/api-rag'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
 
 // 导入队列处理器以启动 worker
@@ -61,6 +62,12 @@ async function startServer(): Promise<void> {
     // rejects here and aborts startup; a partial startup is rolled back before rejecting.
     await studioInfrastructureRuntime.start()
     await initializeExpressApp(app, appLogger)
+
+    // The API RAG service is the only API source for the Builder and for Workflow Code
+    // Repair. Its Baseline, Search Catalog and MiniLM session load here, before the
+    // listener opens: a missing or malformed catalog must abort startup instead of
+    // leaving the product able to answer with invented APIs.
+    await getApiRagService().ready()
 
     if (!stopMediaCleanupScheduler) {
       stopMediaCleanupScheduler = startMediaCleanupScheduler()

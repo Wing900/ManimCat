@@ -21,6 +21,7 @@ import { RecordingEventBus } from '../support/recording-event-bus'
 import { adaptStudioEvent } from '../../events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
+import { getApiRagService } from '../../../services/api-rag'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
 
 function createToolContext(studioKind: 'manim' | 'plot'): StudioRuntimeBackedToolContext {
@@ -138,18 +139,15 @@ export async function runModeAndToolTests(): Promise<void> {
     assert.deepEqual(getStudioModeDefinition('plot').autoRenderAfterTools, ['write', 'edit'])
   })
 
-  await run('shared tool set excludes question interaction and includes API lookup', async () => {
-    const toolNames = createSharedStudioTools().map((tool) => tool.name)
-    assert.deepEqual(toolNames, [
-      'read',
-      'glob',
-      'grep',
-      'ls',
-      'write',
-      'edit',
-      'lookup-api'
-    ])
-    assert.equal(toolNames.filter((name) => name === 'lookup-api').length, 1)
+  await run('shared tool set excludes question interaction and registers one search_api per ready package', async () => {
+    const bare = createSharedStudioTools().map((tool) => tool.name)
+    assert.deepEqual(bare, ['read', 'glob', 'grep', 'ls', 'write', 'edit'])
+
+    // Only a package with a Search Catalog gets a search_api, and each one owns one Studio kind.
+    const tools = createSharedStudioTools({ apiRagService: getApiRagService() })
+    const searchTools = tools.filter((tool) => tool.name === 'search_api')
+    assert.deepEqual(searchTools.map((tool) => tool.allowedStudioKinds), [['manim']])
+    assert.ok(searchTools.every((tool) => tool.allowedAgents.includes('builder')))
   })
 
   await run('Manim render tool uses an injected render port', async () => {

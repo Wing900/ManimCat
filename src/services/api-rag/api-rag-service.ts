@@ -1,0 +1,152 @@
+import { createBaselineResolver, type BaselineResolver } from './baseline-resolver'
+import { loadBaselineCatalog } from './baseline-catalog'
+import { createCosineRetriever, type CosineRetriever } from './cosine-retriever'
+import {
+  assertSearchCatalogResolvable,
+  loadSearchCatalog,
+  readSearchCatalogSync
+} from './search-catalog'
+import {
+  API_RAG_TOP_K,
+  type ApiCatalog,
+  type ApiCatalogPackage,
+  type ApiSearchInput,
+  type ApiSearchResult,
+  type CandidateEntry,
+  type EmbeddingModel,
+  type SearchCatalog,
+  type VerificationEntry
+} from './types'
+
+interface PackageIndex {
+  catalog: ApiCatalog
+  resolver: BaselineResolver
+  retriever: CosineRetriever
+}
+
+export interface ApiRagServiceOptions {
+  embedding: EmbeddingModel
+  /** Packages this process may answer for. A package without a Search Catalog stays unregistered. */
+  packages: readonly ApiCatalogPackage[]
+  topK?: number
+}
+
+/**
+ * The one query path of the product.
+ *
+ *   symbols → Baseline Resolver → verification (does it exist?)
+ *   query   → SearchDoc retriever → candidates → Baseline facts (what is it?)
+ *
+ * Fails fast: a missing or malformed data file, an unresolvable search key, a missing
+ * model or a dimension mismatch stops the process instead of degrading to a guess.
+ */
+export class ApiRagService {
+  private readonly embedding: EmbeddingModel
+  private readonly topK: number
+  private readonly registrations = new Map<ApiCatalogPackage, SearchCatalog>()
+  private readonly indexes = new Map<ApiCatalogPackage, Promise<PackageIndex>>()
+
+  constructor(options: ApiRagServiceOptions) {
+    this.embedding = options.embedding
+    this.topK = options.topK ?? API_RAG_TOP_K
+    for (const packageName of options.packages) {
+      const searchCatalog = readSearchCatalogSync(packageName)
+      if (searchCatalog) {
+        this.registrations.set(packageName, searchCatalog)
+      }
+    }
+  }
+
+  /** Packages with a Search Catalog. The tool registry follows this list. */
+  get registeredPackages(): ApiCatalogPackage[] {
+    return [...this.registrations.keys()]
+  }
+
+  isRegistered(packageName: ApiCatalogPackage): boolean {
+    return this.registrations.has(packageName)
+  }
+
+  /** Loads every index and encodes the SearchDoc matrix once. Throws on any defect. */
+  async ready(): Promise<void> {
+    await Promise.all(this.registeredPackages.map((packageName) => this.packageIndex(packageName)))
+  }
+
+  async search(packageName: ApiCatalogPackage, input: ApiSearchInput): Promise<ApiSearchResult> {
+    if (!this.registrations.has(packageName)) {
+      throw new Error(`API RAG is not registered for ${packageName}: it has no Search Catalog`)
+    }
+    const query = input.query.trim()
+    if (!query) {
+      throw new Error('search_api requires a non-empty query')
+    }
+
+    const index = await this.packageIndex(packageName)
+    const requested = (input.symbols ?? []).map((symbol) => symbol.trim()).filter(Boolean)
+    const verification: VerificationEntry[] = requested.map((symbol) => index.resolver.verify(symbol))
+
+    const [queryEmbedding] = await this.embedding.embed([query])
+    const hits = index.retriever.search(queryEmbedding, this.topK)
+    const candidates: CandidateEntry[] = hits.map((hit, position) => {
+      const resolved = index.resolver.resolve(hit.symbol)
+      const candidate: CandidateEntry = {
+        rank: position + 1,
+        symbol: resolved?.path ?? hit.symbol,
+        score: hit.score,
+        kind: resolved?.kind ?? 'unknown',
+        searchDoc: hit.searchDoc
+      }
+      if (resolved?.owner) candidate.owner = resolved.owner
+      if (resolved?.signature) candidate.signature = resolved.signature
+      if (resolved?.doc) candidate.doc = resolved.doc
+      return candidate
+    })
+
+    return {
+      packageName: index.catalog.packageName,
+      packageVersion: index.catalog.packageVersion,
+      query,
+      verification,
+      candidates
+    }
+  }
+
+  private packageIndex(packageName: ApiCatalogPackage): Promise<PackageIndex> {
+    const cached = this.indexes.get(packageName)
+    if (cached) {
+      return cached
+    }
+
+    const pending = this.buildPackageIndex(packageName).catch((error: unknown) => {
+      this.indexes.delete(packageName)
+      throw error
+    })
+    this.indexes.set(packageName, pending)
+    return pending
+  }
+
+  private async buildPackageIndex(packageName: ApiCatalogPackage): Promise<PackageIndex> {
+    const catalog = await loadBaselineCatalog(packageName)
+    const resolver = createBaselineResolver(catalog)
+    const searchCatalog = this.registrations.get(packageName) ?? (await loadSearchCatalog(packageName))
+    assertSearchCatalogResolvable(searchCatalog, resolver, packageName)
+
+    const symbols = Object.keys(searchCatalog)
+    const vectors = await this.embedding.embed(symbols.map((symbol) => searchCatalog[symbol]))
+    if (vectors.length !== symbols.length) {
+      throw new Error(
+        `Embedding model returned ${vectors.length} vectors for ${symbols.length} SearchDoc entries`
+      )
+    }
+
+    const retriever = createCosineRetriever(
+      symbols.map((symbol, position) => ({
+        symbol,
+        searchDoc: searchCatalog[symbol],
+        embedding: vectors[position]
+      })),
+      this.embedding.dimensions
+    )
+
+    return { catalog, resolver, retriever }
+  }
+}

@@ -4,8 +4,7 @@ import { runReasoningContentTests } from './run-tests/reasoning-content.test'
 import { runModeAndToolTests } from './run-tests/mode-and-tools.test'
 import { runSecurityTests } from './run-tests/security.test'
 import { runAgentLoopTests } from './run-tests/agent-loop.test'
-import { runKnowledgeTests } from './run-tests/knowledge.test'
-import { runMatplotlibKnowledgeTests } from './run-tests/matplotlib-knowledge.test'
+import { runApiRagTests } from './run-tests/api-rag.test'
 import { runTokenUsageTests } from './run-tests/token-usage.test'
 import { runDistributedEventTests } from './run-tests/distributed-events.test'
 import { runDistributedRunCoordinationTests } from './run-tests/distributed-run-coordination.test'
@@ -29,8 +28,7 @@ async function main() {
   await runModeAndToolTests()
   await runSecurityTests()
   await runAgentLoopTests()
-  await runKnowledgeTests()
-  await runMatplotlibKnowledgeTests()
+  await runApiRagTests()
   await runRenderMediaHandoffTests()
   await runTokenUsageTests()
   await runDistributedEventTests()

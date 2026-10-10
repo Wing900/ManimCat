@@ -1,4 +1,4 @@
-import type { ManimApiRequest } from '../manim-api'
+import type { ApiSearchInput } from '../api-rag'
 import { extractTargetLine } from './utils'
 
 const IDENTIFIER = '[A-Za-z_]\\w*'
@@ -30,7 +30,10 @@ function sourceLineFromError(code: string, errorContext: string): string | undef
   return undefined
 }
 
-function requestFor(owner: string, member: string, reason: string): ManimApiRequest {
+/** A hint always names at least one symbol; that is what makes it automatic. */
+type AutomaticApiRequest = ApiSearchInput & { symbols: string[] }
+
+function requestFor(owner: string, member: string, reason: string): AutomaticApiRequest {
   return {
     query: `${reason}. Verify the runtime API and find the intended callable replacement.`,
     symbols: [`${owner}.${member}`]
@@ -39,15 +42,15 @@ function requestFor(owner: string, member: string, reason: string): ManimApiRequ
 
 /**
  * Extracts high-confidence API lookup keys from a Python traceback and its source.
- * This is deliberately syntax-oriented: the runtime catalog supplies the facts.
+ * This is deliberately syntax-oriented: the Baseline Catalog supplies the facts.
  */
 export function inferAutomaticApiRequests(
   code: string,
   errorContext: string
-): ManimApiRequest[] {
-  const requests: ManimApiRequest[] = []
+): AutomaticApiRequest[] {
+  const requests: AutomaticApiRequest[] = []
   const seen = new Set<string>()
-  const add = (request: ManimApiRequest) => {
+  const add = (request: AutomaticApiRequest) => {
     const key = request.symbols[0].toLowerCase()
     if (!seen.has(key)) {
       seen.add(key)

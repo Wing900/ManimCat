@@ -1,5 +1,5 @@
 import { createLogger } from '../../utils/logger'
-import type { ManimApiProvider } from '../manim-api'
+import type { ApiCatalogPackage, ApiRagService } from '../api-rag'
 import type { ChatMessage, CodePatchSet, RetryCheckpoint } from './types'
 import { parseCodeRetryAction } from './action-parser'
 
@@ -12,7 +12,9 @@ interface RepairTurnResult {
 
 interface RepairSessionOptions {
   messages: ChatMessage[]
-  apiProvider: ManimApiProvider
+  /** The same process-wide service the Studio Builder tool uses. */
+  apiRagService: ApiRagService
+  packageName: ApiCatalogPackage
   requestTurn: (messages: ChatMessage[], turn: number) => Promise<RepairTurnResult>
   concept: string
   attempt: number
@@ -26,7 +28,7 @@ export interface RepairSessionResult {
 }
 
 export async function runRepairSession(options: RepairSessionOptions): Promise<RepairSessionResult> {
-  const { messages, apiProvider, requestTurn, concept, attempt, onCheckpoint } = options
+  const { messages, apiRagService, packageName, requestTurn, concept, attempt, onCheckpoint } = options
   let turn = 0
 
   while (true) {
@@ -54,18 +56,18 @@ export async function runRepairSession(options: RepairSessionOptions): Promise<R
       return { patchSet: action.patchSet, mode, turn }
     }
 
-    const result = await apiProvider.lookup(action.request)
+    const result = await apiRagService.search(packageName, action.request)
     logger.info('Code retry API request resolved', {
       attempt,
       turn,
-      status: result.status,
-      cached: result.cached,
-      symbols: result.symbols
+      query: result.query,
+      verified: result.verification.filter((entry) => entry.verdict === 'FOUND').length,
+      candidates: result.candidates.length
     })
     messages.push({ role: 'assistant', content })
     messages.push({
       role: 'user',
-      content: `[[API_RESULT]]\n${result.content}\n[[END]]\nReturn the next API_REQUEST or the final PATCH.`
+      content: `[[API_RESULT]]\n${JSON.stringify(result, null, 2)}\n[[END]]\nReturn the next API_REQUEST or the final PATCH.`
     })
   }
 }

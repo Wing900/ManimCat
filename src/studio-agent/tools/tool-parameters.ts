@@ -56,18 +56,18 @@ export const editToolParameters: StudioToolParameters = {
 }
 
 
-export const lookupApiToolParameters: StudioToolParameters = {
+export const searchApiToolParameters: StudioToolParameters = {
   type: 'object',
   properties: {
     query: {
       type: 'string',
-      description: 'What API behavior needs verification?',
+      description: 'Lowercase verb + object + context sentence describing what the code must do.',
       minLength: 1,
       maxLength: 500,
     },
     symbols: {
       type: 'array',
-      description: 'Optional runtime symbols to verify, for example Axes.plot or Scene.add.',
+      description: 'Exact API names to verify, for example Axes.plot or Scene.add.',
       items: { type: 'string', maxLength: 160 },
       maxItems: 12,
     },

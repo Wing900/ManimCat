@@ -1,5 +1,5 @@
+import type { ApiRagService } from '../../services/api-rag'
 import type { StudioToolRegistry } from '../tools/registry'
-import type { StudioKnowledgeProvider } from '../knowledge/studio-knowledge-types'
 import { registerManimStudioTools } from '../manim/register-manim-tools'
 import { createUnconfiguredManimRenderPort, type ManimRenderPort } from '../manim/manim-render-port'
 import { registerPlotStudioTools } from '../plot/register-plot-tools'
@@ -10,10 +10,10 @@ export function configureStudioToolRegistry(input: {
   registry: StudioToolRegistry
   manimRenderPort?: ManimRenderPort
   plotRenderPort?: PlotRenderPort
-  knowledgeProvider?: StudioKnowledgeProvider
+  apiRagService?: ApiRagService
 }): StudioToolRegistry {
   registerSharedStudioTools(input.registry, {
-    knowledgeProvider: input.knowledgeProvider
+    apiRagService: input.apiRagService
   })
   registerManimStudioTools(
     input.registry,

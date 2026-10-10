@@ -305,3 +305,42 @@ Manim Studio 和 Matplotlib Studio 都能完成：
 ```
 
 渲染失败时，Agent 能读取结构化错误，修改代码并在上限内重新渲染。两种 Mode 的差异集中在 Mode 层，Shared Runtime 保持稳定。
+
+## 11. API RAG
+
+产品只有一条查 API 的路：`src/services/api-rag/`。Builder 与 Workflow Code Repair 共用同一个进程内实例。
+
+```text
+search_api（Builder）──┐
+                       ├── ApiRagService 单例
+Code Repair（Workflow）┘
+      │
+      ├── symbols ──→ Baseline Resolver ──→ verification（这个 API 存在吗）
+      │
+      └── query ────→ MiniLM SearchDoc Retriever ──→ Top-15
+                                                        │
+                                              Baseline Augmenter
+                                     signature / doc / owner / kind
+```
+
+数据只读，产品绝不生成：
+
+```text
+data/api-catalog/<package>/
+  baseline.json   # 存在性事实：canonical / alias / signature / doc / mro / member owner
+  search.json     # 召回用词：baseline 键 → 一句 verb + object + context
+  manifest.json   # 评审元数据（版本、计数、哈希），运行时不读
+
+data/models/all-MiniLM-L6-v2/   # INT8 模型随部署产物发布，运行时禁止联网下载
+```
+
+规则：
+
+1. 只有 `baseline.json` 能裁决 API 是否存在；`search.json` 只能改变排序。
+2. `search.json` 的每个键必须能在 baseline 解析成符号或「类.成员」，否则启动失败。
+3. Fail fast：数据缺失、JSON 坏、键解析不到、模型缺失、向量维度不一致都会让进程退出。
+   不捕获错误返回占位答案，不偷偷退回关键词搜索。
+4. 没有 `search.json` 的包不注册 `search_api`（matplotlib 目前是这种状态，词条补齐后自动生效）。
+5. Query 协议由 Builder 完成：小写英文 `verb + object + context`，服务不改写、不猜测、不再调用第二个模型。
+6. 结果固定 Top-15，并由 Baseline 补齐事实。旧链（QueryTree / Runtime Provider / Knowledge
+   Adapter / Python 目录脚本）已删除，没有回退路径。

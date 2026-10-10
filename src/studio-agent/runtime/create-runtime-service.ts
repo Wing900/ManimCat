@@ -5,7 +5,7 @@ import type { StudioPersistence } from '../persistence/studio-persistence'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../workspace/studio-workspace-provider'
-import type { StudioKnowledgeProvider } from '../knowledge/studio-knowledge-types'
+import { getApiRagService, type ApiRagService } from '../../services/api-rag'
 import { createInMemoryStudioRunCoordinator } from '../run-coordination/in-memory-studio-run-coordinator'
 import {
   StudioRunCoordinationService,
@@ -33,7 +33,11 @@ interface CreateStudioRuntimeServiceInput {
   eventBus?: StudioEventBus
   manimRenderPort?: import('../manim/manim-render-port').ManimRenderPort
   plotRenderPort?: import('../plot/plot-render-port').PlotRenderPort
-  knowledgeProvider?: StudioKnowledgeProvider
+  /**
+   * The single API RAG service. Defaults to the process-wide instance so production and
+   * tests register the same tools; the composition root injects nothing else.
+   */
+  apiRagService?: ApiRagService
   /**
    * Render result source. Production injects the job store adapter at the composition root;
    * the default answers `unknown`, so an in-memory runtime never touches the queue.
@@ -72,7 +76,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     registry,
     manimRenderPort: input.manimRenderPort,
     plotRenderPort: input.plotRenderPort,
-    knowledgeProvider: input.knowledgeProvider,
+    apiRagService: input.apiRagService ?? getApiRagService(),
   })
   const runtime = new StudioBuilderRuntime({
     registry,
