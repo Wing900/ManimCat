@@ -16,13 +16,20 @@ interface ByokFormProps {
   onSaved: (connection: ConnectionSettings) => void
 }
 
+function defaultUrlFor(provider: 'openai-compatible' | 'google'): string {
+  return provider === 'google' ? GOOGLE_OPENAI_COMPAT_URL : OPENAI_DEFAULT_URL
+}
+
 export function ByokForm({ connection, onSaved }: ByokFormProps) {
   const { t } = useI18n()
   const [provider, setProvider] = useState(connection.byok.provider)
+  // Base URL is a required field, so it is never hidden and never empty: it starts at the chosen
+  // provider's own endpoint and stays editable.
+  const [apiUrl, setApiUrl] = useState(
+    () => connection.byok.apiUrl || defaultUrlFor(connection.byok.provider),
+  )
   const [apiKey, setApiKey] = useState(connection.byok.apiKey)
   const [model, setModel] = useState(connection.byok.model)
-  const [apiUrl, setApiUrl] = useState(connection.byok.apiUrl)
-  const [advanced, setAdvanced] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { result, verify } = useConnectionTest()
 
@@ -64,7 +71,13 @@ export function ByokForm({ connection, onSaved }: ByokFormProps) {
   const changeProvider = (next: 'openai-compatible' | 'google') => {
     setProvider(next)
     setError(null)
-    if (!trimmedUrl) setApiUrl(next === 'google' ? GOOGLE_OPENAI_COMPAT_URL : OPENAI_DEFAULT_URL)
+    // Follow the switch only while the address is still sitting on a stock endpoint; an address the
+    // person typed themselves is never overwritten.
+    setApiUrl((previous) =>
+      !previous.trim() || previous === OPENAI_DEFAULT_URL || previous === GOOGLE_OPENAI_COMPAT_URL
+        ? defaultUrlFor(next)
+        : previous,
+    )
   }
 
   const status = result.status === 'success'
@@ -83,6 +96,19 @@ export function ByokForm({ connection, onSaved }: ByokFormProps) {
         ]}
         value={provider}
         onChange={changeProvider}
+      />
+
+      {/* 必填项不藏在“高级”里：地址就在 Provider 下面，一直看得见、一直可改。 */}
+      <FloatingInput
+        id="byok-base-url"
+        type="text"
+        label={t('connection.byok.baseUrl')}
+        value={apiUrl}
+        placeholder={defaultUrlFor(provider)}
+        onChange={(value) => {
+          setApiUrl(value)
+          setError(null)
+        }}
       />
 
       <FloatingInput
@@ -108,30 +134,6 @@ export function ByokForm({ connection, onSaved }: ByokFormProps) {
           setError(null)
         }}
       />
-
-      <button
-        type="button"
-        onClick={() => setAdvanced((prev) => !prev)}
-        className="text-xs font-medium text-accent transition-colors duration-200 ease-ui"
-      >
-        {t('connection.byok.advanced')}
-      </button>
-
-      {advanced && (
-        <div className="panel-in">
-          <FloatingInput
-            id="byok-base-url"
-            type="text"
-            label={t('connection.byok.baseUrl')}
-            value={apiUrl}
-            placeholder="https://…/v1"
-            onChange={(value) => {
-              setApiUrl(value)
-              setError(null)
-            }}
-          />
-        </div>
-      )}
 
       {(error || status) && (
         <p className={`text-sm ${result.status === 'success' ? 'text-green-500' : 'text-red-600 dark:text-red-400'}`}>
