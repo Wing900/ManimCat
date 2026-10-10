@@ -49,6 +49,17 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
 
   const isModulePath = (canonical: string): boolean => catalog.symbols[canonical]?.kind === 'module'
 
+  /**
+   * Candidate order for one lowercase key: a class beats the module of the same name,
+   * and a shorter path beats a deeper alias. `axes` must reach `matplotlib.axes.Axes`
+   * even though the `matplotlib.axes` module claims the same lowercase key.
+   */
+  function pickOrder(canonical: string): string {
+    const symbol = catalog.symbols[canonical]
+    const moduleRank = symbol?.kind === 'module' ? '1' : '0'
+    return `${moduleRank}:${String(canonical.split('.').length).padStart(3, '0')}:${canonical}`
+  }
+
   function indexPath(key: string, canonical: string): void {
     const normalized = normalize(key)
     if (!normalized) {
@@ -59,12 +70,7 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
       return
     }
     bucket.push(canonical)
-    // A class beats the module of the same name, and the shortest path beats a deeper alias.
-    bucket.sort((left, right) =>
-      Number(isModulePath(left)) - Number(isModulePath(right))
-      || left.length - right.length
-      || left.localeCompare(right)
-    )
+    bucket.sort((left, right) => pickOrder(left).localeCompare(pickOrder(right)))
     pathIndex.set(normalized, bucket)
   }
 
@@ -84,6 +90,7 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
     const bucket = shortNameIndex.get(shortName)
     if (bucket) {
       bucket.push(canonical)
+      bucket.sort((left, right) => pickOrder(left).localeCompare(pickOrder(right)))
     } else {
       shortNameIndex.set(shortName, [canonical])
     }
@@ -138,14 +145,10 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
       return catalog.symbols[direct]
     }
 
-    const shortMatches = shortNameIndex.get(clean) ?? []
-    if (shortMatches.length === 1) {
-      return catalog.symbols[shortMatches[0]]
-    }
-    const topLevel = shortMatches.find(
-      (path) => path.startsWith(packagePrefix) && path.split('.').length === 2
-    )
-    return topLevel ? catalog.symbols[topLevel] : undefined
+    // A short name resolves to the first candidate the index ranks, so `Axes` reaches the
+    // class while `axes` as a module path still resolves through the exact path above.
+    const shortMatch = shortNameIndex.get(clean)?.[0]
+    return shortMatch ? catalog.symbols[shortMatch] : undefined
   }
 
   function memberFor(reference: string): ResolvedMember | undefined {
@@ -172,9 +175,10 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
     return undefined
   }
 
-  /** Member owners are always classes: `manim.mobject.hashing` must not shadow `manim.Mobject`. */
+  /** Member owners are always classes: `manim.mobject` must not shadow `manim.Mobject`. */
   function classFor(reference: string): ApiCatalogSymbolRecord | undefined {
-    const candidates = pathIndex.get(normalize(reference)) ?? []
+    const clean = normalize(reference)
+    const candidates = [...(pathIndex.get(clean) ?? []), ...(shortNameIndex.get(clean) ?? [])]
     const ownerPath = candidates.find((canonical) => catalog.symbols[canonical]?.kind === 'class')
     if (ownerPath) {
       return catalog.symbols[ownerPath]
