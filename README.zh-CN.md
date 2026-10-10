@@ -44,7 +44,7 @@
   <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-MIT%20%2B%20AGPL-607D8B?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center" style="font-size: 18px;">
@@ -271,21 +271,15 @@ flowchart LR
 
 ##  开源与版权声明 
 
-本项目授权细则见 `LICENSE_POLICY.md` 与 `LICENSE_POLICY.en.md`。
+本项目当前版本以 **AGPL-3.0-or-later** 授权，全文见 `LICENSE`。
 
 *   第三方来源与归属说明见 `THIRD_PARTY_NOTICES.md`。
 *   中文版第三方来源与归属说明见 `THIRD_PARTY_NOTICES.zh-CN.md`。
 *   贡献说明见 `CONTRIBUTING.md`。
 
-### 当前授权结构
-
-*   属于原作者链路、并保留 MIT 授权的文件/路径，继续保持 MIT。
-*   除 MIT 保留范围外，本仓库当前版本的其余文件按 `AGPL-3.0-or-later` 发布。
-*   项目不再要求贡献者签署或同意 CLA。
-
 ### 历史版本
 
-历史版本仍然按其发布时所附带的许可条款适用。
+ManimCat 早期版本包含 `manim-video-generator`（MIT）的代码。历史 Commit 与历史发布继续受当时发布的许可条款约束。当前版本已删除或独立重写对应实现。
 
 ## 维护说明
 

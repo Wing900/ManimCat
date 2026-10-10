@@ -2,6 +2,7 @@
   "name": "manim-cat",
   "version": "2.0.0",
   "description": "ManimCat - AI-powered mathematical animation generator",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm:dev:backend\" \"npm:dev:frontend\"",

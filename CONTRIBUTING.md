@@ -10,7 +10,7 @@ By submitting a contribution to this repository, you represent that:
 
 - you have the right to submit the contribution;
 - you are not knowingly including malicious code, obfuscated payloads, credential harvesters, or unrelated high-risk changes;
-- your contribution may be distributed under the license scope defined in `LICENSE_POLICY.md`.
+- your contribution may be distributed under AGPL-3.0-or-later.
 
 ## Contribution expectations
 

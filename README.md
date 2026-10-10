@@ -44,7 +44,7 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
   <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-MIT%20%2B%20AGPL-607D8B?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center" style="font-size: 18px;">
@@ -273,21 +273,15 @@ This project is a substantial rework built on top of the original foundation. Th
 
 ## License and Copyright
 
-Licensing details are defined in `LICENSE_POLICY.md` (Chinese) and `LICENSE_POLICY.en.md` (English).
+The current version of this repository is licensed under **AGPL-3.0-or-later**. See `LICENSE` for the full text.
 
 - Third-party attribution and notices: `THIRD_PARTY_NOTICES.md`
 - Chinese third-party notices: `THIRD_PARTY_NOTICES.zh-CN.md`
 - Contribution guide: `CONTRIBUTING.md`
 
-### Current License Structure
-
-- Files retained from the original upstream / MIT-covered chain remain under MIT
-- Other current-version files are distributed under `AGPL-3.0-or-later`
-- The previous CLA workflow has been removed
-
 ### Historical Versions
 
-Historical releases remain governed by the license terms that were published with those versions.
+ManimCat early versions included code from `manim-video-generator` (MIT). Historical commits and historical releases remain governed by the license terms that were published with those versions. The current version has removed or independently rewritten the corresponding implementations.
 
 ## Maintenance Notes
 
