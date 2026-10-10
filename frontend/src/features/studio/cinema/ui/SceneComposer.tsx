@@ -1,0 +1,194 @@
+import { useRef, type DragEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { TranslationKey } from '../../../../shared/i18n/messages'
+import { useI18n } from '../../../../shared/i18n/index'
+import { StudioComposerAttachmentList } from '../../components/StudioComposerAttachmentList'
+import { ImageIcon, SendIcon, StopIcon } from './CinemaIcons'
+import { useSceneComposerAttachments } from './use-scene-composer-attachments'
+
+/**
+ * The always-visible composer (task 11C2).
+ *
+ * Closing the history panel never closes, clears or disables this; it keeps its own draft, which lives
+ * in the Scene record, so switching Scene changes the text but never mixes two drafts.
+ *
+ * Layout: one soft surface (no border) holds the attach action, the textarea and the single trailing
+ * action, so the composer reads as one input centred under the stage. The trailing slot is the primary
+ * action of the moment: Stop while this Scene's Run can be cancelled, Send otherwise. Keeping one slot
+ * is what puts the stop control on the right, at full size, instead of a small muted square beside Send.
+ *
+ * Reference images (kept from the Plot Studio): the images a Run receives are the ones still mentioned
+ * in the draft, so the attachments follow the text across Scene switches and a resend keeps them.
+ */
+export interface SceneComposerProps {
+  draft: string
+  submitting: boolean
+  canSubmit: boolean
+  canCancel: boolean
+  /** Why the send button is disabled, already narrowed to a stable local sentence. */
+  blockedReasonKey: TranslationKey | null
+  /**
+   * Screen-reader only for a wait that is not the user's to act on. A Session switch is over in a frame
+   * or two; printing a sentence about it on screen only adds noise around the stage.
+   */
+  quietBlockedReason?: boolean
+  onDraftChange: (text: string) => void
+  onSubmit: (inputTextOverride?: string) => void
+  onCancel: () => void
+}
+
+export function SceneComposer({
+  draft,
+  submitting,
+  canSubmit,
+  canCancel,
+  blockedReasonKey,
+  quietBlockedReason = false,
+  onDraftChange,
+  onSubmit,
+  onCancel,
+}: SceneComposerProps) {
+  const { t } = useI18n()
+  const composingRef = useRef(false)
+  const attachments = useSceneComposerAttachments({ draft, disabled: submitting, onDraftChange })
+
+  const submit = () => {
+    if (canSubmit) {
+      onSubmit(attachments.buildRunInput(draft))
+    }
+  }
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return
+    }
+    // A Chinese IME confirms candidates with Enter: that keypress belongs to the IME, not to us.
+    if (composingRef.current || event.nativeEvent.isComposing) {
+      return
+    }
+    event.preventDefault()
+    submit()
+  }
+
+  const handleDragOver = (event: DragEvent<HTMLFormElement>) => {
+    if (event.dataTransfer.types.includes('Files')) {
+      event.preventDefault()
+    }
+  }
+
+  const showStop = canCancel || submitting
+
+  return (
+    <form
+      className="flex min-w-0 flex-col bg-bg-primary/70 px-3 pb-5 pt-6"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submit()
+      }}
+      onDragOver={handleDragOver}
+      onDrop={attachments.handleDrop}
+    >
+      <div className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-3">
+        {/* Always mounted, collapsed to zero: the reason slides in instead of shoving the stage down.
+            `-mb-3` cancels this column's `gap-3` while it is closed (it is a flex item even at 0 height). */}
+        {quietBlockedReason ? (
+          // Absolutely positioned (sr-only), so it leaves the column's gap alone and needs no collapse.
+          <p id="cinema-composer-blocked" className="sr-only">
+            {blockedReasonKey ? t(blockedReasonKey) : ''}
+          </p>
+        ) : (
+          <div
+            className={`studio-collapse ${blockedReasonKey ? '' : '-mb-3'}`}
+            data-open={blockedReasonKey ? 'true' : 'false'}
+          >
+            <p id="cinema-composer-blocked" className="px-2 text-sm text-text-secondary/70">
+              {blockedReasonKey ? t(blockedReasonKey) : ''}
+            </p>
+          </div>
+        )}
+
+        <StudioComposerAttachmentList
+          attachments={attachments.attachments}
+          disabled={submitting}
+          onRemove={attachments.removeAttachment}
+        />
+
+        {attachments.attachmentError ? (
+          <p className="studio-rise-in px-2 text-sm text-rose-500/80">{attachments.attachmentError}</p>
+        ) : null}
+
+        <div className="flex min-w-0 items-end rounded-2xl bg-white/70 px-1.5 py-1.5 dark:bg-white/5">
+          <input
+            ref={attachments.fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(event) => {
+              const files = event.target.files
+              if (files && files.length > 0) {
+                void attachments.addFiles(files)
+              }
+              // Cleared so picking the same file twice still fires a change.
+              event.target.value = ''
+            }}
+          />
+          <button
+            type="button"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary/70 transition-colors hover:bg-bg-tertiary/50 hover:text-text-primary/80 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:opacity-40"
+            onClick={() => attachments.fileInputRef.current?.click()}
+            disabled={submitting}
+            aria-label={t('studio.cinema.composerAttachImage')}
+            title={t('studio.cinema.composerAttachImage')}
+          >
+            <ImageIcon />
+          </button>
+
+          <textarea
+            className="min-h-[44px] min-w-0 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[17px] leading-relaxed text-text-primary outline-none"
+            value={draft}
+            rows={1}
+            placeholder={t('studio.cinema.composerPlaceholder')}
+            aria-label={t('studio.cinema.composerPlaceholder')}
+            aria-describedby={blockedReasonKey ? 'cinema-composer-blocked' : undefined}
+            onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+            onPaste={attachments.handlePaste}
+            onCompositionStart={() => {
+              composingRef.current = true
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false
+            }}
+          />
+
+          {/*
+            One element for both states. Two keyed buttons unmounted and remounted the trailing
+            action on every send, and the arriving button replayed its `studio-pop-in` — which read
+            as a flash. A stable identity swaps only handlers, colours and icon, so the only time the
+            entry animation plays is when the composer itself first appears.
+          */}
+          <button
+            type={showStop ? 'button' : 'submit'}
+            className={`studio-pop-in flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 ${
+              showStop
+                ? 'bg-bg-tertiary/60 text-text-primary/80 hover:bg-bg-tertiary/80 focus-visible:ring-accent/30 disabled:opacity-40'
+                : 'bg-accent/90 text-white hover:opacity-90 focus-visible:ring-accent/40 disabled:opacity-30'
+            }`}
+            onClick={showStop ? onCancel : undefined}
+            disabled={showStop ? !canCancel : !canSubmit}
+            aria-label={showStop ? t('studio.cinema.stop') : t('studio.cinema.send')}
+            title={
+              showStop
+                ? t('studio.cinema.stop')
+                : submitting
+                  ? t('studio.cinema.sending')
+                  : t('studio.cinema.send')
+            }
+          >
+            {showStop ? <StopIcon width={22} height={22} /> : <SendIcon />}
+          </button>
+        </div>
+      </div>
+    </form>
+  )
+}

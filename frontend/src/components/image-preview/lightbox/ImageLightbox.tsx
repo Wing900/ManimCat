@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { useModalTransition } from '../../../hooks/useModalTransition';
-import { useI18n } from '../../../i18n';
+import { useModalTransition } from '../../../shared/hooks/useModalTransition';
+import { useI18n } from '../../../shared/i18n/index';
 import { ImageContextMenu } from '../context-menu';
-import { DEFAULT_COLOR, DEFAULT_WIDTH } from '../../canvas/constants';
+import { DEFAULT_COLOR, DEFAULT_WIDTH } from '../../../features/workflow/canvas/constants';
 import { useLightboxCamera } from '../use-lightbox-camera';
 import { LightboxStage } from './LightboxStage';
 import { LightboxToolbar } from './LightboxToolbar';

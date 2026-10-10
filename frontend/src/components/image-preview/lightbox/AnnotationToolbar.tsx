@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { useI18n } from '../../../i18n'
-import { COLOR_PRESETS } from '../../canvas/constants'
+import { useI18n } from '../../../shared/i18n/index'
+import { COLOR_PRESETS } from '../../../features/workflow/canvas/constants'
 
 type AnnotationTool = 'pen' | 'eraser' | 'pan'
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import JSZip from 'jszip';
-import { useI18n } from '../../i18n';
+import { useI18n } from '../../shared/i18n/index';
 
 interface UseImageDownloadResult {
   isDownloadingSingle: boolean;
