@@ -17,6 +17,11 @@ export function createApiRagService(
   })
 }
 
+/**
+ * Registration is decided at construction (one synchronous file read per package), and `ready()`
+ * is the single asynchronous door that loads the Baselines and the SearchDoc matrix. The
+ * composition root builds the Tool registry at import time, so construction cannot be async.
+ */
 let apiRagService: ApiRagService | undefined
 
 /**

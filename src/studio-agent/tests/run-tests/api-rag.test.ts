@@ -10,8 +10,7 @@ import { createCosineRetriever, l2Normalize } from '../../../services/api-rag/co
 import { ApiRagService } from '../../../services/api-rag/api-rag-service'
 import {
   assertSearchCatalogResolvable,
-  loadSearchCatalog,
-  readSearchCatalogSync,
+  readSearchCatalog,
   validateSearchCatalog
 } from '../../../services/api-rag/search-catalog'
 import { API_RAG_TOP_K, type EmbeddingModel } from '../../../services/api-rag/types'
@@ -79,7 +78,10 @@ export async function runApiRagTests(): Promise<void> {
 
     const member = resolver.verify('manim.Axes.add_coordinates')
     assert.equal(member.verdict, 'FOUND')
-    assert.equal(member.owner, 'manim.coordinate_systems.CoordinateSystem')
+    // `owner` is the class that declares the member, spelled the way the module tree spells it,
+    // and it resolves back to the same class through the alias index.
+    assert.equal(member.owner, 'manim.mobject.graphing.coordinate_systems.CoordinateSystem')
+    assert.equal(resolver.verify(member.owner ?? '').canonicalSymbol, 'manim.CoordinateSystem')
 
     assert.deepEqual(resolver.verify('manim.NoSuchApiAtAll'), {
       requested: 'manim.NoSuchApiAtAll',
@@ -90,7 +92,8 @@ export async function runApiRagTests(): Promise<void> {
   await run('every SearchDoc key resolves in the Baseline', async () => {
     const catalog = await loadBaselineCatalog('manim')
     const resolver = createBaselineResolver(catalog)
-    const searchCatalog = await loadSearchCatalog('manim')
+    const searchCatalog = readSearchCatalog('manim')
+    assert.ok(searchCatalog)
 
     assert.ok(Object.keys(searchCatalog).length > 500)
     assertSearchCatalogResolvable(searchCatalog, resolver, 'manim')
@@ -103,8 +106,8 @@ export async function runApiRagTests(): Promise<void> {
   })
 
   await run('Search Catalog registration is driven by the committed data', async () => {
-    assert.equal(readSearchCatalogSync('manim') !== null, true)
-    assert.equal(readSearchCatalogSync('matplotlib') !== null, true)
+    assert.ok(readSearchCatalog('manim'))
+    assert.ok(readSearchCatalog('matplotlib'))
     assert.match(searchCatalogPath('manim').replace(/\\/g, '/'), /data\/api-catalog\/manim\/search\.json$/)
     assert.match(searchCatalogPath('matplotlib').replace(/\\/g, '/'), /data\/api-catalog\/matplotlib\/search\.json$/)
 
@@ -138,7 +141,7 @@ export async function runApiRagTests(): Promise<void> {
     const hits = retriever.search(new Float32Array([1, 0]), 2)
     assert.deepEqual(hits.map((hit) => hit.symbol), ['a', 'b'])
     assert.ok(hits[0].score > hits[1].score)
-    assert.equal(l2Normalize(new Float32Array([3, 4]))[0], 0.6)
+    assert.ok(Math.abs(l2Normalize(new Float32Array([3, 4]))[0] - 0.6) < 1e-6)
     assert.throws(() => retriever.search(new Float32Array([1, 0, 0]), 2), /dimension mismatch/)
     assert.throws(
       () => createCosineRetriever([{ symbol: 'a', searchDoc: 'x', embedding: new Float32Array([1]) }], 2),

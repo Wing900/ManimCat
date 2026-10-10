@@ -3,8 +3,7 @@ import { loadBaselineCatalog } from './baseline-catalog'
 import { createCosineRetriever, type CosineRetriever } from './cosine-retriever'
 import {
   assertSearchCatalogResolvable,
-  loadSearchCatalog,
-  readSearchCatalogSync
+  readSearchCatalog
 } from './search-catalog'
 import {
   API_RAG_TOP_K,
@@ -50,7 +49,7 @@ export class ApiRagService {
     this.embedding = options.embedding
     this.topK = options.topK ?? API_RAG_TOP_K
     for (const packageName of options.packages) {
-      const searchCatalog = readSearchCatalogSync(packageName)
+      const searchCatalog = readSearchCatalog(packageName)
       if (searchCatalog) {
         this.registrations.set(packageName, searchCatalog)
       }
@@ -66,7 +65,11 @@ export class ApiRagService {
     return this.registrations.has(packageName)
   }
 
-  /** Loads every index and encodes the SearchDoc matrix once. Throws on any defect. */
+  /**
+   * Loads every index and encodes the SearchDoc matrix once. This is the single loading door: the
+   * composition root awaits it before the listener opens, and a missing or malformed data file
+   * aborts startup instead of degrading to a guess.
+   */
   async ready(): Promise<void> {
     await Promise.all(this.registeredPackages.map((packageName) => this.packageIndex(packageName)))
   }
@@ -125,9 +128,14 @@ export class ApiRagService {
   }
 
   private async buildPackageIndex(packageName: ApiCatalogPackage): Promise<PackageIndex> {
+    // Only a registered package reaches this point, so the Search Catalog is already in memory.
+    const searchCatalog = this.registrations.get(packageName)
+    if (!searchCatalog) {
+      throw new Error(`API RAG is not registered for ${packageName}: it has no Search Catalog`)
+    }
+
     const catalog = await loadBaselineCatalog(packageName)
     const resolver = createBaselineResolver(catalog)
-    const searchCatalog = this.registrations.get(packageName) ?? (await loadSearchCatalog(packageName))
     assertSearchCatalogResolvable(searchCatalog, resolver, packageName)
 
     const symbols = Object.keys(searchCatalog)

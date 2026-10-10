@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import fsPromises from 'node:fs/promises'
 import type { BaselineResolver } from './baseline-resolver'
 import { searchCatalogPath } from './baseline-catalog'
 import type { ApiCatalogPackage, SearchCatalog } from './types'
@@ -28,11 +27,12 @@ export function validateSearchCatalog(value: unknown, packageName: ApiCatalogPac
 }
 
 /**
- * Registration probe. Runs while the tool registry is built, so it stays synchronous.
- * A missing file means "this package has no Search Catalog yet" (not registered);
- * a malformed file is a data defect and stops the process.
+ * The one reader of a Search Catalog. Registration runs while the Tool registry is built, which
+ * is synchronous, so this read is synchronous too: one file read, one validation, no second cache
+ * and no async twin beside it. A missing file means "this package has no Search Catalog yet" (not
+ * registered); a malformed file is a data defect and stops the process.
  */
-export function readSearchCatalogSync(packageName: ApiCatalogPackage): SearchCatalog | null {
+export function readSearchCatalog(packageName: ApiCatalogPackage): SearchCatalog | null {
   const filePath = searchCatalogPath(packageName)
   let raw: string
   try {
@@ -48,38 +48,6 @@ export function readSearchCatalogSync(packageName: ApiCatalogPackage): SearchCat
   }
   const entries = validateSearchCatalog(parsed, packageName)
   return Object.keys(entries).length > 0 ? entries : null
-}
-
-const searchCatalogCache = new Map<ApiCatalogPackage, Promise<SearchCatalog>>()
-
-async function readSearchCatalog(packageName: ApiCatalogPackage): Promise<SearchCatalog> {
-  const filePath = searchCatalogPath(packageName)
-  let raw: string
-  try {
-    raw = await fsPromises.readFile(filePath, 'utf8')
-  } catch (error) {
-    throw new Error(`Search catalog is not readable at ${filePath}: ${String(error)}`)
-  }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw) as unknown
-  } catch (error) {
-    throw new Error(`Search catalog at ${filePath} is not valid JSON: ${String(error)}`)
-  }
-  return validateSearchCatalog(parsed, packageName)
-}
-
-export function loadSearchCatalog(packageName: ApiCatalogPackage): Promise<SearchCatalog> {
-  const cached = searchCatalogCache.get(packageName)
-  if (cached) {
-    return cached
-  }
-  const pending = readSearchCatalog(packageName).catch((error: unknown) => {
-    searchCatalogCache.delete(packageName)
-    throw error
-  })
-  searchCatalogCache.set(packageName, pending)
-  return pending
 }
 
 /**
