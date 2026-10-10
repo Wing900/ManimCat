@@ -229,7 +229,7 @@ This project is a substantial rework built on top of the original foundation. Th
 - Added a dedicated image workflow alongside video generation
 - Added `YON_IMAGE` anchor-based segmented rendering for multi-image outputs
 - Added two-stage AI generation: a concept designer produces a scene design, then a code generator writes the Manim code
-- Added a static analysis guard (`py_compile` + `mypy`) that checks generated code before rendering, with AI-powered auto-patching for up to 3 passes
+- Added a static analysis guard (`py_compile`) that checks generated code before rendering, with AI-powered auto-patching for up to 3 passes
 - Added AI-driven code retry: when a render fails, the error is fed back to the model to regenerate and re-render automatically
 - Added rerender-from-code and AI-assisted modify-and-render flows
 - Added stage timing breakdown shared by both image and video jobs

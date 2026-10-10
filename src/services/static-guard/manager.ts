@@ -14,12 +14,6 @@ const STATIC_GUARD_TEMPERATURE = parseFloat(process.env.STATIC_GUARD_TEMPERATURE
 const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '12000', 10)
 const THINKING_TOKENS = parseInt(process.env.AI_THINKING_TOKENS || '20000', 10)
 
-const SIMPLE_TUPLE_LIKE_PATTERN = /^\s*[-+.\w]+\s*(,\s*[-+.\w]+\s*){1,2}$/
-const RANGE_PARAM_NAMES = new Set(['x_range', 'y_range', 'z_range', 'u_range', 'v_range', 't_range'])
-const POINT_PARAM_NAMES = new Set(['point', 'start', 'end', 'center', 'arc_center', 'point_or_mobject'])
-const POSITIONAL_POINT_CONSTRUCTORS = ['Dot', 'Dot3D', 'Vector']
-const POSITIONAL_TWO_POINT_CONSTRUCTORS = ['Line', 'Arrow', 'DoubleArrow', 'Line3D', 'Arrow3D', 'DashedLine', 'ArcBetweenPoints']
-
 function stripCodeFence(text: string): string {
   return text
     .replace(/^```(?:json|text)?\s*/i, '')
@@ -131,75 +125,6 @@ function parsePatchResponse(content: string): StaticPatchSet {
 
 function getLineNumberAtIndex(text: string, index: number): number {
   return text.slice(0, index).split('\n').length
-}
-
-function replaceBracketLiteralWithTuple(source: string): string {
-  return source.replace(/\[([^\[\]\n]+)\]/g, (match, inner) => {
-    if (!SIMPLE_TUPLE_LIKE_PATTERN.test(inner)) {
-      return match
-    }
-    return `(${inner.trim()})`
-  })
-}
-
-function extractDiagnosticParameterName(message: string): string | undefined {
-  const match = message.match(/parameter\s+"([^"]+)"/i)
-  return match?.[1]
-}
-
-function tryApplyKnownMypyFix(code: string, diagnostic: StaticDiagnostic): string | null {
-  if (diagnostic.tool !== 'mypy' || diagnostic.code !== 'arg-type') {
-    return null
-  }
-
-  const normalizedMessage = diagnostic.message.toLowerCase()
-  if (!normalizedMessage.includes('list')) {
-    return null
-  }
-  if (!normalizedMessage.includes('tuple') && !normalizedMessage.includes('point3dlike')) {
-    return null
-  }
-
-  const parameterName = extractDiagnosticParameterName(diagnostic.message)
-  let nextCode = code
-
-  if (parameterName && RANGE_PARAM_NAMES.has(parameterName)) {
-    nextCode = nextCode.replace(
-      new RegExp(`\\b${parameterName}\\s*=\\s*\\[([^\\[\\]\\n]+)\\]`, 'g'),
-      (_, inner: string) => `${parameterName}=(${inner.trim()})`
-    )
-  }
-
-  if (parameterName && POINT_PARAM_NAMES.has(parameterName)) {
-    for (const constructorName of POSITIONAL_POINT_CONSTRUCTORS) {
-      nextCode = nextCode.replace(
-        new RegExp(`\\b${constructorName}\\s*\\(\\s*\\[([^\\[\\]\\n]+)\\]`, 'g'),
-        (_, inner: string) => `${constructorName}((${inner.trim()})`
-      )
-    }
-
-    for (const constructorName of POSITIONAL_TWO_POINT_CONSTRUCTORS) {
-      nextCode = nextCode.replace(
-        new RegExp(`\\b${constructorName}\\s*\\(\\s*\\[([^\\[\\]\\n]+)\\]\\s*,\\s*\\[([^\\[\\]\\n]+)\\]`, 'g'),
-        (_, startInner: string, endInner: string) =>
-          `${constructorName}((${startInner.trim()}), (${endInner.trim()})`
-      )
-    }
-
-    nextCode = nextCode.replace(
-      new RegExp(`\\b${parameterName}\\s*=\\s*\\[([^\\[\\]\\n]+)\\]`, 'g'),
-      (_, inner: string) => `${parameterName}=(${inner.trim()})`
-    )
-  }
-
-  const lines = nextCode.split('\n')
-  const targetIndex = diagnostic.line - 1
-  if (targetIndex >= 0 && targetIndex < lines.length) {
-    lines[targetIndex] = replaceBracketLiteralWithTuple(lines[targetIndex])
-    nextCode = lines.join('\n')
-  }
-
-  return nextCode !== code ? nextCode : null
 }
 
 function previewDiagnostics(diagnostics: StaticDiagnostic[], limit = 3): Array<Record<string, unknown>> {
@@ -343,48 +268,20 @@ export async function runStaticGuardLoop(
     })
     lastDiagnosticCount = diagnostics.length
 
-    let nextCode = currentCode
-    const hardFixedDiagnostics: StaticDiagnostic[] = []
-    const remainingDiagnostics: StaticDiagnostic[] = []
-    for (const diagnostic of diagnostics) {
-      const knownFixedCode = tryApplyKnownMypyFix(nextCode, diagnostic)
-      if (knownFixedCode) {
-        nextCode = knownFixedCode
-        hardFixedDiagnostics.push(diagnostic)
-        continue
-      }
-      remainingDiagnostics.push(diagnostic)
-    }
-
-    if (hardFixedDiagnostics.length > 0) {
-      currentCode = nextCode
-      logger.info('Static guard applied known mypy tuple fixes', {
-        passIndex,
-        fixedCount: hardFixedDiagnostics.length,
-        diagnosticsPreview: previewDiagnostics(hardFixedDiagnostics)
-      })
-      if (remainingDiagnostics.length === 0) {
-        if (onCheckpoint) {
-          await onCheckpoint()
-        }
-        continue
-      }
-    }
-
     if (onCheckpoint) {
       await onCheckpoint()
     }
 
-    const patchSet = await generateStaticPatch(currentCode, remainingDiagnostics, customApiConfig)
+    const patchSet = await generateStaticPatch(currentCode, diagnostics, customApiConfig)
     if (patchSet.patches.length === 0) {
       logger.warn('Static patch produced no effective changes, stopping static patching for this pass', {
         passIndex,
-        diagnosticCount: remainingDiagnostics.length,
-        diagnosticsPreview: previewDiagnostics(remainingDiagnostics)
+        diagnosticCount: diagnostics.length,
+        diagnosticsPreview: previewDiagnostics(diagnostics)
       })
       break
     }
-    currentCode = applyPatchSet(currentCode, patchSet, remainingDiagnostics[0]?.line || 1)
+    currentCode = applyPatchSet(currentCode, patchSet, diagnostics[0]?.line || 1)
 
     if (onCheckpoint) {
       await onCheckpoint()
@@ -392,8 +289,8 @@ export async function runStaticGuardLoop(
 
     logger.info('Static guard patch applied', {
       passIndex,
-      diagnosticCount: remainingDiagnostics.length,
-      diagnosticsPreview: previewDiagnostics(remainingDiagnostics),
+      diagnosticCount: diagnostics.length,
+      diagnosticsPreview: previewDiagnostics(diagnostics),
       patchCount: patchSet.patches.length,
       patchLengths: patchSet.patches.map((patch) => ({
         originalLength: patch.originalSnippet.length,

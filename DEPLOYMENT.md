@@ -26,7 +26,6 @@ This guide only documents deployment paths that match the current repository sta
 - Redis 7+ reachable at `localhost:6379` by default
 - Python 3.11+
 - Manim Community Edition 0.19.x
-- `mypy`
 - LaTeX
 - `ffmpeg`
 
@@ -60,7 +59,6 @@ PROD_SUMMARY_LOG_ONLY=false
 ```bash
 npm install
 npm --prefix frontend install
-python -m pip install mypy
 ```
 
 ### 3. Start

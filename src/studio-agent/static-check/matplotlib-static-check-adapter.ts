@@ -14,10 +14,10 @@ export type MatplotlibStaticCheckRunner = (
 
 /**
  * Matplotlib Adapter. A Plot session edits one complete Python file, so the source goes
- * to the shared engine as a single unit: no YON_IMAGE block parsing, no Manim camera
- * false-positive suppression, and no injected ignore predicate (syntax and type results
- * are reported as they are). A Plot artifact is a static figure, so the effective
- * `outputMode` is always `image`, even when the Tool input asks for `video`.
+ * to the shared engine as a single unit: no YON_IMAGE block parsing and no Manim image
+ * policy, so syntax results are reported as they are. A Plot artifact is a static figure,
+ * so the effective `outputMode` is always `image`, even when the Tool input asks for
+ * `video`.
  */
 export class MatplotlibStaticCheckAdapter implements StudioStaticCheckAdapter {
   constructor(private readonly runner: MatplotlibStaticCheckRunner = runPythonStaticChecks) {}

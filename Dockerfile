@@ -28,9 +28,7 @@ RUN sed -i \
 
 # 2.1 安装 Python 运行时与静态检查依赖
 #     显式声明 matplotlib，避免依赖基础镜像的隐式预装状态。
-RUN python -m pip install --no-cache-dir \
-    matplotlib \
-    mypy==1.19.1
+RUN python -m pip install --no-cache-dir matplotlib
 
 WORKDIR /app
 

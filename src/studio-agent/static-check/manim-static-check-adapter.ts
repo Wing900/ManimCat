@@ -11,10 +11,10 @@ import type {
 export type ManimStaticCheckRunner = (code: string, outputMode: OutputMode) => Promise<StaticCheckBatch>
 
 /**
- * Manim Adapter. Every Manim semantic — image-block splitting with line offsets, the
- * camera.frame mypy false-positive policy, the py_compile short-circuit — stays owned by
- * `runStaticChecks`. This Adapter only picks the effective output mode and labels the
- * result, so no subprocess or Manim policy is duplicated here.
+ * Manim Adapter. Every Manim semantic — image-block splitting with line offsets and the
+ * py_compile short-circuit — stays owned by `runStaticChecks`. This Adapter only picks the
+ * effective output mode and labels the result, so no subprocess or Manim policy is
+ * duplicated here.
  */
 export class ManimStaticCheckAdapter implements StudioStaticCheckAdapter {
   constructor(private readonly runner: ManimStaticCheckRunner = runStaticChecks) {}

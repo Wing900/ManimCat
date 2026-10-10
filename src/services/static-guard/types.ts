@@ -1,6 +1,6 @@
 import type { OutputMode, PromptOverrides } from '../../types'
 
-export type StaticCheckTool = 'py_compile' | 'mypy'
+export type StaticCheckTool = 'py_compile'
 
 export interface StaticDiagnostic {
   tool: StaticCheckTool

@@ -24,11 +24,7 @@ import {
   type StudioStaticCheckRequest,
   type StudioStaticCheckResult
 } from '../../index'
-import {
-  runStaticChecks,
-  shouldIgnoreManimCameraDiagnostic,
-  parseImageCodeUnits
-} from '../../../services/static-guard/checker'
+import { runStaticChecks, parseImageCodeUnits } from '../../../services/static-guard/checker'
 import type { StaticDiagnostic } from '../../../services/static-guard/types'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { createPlotStudioRenderTool } from '../../plot/tools/plot-render-tool'
@@ -129,7 +125,7 @@ export async function runStaticCheckTests(): Promise<void> {
     const defaulted = await adapter.check({ kind: 'manim', code: 'scene' })
     const forwarded = await adapter.check({ kind: 'manim', code: 'image scene', outputMode: 'image' })
 
-    // Two arguments only: Manim policy (image blocks, camera frames) stays in runStaticChecks.
+    // Two arguments only: Manim image-block policy (image mode, line offsets) stays in runStaticChecks.
     assert.deepEqual(calls, [['scene', 'video'], ['image scene', 'image']])
     assert.equal(defaulted.kind, 'manim')
     assert.equal(defaulted.outputMode, 'video')
@@ -148,7 +144,7 @@ export async function runStaticCheckTests(): Promise<void> {
 
     assert.equal(calls.length, 1)
     assert.equal(calls[0].code, IMAGE_SOURCE)
-    // No line offset and no ignore predicate: no image splitting, no camera suppression.
+    // No line offset: no image splitting, no Manim image policy. There is no ignore predicate left.
     assert.equal(calls[0].options, undefined)
     assert.equal(result.kind, 'plot')
     assert.equal(result.outputMode, 'image')
@@ -175,7 +171,7 @@ export async function runStaticCheckTests(): Promise<void> {
     const result = await tool.execute({ concept: 'scene', code: 'print(1)\n' }, context)
 
     assert.equal(result.title, 'Static check: scene')
-    assert.equal(result.output, 'mypy:4:2 boom')
+    assert.equal(result.output, 'py_compile:4:2 boom')
     assert.equal(result.metadata?.phase, 'static-check')
     assert.equal(result.metadata?.kind, 'manim')
     assert.equal(result.metadata?.outputMode, 'video')
@@ -444,30 +440,6 @@ export async function runStaticCheckTests(): Promise<void> {
     assert.equal(units[0].code, 'print(1)\nprint(2)')
     assert.equal(units[0].lineOffset, 0)
   })
-
-  await run('Manim camera.frame mypy diagnostics are ignored by policy', async () => {
-    const code = 'self.camera.frame.animate.set(width=10)'
-    const cameraDiagnostic: StaticDiagnostic = {
-      tool: 'mypy',
-      line: 1,
-      column: 1,
-      code: 'attr-defined',
-      message: 'Camera has no attribute "frame"'
-    }
-
-    assert.equal(shouldIgnoreManimCameraDiagnostic(cameraDiagnostic, code, 0), true)
-    assert.equal(shouldIgnoreManimCameraDiagnostic({ ...cameraDiagnostic, line: 2 }, code, 1), true)
-    assert.equal(shouldIgnoreManimCameraDiagnostic(cameraDiagnostic, 'other = 1', 0), false)
-    assert.equal(shouldIgnoreManimCameraDiagnostic({ ...cameraDiagnostic, code: 'assignment' }, code, 0), false)
-    assert.equal(
-      shouldIgnoreManimCameraDiagnostic({ ...cameraDiagnostic, message: 'Camera has no attribute "zoom"' }, code, 0),
-      false
-    )
-    assert.equal(
-      shouldIgnoreManimCameraDiagnostic({ tool: 'py_compile', line: 1, message: 'SyntaxError' }, code, 0),
-      false
-    )
-  })
 }
 
 function createRouter(
@@ -484,7 +456,7 @@ function createRouter(
 }
 
 function diagnostic(line: number, message: string, column?: number): StaticDiagnostic {
-  return { tool: 'mypy', line, column, message }
+  return { tool: 'py_compile', line, column, message }
 }
 
 function createToolContext(directory: string, studioKind?: StudioKind): StudioRuntimeBackedToolContext {
