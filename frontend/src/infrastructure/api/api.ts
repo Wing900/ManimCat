@@ -10,6 +10,7 @@ import type {
   ProblemFramingResponse
 } from '../../shared/types/api';
 import { loadSettings } from '../storage/settings';
+import { getConnectionHeaders, withConnectionProvider } from '../../features/connection/connection-request';
 import { localizeApiMessage, translate } from '../../shared/i18n/runtime';
 
 const API_BASE = '/api';
@@ -23,24 +24,6 @@ function getClientId(): string {
     localStorage.setItem(KEY, id);
   }
   return id;
-}
-
-interface RequestAuthOptions {
-  authKeyOverride?: string;
-}
-
-function getAuthHeaders(contentType = 'application/json', options: RequestAuthOptions = {}): HeadersInit {
-  const headers: HeadersInit = {};
-  if (contentType) {
-    headers['Content-Type'] = contentType;
-  }
-
-  const apiKey = options.authKeyOverride || localStorage.getItem('manimcat_api_key');
-  if (apiKey) {
-    headers['Authorization'] = `Bearer ${apiKey}`;
-  }
-
-  return headers;
 }
 
 async function parseApiErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
@@ -57,17 +40,13 @@ async function parseApiErrorMessage(response: Response, fallbackMessage: string)
   }
 }
 
-export async function modifyAnimation(
-  request: ModifyRequest,
-  signal?: AbortSignal,
-  options: RequestAuthOptions = {}
-): Promise<GenerateResponse> {
+export async function modifyAnimation(request: ModifyRequest, signal?: AbortSignal): Promise<GenerateResponse> {
   const videoConfig = request.videoConfig || loadSettings().video;
-  const payload = { ...request, videoConfig };
+  const payload = withConnectionProvider({ ...request, videoConfig });
 
   const response = await fetch(`${API_BASE}/modify`, {
     method: 'POST',
-    headers: { ...getAuthHeaders('application/json', options), 'x-client-id': getClientId() },
+    headers: { ...getConnectionHeaders('application/json'), 'x-client-id': getClientId() },
     body: JSON.stringify(payload),
     signal,
   });
@@ -90,7 +69,7 @@ interface UploadReferenceImageResponse {
 export async function uploadReferenceImage(file: File, signal?: AbortSignal): Promise<UploadReferenceImageResponse> {
   const response = await fetch(`${API_BASE}/reference-images`, {
     method: 'POST',
-    headers: getAuthHeaders(file.type || 'application/octet-stream'),
+    headers: getConnectionHeaders(file.type || 'application/octet-stream'),
     body: file,
     signal,
   });
@@ -111,15 +90,14 @@ export async function uploadReferenceImage(file: File, signal?: AbortSignal): Pr
 
 export async function generateAnimation(
   request: GenerateRequest,
-  signal?: AbortSignal,
-  options: RequestAuthOptions = {}
+  signal?: AbortSignal
 ): Promise<GenerateResponse> {
   const videoConfig = request.videoConfig || loadSettings().video;
-  const payload = { ...request, videoConfig };
+  const payload = withConnectionProvider({ ...request, videoConfig });
 
   const response = await fetch(`${API_BASE}/generate`, {
     method: 'POST',
-    headers: { ...getAuthHeaders('application/json', options), 'x-client-id': getClientId() },
+    headers: { ...getConnectionHeaders('application/json'), 'x-client-id': getClientId() },
     body: JSON.stringify(payload),
     signal,
   });
@@ -133,13 +111,14 @@ export async function generateAnimation(
 
 export async function generateProblemFraming(
   request: ProblemFramingRequest,
-  signal?: AbortSignal,
-  options: RequestAuthOptions = {}
+  signal?: AbortSignal
 ): Promise<ProblemFramingResponse> {
+  const payload = withConnectionProvider({ ...request });
+
   const response = await fetch(`${API_BASE}/problem-frame`, {
     method: 'POST',
-    headers: { ...getAuthHeaders('application/json', options), 'x-client-id': getClientId() },
-    body: JSON.stringify(request),
+    headers: { ...getConnectionHeaders('application/json'), 'x-client-id': getClientId() },
+    body: JSON.stringify(payload),
     signal,
   });
 
@@ -153,7 +132,7 @@ export async function generateProblemFraming(
 export async function getPromptDefaults(locale?: PromptLocale, signal?: AbortSignal): Promise<PromptDefaults> {
   const query = locale ? `?locale=${encodeURIComponent(locale)}` : '';
   const response = await fetch(`${API_BASE}/prompts/defaults${query}`, {
-    headers: getAuthHeaders(),
+    headers: getConnectionHeaders(),
     signal,
   });
 
@@ -164,13 +143,10 @@ export async function getPromptDefaults(locale?: PromptLocale, signal?: AbortSig
   return response.json();
 }
 
-export async function getJobStatus(
-  jobId: string,
-  signal?: AbortSignal,
-  options: RequestAuthOptions = {}
-): Promise<JobResult> {
+export async function getJobStatus(jobId: string, signal?: AbortSignal): Promise<JobResult> {
+  // Job status carries no provider config: it only needs identity, which the credential header gives.
   const response = await fetch(`${API_BASE}/jobs/${jobId}`, {
-    headers: { ...getAuthHeaders('application/json', options), 'x-client-id': getClientId() },
+    headers: { ...getConnectionHeaders('application/json'), 'x-client-id': getClientId() },
     signal,
   });
 
@@ -181,14 +157,13 @@ export async function getJobStatus(
   return response.json();
 }
 
-export async function cancelJob(jobId: string, options: RequestAuthOptions = {}): Promise<void> {
+export async function cancelJob(jobId: string): Promise<void> {
   const response = await fetch(`${API_BASE}/jobs/${jobId}/cancel`, {
     method: 'POST',
-    headers: { ...getAuthHeaders('application/json', options), 'x-client-id': getClientId() },
+    headers: { ...getConnectionHeaders('application/json'), 'x-client-id': getClientId() },
   });
 
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response, translate('api.cancelFailed')));
   }
 }
-

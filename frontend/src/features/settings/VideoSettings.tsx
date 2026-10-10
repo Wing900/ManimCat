@@ -1,19 +1,19 @@
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { Quality, VideoConfig } from '../../../shared/types/api';
-import { DEFAULT_SETTINGS } from '../../../infrastructure/storage/settings';
-import { useI18n } from '../../../shared/i18n/index';
+import { CustomSelect } from '../../shared/components/CustomSelect';
+import type { Quality, VideoConfig } from '../../shared/types/api';
+import { DEFAULT_SETTINGS } from '../../infrastructure/storage/settings';
+import { useI18n } from '../../shared/i18n/index';
 
-interface VideoSettingsTabProps {
+interface VideoSettingsProps {
   videoConfig: VideoConfig;
   onUpdate: (updates: Partial<VideoConfig>) => void;
 }
 
-export function VideoSettingsTab({ videoConfig, onUpdate }: VideoSettingsTabProps) {
+export function VideoSettings({ videoConfig, onUpdate }: VideoSettingsProps) {
   const { t } = useI18n();
   const bgmEnabled = videoConfig.bgm ?? DEFAULT_SETTINGS.video.bgm;
 
   return (
-    <>
+    <div className="max-w-xl flex flex-col gap-6">
       <CustomSelect
         options={[
           { value: 'low' as Quality, label: t('settings.video.quality.low') },
@@ -66,6 +66,6 @@ export function VideoSettingsTab({ videoConfig, onUpdate }: VideoSettingsTabProp
           />
         </button>
       </div>
-    </>
+    </div>
   );
 }

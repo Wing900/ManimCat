@@ -1,7 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import { generateProblemFraming } from '../../../infrastructure/api/api';
-import { loadSettings } from '../../../infrastructure/storage/settings';
-import { getActiveProvider, providerToCustomApiConfig } from '../../../infrastructure/api/ai-providers';
 import type { OutputMode, ProblemFramingPlan, Quality, ReferenceImage } from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n/index';
 import { loadPrompts } from '../../prompts/hooks/usePrompts';
@@ -34,15 +32,6 @@ interface UseProblemFramingResult {
   reset: () => void;
 }
 
-function hasIncompleteCustomProvider(provider: { apiUrl: string; apiKey: string; model: string } | null): boolean {
-  if (!provider) {
-    return false;
-  }
-  const hasAny = Boolean(provider.apiUrl.trim() || provider.apiKey.trim() || provider.model.trim());
-  const hasRequired = Boolean(provider.apiUrl.trim() && provider.apiKey.trim() && provider.model.trim());
-  return hasAny && !hasRequired;
-}
-
 export function useProblemFraming(): UseProblemFramingResult {
   const { locale, t } = useI18n();
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -62,13 +51,6 @@ export function useProblemFraming(): UseProblemFramingResult {
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
 
-    const settings = loadSettings();
-    const activeProvider = getActiveProvider(settings.api);
-    const customApiConfig = providerToCustomApiConfig(activeProvider);
-    if (hasIncompleteCustomProvider(activeProvider) && !customApiConfig) {
-      throw new Error(t('settings.test.needUrlAndKey'));
-    }
-
     return generateProblemFraming(
       {
         concept: request.concept,
@@ -78,11 +60,10 @@ export function useProblemFraming(): UseProblemFramingResult {
         locale,
         referenceImages: request.referenceImages,
         promptOverrides: loadPrompts(locale),
-        customApiConfig: customApiConfig || undefined,
       },
       abortControllerRef.current.signal
     );
-  }, [locale, t]);
+  }, [locale]);
 
   const startPlan = useCallback(async ({ request, feedback }: StartPlanOptions) => {
     const requestId = ++requestSequenceRef.current;

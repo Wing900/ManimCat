@@ -1,4 +1,5 @@
 import type { StudioApiEnvelope } from '../protocol/studio-agent-types'
+import { getConnectionHeaders } from '../../connection/connection-request'
 
 const STUDIO_API_BASE = '/api/studio-agent'
 
@@ -19,17 +20,7 @@ export function getStudioApiBase(): string {
 }
 
 export function getStudioAuthHeaders(contentType?: string): HeadersInit {
-  const headers: HeadersInit = {}
-  if (contentType) {
-    headers['Content-Type'] = contentType
-  }
-
-  const apiKey = localStorage.getItem('manimcat_api_key')
-  if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`
-  }
-
-  return headers
+  return getConnectionHeaders(contentType)
 }
 
 export async function studioRequest<T>(path: string, init?: RequestInit): Promise<T> {

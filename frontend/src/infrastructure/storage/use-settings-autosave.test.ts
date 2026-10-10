@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SettingsConfig } from '../../shared/types/api';
+import type { Quality, SettingsConfig } from '../../shared/types/api';
 import { saveSettings } from './settings';
 import { useSettingsAutosave } from './use-settings-autosave';
 
@@ -8,15 +8,10 @@ vi.mock('./settings', () => ({
   saveSettings: vi.fn(),
 }));
 
-function createConfig(activeProviderId: string | null): SettingsConfig {
+function createConfig(quality: Quality): SettingsConfig {
   return {
-    api: {
-      manimcatApiKey: '',
-      activeProviderId,
-      providers: [],
-    },
     video: {
-      quality: 'high',
+      quality,
       frameRate: 30,
     },
   };
@@ -37,10 +32,10 @@ describe('useSettingsAutosave', () => {
     const { rerender } = renderHook(
       ({ config, isOpen }: { config: SettingsConfig; isOpen: boolean }) =>
         useSettingsAutosave({ config, isOpen, onSave }),
-      { initialProps: { config: createConfig(null), isOpen: false } },
+      { initialProps: { config: createConfig('low'), isOpen: false } },
     );
 
-    rerender({ config: createConfig('provider-2'), isOpen: false });
+    rerender({ config: createConfig('high'), isOpen: false });
     act(() => vi.advanceTimersByTime(1000));
 
     expect(saveSettings).not.toHaveBeenCalled();
@@ -49,11 +44,11 @@ describe('useSettingsAutosave', () => {
 
   it('flushes the latest config when the modal closes', () => {
     const onSave = vi.fn();
-    const latestConfig = createConfig('provider-2');
+    const latestConfig = createConfig('high');
     const { rerender } = renderHook(
       ({ config, isOpen }: { config: SettingsConfig; isOpen: boolean }) =>
         useSettingsAutosave({ config, isOpen, onSave }),
-      { initialProps: { config: createConfig(null), isOpen: true } },
+      { initialProps: { config: createConfig('low'), isOpen: true } },
     );
 
     rerender({ config: latestConfig, isOpen: true });

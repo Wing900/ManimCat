@@ -1,4 +1,4 @@
-interface FloatingInputProps {
+export interface FloatingInputProps {
   id: string;
   label: string;
   type: 'text' | 'password';

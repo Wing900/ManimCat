@@ -46,3 +46,11 @@ export function hasConnection(connection: ConnectionSettings): boolean {
     ? CATKEY_PATTERN.test(connection.catkey.key)
     : connection.activeMode === 'byok' && BYOK_PATTERN.test(connection.byok.browserSecret) && Boolean(getConnectionProviderConfig(connection))
 }
+
+/** BYOK 部分填写、但缺 apiUrl / apiKey / model 之一。用于 Studio 的“配置不完整”反馈。 */
+export function hasIncompleteByokProvider(connection: ConnectionSettings): boolean {
+  if (connection.activeMode !== 'byok') return false
+  const { apiUrl, apiKey, model } = connection.byok
+  const hasAny = Boolean(apiUrl.trim() || apiKey.trim() || model.trim())
+  return hasAny && !getConnectionProviderConfig(connection)
+}

@@ -6,9 +6,9 @@ import { useProblemFraming } from '../features/workflow/hooks/useProblemFraming'
 import { useGame2048 } from '../features/workflow/hooks/useGame2048';
 import { useTabTitle } from '../shared/hooks/useTabTitle';
 import { AiModifyModal } from '../features/workflow/components/AiModifyModal';
-import { SettingsModal } from '../features/provider-settings/SettingsModal';
 import { DonationModal } from '../features/donation/DonationModal';
-import { ProviderConfigModal } from '../features/provider-settings/ProviderConfigModal';
+import { AccessGate } from '../features/connection/AccessGate';
+import { SettingsPage } from '../features/settings/SettingsPage';
 import { PromptSettings } from '../features/prompts/PromptSettings';
 import { StudioPage } from './routes/StudioPage';
 import { Game2048Page } from '../features/workflow/pages/Game2048Page';
@@ -38,7 +38,6 @@ function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
-  const [providersOpen, setProvidersOpen] = useState(false);
   const [promptSettingsOpen, setPromptSettingsOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [currentCode, setCurrentCode] = useState('');
@@ -249,7 +248,7 @@ function App() {
             onBackToHome={handleBackToHome}
             onCancel={cancel}
             onOpenDonation={() => setDonationOpen(true)}
-            onOpenProviders={() => setProvidersOpen(true)}
+            onOpenProviders={() => setSettingsOpen(true)}
             onOpenPromptSettings={() => setPromptSettingsOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenGame={handleOpenGame}
@@ -278,7 +277,7 @@ function App() {
       );
     }
     if (name === 'plot-studio') {
-      return <StudioShell onExit={handleExitStudio} studioKind="plot" concept={concept} />;
+      return <StudioShell onExit={handleExitStudio} studioKind="matplotlib" concept={concept} />;
     }
     return (
       <Game2048Page
@@ -298,6 +297,7 @@ function App() {
   };
 
   return (
+    <AccessGate>
     <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
       {exitSliding && (
         <div className="fixed inset-0 z-[90] overflow-hidden">
@@ -328,9 +328,8 @@ function App() {
         }
       `}</style>
 
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onSave={() => undefined} />
       <DonationModal isOpen={donationOpen} onClose={() => setDonationOpen(false)} />
-      <ProviderConfigModal isOpen={providersOpen} onClose={() => setProvidersOpen(false)} onSave={() => undefined} />
+      {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
       <PromptSettings isOpen={promptSettingsOpen} onClose={() => setPromptSettingsOpen(false)} />
       <AiModifyModal
         isOpen={aiModifyOpen}
@@ -339,6 +338,7 @@ function App() {
         onSubmit={handleAiModifySubmit}
       />
     </div>
+    </AccessGate>
   );
 }
 

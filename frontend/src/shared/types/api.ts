@@ -15,25 +15,7 @@ export interface ReferenceImage {
   detail?: VisionImageDetail;
 }
 
-/** API 配置 */
-export interface ApiConfig {
-  manimcatApiKey: string;
-  providers: AIProvider[];
-  activeProviderId: string | null;
-}
-
 export interface CustomApiConfig {
-  apiUrl: string;
-  apiKey: string;
-  model: string;
-}
-
-export type AIProviderType = 'openai' | 'google';
-
-export interface AIProvider {
-  id: string;
-  name: string;
-  type: AIProviderType;
   apiUrl: string;
   apiKey: string;
   model: string;
@@ -70,9 +52,8 @@ export interface VideoConfig {
   bgm?: boolean;
 }
 
-/** 设置配置 */
+/** 本地产品设置。连接凭据不再放这里，见 features/connection 的 manimcat_connection。 */
 export interface SettingsConfig {
-  api: ApiConfig;
   video: VideoConfig;
 }
 

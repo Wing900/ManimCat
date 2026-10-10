@@ -1,7 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../../../infrastructure/api/api';
-import { loadSettings } from '../../../infrastructure/storage/settings';
-import { getActiveProvider, providerToCustomApiConfig } from '../../../infrastructure/api/ai-providers';
 import { loadPrompts } from '../../prompts/hooks/usePrompts';
 import type { GenerateRequest, GenerateResponse, JobResult, ProcessingStage, ModifyRequest } from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n/index';
@@ -31,15 +29,6 @@ interface PersistedActiveJob {
 const POLL_INTERVAL = 1000;
 const MAX_TRANSIENT_POLL_ERRORS = 5;
 const ACTIVE_JOB_STORAGE_KEY = 'manimcat_active_job';
-
-function hasIncompleteCustomProvider(provider: { apiUrl: string; apiKey: string; model: string } | null): boolean {
-  if (!provider) {
-    return false;
-  }
-  const hasAny = Boolean(provider.apiUrl.trim() || provider.apiKey.trim() || provider.model.trim());
-  const hasRequired = Boolean(provider.apiUrl.trim() && provider.apiKey.trim() && provider.model.trim());
-  return hasAny && !hasRequired;
-}
 
 function readPersistedActiveJob(): PersistedActiveJob | null {
   const raw = sessionStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
@@ -245,15 +234,9 @@ export function useGeneration(): UseGenerationReturn {
 
     try {
       const promptOverrides = loadPrompts(locale);
-      const settings = loadSettings();
-      const activeProvider = getActiveProvider(settings.api);
-      const customApiConfig = providerToCustomApiConfig(activeProvider);
-      if (hasIncompleteCustomProvider(activeProvider) && !customApiConfig) {
-        throw new Error(t('settings.test.needUrlAndKey'));
-      }
 
       const response = await executor(
-        { ...request, promptOverrides, customApiConfig },
+        { ...request, promptOverrides },
         abortControllerRef.current.signal,
       );
       startPolling(response.jobId, initialStage, response.submittedAt ?? null);
@@ -266,7 +249,7 @@ export function useGeneration(): UseGenerationReturn {
       setSubmittedAt(null);
       setError(err instanceof Error ? err.message : fallbackMessage);
     }
-  }, [clearActiveJob, clearPolling, locale, startPolling, t]);
+  }, [clearActiveJob, clearPolling, locale, startPolling]);
 
   const generate = useCallback(async (request: GenerateRequest) => {
     await submitGeneration(
