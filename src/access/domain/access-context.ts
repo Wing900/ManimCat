@@ -36,10 +36,6 @@ export interface ByokAccessContext {
 
 export type AccessContext = CatKeyAccessContext | ByokAccessContext
 
-export function isCatKeyMode(context: AccessContext): context is CatKeyAccessContext {
-  return context.mode === 'catkey'
-}
-
 export function requireProviderConfig(context: AccessContext): CustomApiConfig {
   if (!context.providerConfig) {
     throw new ValidationError('自定义 API 配置不完整：需要 apiUrl、apiKey、model')

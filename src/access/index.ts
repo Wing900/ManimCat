@@ -23,7 +23,7 @@ import { createSupabaseUsageRepository } from './infrastructure/supabase/supabas
 import type { AccessContext } from './domain/access-context'
 
 export type { AccessContext, ByokAccessContext, CatKeyAccessContext, ConnectionMode } from './domain/access-context'
-export { isCatKeyMode, requireProviderConfig } from './domain/access-context'
+export { requireProviderConfig } from './domain/access-context'
 export type { CatKeyRecord, CatKeyStatus } from './domain/cat-key'
 export type { TokenUsageTotals, UsageRecordInput, UsageSourceKind } from './domain/usage-record'
 export type { ResolveAccessContextInput } from './application/resolve-access-context'
