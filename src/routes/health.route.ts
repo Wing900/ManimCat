@@ -15,7 +15,7 @@ import { appConfig } from '../config/app'
 import { asyncHandler } from '../http/middleware/async-route'
 import { createLogger } from '../shared/logging/logger'
 import type { HealthCheckResponse } from '../types'
-import { getManimcatRouteStats } from '../utils/manimcat-routing'
+import { readCatKeyUpstreamConfig } from '../access'
 
 const router = express.Router()
 const logger = createLogger('HealthRoute')
@@ -45,9 +45,8 @@ router.get(
       stats = await getQueueStats()
     }
 
-    // 检查上游配置（路由表中至少有一个启用模型）
-    const { enabledModels } = getManimcatRouteStats()
-    const openaiHealthy = enabledModels > 0
+    // 上游可达性：CatKey 模式依赖服务端固定上游，配置缺失则不可用
+    const openaiHealthy = Boolean(readCatKeyUpstreamConfig())
 
     // 确定整体状态
     let overallStatus: 'ok' | 'degraded' | 'down' = 'ok'

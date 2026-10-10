@@ -6,8 +6,7 @@
  * 改动点：
  * - 使用 Express Router
  * - emit() 改为 videoQueue.add()
- * - Zod 验证保持不变
- * - 有预生成代码时不使用认证（前端已通过自定义 API 认证）
+ * - 上游配置来自 AccessContext：CatKey 用服务端固定上游，BYOK 用请求携带的配置
  */
 
 import express from 'express'
@@ -18,13 +17,13 @@ import { storeJobStage } from '../infrastructure/redis/job/redis-job-state-store
 import { createLogger } from '../shared/logging/logger'
 import { ValidationError } from '../shared/errors/errors'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
+import { requireAccessContext } from '../http/access-context'
+import { requireProviderConfig } from '../access'
 import type { GenerateResponse } from '../types'
-import { requirePromptOverrideAuth } from '../utils/auth-utils'
 import { hasPromptOverrides } from '../utils/prompt-overrides'
 import { sanitizeReferenceImages } from './helpers/reference-images'
 import { generateBodySchema } from './schemas/generate'
-import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import {
   mergeProblemFramingPlanIntoConcept,
   normalizeGenerationConcept,
@@ -47,31 +46,13 @@ function toPreview(value: string, maxLength = 240): string {
 async function handleGenerateRequest(req: express.Request, res: express.Response) {
   const parsed = generateBodySchema.parse(req.body)
 
-  const { concept, problemPlan, outputMode, quality, code, customApiConfig, promptOverrides, videoConfig, referenceImages, renderCacheKey } = parsed
-  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
-  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
-  const effectiveCustomApiConfig = customApiConfig ?? routedCustomApiConfig
-
-  if (customApiConfig) {
-    const apiUrl = (customApiConfig.apiUrl || '').trim()
-    const apiKey = (customApiConfig.apiKey || '').trim()
-    const model = (customApiConfig.model || '').trim()
-    if (!apiUrl || !apiKey || !model) {
-      throw new ValidationError('自定义 API 配置不完整：需要 apiUrl/apiKey/model')
-    }
-  }
-
-  if (!effectiveCustomApiConfig) {
-    throw new ValidationError('未配置上游 AI：请为当前 key 配置 MANIMCAT_ROUTE_API_URLS/MANIMCAT_ROUTE_API_KEYS/MANIMCAT_ROUTE_MODELS，或在请求中提供 customApiConfig')
-  }
-
-  if (!effectiveCustomApiConfig.model || !effectiveCustomApiConfig.model.trim()) {
-    throw new ValidationError('后端可达，但当前 key 未启用任何模型（model 为空）')
-  }
+  const { concept, problemPlan, outputMode, quality, code, promptOverrides, videoConfig, referenceImages, renderCacheKey } = parsed
+  const accessContext = requireAccessContext(res)
+  const effectiveCustomApiConfig = requireProviderConfig(accessContext)
 
   // 清理输入
   if (hasPromptOverrides(promptOverrides)) {
-    requirePromptOverrideAuth(req)
+    logger.debug('请求携带 promptOverrides', { mode: accessContext.mode })
   }
 
   const sanitizedConcept = normalizeGenerationConcept(concept)
@@ -105,7 +86,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
       : undefined,
     hasPreGeneratedCode: !!code,
     hasCustomApiConfig: !!effectiveCustomApiConfig,
-    routeByManimcatKey: !customApiConfig && !!routedCustomApiConfig,
+    connectionMode: accessContext.mode,
     referenceImageCount: sanitizedReferenceImages?.length || 0,
     videoConfig,
     renderCacheKey: stableRenderCacheKey
@@ -119,13 +100,11 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   })
 
   try {
-    if (authenticatedManimcatApiKey) {
-      await storeJobAccess({
-        jobId,
-        apiKey: authenticatedManimcatApiKey,
-        clientId,
-      })
-    }
+    await storeJobAccess({
+      jobId,
+      ownerId: accessContext.ownerId,
+      clientId,
+    })
 
     await videoQueue.add(
       {
@@ -151,7 +130,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   } catch (error) {
     await Promise.allSettled([
       deleteJobStage(jobId),
-      authenticatedManimcatApiKey ? deleteJobAccess(jobId) : Promise.resolve(),
+      deleteJobAccess(jobId),
     ])
     throw error
   }
@@ -173,6 +152,6 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
  * POST /api/generate
  * 提交视频生成任务
  */
-router.post('/generate', authMiddleware, asyncHandler(handleGenerateRequest))
+router.post('/generate', accessMiddleware, asyncHandler(handleGenerateRequest))
 
 export default router

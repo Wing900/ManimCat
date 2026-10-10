@@ -11,7 +11,8 @@
 
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
+import { requireAccessContext } from '../http/access-context'
 import { assertJobAccess, getJobAccessCreatedAt } from '../rendering/job/job-access-store'
 import { createLogger } from '../shared/logging/logger'
 import { getJobResult, getBullJobStatus } from '../infrastructure/redis/job/redis-job-result-store'
@@ -34,7 +35,7 @@ const JOB_TRACKING_STALE_MS = Number.isFinite(configuredTrackingStaleMs) && conf
  */
 router.get(
   '/jobs/:jobId',
-  authMiddleware,
+  accessMiddleware,
   asyncHandler(async (req: Request, res: Response) => {
     const { jobId } = req.params
 
@@ -48,7 +49,7 @@ router.get(
     logger.debug('检查任务状态', { jobId })
     await assertJobAccess({
       jobId,
-      apiKey: res.locals.manimcatApiKey as string,
+      ownerId: requireAccessContext(res).ownerId,
       clientId: getRequestClientId(req),
     })
     const tracking = await getJobTrackingState(jobId)

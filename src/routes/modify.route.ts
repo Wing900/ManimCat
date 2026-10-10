@@ -12,9 +12,10 @@ import { storeJobStage } from '../infrastructure/redis/job/redis-job-state-store
 import { createLogger } from '../shared/logging/logger'
 import { ValidationError } from '../shared/errors/errors'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
+import { requireAccessContext } from '../http/access-context'
+import { requireProviderConfig } from '../access'
 import type { GenerateResponse } from '../types'
-import { requirePromptOverrideAuth } from '../utils/auth-utils'
 import { hasPromptOverrides } from '../utils/prompt-overrides'
 import {
   customApiConfigSchema,
@@ -22,7 +23,6 @@ import {
   qualitySchema,
   videoConfigSchema
 } from './schemas/common'
-import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
 import { deleteJobAccess, storeJobAccess } from '../rendering/job/job-access-store'
@@ -45,30 +45,12 @@ const bodySchema = z.object({
 
 async function handleModifyRequest(req: express.Request, res: express.Response) {
   const parsed = bodySchema.parse(req.body)
-  const { concept, outputMode, quality, instructions, code, customApiConfig, promptOverrides, videoConfig, renderCacheKey } = parsed
-  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
-  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
-  const effectiveCustomApiConfig = customApiConfig ?? routedCustomApiConfig
-
-  if (customApiConfig) {
-    const apiUrl = (customApiConfig.apiUrl || '').trim()
-    const apiKey = (customApiConfig.apiKey || '').trim()
-    const model = (customApiConfig.model || '').trim()
-    if (!apiUrl || !apiKey || !model) {
-      throw new ValidationError('自定义 API 配置不完整：需要 apiUrl/apiKey/model')
-    }
-  }
-
-  if (!effectiveCustomApiConfig) {
-    throw new ValidationError('未配置上游 AI：请为当前 key 配置 MANIMCAT_ROUTE_API_URLS/MANIMCAT_ROUTE_API_KEYS/MANIMCAT_ROUTE_MODELS，或在请求中提供 customApiConfig')
-  }
-
-  if (!effectiveCustomApiConfig.model || !effectiveCustomApiConfig.model.trim()) {
-    throw new ValidationError('后端可达，但当前 key 未启用任何模型（model 为空）')
-  }
+  const { concept, outputMode, quality, instructions, code, promptOverrides, videoConfig, renderCacheKey } = parsed
+  const accessContext = requireAccessContext(res)
+  const effectiveCustomApiConfig = requireProviderConfig(accessContext)
 
   if (hasPromptOverrides(promptOverrides)) {
-    requirePromptOverrideAuth(req)
+    logger.debug('请求携带 promptOverrides', { mode: accessContext.mode })
   }
 
   const sanitizedConcept = concept.trim().replace(/\s+/g, ' ')
@@ -93,7 +75,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     quality,
     hasCode: !!code,
     hasCustomApiConfig: !!effectiveCustomApiConfig,
-    routeByManimcatKey: !customApiConfig && !!routedCustomApiConfig,
+    connectionMode: accessContext.mode,
     videoConfig,
     renderCacheKey: stableRenderCacheKey
   })
@@ -105,13 +87,11 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
   })
 
   try {
-    if (authenticatedManimcatApiKey) {
-      await storeJobAccess({
-        jobId,
-        apiKey: authenticatedManimcatApiKey,
-        clientId,
-      })
-    }
+    await storeJobAccess({
+      jobId,
+      ownerId: accessContext.ownerId,
+      clientId,
+    })
 
     await videoQueue.add(
       {
@@ -136,7 +116,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
   } catch (error) {
     await Promise.allSettled([
       deleteJobStage(jobId),
-      authenticatedManimcatApiKey ? deleteJobAccess(jobId) : Promise.resolve(),
+      deleteJobAccess(jobId),
     ])
     throw error
   }
@@ -152,6 +132,6 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
   res.status(202).json(response)
 }
 
-router.post('/modify', authMiddleware, asyncHandler(handleModifyRequest))
+router.post('/modify', accessMiddleware, asyncHandler(handleModifyRequest))
 
 export default router

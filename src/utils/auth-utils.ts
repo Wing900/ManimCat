@@ -1,7 +1,8 @@
-import type { Request } from 'express'
-import { AuthenticationError } from '../shared/errors/errors'
-import { getAllowedManimcatApiKeys, hasManimcatApiKey } from './manimcat-auth'
-
+/**
+ * Bearer 提取。
+ *
+ * 访问控制本身已经搬进 `../access`：这里只剩这一个纯格式工具，不含任何凭据校验。
+ */
 export function extractBearerToken(authHeader: string | string[] | undefined): string {
   if (!authHeader) return ''
 
@@ -14,16 +15,4 @@ export function extractBearerToken(authHeader: string | string[] | undefined): s
   }
 
   return ''
-}
-
-export function requirePromptOverrideAuth(req: Pick<Request, 'headers'>): void {
-  const keys = getAllowedManimcatApiKeys()
-  if (keys.length === 0) {
-    throw new AuthenticationError('Prompt overrides require MANIMCAT_ROUTE_KEYS to be set.')
-  }
-
-  const token = extractBearerToken(req.headers?.authorization)
-  if (!token || !hasManimcatApiKey(token)) {
-    throw new AuthenticationError('Prompt overrides require a valid ManimCat API key token.')
-  }
 }

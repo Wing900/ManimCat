@@ -3,7 +3,7 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
 import { ValidationError } from '../shared/errors/errors'
 
 const router = express.Router()
@@ -79,7 +79,7 @@ async function handleReferenceImageUpload(req: express.Request, res: express.Res
 
 router.post(
   '/reference-images',
-  authMiddleware,
+  accessMiddleware,
   express.raw({
     type: 'image/*',
     limit: `${MAX_REFERENCE_IMAGE_UPLOAD_BYTES}b`

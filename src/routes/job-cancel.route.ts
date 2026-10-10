@@ -5,7 +5,8 @@
 
 import express, { type Request, type Response } from 'express'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
+import { requireAccessContext } from '../http/access-context'
 import { assertJobAccess } from '../rendering/job/job-access-store'
 import { cancelJob } from '../rendering/job/job-cancel'
 import { ValidationError } from '../shared/errors/errors'
@@ -15,7 +16,7 @@ const router = express.Router()
 
 router.post(
   '/jobs/:jobId/cancel',
-  authMiddleware,
+  accessMiddleware,
   asyncHandler(async (req: Request, res: Response) => {
     const { jobId } = req.params
 
@@ -25,7 +26,7 @@ router.post(
 
     await assertJobAccess({
       jobId,
-      apiKey: res.locals.manimcatApiKey as string,
+      ownerId: requireAccessContext(res).ownerId,
       clientId: getRequestClientId(req),
     })
 

@@ -35,7 +35,7 @@ export const appConfig = {
     pretty: process.env.NODE_ENV === 'development'
   },
 
-  // AI 配置（上游地址/密钥/模型由 MANIMCAT_ROUTE_* 或请求 customApiConfig 提供）
+  // AI 配置（上游地址/密钥/模型来自 AccessContext：CatKey 用服务端固定上游，BYOK 用请求携带的配置）
   ai: {
     temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
     maxTokens: parseInt(process.env.AI_MAX_TOKENS || '12000', 10),
@@ -60,15 +60,22 @@ export const appConfig = {
 } as const
 
 export function validateConfig(): void {
-  const routeKeys = process.env.MANIMCAT_ROUTE_KEYS?.trim()
-  const routeApiUrls = process.env.MANIMCAT_ROUTE_API_URLS?.trim()
-  const routeApiKeys = process.env.MANIMCAT_ROUTE_API_KEYS?.trim()
-  const routeModels = process.env.MANIMCAT_ROUTE_MODELS?.trim()
-  const hasRouteBasedUpstream = Boolean(routeKeys && routeApiUrls && routeApiKeys && routeModels)
+  const catKeyUpstreamUrl = process.env.CATKEY_UPSTREAM_URL?.trim()
+  const catKeyUpstreamKey = process.env.CATKEY_UPSTREAM_API_KEY?.trim()
+  const hasCatKeyUpstream = Boolean(catKeyUpstreamUrl && catKeyUpstreamKey)
 
-  if (!hasRouteBasedUpstream) {
+  if (!hasCatKeyUpstream) {
     console.warn(
-      '[Config] No MANIMCAT_ROUTE_* upstream mapping found. AI requests need customApiConfig per request.'
+      '[Config] 未配置 CATKEY_UPSTREAM_URL/CATKEY_UPSTREAM_API_KEY：CatKey 模式将返回 503，BYOK 模式不受影响。'
+    )
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL?.trim()
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY)?.trim()
+
+  if (hasCatKeyUpstream && (!supabaseUrl || !supabaseKey)) {
+    console.warn(
+      '[Config] CatKey 上游已配置，但缺少 SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY：CatKey 无法校验。'
     )
   }
 }

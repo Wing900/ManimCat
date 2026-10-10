@@ -9,6 +9,7 @@ import type { StudioExternalEvent } from '../../studio-agent/infrastructure/even
 import type { StudioStartRunInput, StudioStartRunResult } from '../../studio-agent/runtime/run-service'
 import type { StudioEventStreamInput } from './studio-agent-sse'
 import type { StudioEffectiveCustomApiConfigResolution } from './studio-agent-api-config'
+import type { ConnectionMode } from '../../access'
 import { createLogger } from '../../shared/logging/logger'
 import { getStudioTelemetry, readElapsedMs } from '../../studio-agent/infrastructure/telemetry/studio-telemetry'
 import { matchesStudioEventScope } from '../../studio-agent/domain/event-scope'
@@ -45,6 +46,7 @@ export interface StudioSceneRouteDependencies {
   /** Transport opener of the SSE stream, injected so a spec can observe it without a socket. */
   openEventStream: (input: StudioEventStreamInput) => void
   resolveEffectiveCustomApiConfig: (input: {
+    mode: StudioSceneRunRequestInput['mode']
     requestCustomApiConfig?: StudioStartRunInput['customApiConfig']
     routedCustomApiConfig?: StudioStartRunInput['customApiConfig']
   }) => StudioEffectiveCustomApiConfigResolution
@@ -55,6 +57,8 @@ export interface StudioSceneRouteDependencies {
 export interface StudioSceneRunRequestInput {
   res: Response
   ownerId: string
+  /** The connection that produced this request; CatKey config may not be overridden. */
+  mode: ConnectionMode
   sessionId: string
   sceneId: string
   body: unknown
@@ -101,6 +105,7 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
   const { session, scene } = authorized
   const projectId = parsed.projectId ?? 'default-project'
   const customApiConfigResolution = deps.resolveEffectiveCustomApiConfig({
+    mode: input.mode,
     requestCustomApiConfig: parsed.customApiConfig,
     routedCustomApiConfig: input.routedCustomApiConfig
   })

@@ -1,9 +1,10 @@
 import express from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
+import { requireAccessContext } from '../http/access-context'
+import { requireProviderConfig } from '../access'
 import { ValidationError } from '../shared/errors/errors'
-import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 import { generateProblemFramingPlan } from '../workflow/problem-framing/problem-framing'
 import { customApiConfigSchema, promptOverridesSchema } from './schemas/common'
 import { referenceImagesSchema } from './helpers/reference-images'
@@ -35,28 +36,9 @@ const bodySchema = z.object({
   customApiConfig: customApiConfigSchema.optional()
 })
 
-router.post('/problem-frame', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/problem-frame', accessMiddleware, asyncHandler(async (req, res) => {
   const parsed = bodySchema.parse(req.body)
-  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
-  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
-  const effectiveCustomApiConfig = parsed.customApiConfig ?? routedCustomApiConfig
-
-  if (parsed.customApiConfig) {
-    const apiUrl = (parsed.customApiConfig.apiUrl || '').trim()
-    const apiKey = (parsed.customApiConfig.apiKey || '').trim()
-    const model = (parsed.customApiConfig.model || '').trim()
-    if (!apiUrl || !apiKey || !model) {
-      throw new ValidationError('自定义 API 配置不完整：需要 apiUrl/apiKey/model')
-    }
-  }
-
-  if (!effectiveCustomApiConfig) {
-    throw new ValidationError('未配置上游 AI：请先配置当前使用的模型')
-  }
-
-  if (!effectiveCustomApiConfig.model || !effectiveCustomApiConfig.model.trim()) {
-    throw new ValidationError('后端可达，但当前 key 未启用任何模型（model 为空）')
-  }
+  const effectiveCustomApiConfig = requireProviderConfig(requireAccessContext(res))
 
   const concept = parsed.concept.trim().replace(/\s+/g, ' ')
   if (!concept) {

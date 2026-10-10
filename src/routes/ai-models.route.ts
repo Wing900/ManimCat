@@ -1,88 +1,64 @@
 /**
  * AI 模型列表路由
- * 用于获取上游 OpenAI-compatible 服务的模型列表
+ * 用于获取当前连接方式对应上游的模型列表
  */
 
 import express, { type Request, type Response } from 'express'
 import OpenAI from 'openai'
-import { z } from 'zod'
 import { asyncHandler } from '../http/middleware/async-route'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
+import { requireAccessContext } from '../http/access-context'
 import { createLogger } from '../shared/logging/logger'
 import { listBackendAIModels } from '../infrastructure/ai-provider/provider-model-catalog'
-import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
 
 const router = express.Router()
 const logger = createLogger('AiModelsRoute')
 
-const bodySchema = z.object({
-  customApiConfig: z
-    .object({
-      apiUrl: z.string(),
-      apiKey: z.string(),
-      model: z.string().optional().default('')
-    })
-    .optional()
-})
-
 router.post(
   '/ai/models',
-  authMiddleware,
+  accessMiddleware,
   asyncHandler(async (req: Request, res: Response) => {
     const start = Date.now()
+    const accessContext = requireAccessContext(res)
 
     try {
-      const parsed = bodySchema.parse(req.body || {})
-      const manimcatKey = res.locals.manimcatApiKey as string | undefined
-      const routed = resolveCustomApiConfigByManimcatKey(manimcatKey)
+      // A BYOK connection may legitimately have no upstream configured yet — the Settings page
+      // fetches models to *fill* the form. That is an empty list, not an error.
+      const providerConfig = accessContext.providerConfig
 
-      if (parsed.customApiConfig) {
-        const apiUrl = (parsed.customApiConfig.apiUrl || '').trim()
-        const apiKey = (parsed.customApiConfig.apiKey || '').trim()
-        if (!apiUrl || !apiKey) {
-          const duration = Date.now() - start
-          return res.status(400).json({
-            success: false,
-            error: '自定义 API 配置不完整：需要 apiUrl/apiKey',
-            duration
-          })
-        }
-      }
-
-      const effectiveConfig = parsed.customApiConfig ?? routed
-
-      if (!effectiveConfig) {
-        const duration = Date.now() - start
+      if (!providerConfig) {
         return res.status(200).json({
           success: true,
+          mode: accessContext.mode,
           models: [],
-          warning:
-            'Backend is reachable, but no upstream AI is configured for this key. Configure MANIMCAT_ROUTE_API_URLS/MANIMCAT_ROUTE_API_KEYS to fetch models, or pass customApiConfig (apiUrl/apiKey).',
-          duration
+          warning: '尚未配置可用的 API 地址与密钥，无法获取模型列表',
+          duration: Date.now() - start
         })
       }
 
-      const models = await listBackendAIModels(effectiveConfig)
-      const duration = Date.now() - start
+      const models = await listBackendAIModels(providerConfig)
 
       return res.status(200).json({
         success: true,
+        mode: accessContext.mode,
         models,
-        duration
+        duration: Date.now() - start
       })
     } catch (error) {
       const duration = Date.now() - start
 
+      // An upstream rejection is a real answer about the connection, so its status and message
+      // are passed through rather than flattened into a 500.
       if (error instanceof OpenAI.APIError) {
-        logger.error('获取模型列表失败', {
+        logger.warn('获取模型列表被上游拒绝', {
           status: error.status,
           code: error.code,
-          type: error.type,
-          message: error.message
+          type: error.type
         })
 
         return res.status(error.status ?? 500).json({
           success: false,
+          mode: accessContext.mode,
           error: error.message,
           status: error.status,
           code: error.code,
@@ -91,13 +67,7 @@ router.post(
         })
       }
 
-      logger.error('获取模型列表失败', { error: String(error) })
-
-      return res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        duration
-      })
+      throw error
     }
   })
 )

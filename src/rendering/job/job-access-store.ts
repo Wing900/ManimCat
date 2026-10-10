@@ -6,20 +6,20 @@ const JOB_ACCESS_KEY_PREFIX = `${REDIS_KEYS.JOB_ACCESS}`
 const DEFAULT_RETENTION_HOURS = 24
 
 interface StoredJobAccessRecord {
-  apiKeyHash: string
+  ownerIdHash: string
   clientId?: string
   createdAt: number
 }
 
 interface StoreJobAccessInput {
   jobId: string
-  apiKey: string
+  ownerId: string
   clientId?: string
 }
 
 interface AssertJobAccessInput {
   jobId: string
-  apiKey: string
+  ownerId: string
   clientId?: string
 }
 
@@ -29,14 +29,19 @@ function getRetentionSeconds(): number {
   return hours * 60 * 60
 }
 
-function hashApiKey(apiKey: string): string {
-  return crypto.createHash('sha256').update(apiKey).digest('hex')
+/**
+ * Job ownership is keyed on the AccessContext owner id, not on the raw credential: a Route no
+ * longer holds the credential, and the owner id is already a hash. Hashing it once more keeps the
+ * stored record opaque to anyone reading Redis directly.
+ */
+function hashOwnerId(ownerId: string): string {
+  return crypto.createHash('sha256').update(ownerId).digest('hex')
 }
 
 export async function storeJobAccess(input: StoreJobAccessInput): Promise<void> {
   const key = generateRedisKey(JOB_ACCESS_KEY_PREFIX, input.jobId)
   const payload: StoredJobAccessRecord = {
-    apiKeyHash: hashApiKey(input.apiKey),
+    ownerIdHash: hashOwnerId(input.ownerId),
     clientId: input.clientId?.trim() || undefined,
     createdAt: Date.now(),
   }
@@ -59,8 +64,8 @@ export async function assertJobAccess(input: AssertJobAccessInput): Promise<void
     throw new ForbiddenError('当前任务的访问元数据无效')
   }
 
-  if (record.apiKeyHash !== hashApiKey(input.apiKey)) {
-    throw new ForbiddenError('当前任务不属于这个 API key')
+  if (record.ownerIdHash !== hashOwnerId(input.ownerId)) {
+    throw new ForbiddenError('当前任务不属于这个访问身份')
   }
 
   const expectedClientId = record.clientId?.trim()

@@ -487,6 +487,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: fixture.session.id,
       sceneId: SCENE_A,
       body: { inputText: 'draw a circle' },
@@ -518,6 +519,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: identityOverrideResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: 'draw', sessionId: 'another-session' },
@@ -536,6 +538,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: blankInputResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: '   ' },
@@ -549,6 +552,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: unreachableResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: 'draw' },
@@ -562,6 +566,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: vanishedResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: 'draw' },
@@ -576,6 +581,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: conflictResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: 'draw' },
@@ -593,6 +599,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: unavailableResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: 'draw' },
@@ -606,6 +613,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     await handleStudioSceneRunRequest({
       res: snapshotFailedResponse.res,
       ownerId: OWNER_ID,
+      mode: 'byok',
       sessionId: SESSION_ID,
       sceneId: SCENE_A,
       body: { inputText: 'draw' },

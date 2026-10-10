@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../http/middleware/auth'
+import { accessMiddleware } from '../http/middleware/access'
 import { asyncHandler } from '../http/middleware/async-route'
 import { studioRuntime } from '../studio-agent/runtime/runtime-service'
 import {
@@ -27,7 +27,7 @@ import {
 import { ensureDefaultStudioWorkspaceExists } from '../studio-agent/infrastructure/workspace/default-studio-workspace'
 import { requireStudioPrincipal } from '../studio-agent/auth/principal'
 import { createLogger } from '../shared/logging/logger'
-import { resolveCustomApiConfigByManimcatKey } from '../utils/manimcat-routing'
+import { requireAccessContext } from '../http/access-context'
 import { getStudioTelemetry, readElapsedMs } from '../studio-agent/infrastructure/telemetry/studio-telemetry'
 import type { StudioSessionSnapshot } from '../studio-agent/domain/types'
 import {
@@ -57,7 +57,7 @@ const studioSceneRouteDependencies: StudioSceneRouteDependencies = {
   resolveEffectiveCustomApiConfig: resolveStudioEffectiveCustomApiConfig,
 }
 
-router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/studio-agent/sessions', accessMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioCreateSessionRequest(req.body)
   const principal = requireStudioPrincipal(res)
   const projectId = parsed.projectId ?? 'default-project'
@@ -84,7 +84,7 @@ router.post('/studio-agent/sessions', authMiddleware, asyncHandler(async (req, r
   sendStudioSuccess(res, { session: toPublicStudioSession(session) })
 }))
 
-router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/studio-agent/sessions/:sessionId', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const snapshot = await studioRuntime.getSessionSnapshot(principal.ownerId, req.params.sessionId)
   if (!snapshot) {
@@ -94,7 +94,7 @@ router.get('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(asy
   sendStudioSuccess(res, toPublicStudioSnapshot(snapshot))
 }))
 
-router.delete('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(async (req, res) => {
+router.delete('/studio-agent/sessions/:sessionId', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const deleted = await studioRuntime.deleteSession(principal.ownerId, req.params.sessionId)
   if (!deleted) {
@@ -106,7 +106,7 @@ router.delete('/studio-agent/sessions/:sessionId', authMiddleware, asyncHandler(
   sendStudioSuccess(res, { deleted: true })
 }))
 
-router.post('/studio-agent/sessions/:sessionId/scenes', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/studio-agent/sessions/:sessionId/scenes', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   if (!studioCreateSceneRequestSchema.safeParse(req.body ?? {}).success) {
     return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid scene creation request')
@@ -137,7 +137,7 @@ router.post('/studio-agent/sessions/:sessionId/scenes', authMiddleware, asyncHan
   sendStudioSuccess(res, { scene: toPublicStudioScene(outcome.scene) }, 201)
 }))
 
-router.put('/studio-agent/sessions/:sessionId/scenes/order', authMiddleware, asyncHandler(async (req, res) => {
+router.put('/studio-agent/sessions/:sessionId/scenes/order', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const parsed = studioSceneOrderRequestSchema.safeParse(req.body)
   if (!parsed.success) {
@@ -167,7 +167,7 @@ router.put('/studio-agent/sessions/:sessionId/scenes/order', authMiddleware, asy
   sendStudioSuccess(res, { scenes: outcome.scenes.map(toPublicStudioScene) })
 }))
 
-router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const params = parseStudioScenePathParams(req.params)
   if (!params) {
@@ -202,7 +202,7 @@ router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId', authMiddleware, 
   sendStudioSuccess(res, toPublicStudioSceneSnapshot(snapshot))
 }))
 
-router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/renders/:renderId/video', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/renders/:renderId/video', accessMiddleware, asyncHandler(async (req, res) => {
   // The browser keeps the only durable copy of a Render, so this endpoint is a hand-off: it streams
   // the file and then deletes it. A client that misses the stream re-renders instead of retrying.
   const principal = requireStudioPrincipal(res)
@@ -219,7 +219,7 @@ router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/renders/:renderId/
   })
 }))
 
-router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/studio-agent/runs/:runId', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const run = await studioRuntime.getRun(principal.ownerId, req.params.runId)
   if (!run) {
@@ -229,7 +229,7 @@ router.get('/studio-agent/runs/:runId', authMiddleware, asyncHandler(async (req,
   sendStudioSuccess(res, { run: toPublicStudioRun(run) })
 }))
 
-router.get('/studio-agent/sessions/:sessionId/events', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/studio-agent/sessions/:sessionId/events', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const sessionId = req.params.sessionId
   const session = await studioRuntime.getSession(principal.ownerId, sessionId)
@@ -251,7 +251,7 @@ router.get('/studio-agent/sessions/:sessionId/events', authMiddleware, asyncHand
  * written, so a rejected request is plain JSON; the filter then drops sibling Scene events and
  * Legacy Session events while the Event Bus stays Session-keyed.
  */
-router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/events', authMiddleware, asyncHandler(async (req, res) => {
+router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/events', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const params = parseStudioScenePathParams(req.params)
   if (!params) {
@@ -273,28 +273,28 @@ router.get('/studio-agent/sessions/:sessionId/scenes/:sceneId/events', authMiddl
  * so an attempted `sessionId`/`sceneId` override is rejected instead of ignored, and the Scene is
  * proved to belong to the authenticated owner and to the URL Session before admission.
  */
-router.post('/studio-agent/sessions/:sessionId/scenes/:sceneId/runs', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/studio-agent/sessions/:sessionId/scenes/:sceneId/runs', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const params = parseStudioScenePathParams(req.params)
   if (!params) {
     return sendStudioError(res, 400, 'INVALID_INPUT', 'Invalid session or scene identifier')
   }
 
-  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
-  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
+  const accessContext = requireAccessContext(res)
 
   await handleStudioSceneRunRequest({
     res,
     ownerId: principal.ownerId,
+    mode: accessContext.mode,
     sessionId: params.sessionId,
     sceneId: params.sceneId,
     body: req.body,
-    routedCustomApiConfig,
+    routedCustomApiConfig: accessContext.providerConfig,
     deps: studioSceneRouteDependencies,
   })
 }))
 
-router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/studio-agent/runs', accessMiddleware, asyncHandler(async (req, res) => {
   const requestStartedAt = Date.now()
   const parsed = parseStudioCreateRunRequest(req.body)
   const principal = requireStudioPrincipal(res)
@@ -311,11 +311,11 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
     return sendStudioError(res, 404, 'NOT_FOUND', 'Session not found', { sessionId })
   }
 
-  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
-  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
+  const accessContext = requireAccessContext(res)
   const customApiConfigResolution = resolveStudioEffectiveCustomApiConfig({
+    mode: accessContext.mode,
     requestCustomApiConfig: parsed.customApiConfig,
-    routedCustomApiConfig
+    routedCustomApiConfig: accessContext.providerConfig
   })
 
   getStudioTelemetry().event({ studioKind: session.studioKind, name: 'http.run.requested', data: {
@@ -381,15 +381,15 @@ router.post('/studio-agent/runs', authMiddleware, asyncHandler(async (req, res) 
   }, 202)
 }))
 
-router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/studio-agent/runs/:runId/continue', accessMiddleware, asyncHandler(async (req, res) => {
   const parsed = parseStudioContinueRunRequest(req.body)
   const principal = requireStudioPrincipal(res)
   const projectId = parsed.projectId ?? 'default-project'
-  const authenticatedManimcatApiKey = res.locals.manimcatApiKey as string | undefined
-  const routedCustomApiConfig = resolveCustomApiConfigByManimcatKey(authenticatedManimcatApiKey)
+  const accessContext = requireAccessContext(res)
   const customApiConfigResolution = resolveStudioEffectiveCustomApiConfig({
+    mode: accessContext.mode,
     requestCustomApiConfig: parsed.customApiConfig,
-    routedCustomApiConfig
+    routedCustomApiConfig: accessContext.providerConfig
   })
 
   const continued = await studioRuntime.continueRun({
@@ -449,7 +449,7 @@ router.post('/studio-agent/runs/:runId/continue', authMiddleware, asyncHandler(a
   }, 202)
 }))
 
-router.post('/studio-agent/runs/:runId/cancel', authMiddleware, asyncHandler(async (req, res) => {
+router.post('/studio-agent/runs/:runId/cancel', accessMiddleware, asyncHandler(async (req, res) => {
   const principal = requireStudioPrincipal(res)
   const cancelled = await studioRuntime.cancelRun({
     ownerId: principal.ownerId,

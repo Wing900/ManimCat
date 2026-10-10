@@ -13,8 +13,8 @@ import jobCancelRouter from './job-cancel.route'
 import promptsRouter from './prompts.route'
 import healthRouter from './health.route'
 import metricsRouter from './metrics.route'
-import aiTestRouter from './ai-test.route'
 import aiModelsRouter from './ai-models.route'
+import accessRouter from './access.route'
 import referenceImageUploadRouter from './reference-image-upload.route'
 import renderFailuresRouter from './render-failures.route'
 import problemFrameRouter from './problem-frame.route'
@@ -31,7 +31,7 @@ router.use('/api', modifyRouter)
 router.use('/api', jobStatusRouter)
 router.use('/api', jobCancelRouter)
 router.use('/api', promptsRouter)
-router.use('/api', aiTestRouter)
+router.use('/api', accessRouter)
 router.use('/api', aiModelsRouter)
 router.use('/api', referenceImageUploadRouter)
 router.use('/api', problemFrameRouter)
