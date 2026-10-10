@@ -25,6 +25,22 @@ One row per `session.run` is required, not an optimisation: the INT8 graph quant
 activations per call, so a row's vector moves with the rows beside it. The same text scores
 0.9948 against itself in a batch of 2, 0.9879 in a batch of 24, and 1.000000 alone.
 
+## Documents are committed, queries are not
+
+The 1352 SearchDoc sentences are encoded once, offline, and committed next to their catalogs:
+`data/api-catalog/<package>/search-vectors.f32` plus the index that pins the row order, the
+width and this model's SHA-256. Startup reads that matrix (105 ms instead of 7484 ms); the
+runtime encodes only the one query, which is why the model files are still needed.
+
+Rebuild it after any change to a `search.json`, to this model or to the inference path:
+
+```
+npm run build:search-vectors
+```
+
+The loader refuses to start on a row-count, row-order, width or model mismatch, so documents
+and queries cannot quietly end up in different vector spaces.
+
 | file | bytes |
 |---|---|
 | `config.json` | 650 |

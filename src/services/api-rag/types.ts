@@ -1,10 +1,12 @@
 /**
  * Package-neutral API RAG types.
  *
- * Every answer comes from two committed data files:
+ * Every answer comes from committed data files:
  *
- *   data/api-catalog/<package>/baseline.json  what exists (facts)
- *   data/api-catalog/<package>/search.json    how it is asked for (recall)
+ *   data/api-catalog/<package>/baseline.json           what exists (facts)
+ *   data/api-catalog/<package>/search.json             how it is asked for (recall)
+ *   data/api-catalog/<package>/search-vectors.f32      the SearchDoc matrix, built once
+ *   data/api-catalog/<package>/search-vectors.index.json  its row order, width and model
  *
  * The Search Catalog may only change ranking. Only the Baseline may decide whether
  * an API exists.

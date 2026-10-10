@@ -10,6 +10,7 @@
     "build": "npm run build:frontend",
     "build:backend": "tsc",
     "prune:onnxruntime-web": "node scripts/prune-onnxruntime-web.mjs",
+    "build:search-vectors": "tsx scripts/build-search-vectors.ts",
     "build:frontend": "cd frontend && npm run build",
     "start": "tsx src/server.ts",
     "test": "npm run test:frontend && npm run test:workflow && npm run test:studio-agent",

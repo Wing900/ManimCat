@@ -5,6 +5,7 @@ import {
   assertSearchCatalogResolvable,
   readSearchCatalog
 } from './search-catalog'
+import { committedSearchVectors, type SearchVectorsSource } from './search-vectors'
 import {
   API_RAG_TOP_K,
   type ApiCatalog,
@@ -28,6 +29,8 @@ export interface ApiRagServiceOptions {
   /** Packages this process may answer for. A package without a Search Catalog stays unregistered. */
   packages: readonly ApiCatalogPackage[]
   topK?: number
+  /** Defaults to the committed SearchDoc matrices under data/api-catalog. */
+  searchVectors?: SearchVectorsSource
 }
 
 /**
@@ -41,12 +44,14 @@ export interface ApiRagServiceOptions {
  */
 export class ApiRagService {
   private readonly embedding: EmbeddingModel
+  private readonly searchVectors: SearchVectorsSource
   private readonly topK: number
   private readonly registrations = new Map<ApiCatalogPackage, SearchCatalog>()
   private readonly indexes = new Map<ApiCatalogPackage, Promise<PackageIndex>>()
 
   constructor(options: ApiRagServiceOptions) {
     this.embedding = options.embedding
+    this.searchVectors = options.searchVectors ?? committedSearchVectors
     this.topK = options.topK ?? API_RAG_TOP_K
     for (const packageName of options.packages) {
       const searchCatalog = readSearchCatalog(packageName)
@@ -138,21 +143,19 @@ export class ApiRagService {
     const resolver = createBaselineResolver(catalog)
     assertSearchCatalogResolvable(searchCatalog, resolver, packageName)
 
+    // The document vectors are committed, so startup reads them instead of encoding 1352 rows.
+    // The loader proves the row order, the width and the model match this process.
     const symbols = Object.keys(searchCatalog)
-    const vectors = await this.embedding.embed(symbols.map((symbol) => searchCatalog[symbol]))
-    if (vectors.length !== symbols.length) {
-      throw new Error(
-        `Embedding model returned ${vectors.length} vectors for ${symbols.length} SearchDoc entries`
-      )
-    }
+    const dimensions = this.embedding.dimensions
+    const vectors = await this.searchVectors.load(packageName, symbols, dimensions)
 
     const retriever = createCosineRetriever(
       symbols.map((symbol, position) => ({
         symbol,
         searchDoc: searchCatalog[symbol],
-        embedding: vectors[position]
+        embedding: vectors.subarray(position * dimensions, (position + 1) * dimensions)
       })),
-      this.embedding.dimensions
+      dimensions
     )
 
     return { catalog, resolver, retriever }

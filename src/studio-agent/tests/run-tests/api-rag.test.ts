@@ -14,6 +14,10 @@ import {
   validateSearchCatalog
 } from '../../../services/api-rag/search-catalog'
 import { API_RAG_TOP_K, type EmbeddingModel } from '../../../services/api-rag/types'
+import {
+  loadSearchVectors,
+  type SearchVectorsSource
+} from '../../../services/api-rag/search-vectors'
 import { createStudioSearchApiTool, SEARCH_API_TOOL_NAME } from '../../tools/search-api-tool'
 import { run } from './factories'
 
@@ -35,6 +39,25 @@ function createDeterministicEmbedding(): EmbeddingModel {
   }
 }
 
+/**
+ * The committed matrices hold 384-wide MiniLM output, so a test that swaps the embedding model
+ * must swap the matrix too: this one encodes the same Search Catalog sentences with the fake model.
+ */
+function createFakeSearchVectors(): SearchVectorsSource {
+  const embedding = createDeterministicEmbedding()
+  return {
+    async load(packageName, symbols, dimensions) {
+      const catalog = readSearchCatalog(packageName)
+      assert.ok(catalog, `${packageName} must have a Search Catalog`)
+      const flat = new Float32Array(symbols.length * dimensions)
+      for (const [row, symbol] of symbols.entries()) {
+        const [vector] = await embedding.embed([catalog[symbol]])
+        flat.set(vector, row * dimensions)
+      }
+      return flat
+    }
+  }
+}
 
 
 export async function runApiRagTests(): Promise<void> {
@@ -115,6 +138,7 @@ export async function runApiRagTests(): Promise<void> {
 
     const service = new ApiRagService({
       embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
       packages: ['manim', 'matplotlib']
     })
     assert.deepEqual(service.registeredPackages, ['manim', 'matplotlib'])
@@ -126,6 +150,7 @@ export async function runApiRagTests(): Promise<void> {
     // A package whose catalog file is absent is simply not registered.
     const single = new ApiRagService({
       embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
       packages: ['manim']
     })
     assert.deepEqual(single.registeredPackages, ['manim'])
@@ -154,6 +179,7 @@ export async function runApiRagTests(): Promise<void> {
   await run('api rag service verifies named symbols and augments recalled candidates', async () => {
     const service = new ApiRagService({
       embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
       packages: ['manim']
     })
     await service.ready()
@@ -203,9 +229,30 @@ export async function runApiRagTests(): Promise<void> {
     assert.equal(manim.verify('axes').canonicalSymbol, 'manim.Axes')
   })
 
+  await run('the committed SearchDoc matrix matches its catalog, width and model', async () => {
+    for (const packageName of ['manim', 'matplotlib'] as const) {
+      const catalog = readSearchCatalog(packageName)
+      assert.ok(catalog)
+      const symbols = Object.keys(catalog)
+      const vectors = await loadSearchVectors(packageName, symbols, 384)
+      assert.equal(vectors.length, symbols.length * 384)
+
+      // MiniLM output is L2-normalized, so every committed row is a unit vector.
+      for (const row of [0, Math.floor(symbols.length / 2), symbols.length - 1]) {
+        const offset = row * 384
+        let squared = 0
+        for (let index = 0; index < 384; index += 1) {
+          squared += vectors[offset + index] ** 2
+        }
+        assert.ok(Math.abs(Math.sqrt(squared) - 1) < 1e-4, `${packageName} row ${row} is not normalized`)
+      }
+    }
+  })
+
   await run('the search_api tool passes structured JSON to the Builder', async () => {
     const service = new ApiRagService({
       embedding: createDeterministicEmbedding(),
+      searchVectors: createFakeSearchVectors(),
       packages: ['manim']
     })
     const tool = createStudioSearchApiTool({ service, packageName: 'manim', studioKind: 'manim' })
