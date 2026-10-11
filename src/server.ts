@@ -18,7 +18,7 @@ import { appConfig, initializeExpressApp } from './server/bootstrap'
 import { setupShutdownHandlers, tryListen } from './server/lifecycle'
 import { getApiRagService } from './knowledge/api-rag'
 import { setStudioTelemetry } from './studio-agent/infrastructure/telemetry/studio-telemetry'
-import { createPlotStudioTelemetryAdapter } from './studio-agent/infrastructure/telemetry/plot-studio-timing'
+import { createStudioTelemetryAdapter } from './studio-agent/infrastructure/telemetry/studio-timing'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
 
 // 导入队列处理器以启动 worker
@@ -71,9 +71,8 @@ async function startServer(): Promise<void> {
     // leaving the product able to answer with invented APIs.
     await getApiRagService().ready()
 
-    // The shared Runtime emits neutral telemetry events; the Matplotlib adapter wires them
-    // to the existing Chinese-label logger and console timeline.
-    setStudioTelemetry(createPlotStudioTelemetryAdapter())
+    // Shared timing covers admission, preparation and model response for both Studio modes.
+    setStudioTelemetry(createStudioTelemetryAdapter())
 
     if (!stopMediaCleanupScheduler) {
       stopMediaCleanupScheduler = startMediaCleanupScheduler()

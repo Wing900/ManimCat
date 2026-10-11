@@ -55,6 +55,7 @@ export class StudioRunProcessor {
     let activeReasoningPartId: string | null = null
     let blocked = false
     let needsCompaction = false
+    let replyLogged = false
 
     for await (const event of input.events) {
       switch (event.type) {
@@ -223,6 +224,14 @@ export class StudioRunProcessor {
         case 'text-end': {
           const text = activeTextValue.trim()
           if (text) {
+            if (!replyLogged) {
+              getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'assistant.first_text', data: {
+                sessionId: input.session.id,
+                runId: input.run.id,
+                runElapsedMs: readRunElapsedMs(input.run),
+              } })
+              replyLogged = true
+            }
             getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'assistant.text', data: {
               sessionId: input.session.id,
               runId: input.run.id,
