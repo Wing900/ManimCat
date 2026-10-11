@@ -11,18 +11,18 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
-import { API_RAG_PACKAGES } from '../src/services/api-rag'
-import { readSearchCatalog } from '../src/services/api-rag/search-catalog'
+import { API_RAG_PACKAGES } from '../src/knowledge/api-rag'
+import { readSearchCatalog } from '../src/knowledge/api-rag/search-catalog'
 import {
   MINI_LM_MODEL_FILE,
   createMiniLmEmbedding,
   miniLmModelDirectory
-} from '../src/services/api-rag/mini-lm-embedding'
+} from '../src/knowledge/api-rag/mini-lm-embedding'
 import {
   searchVectorsDataPath,
   searchVectorsIndexPath,
   type SearchVectorsIndex
-} from '../src/services/api-rag/search-vectors'
+} from '../src/knowledge/api-rag/search-vectors'
 
 const PROGRESS_EVERY = 100
 
