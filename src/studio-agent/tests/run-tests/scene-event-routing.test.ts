@@ -507,7 +507,8 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     assert.equal(fixture.calls.getScene, 1)
     // The authorized pair is reused, so the Session is read exactly once for the whole request.
     assert.equal(fixture.calls.getSession, 1)
-    assert.equal(fixture.calls.getSceneSnapshot, 1)
+    assert.equal(fixture.calls.getSceneSnapshot, 0)
+    assert.equal(payload.data.incremental, true)
 
     const serialized = JSON.stringify(payload)
     assert.equal(serialized.includes('ownerId'), false)
@@ -622,7 +623,8 @@ export async function runSceneEventRoutingTests(): Promise<void> {
       body: { inputText: 'draw' },
       deps: snapshotFailed.deps
     })
-    assert.equal(snapshotFailedResponse.capture.statusCode, 503)
+    assert.equal(snapshotFailedResponse.capture.statusCode, 202)
+    assert.equal(snapshotFailed.calls.getSceneSnapshot, 0)
     assert.equal(snapshotFailed.calls.startRun, 1)
   })
 

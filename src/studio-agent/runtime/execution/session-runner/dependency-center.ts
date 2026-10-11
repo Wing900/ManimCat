@@ -1,8 +1,10 @@
 import type { CustomApiConfig } from '../../../../types'
+import type { StudioConversationBuffer } from '../../../domain/conversation-buffer'
 import type { StudioRunProcessor } from '../run-processor'
 import type { StudioRunExecutionResult } from '../../tools/tool-runtime-context'
 import type {
   StudioAssistantMessage,
+  StudioUserMessage,
   StudioEventBus,
   StudioMessageStore,
   StudioPartStore,
@@ -20,6 +22,7 @@ import type { StudioToolRegistry } from '../../../tools/registry'
 import type { StudioModelPort } from '../../../model/studio-model-port'
 
 export interface StudioSessionRunnerOptions {
+  conversationBuffer?: StudioConversationBuffer
   registry: StudioToolRegistry
   messageStore: StudioMessageStore
   partStore: StudioPartStore
@@ -68,14 +71,24 @@ export interface StudioPreparedRunExecution {
   }
 }
 
+export interface StudioAcceptedRunContext {
+  input: StudioRunRequestInput
+  run: StudioRun
+  userMessage: StudioUserMessage
+  assistantMessage: StudioAssistantMessage
+  eventBus: StudioEventBus
+}
+
 export interface StudioBackgroundRunHandle {
   run: StudioRun
+  userMessage?: StudioUserMessage
   assistantMessage: StudioAssistantMessage
   abort: (reason?: string) => void
   completion: Promise<StudioRunExecutionResult & { run: StudioRun; assistantMessage: StudioAssistantMessage }>
 }
 
 export interface StudioSessionRunnerDependencies {
+  conversationBuffer?: StudioConversationBuffer
   registry: StudioToolRegistry
   processor: StudioRunProcessor
   messageStore: StudioMessageStore
@@ -118,6 +131,7 @@ export function createDependencyCenter(
     renderStore: options.renderStore,
     sceneStore: options.sceneStore,
     sharedEventBus: options.eventBus,
+    conversationBuffer: options.conversationBuffer,
     createRun: input.createRun,
     createAssistantMessage: input.createAssistantMessage,
     buildRenderContext: input.buildRenderContext

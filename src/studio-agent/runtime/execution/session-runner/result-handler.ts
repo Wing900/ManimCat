@@ -13,6 +13,10 @@ import type {
 } from '../../../domain/types'
 import type { StudioSessionRunnerDependencies } from './dependency-center'
 import type { StudioRunExecutionResult } from '../../tools/tool-runtime-context'
+import { createLogger } from '../../../../shared/logging/logger'
+import { readElapsedMs } from '../../../infrastructure/telemetry/studio-telemetry'
+
+const logger = createLogger('StudioConversation')
 
 export async function handleCancelledRun(
   deps: StudioSessionRunnerDependencies,
@@ -111,6 +115,18 @@ async function applyTerminalRunState(
 ): Promise<StudioRun> {
   const bus = eventBus ?? deps.sharedEventBus ?? new InMemoryStudioEventBus()
   const store = deps.runStore
+
+  try {
+    const savingAt = Date.now()
+    await deps.conversationBuffer?.flush({ sessionId: run.sessionId, sceneId: run.sceneId })
+    logger.info('conversation.saved', {
+      sessionId: run.sessionId, runId: run.id, saveDurationMs: readElapsedMs(savingAt),
+    })
+  } catch (error) {
+    // Success requires a saved conversation; failed/cancelled tasks must still become terminal.
+    if (next.status === 'completed') throw error
+    logger.error('Conversation save failed; live conversation retained', { runId: run.id, error })
+  }
 
   if (!store) {
     // No persistence in this configuration: the local state is the only state there is.

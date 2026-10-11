@@ -13,9 +13,10 @@ import type {
   StudioSessionRunnerOptions
 } from './dependency-center'
 import { createAssistantMessage, createRun } from './factory'
-import { buildRenderContext, prepareRun } from './preparer'
+import { acceptRun, buildRenderContext, prepareRun } from './preparer'
+import { handleCancelledRun, handleFailedRun } from './result-handler'
+import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../run-cancellation'
 import { routePreparedRun } from './router'
-import { executePreparedStream } from './execution-manager'
 import { createDependencyCenter } from './dependency-center'
 
 export class StudioSessionRunner {
@@ -52,9 +53,30 @@ export class StudioSessionRunner {
   }
 
   async startBackgroundRun(input: StudioRunRequestInput): Promise<StudioBackgroundRunHandle> {
-    const prepared = await prepareRun(this.deps, input)
+    const scope = { sessionId: input.session.id, sceneId: input.sceneId }
+    await this.deps.conversationBuffer?.begin(scope)
+    let accepted: Awaited<ReturnType<typeof acceptRun>>
+    try {
+      accepted = await acceptRun(this.deps, input)
+    } catch (error) {
+      await this.deps.conversationBuffer?.flush(scope)
+      throw error
+    }
     const abortController = new AbortController()
-    const completion = this.executePreparedRun(prepared, abortController.signal)
+    const completion = (async () => {
+      let prepared: StudioPreparedRunContext
+      try {
+        throwIfStudioRunCancelled(abortController.signal)
+        prepared = await prepareRun(this.deps, accepted)
+        throwIfStudioRunCancelled(abortController.signal)
+      } catch (error) {
+        if (isStudioRunCancelledError(error)) {
+          return handleCancelledRun(this.deps, { session: input.session, run: accepted.run, reason: error.reason })
+        }
+        return handleFailedRun(this.deps, { session: input.session, run: accepted.run, error })
+      }
+      return this.executePreparedRun(prepared, abortController.signal)
+    })()
 
     // A Run can fail before it takes its first await — the provider configuration is checked
     // synchronously — which makes this promise already rejected the moment it exists. Its consumer
@@ -65,8 +87,9 @@ export class StudioSessionRunner {
     void completion.catch(() => undefined)
 
     return {
-      run: prepared.run,
-      assistantMessage: prepared.assistantMessage,
+      run: accepted.run,
+      userMessage: accepted.userMessage,
+      assistantMessage: accepted.assistantMessage,
       abort: (reason?: string) => abortController.abort(reason ?? 'Run cancelled'),
       completion
     }

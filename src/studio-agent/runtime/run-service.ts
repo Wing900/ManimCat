@@ -2,6 +2,7 @@ import { materializeStudioSceneSources } from '../scenes/materialize-studio-scen
 import type { CustomApiConfig } from '../../types'
 import type {
   StudioAssistantMessage,
+  StudioUserMessage,
   StudioEventBus,
   StudioRun,
   StudioSession,
@@ -76,7 +77,7 @@ export interface StudioContinueRunInput {
  * "the coordination layer could not answer", which HTTP could only report as one conflict.
  */
 export type StudioStartRunResult =
-  | { status: 'started'; run: StudioRun; assistantMessage: StudioAssistantMessage }
+  | { status: 'started'; run: StudioRun; assistantMessage: StudioAssistantMessage; userMessage?: StudioUserMessage }
   | { status: 'conflict' }
   /** Unknown, foreign-owner or foreign-Session Scene: collapsed on purpose, never distinguished. */
   | { status: 'not_found' }
@@ -198,6 +199,7 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
     return {
       status: 'started',
       run: handle.run,
+      userMessage: handle.userMessage,
       assistantMessage: handle.assistantMessage
     }
   }

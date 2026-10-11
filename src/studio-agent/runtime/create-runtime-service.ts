@@ -2,6 +2,7 @@ import type { StudioAgentEvent, StudioEventBus, StudioRender } from '../domain/t
 import { InMemoryStudioEventBus } from '../infrastructure/events/event-bus'
 import { adaptStudioEvent, type StudioExternalEvent } from '../infrastructure/events/studio-event-adapter'
 import type { StudioPersistence } from '../infrastructure/persistence/studio-persistence'
+import { withBufferedStudioConversations } from '../infrastructure/persistence/buffered-studio-conversations'
 import { StudioToolRegistry } from '../tools/registry'
 import { StudioBuilderRuntime } from './builder-runtime'
 import type { StudioWorkspaceProvider } from '../infrastructure/workspace/studio-workspace-provider'
@@ -58,6 +59,7 @@ export interface StudioRuntimeService extends StudioSessionService, StudioRunSer
 }
 
 export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInput): StudioRuntimeService {
+  input = { ...input, persistence: withBufferedStudioConversations(input.persistence) }
   const registry = input.registry ?? new StudioToolRegistry()
   const eventBus: StudioEventBus = input.eventBus ?? new InMemoryStudioEventBus()
 
@@ -79,6 +81,7 @@ export function createStudioRuntimeService(input: CreateStudioRuntimeServiceInpu
     runStore: input.persistence.runStore,
     renderStore: input.persistence.renderStore,
     sceneStore: input.persistence.sceneStore,
+    conversationBuffer: input.persistence.conversationBuffer,
     eventBus,
   })
   const sessionService = createStudioSessionService({

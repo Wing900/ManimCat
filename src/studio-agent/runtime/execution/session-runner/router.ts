@@ -9,7 +9,7 @@ import { hasUsableCustomApiConfig } from './factory'
 import { createAgentLoopExecution } from './execution-factories'
 import { executePreparedStream } from './execution-manager'
 import { handleCancelledRun, handleFailedRun } from './result-handler'
-import { isStudioRunCancelledError } from '../run-cancellation'
+import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../run-cancellation'
 
 export async function routePreparedRun(
   deps: StudioSessionRunnerDependencies,
@@ -18,6 +18,7 @@ export async function routePreparedRun(
 ): Promise<{ run: StudioRun; assistantMessage: StudioAssistantMessage; text: string }> {
   let execution: StudioPreparedRunExecution
   try {
+    throwIfStudioRunCancelled(abortSignal)
     execution = createExecution(deps, prepared, abortSignal)
   } catch (error) {
     // Nothing has streamed yet, but `prepareRun` already stored this Run as `running`. A failure

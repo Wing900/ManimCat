@@ -6,8 +6,11 @@ import type {
   StudioSceneStore,
   StudioSessionStore,
 } from '../../domain/types'
+import type { StudioConversationBuffer, StudioConversationWriter } from '../../domain/conversation-buffer'
 
 export interface StudioPersistence {
+  conversationWriter?: StudioConversationWriter
+  conversationBuffer?: StudioConversationBuffer
   sessionStore: StudioSessionStore
   messageStore: StudioMessageStore
   partStore: StudioPartStore

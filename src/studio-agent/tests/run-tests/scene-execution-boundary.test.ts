@@ -466,19 +466,20 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const model = new ScriptedStudioModel([completion('never reached')])
     const runner = sessionRunnerFor(fixture, sharedRegistry())
     await assert.rejects(
-      () => runner.startBackgroundRun({
+      async () => (await runner.startBackgroundRun({
         projectId: PROJECT_ID,
         session: fixture.session,
         sceneId: 'scene_escaped',
         inputText: 'draw',
         modelPort: model
-      }),
+      })).completion,
       (error: unknown) => error instanceof StudioRunExecutionScopeError && error.reason === 'unsafe_scene_source'
     )
 
     assert.equal(model.requests.length, 0)
-    assert.deepEqual(await fixture.persistence.runStore.listBySessionId(fixture.session.ownerId, fixture.session.id), [])
-    assert.deepEqual(await fixture.persistence.messageStore.listBySessionId(fixture.session.id), [])
+    const failed = await fixture.persistence.runStore.listBySceneId(fixture.session.ownerId, 'scene_escaped')
+    assert.equal(failed.length, 1)
+    assert.equal(failed[0].status, 'failed')
   })
 
   await run('a missing, non-file, symlinked or symlink-ancestor current source fails closed before the model', async () => {
@@ -518,21 +519,22 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
         (error: unknown) => error instanceof StudioRunExecutionScopeError && error.reason === 'unsafe_scene_source'
       )
 
-      // And a Run never reaches the provider or persists a record for it.
+      // The admitted task fails asynchronously before any provider/tool access.
       const model = new ScriptedStudioModel([completion('never reached')])
       await assert.rejects(
-        () => sessionRunnerFor(fixture, sharedRegistry()).startBackgroundRun({
+        async () => (await sessionRunnerFor(fixture, sharedRegistry()).startBackgroundRun({
           projectId: PROJECT_ID,
           session: fixture.session,
           sceneId: broken.id,
           inputText: 'draw',
           modelPort: model
-        }),
+        })).completion,
         (error: unknown) => error instanceof StudioRunExecutionScopeError && error.reason === 'unsafe_scene_source'
       )
       assert.equal(model.requests.length, 0)
-      assert.deepEqual(await fixture.persistence.runStore.listBySessionId(fixture.session.ownerId, fixture.session.id), [])
-      assert.deepEqual(await fixture.persistence.messageStore.listBySessionId(fixture.session.id), [])
+      const failed = await fixture.persistence.runStore.listBySceneId(fixture.session.ownerId, broken.id)
+      assert.equal(failed.length, 1)
+      assert.equal(failed[0].status, 'failed')
     }
 
     // A valid regular source still assembles a scope.

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { StudioConversationWriter } from '../../domain/conversation-buffer'
 import type {
   StudioAssistantMessage,
   StudioMessage,
@@ -9,6 +10,26 @@ import type {
 } from '../../domain/types'
 import type { StudioMessageRow, StudioPartRow, JsonRecord } from './supabase-persistence-shared'
 import { TABLES, compactObject, asOptional, asNullable, asTimeRange, readStudioSceneId } from './supabase-persistence-shared'
+
+/** Two bounded bulk writes at the end of a Run; IDs make a failed flush retryable. */
+export function createSupabaseStudioConversationWriter(client: SupabaseClient): StudioConversationWriter {
+  return async messages => {
+    if (!messages.length) return
+    const rows = messages.map(message => message.role === 'user'
+      ? toUserMessageRow(message) : toAssistantMessageRow(message))
+    const { error } = await client.from(TABLES.messages).upsert(rows, { onConflict: 'id' })
+    if (error) throw new Error(`[StudioDB] Failed to save conversation: ${error.message}`)
+    const parts = messages.flatMap(message => message.role === 'assistant'
+      ? message.parts.map((part, index) => ({
+        ...toPartRow(part),
+        // Bulk insertion must preserve the original part order, including text/tool interleaving.
+        created_at: new Date(Date.parse(message.createdAt) + index).toISOString(),
+      })) : [])
+    if (!parts.length) return
+    const saved = await client.from(TABLES.parts).upsert(parts, { onConflict: 'id' })
+    if (saved.error) throw new Error(`[StudioDB] Failed to save conversation parts: ${saved.error.message}`)
+  }
+}
 
 export function createSupabaseStudioMessageStore(client: SupabaseClient): StudioMessageStore {
   return {

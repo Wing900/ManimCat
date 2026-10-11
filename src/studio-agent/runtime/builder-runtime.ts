@@ -1,4 +1,5 @@
 import type { CustomApiConfig } from '../../types'
+import type { StudioConversationBuffer } from '../domain/conversation-buffer'
 import type {
   StudioAssistantMessage,
   StudioEventBus,
@@ -18,6 +19,7 @@ import type { StudioBackgroundRunHandle } from './execution/session-runner/depen
 import type { StudioRunExecutionResult } from './tools/tool-runtime-context'
 
 interface StudioBuilderRuntimeOptions {
+  conversationBuffer?: StudioConversationBuffer
   registry: StudioToolRegistry
   messageStore: StudioMessageStore
   partStore: StudioPartStore
@@ -38,6 +40,7 @@ export class StudioBuilderRuntime {
       runStore: options.runStore,
       renderStore: options.renderStore,
       sceneStore: options.sceneStore,
+      conversationBuffer: options.conversationBuffer,
       eventBus: options.eventBus,
     })
   }

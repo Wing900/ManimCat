@@ -79,7 +79,7 @@ export interface StudioSceneRunRequestInput {
  *
  * Order is the contract: strict body parse (400) → Scene authorization (one non-enumerating 404) →
  * optional browser-owned conversation seed → exactly one admission call → status mapping
- * (404/409/503) → Scene snapshot → 202 with the Scene public projection plus the accepted Run. The
+ * (404/409/503) → 202 with only the new conversation records and accepted Run. The
  * authorized Session/Scene pair is reused, so no
  * second, unprotected Session read exists between admission and the response.
  */
@@ -185,25 +185,12 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
     })
   }
 
-  // The accepted Run is already persisted, so the snapshot loaded now contains it; the explicit
-  // `run` field is the canonical accepted Run of this request.
-  let snapshot: StudioSceneSnapshot | null
-  try {
-    snapshot = await deps.getSceneSnapshot(input.ownerId, session.id, scene.id)
-  } catch (error) {
-    logger.error('Scene run snapshot failed', {
-      sessionId: session.id,
-      sceneId: scene.id,
-      reason: error instanceof Error ? error.message : String(error)
-    })
-    return sendStudioError(res, 503, 'SERVICE_UNAVAILABLE', 'Scene persistence is unavailable')
-  }
-
-  if (!snapshot) {
-    return sendStudioError(res, 404, 'NOT_FOUND', 'Scene not found', {
-      sessionId: session.id,
-      sceneId: scene.id
-    })
+  // Admission already owns these records. A submit never reloads the whole conversation.
+  const snapshot: StudioSceneSnapshot = {
+    scene,
+    messages: [...(started.userMessage ? [started.userMessage] : []), started.assistantMessage],
+    runs: [started.run],
+    renders: [],
   }
 
   getStudioTelemetry().event({ studioKind: session.studioKind, name: 'http.scene_run.accepted', data: {
@@ -217,6 +204,7 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
 
   sendStudioSuccess(res, {
     ...toPublicStudioSceneSnapshot(snapshot),
+    incremental: true,
     run: toPublicStudioSceneRun(started.run)
   }, 202)
 }
