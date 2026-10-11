@@ -37,10 +37,21 @@ import { nextLocalTrashId, type LocalRenderFingerprint } from './local-scene-sta
 export type LocalSession = Omit<StudioSession, 'directory'> & {
   /** Last time a Run touched this Session, which is what the server's temporary workspace TTL reads. */
   lastActiveAt: string
+  /**
+   * The server-side Session this copy is currently stored as, or absent when it is stored as none.
+   * The server mints that id and forgets it on restart, so the binding is rewritten every time the
+   * Session is re-created there (`STUDIO_DATA_MODE=client`). An unbound Session is still a complete
+   * Session: it is what the browser owns.
+   */
+  serverSessionId?: string
 }
 
 /** A Scene plus the code that used to live in `scenes/<id>.py` on the server. */
-export type LocalScene = StudioScene & { code: string }
+export type LocalScene = StudioScene & {
+  code: string
+  /** The server-side Scene this one is currently stored as; see `LocalSession.serverSessionId`. */
+  serverSceneId?: string
+}
 
 /** A Render plus what it was rendered from, and a pointer to the Blob it produced. */
 export type LocalRender = StudioSceneRender & {
@@ -69,6 +80,8 @@ export interface LocalVideoRecord {
 
 export interface LocalStudioStore {
   createSession(input: { kind: StudioKind; title: string }): Promise<LocalSession>
+  /** Rewrites the server binding only; the Session is otherwise untouched. */
+  bindServerSession(sessionId: string, serverSessionId: string): Promise<void>
   getSession(sessionId: string): Promise<LocalSession | null>
   listSessions(kind: StudioKind): Promise<LocalSession[]>
   deleteSession(sessionId: string): Promise<void>
@@ -78,9 +91,16 @@ export interface LocalStudioStore {
   listScenes(sessionId: string): Promise<LocalScene[]>
   updateSceneCode(sessionId: string, sceneId: string, code: string): Promise<void>
   reorderScenes(sessionId: string, orderedSceneIds: string[]): Promise<void>
+  /** Rewrites the server binding only; the Scene is otherwise untouched. */
+  bindSceneServerId(sessionId: string, sceneId: string, serverSceneId: string): Promise<void>
 
   appendMessage(message: StudioSceneMessage): Promise<void>
   listMessages(sessionId: string, sceneId: string): Promise<StudioSceneMessage[]>
+  /**
+   * Every message of the Session in order, across Scenes. This is the transcript the browser replays
+   * to a Run, so it is ordered by `createdAt` and nothing else.
+   */
+  listSessionMessages(sessionId: string): Promise<StudioSceneMessage[]>
 
   putRender(render: LocalRender): Promise<void>
   getRender(sessionId: string, renderId: string): Promise<LocalRender | null>
@@ -152,6 +172,18 @@ export function createLocalStudioStore(factory: IDBFactory = indexedDB): LocalSt
         promisifyRequest(tx.objectStore(LOCAL_STUDIO_SESSIONS).put(session)),
       )
       return session
+    },
+
+    async bindServerSession(sessionId, serverSessionId) {
+      const handle = await db()
+      await runLocalTransaction(handle, LOCAL_STUDIO_SESSIONS, 'readwrite', async (tx) => {
+        const store = tx.objectStore(LOCAL_STUDIO_SESSIONS)
+        const session: LocalSession | undefined = await promisifyRequest(store.get(sessionId))
+        if (!session) {
+          throw new Error(`Unknown Session ${sessionId}`)
+        }
+        await promisifyRequest(store.put({ ...session, serverSessionId }))
+      })
     },
 
     async getSession(sessionId) {
@@ -321,6 +353,18 @@ export function createLocalStudioStore(factory: IDBFactory = indexedDB): LocalSt
       })
     },
 
+    async bindSceneServerId(sessionId, sceneId, serverSceneId) {
+      const handle = await db()
+      await runLocalTransaction(handle, LOCAL_STUDIO_SCENES, 'readwrite', async (tx) => {
+        const store = tx.objectStore(LOCAL_STUDIO_SCENES)
+        const scene: LocalScene | undefined = await promisifyRequest(store.get([sessionId, sceneId]))
+        if (!scene) {
+          throw new Error(`Unknown Scene ${sceneId} of Session ${sessionId}`)
+        }
+        await promisifyRequest(store.put({ ...scene, serverSceneId }))
+      })
+    },
+
     async appendMessage(message) {
       const handle = await db()
       await runLocalTransaction(handle, LOCAL_STUDIO_MESSAGES, 'readwrite', (tx) =>
@@ -335,6 +379,18 @@ export function createLocalStudioStore(factory: IDBFactory = indexedDB): LocalSt
         LOCAL_STUDIO_MESSAGES,
       )
       return messages.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    },
+
+    async listSessionMessages(sessionId) {
+      const handle = await db()
+      const messages = await runLocalTransaction(handle, LOCAL_STUDIO_MESSAGES, 'readonly', (tx) =>
+        promisifyRequest<StudioSceneMessage[]>(
+          tx.objectStore(LOCAL_STUDIO_MESSAGES).index('by-session').getAll(sessionId),
+        ),
+      )
+      return messages.sort(
+        (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+      )
     },
 
     async putRender(render) {

@@ -9,16 +9,10 @@ import type {
 } from '../protocol/studio-agent-types'
 import type { StudioEventSubscriptionOptions } from '../api/studio-agent-events'
 import type { StudioRequestOptions } from '../api/studio-agent-api'
-import {
-  cancelStudioRun,
-  createStudioScene,
-  createStudioSceneRun,
-  getStudioSceneSnapshot,
-  getStudioSessionSnapshot,
-  reorderStudioScenes,
-} from '../api/studio-agent-api'
 import { subscribeStudioEvents } from '../api/studio-agent-events'
-import { getLocalFirstStudioPorts, isClientDataShape } from '../local-data/local-first-runtime'
+import { studioServerPort } from '../api/studio-server-port'
+import { localFirstStudioPorts } from '../local/local-first-ports'
+import { isStudioClientDataMode } from '../../../infrastructure/api/runtime-config'
 import { resolveStudioProviderConfig } from '../api/studio-provider-config'
 import type { CustomApiConfig } from '../../../shared/types/api'
 import { readStudioCinemaRequestError, STALE_RESULT, type StudioCinemaSnapshotOutcome } from './internals/request-error'
@@ -908,24 +902,28 @@ export class StudioCinemaController {
 }
 
 /**
- * Scene 层的端口：托管形态直连服务端；客户端形态（`STUDIO_DATA_MODE=client`）换成本地优先端口，
- * 由它翻译身份、自愈服务端重启，并把本地正文叠回快照。
+ * The Scene port: the hosted shape talks to the server directly, the client shape
+ * (`STUDIO_DATA_MODE=client`) swaps in the local-first port that translates identity, rebuilds a
+ * Session the server has forgotten, and overlays the transcript this browser owns.
+ *
+ * The shape is resolved per call rather than once at module load: it arrives from
+ * `GET /api/runtime-config` while the app is booting, so a decision taken at import time would
+ * always read as "server".
  */
 function createDefaultCinemaApi(): StudioCinemaApiPort {
-  if (isClientDataShape()) {
-    return getLocalFirstStudioPorts().sceneApi;
-  }
+  const resolve = (): StudioCinemaApiPort =>
+    isStudioClientDataMode() ? localFirstStudioPorts().sceneApi : studioServerPort;
 
   return {
-    createScene: (sessionId, options) => createStudioScene(sessionId, options),
-    reorderScenes: (sessionId, sceneIds) => reorderStudioScenes(sessionId, sceneIds),
-    getSceneSnapshot: (sessionId, sceneId, options) => getStudioSceneSnapshot(sessionId, sceneId, options),
-    getSessionSnapshot: (sessionId, options) => getStudioSessionSnapshot(sessionId, options),
+    createScene: (sessionId, options) => resolve().createScene(sessionId, options),
+    reorderScenes: (sessionId, sceneIds) => resolve().reorderScenes(sessionId, sceneIds),
+    getSceneSnapshot: (sessionId, sceneId, options) => resolve().getSceneSnapshot(sessionId, sceneId, options),
+    getSessionSnapshot: (sessionId, options) => resolve().getSessionSnapshot(sessionId, options),
     createSceneRun: (sessionId, sceneId, input, options) =>
-      createStudioSceneRun(sessionId, sceneId, input, options),
-    // Preserve property presence: an absent Run is the status-only compatibility shape;
-    // explicitly supplied malformed/null Runs must still reach the verdict as rejected.
-    cancelRun: (runId) => cancelStudioRun({ runId }),
+      resolve().createSceneRun(sessionId, sceneId, input, options),
+    // Forwarded as one argument: an absent Run must stay absent (status-only), while an explicitly
+    // malformed/null Run still has to reach the verdict as rejected.
+    cancelRun: (runId) => resolve().cancelRun(runId),
   };
 }
 

@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  createStudioSession,
-  deleteStudioSession,
-  getStudioSessionSnapshot,
-} from '../../api/studio-agent-api'
 import type { StudioKind, StudioSession } from '../../protocol/studio-agent-types'
+import { studioServerPort } from '../../api/studio-server-port'
+import { localFirstStudioPorts } from '../../local/local-first-ports'
+import { isStudioClientDataMode } from '../../../../infrastructure/api/runtime-config'
 import {
   forgetStudioSessionId,
   readLastStudioSessionId,
@@ -12,9 +10,9 @@ import {
   rememberStudioSessionId,
   writeLastStudioSessionId,
 } from '../../session-history/session-storage'
-import { getLocalFirstStudioPorts, isClientDataShape } from '../../local-data/local-first-runtime'
 import {
   StudioCinemaSessionGateway,
+  type StudioCinemaSessionGatewayApi,
   type StudioCinemaSessionGatewayDependencies,
   type StudioCinemaSessionGatewayStorage,
   type StudioCinemaSessionOutcome,
@@ -96,18 +94,27 @@ export function createDefaultStudioCinemaSessionStorage(): StudioCinemaSessionGa
   }
 }
 
+/**
+ * The Session port, resolved per call for the same reason as the Scene port: the shape is decided by
+ * `GET /api/runtime-config` while the app is booting, and in the client shape
+ * (`STUDIO_DATA_MODE=client`) the session identity belongs to this browser.
+ */
+function createDefaultSessionApi(): StudioCinemaSessionGatewayApi {
+  const resolve = (): StudioCinemaSessionGatewayApi =>
+    isStudioClientDataMode() ? localFirstStudioPorts().sessionApi : studioServerPort
+
+  return {
+    createSession: (input) => resolve().createSession(input),
+    getSessionSnapshot: (sessionId, options) => resolve().getSessionSnapshot(sessionId, options),
+    deleteSession: (sessionId) => resolve().deleteSession(sessionId),
+  }
+}
+
 function createDefaultDependencies(
   title: string
 ): Omit<StudioCinemaSessionGatewayDependencies, 'storage' | 'isOwned'> {
   return {
-    // 托管形态直连服务端；客户端形态（`STUDIO_DATA_MODE=client`）会话身份由浏览器持有。
-    api: isClientDataShape()
-      ? getLocalFirstStudioPorts().sessionApi
-      : {
-          createSession: (input) => createStudioSession(input),
-          getSessionSnapshot: (sessionId, options) => getStudioSessionSnapshot(sessionId, options),
-          deleteSession: (sessionId) => deleteStudioSession(sessionId),
-        },
+    api: createDefaultSessionApi(),
     createAbortController: () => new AbortController(),
     projectId: STUDIO_CINEMA_SESSION_PROJECT_ID,
     defaultTitle: title,
