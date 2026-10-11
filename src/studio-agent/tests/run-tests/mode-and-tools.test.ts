@@ -1,5 +1,6 @@
 import type { StudioKind } from '../../domain/core-types'
 import assert from 'node:assert/strict'
+import path from 'node:path'
 import {
   createLegacyRunExecutionScope,
   createStudioAssistantMessage,
@@ -30,14 +31,16 @@ import { getStudioModeDefinition } from '../../modes/studio-mode'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { getApiRagService } from '../../../knowledge/api-rag'
 
-function createToolContext(studioKind: StudioKind): StudioRuntimeBackedToolContext {
+async function createToolContext(studioKind: StudioKind): Promise<StudioRuntimeBackedToolContext> {
   const session = createStudioSession({
     ownerId: 'owner-test',
     projectId: 'project-1',
     studioKind,
     agentType: 'builder',
     title: `${studioKind} test session`,
-    directory: `/workspace/${studioKind}`
+    // A real directory: render admission reserves its output workspace on disk, so a root-anchored
+    // literal like `/workspace/${studioKind}` only works where that path happens to be writable.
+    directory: await createWorkspace()
   })
   const runRecord = createStudioRun({
     ownerId: session.ownerId,
@@ -190,7 +193,7 @@ export async function runModeAndToolTests(): Promise<void> {
         resultPort: createUnavailableStudioRenderResultPort()
       })
     )
-    const context = createToolContext('manim')
+    const context = await createToolContext('manim')
 
     const result = await tool.execute({
       concept: 'A test scene',
@@ -208,7 +211,7 @@ export async function runModeAndToolTests(): Promise<void> {
   await run('Manim render persists before queue submission and records failure', async () => {
     const order: string[] = []
     const renderStore = new InMemoryStudioRenderStore()
-    const context = createToolContext('manim')
+    const context = await createToolContext('manim')
     const eventBus = new RecordingEventBus()
     context.eventBus = eventBus
     context.renderStore = {
@@ -257,11 +260,15 @@ export async function runModeAndToolTests(): Promise<void> {
   })
 
   await run('Plot render tool uses an injected render port', async () => {
+    const context = await createToolContext('matplotlib')
+    // Built inside the real workspace: the driver reports workspace-relative paths, which a
+    // root-anchored literal (on another drive, or an unwritable `/workspace`) cannot be.
+    const workspace = context.session.directory
     const execution: PlotRenderExecution = {
-      outputDir: '/workspace/matplotlib/renders/plot-test',
-      scriptPath: '/workspace/matplotlib/renders/plot-test/plot_script.py',
+      outputDir: path.join(workspace, 'renders', 'plot-test'),
+      scriptPath: path.join(workspace, 'renders', 'plot-test', 'plot_script.py'),
       imageDataUris: ['data:image/png;base64,test'],
-      imagePaths: ['/workspace/matplotlib/renders/plot-test/plot_1.png'],
+      imagePaths: [path.join(workspace, 'renders', 'plot-test', 'plot_1.png')],
       stdout: 'ok',
       stderr: ''
     }
@@ -276,7 +283,6 @@ export async function runModeAndToolTests(): Promise<void> {
         }
       })
     )
-    const context = createToolContext('matplotlib')
     const eventBus = new RecordingEventBus()
     context.eventBus = eventBus
 
