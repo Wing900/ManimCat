@@ -1,4 +1,4 @@
-export const DEFAULT_STUDIO_AUTONOMY_MAX_STEPS = 24
+export const DEFAULT_STUDIO_AUTONOMY_MAX_STEPS = 100
 export const DEFAULT_STUDIO_AUTONOMY_MAX_CONSECUTIVE_FAILURES = 3
 
 export interface StudioRunAutonomyMetadata {

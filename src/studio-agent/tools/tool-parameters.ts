@@ -61,7 +61,7 @@ export const searchApiToolParameters: StudioToolParameters = {
   properties: {
     query: {
       type: 'string',
-      description: 'Lowercase verb + object + context sentence describing what the code must do.',
+      description: 'Lowercase English verb + object + context sentence describing what the code must do. Example: add numeric labels to coordinate axes.',
       minLength: 1,
       maxLength: 500,
     },
