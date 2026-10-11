@@ -18,6 +18,7 @@ import {
   type RecordTokenUsageInput
 } from './application/record-token-usage'
 import { readCatKeyUpstreamConfig } from './infrastructure/catkey-upstream-config'
+import { createCachedCatKeyRepository } from './infrastructure/cached-cat-key-repository'
 import { createSupabaseCatKeyRepository } from './infrastructure/supabase/supabase-cat-key-repository'
 import { createSupabaseUsageRepository } from './infrastructure/supabase/supabase-usage-repository'
 import type { AccessContext } from './domain/access-context'
@@ -58,7 +59,9 @@ function requireSupabaseRepositories(): AccessRepositories {
   }
 
   repositories = {
-    catKeyRepository: createSupabaseCatKeyRepository(client),
+    // Wrapped here, at the single composition point: every CatKey lookup in the process goes through
+    // this instance, so the cache cannot be bypassed by an import that builds its own repository.
+    catKeyRepository: createCachedCatKeyRepository(createSupabaseCatKeyRepository(client)),
     usageRepository: createSupabaseUsageRepository(client)
   }
 

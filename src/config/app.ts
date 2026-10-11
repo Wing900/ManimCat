@@ -5,6 +5,7 @@
 
 import * as dotenv from 'dotenv'
 import { getStudioDataMode } from './studio-data-mode'
+import { readCatKeyCacheTtlMs } from '../access/infrastructure/cached-cat-key-repository'
 
 // 加载环境变量
 dotenv.config()
@@ -99,4 +100,6 @@ export function printConfig(): void {
   console.log(`  - PROD_SUMMARY_LOG_ONLY: ${process.env.PROD_SUMMARY_LOG_ONLY ?? '(unset, defaults to true in production)'}`)
   console.log(`  - ENABLE_STUDIO_DB: ${process.env.ENABLE_STUDIO_DB || 'false'}`)
   console.log(`  - STUDIO_DATA_MODE: ${getStudioDataMode()}`)
+  // Printed because it is the window in which a CatKey revoked by hand keeps working.
+  console.log(`  - CATKEY_CACHE_TTL_SECONDS: ${readCatKeyCacheTtlMs() / 1000}`)
 }
