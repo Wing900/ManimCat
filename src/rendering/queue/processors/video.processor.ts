@@ -5,6 +5,7 @@
 
 import { videoQueue } from '../bull-config'
 import { storeJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
+import { deleteJobStage } from '../../../infrastructure/redis/job/redis-job-state-store'
 import { touchJobTracking } from '../../../infrastructure/redis/job/redis-job-tracking-store'
 import { clearJobCancelled } from '../../job/job-cancel-store'
 import { JobCancelledError } from '../../../shared/errors/errors'
@@ -128,45 +129,31 @@ async function executeVideoJob(job: any): Promise<unknown> {
   try {
     await storeProcessingStage(jobId, initialStage, { attempt: retryMeta.currentAttempt })
 
+    let taskType: 'pre-generated' | 'ai-edit' | 'generation'
+    let result
     if (preGeneratedCode) {
-      const result = await runPreGeneratedFlow({ job, data, promptOverrides, timings })
+      result = await runPreGeneratedFlow({ job, data, promptOverrides, timings })
+      taskType = 'pre-generated'
       logger.info('Job completed (pre-generated code)', { jobId, timings })
-      emitJobSummary({
-        jobId,
-        taskType: 'pre-generated',
-        result: 'completed',
-        outputMode,
-        timings,
-        renderPeakMemoryMB: result.renderPeakMemoryMB,
-        attempt: retryMeta.currentAttempt,
-        maxAttempts: retryMeta.maxAttempts
-      })
-      await recordJobTokenUsage(data)
-      return result
-    }
-
-    if (editCode && editInstructions) {
-      const result = await runEditFlow({ job, data, promptOverrides, timings })
+    } else if (editCode && editInstructions) {
+      result = await runEditFlow({ job, data, promptOverrides, timings })
+      taskType = 'ai-edit'
       logger.info('Job completed', { jobId, source: 'ai-edit', timings })
-      emitJobSummary({
-        jobId,
-        taskType: 'ai-edit',
-        result: 'completed',
-        outputMode,
-        timings,
-        renderPeakMemoryMB: result.renderPeakMemoryMB,
-        attempt: retryMeta.currentAttempt,
-        maxAttempts: retryMeta.maxAttempts
-      })
-      await recordJobTokenUsage(data)
-      return result
+    } else {
+      result = await runGenerationFlow({ job, data, promptOverrides, timings })
+      taskType = 'generation'
+      logger.info('Job completed', { jobId, source: 'generation', timings })
     }
 
-    const result = await runGenerationFlow({ job, data, promptOverrides, timings })
-    logger.info('Job completed', { jobId, source: 'generation', timings })
+    // Terminal success: the authoritative `job:result:*` is now in place, so the intermediate
+    // `job:stage:*` / `job:tracking:*` markers are no longer needed. Removing them keeps Redis
+    // from showing a stale "rendering"/"generating" state after completion and prevents any future
+    // stage-based consumer (e.g. an SSE progress feed) from reporting a finished job as in-flight.
+    await deleteJobStage(jobId)
+
     emitJobSummary({
       jobId,
-      taskType: 'generation',
+      taskType,
       result: 'completed',
       outputMode,
       timings,
@@ -227,6 +214,10 @@ async function executeVideoJob(job: any): Promise<unknown> {
     if (!cancelReason) {
       await clearJobCancelled(jobId)
     }
+
+    // Terminal failure (no remaining Bull retries): same cleanup as success. The `willQueueRetry`
+    // branch above threw before reaching here, so this only runs when the job is truly done.
+    await deleteJobStage(jobId)
 
     if (storeOutcome === 'preserved-completed') {
       logger.warn('Duplicate execution failed after a completed result; preserving success', {
