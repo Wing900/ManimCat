@@ -4,6 +4,7 @@
  */
 
 import * as dotenv from 'dotenv'
+import { getStudioDataMode } from './studio-data-mode'
 
 // 加载环境变量
 dotenv.config()
@@ -97,4 +98,5 @@ export function printConfig(): void {
   console.log(`  - LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`)
   console.log(`  - PROD_SUMMARY_LOG_ONLY: ${process.env.PROD_SUMMARY_LOG_ONLY ?? '(unset, defaults to true in production)'}`)
   console.log(`  - ENABLE_STUDIO_DB: ${process.env.ENABLE_STUDIO_DB || 'false'}`)
+  console.log(`  - STUDIO_DATA_MODE: ${getStudioDataMode()}`)
 }

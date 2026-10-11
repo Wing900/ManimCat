@@ -16,6 +16,7 @@ import { runSceneExecutionBoundaryTests } from './run-tests/scene-execution-boun
 import { runSceneEventRoutingTests } from './run-tests/scene-event-routing.test'
 import { runRenderResultBridgeTests } from './run-tests/render-result-bridge.test'
 import { runSessionDeleteTests } from './run-tests/session-delete.test'
+import { runConversationSeedTests } from './run-tests/conversation-seed.test'
 import { runRenderCancellationTests } from './run-tests/render-cancellation.test'
 import { runRenderMediaHandoffTests } from './run-tests/render-media-handoff.test'
 import { runSceneSourceMaterializationTests } from './run-tests/scene-source-materialization.test'
@@ -41,6 +42,7 @@ async function main() {
   await runSceneEventRoutingTests()
   await runRenderResultBridgeTests()
   await runSessionDeleteTests()
+  await runConversationSeedTests()
   await runSceneSourceMaterializationTests()
   await runRenderCancellationTests()
   await runStudioWorkspaceCleanupTests()

@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { createStudioSession } from '../domain/factories'
+import { createStudioAssistantMessage, createStudioSession, createStudioUserMessage } from '../domain/factories'
 import type {
   StudioKind,
   StudioSession,
@@ -28,11 +28,31 @@ export interface StudioSessionService {
   getSession: (ownerId: string, sessionId: string) => Promise<StudioSession | null>
   getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
   /**
+   * 把一个**浏览器已经持有、服务端从未见过**的会话写进来，让下一次 Run 拿到它被给定的上下文
+   * （`STUDIO_DATA_MODE=client` 形态）。服务端已有的历史**绝不覆盖**：本地已有消息就整段忽略，
+   * 所以重放两次不会被抄成两份。返回实际写入的条数。
+   */
+  seedConversation: (seedInput: StudioConversationSeedInput) => Promise<number>
+  /**
    * Removes one Session of this owner. Everything that belongs to it goes too (the schema cascades), and
    * `false` means there was nothing to remove — which is also the answer for another owner's Session, so
    * a delete never reveals that an id exists.
    */
   deleteSession: (ownerId: string, sessionId: string) => Promise<boolean>
+}
+
+export interface StudioConversationSeedInput {
+  sessionId: string
+  conversation: StudioConversationSeedMessage[]
+  agentType?: StudioSession['agentType']
+}
+
+/**
+ * 浏览器重放的一条消息：只有角色与正文。id 与时间戳由服务端生成，所以客户端无法点名一条已存在的消息。
+ */
+export interface StudioConversationSeedMessage {
+  role: 'user' | 'assistant'
+  text: string
 }
 
 export function createStudioSessionService(input: {
@@ -87,8 +107,51 @@ export function createStudioSessionService(input: {
     return { session, messages, runs, renders, scenes }
   }
 
+  /**
+   * 助手正文存在循环回读它时所在的位置（`metadata.providerMessage.content`），所以喂进来的回复与
+   * 现场产生的回复对模型来说没有区别。
+   *
+   * 时间戳在这里不是钟，而是顺序：`client` 形态下真正的时刻由浏览器持有，服务端只负责让这一段重放
+   * 严格递增。否则连续几条会落在同一毫秒，平局再由随机 id 拆开——历史就被洗牌了。
+   */
+  async function seedConversation(seedInput: StudioConversationSeedInput): Promise<number> {
+    const existing = await input.persistence.messageStore.listBySessionId(seedInput.sessionId)
+    if (existing.length > 0) {
+      return 0
+    }
+
+    const seedStartedAt = Date.now()
+    let offset = 0
+    for (const message of seedInput.conversation) {
+      const timestamp = new Date(seedStartedAt + offset).toISOString()
+      offset += 1
+
+      if (message.role === 'user') {
+        const userMessage = createStudioUserMessage({
+          sessionId: seedInput.sessionId,
+          text: message.text,
+        })
+        userMessage.createdAt = timestamp
+        userMessage.updatedAt = timestamp
+        await input.persistence.messageStore.createUserMessage(userMessage)
+      } else {
+        const assistantMessage = createStudioAssistantMessage({
+          sessionId: seedInput.sessionId,
+          agent: seedInput.agentType ?? 'builder',
+          metadata: { providerMessage: { content: message.text } },
+        })
+        assistantMessage.createdAt = timestamp
+        assistantMessage.updatedAt = timestamp
+        await input.persistence.messageStore.createAssistantMessage(assistantMessage)
+      }
+    }
+
+    return seedInput.conversation.length
+  }
+
   return {
     createSession,
+    seedConversation,
     getSession: (ownerId, sessionId) => input.persistence.sessionStore.getById(ownerId, sessionId),
     getSessionSnapshot,
     deleteSession: (ownerId, sessionId) => input.persistence.sessionStore.delete(ownerId, sessionId),

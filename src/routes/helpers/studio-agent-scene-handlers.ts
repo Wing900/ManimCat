@@ -7,6 +7,7 @@ import type {
 } from '../../studio-agent/domain/types'
 import type { StudioExternalEvent } from '../../studio-agent/infrastructure/events/studio-event-adapter'
 import type { StudioStartRunInput, StudioStartRunResult } from '../../studio-agent/runtime/run-service'
+import type { StudioConversationSeedInput } from '../../studio-agent/runtime/session-service'
 import type { StudioEventStreamInput } from './studio-agent-sse'
 import type { StudioEffectiveCustomApiConfigResolution } from './studio-agent-api-config'
 import type { ConnectionMode } from '../../access'
@@ -42,6 +43,11 @@ export interface StudioSceneRouteDependencies {
     sceneId: string
   ) => Promise<StudioSceneSnapshot | null>
   startRun: (input: StudioStartRunInput) => Promise<StudioStartRunResult>
+  /**
+   * Writes a browser-owned conversation the server has not seen (the client data shape) before the
+   * Run reads its history. Idempotent: a history already stored here is never overwritten.
+   */
+  seedConversation: (input: StudioConversationSeedInput) => Promise<number>
   subscribeExternalEvents: StudioEventStreamInput['subscribeExternalEvents']
   /** Transport opener of the SSE stream, injected so a spec can observe it without a socket. */
   openEventStream: (input: StudioEventStreamInput) => void
@@ -72,8 +78,9 @@ export interface StudioSceneRunRequestInput {
  * Create a Run for one Scene.
  *
  * Order is the contract: strict body parse (400) → Scene authorization (one non-enumerating 404) →
- * exactly one admission call → status mapping (404/409/503) → Scene snapshot → 202 with the Scene
- * public projection plus the accepted Run. The authorized Session/Scene pair is reused, so no
+ * optional browser-owned conversation seed → exactly one admission call → status mapping
+ * (404/409/503) → Scene snapshot → 202 with the Scene public projection plus the accepted Run. The
+ * authorized Session/Scene pair is reused, so no
  * second, unprotected Session read exists between admission and the response.
  */
 export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestInput): Promise<void> {
@@ -122,6 +129,17 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
     routeByManimcatKey: customApiConfigResolution.routeByManimcatKey
   } })
   getStudioTelemetry().timeline({ studioKind: session.studioKind, name: 'scene_run.requested', detail: `${inputText.length} chars` })
+
+  // The browser owns the transcript in the client data shape, so the Run has to see it before it
+  // reads its history. After authorization on purpose: an unauthorized or malformed request must
+  // never write a message.
+  if (parsed.conversation?.length) {
+    await deps.seedConversation({
+      sessionId: session.id,
+      conversation: parsed.conversation,
+      agentType: session.agentType
+    })
+  }
 
   const started = await deps.startRun({
     ownerId: input.ownerId,

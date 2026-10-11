@@ -286,6 +286,9 @@ function createHandlerFixture(options?: {
       }
       return snapshot as StudioSceneSnapshot | null
     },
+    // The client data shape replays a browser-owned conversation; these specs never carry one, so the
+    // seed is a bag member that must exist but must not run.
+    seedConversation: async () => 0,
     startRun: async () => {
       calls.startRun += 1
       if (options?.startRunStatus === 'conflict') {

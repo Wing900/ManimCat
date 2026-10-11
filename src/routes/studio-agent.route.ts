@@ -63,6 +63,7 @@ const studioSceneRouteDependencies: StudioSceneRouteDependencies = {
   getSession: (ownerId, sessionId) => studioRuntime.getSession(ownerId, sessionId),
   getSceneSnapshot: (ownerId, sessionId, sceneId) => studioRuntime.getSceneSnapshot(ownerId, sessionId, sceneId),
   startRun: (input) => studioRuntime.startRun(input),
+  seedConversation: (seedInput) => studioRuntime.seedConversation(seedInput),
   subscribeExternalEvents: studioRuntime.subscribeExternalEvents,
   openEventStream: openStudioAgentEventStream,
   resolveEffectiveCustomApiConfig: resolveStudioEffectiveCustomApiConfig,
