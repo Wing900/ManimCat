@@ -13,7 +13,7 @@ import { loadSettings } from '../storage/settings';
 import { getConnectionHeaders, withConnectionProvider } from '../../features/connection/connection-request';
 import { localizeApiMessage, translate } from '../../shared/i18n/runtime';
 
-const API_BASE = '/api';
+export const API_BASE = '/api';
 
 /** 获取或生成浏览器端唯一标识，用于隔离历史记录 */
 function getClientId(): string {
