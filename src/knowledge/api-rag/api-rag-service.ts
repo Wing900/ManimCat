@@ -18,6 +18,12 @@ import {
   type VerificationEntry
 } from './types'
 
+/** One class may own most of the best hits; past this many, its variants make room for others. */
+const VARIANTS_PER_OWNER = 2
+
+/** Rows past this one arrive as `rank, symbol, kind, score`; the Builder re-queries for detail. */
+const FULL_DETAIL_ROWS = 3
+
 interface PackageIndex {
   catalog: ApiCatalog
   resolver: BaselineResolver
@@ -104,20 +110,13 @@ export class ApiRagService {
     }
 
     const [queryEmbedding] = await this.embedding.embed([query])
-    const hits = index.retriever.search(queryEmbedding, this.topK)
-    const candidates: CandidateEntry[] = hits.map((hit, position) => {
-      const resolved = index.resolver.resolve(hit.symbol)
-      const candidate: CandidateEntry = {
-        rank: position + 1,
-        symbol: resolved?.path ?? hit.symbol,
-        score: hit.score,
-        kind: resolved?.kind ?? 'unknown'
-      }
-      if (resolved?.owner) candidate.owner = resolved.owner
-      if (resolved?.signature) candidate.signature = resolved.signature
-      if (resolved?.doc) candidate.doc = resolved.doc
-      return candidate
-    })
+    // Score the whole index rather than a slice: scoring already visits every entry, and a symbol
+    // the Builder named must be pinnable however badly the query ranked it.
+    const hits = index.retriever.search(queryEmbedding, index.retriever.size)
+    const verifiedSymbols = verification
+      .filter((entry) => entry.verdict === 'FOUND' && entry.canonicalSymbol)
+      .map((entry) => entry.canonicalSymbol as string)
+    const candidates = selectCandidates((symbol) => index.resolver.resolve(symbol), hits, verifiedSymbols, this.topK)
 
     // A member's owner is a full dotted path, and one class owns most of a search: repeating it
     // costs more than every other field trim combined. Each distinct path is written once into
@@ -214,4 +213,78 @@ export function buildOwnerAliases(entries: Array<{ owner?: string }>): Record<st
     entry.owner = alias
   }
   return aliases
+}
+
+interface CandidateDraft {
+  symbol: string
+  score: number
+  kind: string
+  owner?: string
+  signature?: string
+  doc?: string
+}
+
+/**
+ * Fills the result window from the retriever's ranked rows, in three steps:
+ *
+ *   1. the symbols the Builder named come first, in the order it named them, so an answer never
+ *      buries the API the caller already asked about;
+ *   2. past `variantsPerOwner` rows, a further member of the same class yields its slot, so one
+ *      class cannot crowd out the API the query was actually about;
+ *   3. past `FULL_DETAIL_ROWS` rows a candidate arrives as one line, keeping the long tail
+ *      discoverable without paying a signature and a doc for every row.
+ */
+export function selectCandidates(
+  resolve: (symbol: string) => { path: string; kind: string; owner?: string; signature?: string; doc?: string } | undefined,
+  hits: ReadonlyArray<{ symbol: string; score: number }>,
+  verifiedSymbols: readonly string[],
+  limit: number,
+  variantsPerOwner: number = VARIANTS_PER_OWNER
+): CandidateEntry[] {
+  const drafts: CandidateDraft[] = hits.map((hit) => {
+    const resolved = resolve(hit.symbol)
+    const draft: CandidateDraft = {
+      symbol: resolved?.path ?? hit.symbol,
+      score: hit.score,
+      kind: resolved?.kind ?? 'unknown'
+    }
+    if (resolved?.owner) draft.owner = resolved.owner
+    if (resolved?.signature) draft.signature = resolved.signature
+    if (resolved?.doc) draft.doc = resolved.doc
+    return draft
+  })
+
+  const bySymbol = new Map(drafts.map((draft) => [draft.symbol, draft]))
+  const pinned: CandidateDraft[] = []
+  for (const symbol of verifiedSymbols) {
+    const draft = bySymbol.get(symbol)
+    if (draft && !pinned.includes(draft)) pinned.push(draft)
+  }
+  const pinnedSymbols = new Set(pinned.map((draft) => draft.symbol))
+
+  const kept: CandidateDraft[] = []
+  const ownerCounts = new Map<string, number>()
+  for (const draft of [...pinned, ...drafts.filter((entry) => !pinnedSymbols.has(entry.symbol))]) {
+    if (kept.length >= limit) break
+    const isPinned = pinnedSymbols.has(draft.symbol)
+    if (draft.owner) {
+      const used = ownerCounts.get(draft.owner) ?? 0
+      if (!isPinned && used >= variantsPerOwner) continue
+      ownerCounts.set(draft.owner, used + 1)
+    }
+    kept.push(draft)
+  }
+
+  return kept.map((draft, index) => {
+    const rank = index + 1
+    // A row the Builder named stays in full wherever it landed: it is the row it must call.
+    if (index < FULL_DETAIL_ROWS || pinnedSymbols.has(draft.symbol)) {
+      const entry: CandidateEntry = { rank, symbol: draft.symbol, score: draft.score, kind: draft.kind }
+      if (draft.owner) entry.owner = draft.owner
+      if (draft.signature) entry.signature = draft.signature
+      if (draft.doc) entry.doc = draft.doc
+      return entry
+    }
+    return { rank, symbol: draft.symbol, score: draft.score, kind: draft.kind }
+  })
 }

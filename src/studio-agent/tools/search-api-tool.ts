@@ -33,8 +33,12 @@ export function createStudioSearchApiTool(
       '`verb + object + context` sentence — the exact form the catalog is authored in, such as ' +
       '"draw a circle centered at the origin" or "plot a bar chart from values". A bare noun ' +
       'recalls almost nothing. Name every API you intend to call in `symbols`, as `Class.member` ' +
-      'when you mean a member: a bare member name is not a symbol. Never call an API the result ' +
-      'does not name, and pick from the APIs an ambiguous name lists.',
+      'when you mean a member: a bare member name is not a symbol. Rows after the third describe ' +
+      'an API in one line, as rank, symbol, kind and score; when you need the signature, the doc ' +
+      'or the owner of one of those, call search_api again with that symbol alone in `symbols`, ' +
+      'which skips the search and returns it in full. A NOT_FOUND verdict that lists ' +
+      '`suggestions` means the name exists under another class: use the class it names. Never ' +
+      'call an API the result does not name, and pick from the APIs an ambiguous name lists.',
     allowedAgents: ['builder'],
     allowedStudioKinds: [studioKind],
     execute: async (input) => {

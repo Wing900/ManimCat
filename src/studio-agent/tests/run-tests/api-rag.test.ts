@@ -7,7 +7,7 @@ import {
   validateBaselineCatalog
 } from '../../../knowledge/api-rag/baseline-catalog'
 import { createCosineRetriever, l2Normalize } from '../../../knowledge/api-rag/cosine-retriever'
-import { ApiRagService, buildOwnerAliases } from '../../../knowledge/api-rag/api-rag-service'
+import { ApiRagService, buildOwnerAliases, selectCandidates } from '../../../knowledge/api-rag/api-rag-service'
 import {
   assertSearchCatalogResolvable,
   readSearchCatalog,
@@ -331,6 +331,63 @@ export async function runApiRagTests(): Promise<void> {
       'Table#2',
       undefined
     ])
+  })
+
+  await run('the window pins named symbols, caps one owner and stays one line after three', async () => {
+    const resolve = (symbol: string) => {
+      if (symbol === 'manim.FarAway') return { path: 'manim.FarAway', kind: 'class', signature: '(x)', doc: 'far' }
+      if (symbol.startsWith('manim.Owner.m')) {
+        return { path: symbol, kind: 'method', owner: 'manim.mobject.Owner', signature: `(${symbol})`, doc: 'owned' }
+      }
+      return { path: symbol, kind: 'class', signature: '(self)', doc: 'a class' }
+    }
+    const hits = [
+      { symbol: 'manim.Owner.m1', score: 0.9 },
+      { symbol: 'manim.Owner.m2', score: 0.8 },
+      { symbol: 'manim.Owner.m3', score: 0.7 },
+      { symbol: 'manim.Owner.m4', score: 0.6 },
+      { symbol: 'manim.Other', score: 0.5 },
+      { symbol: 'manim.FarAway', score: 0.4 },
+      { symbol: 'manim.Last', score: 0.3 }
+    ]
+
+    const window = selectCandidates(resolve, hits, ['manim.FarAway'], 5)
+    assert.deepEqual(window.map((candidate) => candidate.symbol), [
+      'manim.FarAway',
+      'manim.Owner.m1',
+      'manim.Owner.m2',
+      'manim.Other',
+      'manim.Last'
+    ])
+    assert.deepEqual(window.map((candidate) => candidate.rank), [1, 2, 3, 4, 5])
+    // A named row keeps its signature and doc wherever it landed.
+    assert.equal(window[0].signature, '(x)')
+    assert.equal(window[0].doc, 'far')
+    // Past the third row only the cheap fields survive, and no owner alias leaks in.
+    assert.deepEqual(Object.keys(window[4]).sort(), ['kind', 'rank', 'score', 'symbol'])
+    assert.equal(window[1].doc, 'owned')
+
+    // The cap exempts the Builder's own names: naming a fourth member still answers for it.
+    const named = selectCandidates(resolve, hits, ['manim.Owner.m4'], 5)
+    assert.ok(named.some((candidate) => candidate.symbol === 'manim.Owner.m4'))
+  })
+
+  await run('a bare member name answers with the classes that declare it', async () => {
+    const catalog = await loadBaselineCatalog('manim')
+    const resolver = createBaselineResolver(catalog)
+
+    const bare = resolver.verify('set_color')
+    assert.equal(bare.verdict, 'NOT_FOUND')
+    assert.ok(bare.suggestions?.includes('manim.Mobject.set_color'), `expected Mobject.set_color in ${bare.suggestions?.join(', ')}`)
+
+    const member = resolver.verify('Mobject.set_color')
+    assert.equal(member.verdict, 'FOUND')
+    assert.equal(member.suggestions, undefined)
+
+    // A name that is neither a symbol nor a member stays a plain NOT_FOUND, with no hint.
+    const missing = resolver.verify('ThisApiDoesNotExist')
+    assert.equal(missing.verdict, 'NOT_FOUND')
+    assert.equal(missing.suggestions, undefined)
   })
 
   await run('the search_api tool passes structured JSON to the Builder', async () => {

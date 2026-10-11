@@ -72,6 +72,12 @@ export interface VerificationEntry {
    * Absent on a verify-only answer, where no candidate exists to point at.
    */
   see_candidate?: number
+  /**
+   * Canonical symbols whose *member* carries the requested name (`set_color` →
+   * `manim.Mobject.set_color`). Present on a `NOT_FOUND` verdict when the name exists elsewhere,
+   * so a wrong shape never looks like a missing API.
+   */
+  suggestions?: string[]
   /** Canonical paths that share the request with equal rank. Present on AMBIGUOUS. */
   candidates?: string[]
 }
@@ -83,6 +89,7 @@ export interface CandidateEntry {
   kind: string
   /** Alias into the result's `owners` map. The same class repeats on every member of a search. */
   owner?: string
+  /** Only the first few rows carry a signature, a doc and an owner; the rest stay one line. */
   signature?: string
   doc?: string
 }

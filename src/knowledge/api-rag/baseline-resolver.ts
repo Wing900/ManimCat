@@ -124,6 +124,8 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
 
   /** Member names are matched case-insensitively, so camelCase members stay reachable. */
   const memberKeyIndex = new Map<string, Map<string, string>>()
+  /** Bare member name → every canonical member path that declares it, for a `NOT_FOUND` hint. */
+  const memberNameIndex = new Map<string, string[]>()
   for (const [canonical, symbol] of Object.entries(catalog.symbols)) {
     const members = symbol.members
     if (!members) {
@@ -134,6 +136,13 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
       const lower = normalize(memberName)
       if (!byLowerName.has(lower)) {
         byLowerName.set(lower, memberName)
+      }
+      const paths = memberNameIndex.get(lower)
+      const memberPath = `${canonical}.${memberName}`
+      if (paths) {
+        paths.push(memberPath)
+      } else {
+        memberNameIndex.set(lower, [memberPath])
       }
     }
     memberKeyIndex.set(canonical, byLowerName)
@@ -176,6 +185,22 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
   function symbolFor(reference: string): ApiCatalogSymbolRecord | undefined {
     const match = symbolMatch(reference)
     return match ? catalog.symbols[match.path] : undefined
+  }
+
+  /**
+   * Canonical member paths that declare a bare member name (`set_color`), best first and deduped.
+   * Empty when the name is not a member either, which is the only real `NOT_FOUND`.
+   */
+  function suggestMembersFor(reference: string): string[] {
+    const clean = normalize(reference)
+    if (!clean || clean.includes('.')) {
+      return []
+    }
+    const paths = memberNameIndex.get(clean)
+    if (!paths) {
+      return []
+    }
+    return [...new Set(paths)].sort((left, right) => pickOrder(left).localeCompare(pickOrder(right))).slice(0, 5)
   }
 
   function memberFor(reference: string): ResolvedMember | undefined {
@@ -251,7 +276,12 @@ export function createBaselineResolver(catalog: ApiCatalog): BaselineResolver {
 
       const resolved = resolve(requested)
       if (!resolved) {
-        return { requested, verdict: 'NOT_FOUND' }
+        // A bare member name is not a symbol, but the member exists: say where it lives instead of
+        // answering the same way a genuinely missing API does.
+        const suggestions = suggestMembersFor(requested)
+        return suggestions.length > 0
+          ? { requested, verdict: 'NOT_FOUND', suggestions }
+          : { requested, verdict: 'NOT_FOUND' }
       }
       const entry: VerificationEntry = {
         requested,
