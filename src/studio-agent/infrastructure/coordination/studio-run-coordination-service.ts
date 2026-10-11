@@ -110,6 +110,15 @@ const DEFAULT_LEASE_RENEW_MS = 15_000
  * renewal aborts the local Run once, because continuing to generate would let two replicas
  * write to one scope.
  */
+/**
+ * How a scope's liveness came back: `free` only when the transport positively said so.
+ *
+ * `unknown` exists as its own answer because a registry that cannot be reached must not be read as
+ * an empty one, and a liveness sweep that confused the two would declare live Runs dead whenever
+ * Redis hiccuped.
+ */
+export type StudioRunScopeLiveness = 'held' | 'free' | 'unknown'
+
 export class StudioRunCoordinationService implements StudioRunCoordinationServicePort {
   private readonly coordinator: StudioRunCoordinatorPort
   private readonly runStore?: StudioRunStore
@@ -148,6 +157,20 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
       this.dispatchCancellation(command)
     })
     return this.startPromise
+  }
+
+  /**
+   * Liveness of one scope, asked of the transport rather than of the local registry: the sweeper's
+   * question is about *other* processes too, and this process holds no entry for a Run that died
+   * with a replica it never shared memory with.
+   */
+  async readScopeLiveness(scope: StudioRunCoordinationScope): Promise<StudioRunScopeLiveness> {
+    try {
+      return (await this.coordinator.isScopeHeld(scope)) ? 'held' : 'free'
+    } catch (error) {
+      this.logger.error('Studio Run scope liveness could not be read', messageOf(error))
+      return 'unknown'
+    }
   }
 
   async reserveScope(input: {
@@ -334,14 +357,15 @@ export class StudioRunCoordinationService implements StudioRunCoordinationServic
 
   /**
    * Runs only after the scope lease is held, which proves no live owner is left behind *in that
-   * scope*. A Legacy holder reconciles its whole Session (ruling 3); a Scene holder lists and
+   * scope* — and, in the sweeper's case, after the transport has just said the scope is free. Both
+   * callers arrive having established the same fact: no live owner. A Legacy holder reconciles its whole Session (ruling 3); a Scene holder lists and
    * reconciles that Scene only, so a sibling Scene's live Run is never touched.
    *
    * A terminal Run is never touched again. Anything else that leaves an unresolved active Run
    * (a store that cannot identify the row, a store that ignores the conditional transition, a
    * thrown query) refuses admission rather than creating a new Run beside a stale one.
    */
-  private async reconcileStaleRuns(input: {
+  async reconcileStaleRuns(input: {
     ownerId: string
     scope: StudioRunCoordinationScope
   }): Promise<boolean> {

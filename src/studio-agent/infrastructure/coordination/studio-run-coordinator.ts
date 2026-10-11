@@ -49,6 +49,15 @@ export interface StudioRunCoordinatorPort {
   requestCancellation(runId: string, reason: string): Promise<StudioRunCancellationCommand>
   /** Reads the durable marker; `null` when absent or malformed. Throws on transport failure. */
   readCancellation(runId: string): Promise<StudioRunCancellationCommand | null>
+  /**
+   * Answers whether a scope is held *right now*, from the transport's own clock.
+   *
+   * This is the question a liveness sweep asks before it declares a Run dead, so the answer is
+   * read as three-valued at the call site: `false` is free, a throw is unknown, and unknown must
+   * never be mistaken for free — an unreachable registry would otherwise let every replica declare
+   * every Run it can see dead. Read-only: asking never takes a lease from a live owner.
+   */
+  isScopeHeld(scope: StudioRunCoordinationScope): Promise<boolean>
   close(): Promise<void>
 }
 

@@ -105,6 +105,23 @@ end
 return 1
 `
 
+/**
+ * Read-only liveness probe: does this scope have a holder whose expiry is still in the future?
+ *
+ * Nothing is mutated, on purpose — asking must never take a lease away from a live owner — and the
+ * comparison uses Redis TIME, the same authority the admission scripts use, so a replica with a
+ * skewed clock cannot decide this for the others.
+ */
+const READ_ADMISSION_SCRIPT = `
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local score = redis.call('ZSCORE', KEYS[2], ARGV[1])
+if not score or tonumber(score) <= now then
+  return 0
+end
+return 1
+`
+
 export interface CreateRedisStudioRunCoordinatorOptions {
   /** Shared command/publish client; the adapter never closes it. Defaults to the shared client. */
   publisher?: Redis
@@ -262,6 +279,32 @@ export function createRedisStudioRunCoordinator(
         throw new Error('Studio Run admission returned an unexpected reply')
       }
       return lease
+    },
+
+    /**
+     * Read-only, so asking cannot take a lease from a live owner, and answered with Redis TIME
+     * rather than a replica's clock. An unreachable registry throws; the caller must read that as
+     * "unknown", never as "free".
+     */
+    async isScopeHeld(scope: StudioRunCoordinationScope): Promise<boolean> {
+      if (closePromise) {
+        throw new Error('Studio Run coordinator is closed')
+      }
+      const keys = admissionKeys(scope.sessionId)
+      const reply = await publisher.eval(
+        READ_ADMISSION_SCRIPT,
+        2,
+        keys.hash,
+        keys.expiry,
+        studioRunScopeAdmissionField(scope)
+      )
+      if (Number(reply) === 1) {
+        return true
+      }
+      if (Number(reply) === 0) {
+        return false
+      }
+      throw new Error('Studio Run admission probe returned an unexpected reply')
     },
 
     async renew(lease: StudioRunLease): Promise<StudioRunLease | null> {

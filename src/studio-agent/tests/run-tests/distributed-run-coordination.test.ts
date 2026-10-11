@@ -286,6 +286,21 @@ function createSharedBackendStudioRunCoordinator(
       backend.listeners.add(onCancellation)
     },
 
+    /** Liveness from the shared backend, mirroring the conflict matrix: any holder blocks the
+     * whole Session, and a Scene scope is held by its own holder or by a Legacy one. */
+    async isScopeHeld(scope: StudioRunCoordinationScope): Promise<boolean> {
+      if (closed || !listener) {
+        throw new Error('Studio Run coordinator is not started')
+      }
+      if (scope.kind === 'legacy-session') {
+        return sessionHoldsLiveHolder(scope.sessionId)
+      }
+      return (
+        readLiveLease(scope) !== null ||
+        sessionHoldsLiveHolder(scope.sessionId, canonicalStudioRunScopeKey(scope))
+      )
+    },
+
     async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {
       if (closed || !listener) {
         throw new Error('Studio Run coordinator is not started')
@@ -421,6 +436,22 @@ class ScriptedOwnershipCoordinator implements StudioRunCoordinatorPort {
 
   async start(onCancellation: StudioRunCancellationListener): Promise<void> {
     this.listener = onCancellation
+  }
+
+  async isScopeHeld(scope: StudioRunCoordinationScope): Promise<boolean> {
+    const ownKey = canonicalStudioRunScopeKey(scope)
+    for (const heldScope of this.liveLeases.values()) {
+      if (heldScope.sessionId !== scope.sessionId) {
+        continue
+      }
+      if (heldScope.kind === 'legacy-session' || scope.kind === 'legacy-session') {
+        return true
+      }
+      if (canonicalStudioRunScopeKey(heldScope) === ownKey) {
+        return true
+      }
+    }
+    return false
   }
 
   async tryAcquire(scope: StudioRunCoordinationScope): Promise<StudioRunLease | null> {

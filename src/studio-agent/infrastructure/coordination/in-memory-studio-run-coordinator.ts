@@ -214,6 +214,18 @@ export function createInMemoryStudioRunCoordinator(
       return readLiveCancellation(runId)
     },
 
+    /**
+     * Expired holders are dropped first, exactly as admission does, so a lease that has expired can
+     * never be reported as live — and a live one can never be reported as free.
+     */
+    async isScopeHeld(scope: StudioRunCoordinationScope): Promise<boolean> {
+      if (closed) {
+        throw new Error('Studio Run coordinator is closed')
+      }
+      pruneExpiredHolders()
+      return readHolder(holders.get(scope.sessionId), scope) !== null
+    },
+
     async close(): Promise<void> {
       if (closed) {
         return

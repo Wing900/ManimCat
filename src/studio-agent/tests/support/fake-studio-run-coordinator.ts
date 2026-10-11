@@ -4,7 +4,8 @@ import {
   type StudioRunCoordinationLogger,
   type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
-  type StudioRunLease
+  type StudioRunLease,
+  canonicalStudioRunScopeKey
 } from '../../infrastructure/coordination/studio-run-coordinator'
 import { createStudioRunCancellationCommand } from '../../infrastructure/coordination/studio-run-cancellation-codec'
 
@@ -61,8 +62,12 @@ export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
   /** When set, renewal reports lost ownership. */
   renewResult: StudioRunLease | null | undefined = undefined
   releaseResult = true
+  /** When set, the liveness probe reports a transport failure instead of an answer. */
+  scopeHeldError: Error | null = null
 
   private readonly listeners = new Set<StudioRunCancellationListener>()
+  /** Scopes acquired and not released; the liveness probe answers from here. */
+  private readonly heldScopeKeys = new Set<string>()
   private leaseCounter = 0
   private commandCounter = 0
   private readonly ownerInstanceId: string
@@ -92,6 +97,7 @@ export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
       return null
     }
     this.leaseCounter += 1
+    this.heldScopeKeys.add(canonicalStudioRunScopeKey(scope))
     return {
       scope,
       leaseId: `lease-${this.leaseCounter}`,
@@ -116,7 +122,21 @@ export class FakeStudioRunCoordinator implements StudioRunCoordinatorPort {
     if (this.releaseError) {
       throw this.releaseError
     }
+    if (this.releaseResult) {
+      this.heldScopeKeys.delete(canonicalStudioRunScopeKey(lease.scope))
+    }
     return this.releaseResult
+  }
+
+  /**
+   * Liveness, as the transport would answer it: the scopes this double acquired and has not
+   * released. `scopeHeldError` models an unreachable registry, which callers must read as unknown.
+   */
+  async isScopeHeld(scope: StudioRunCoordinationScope): Promise<boolean> {
+    if (this.scopeHeldError) {
+      throw this.scopeHeldError
+    }
+    return this.heldScopeKeys.has(canonicalStudioRunScopeKey(scope))
   }
 
   async requestCancellation(runId: string, reason: string): Promise<StudioRunCancellationCommand> {
