@@ -105,9 +105,11 @@ export async function runSceneFoundationTests(): Promise<void> {
 
     const scene = assertCreated(await service.createScene({ ownerId: session.ownerId, sessionId: session.id }))
 
-    assert.equal(
-      path.relative(path.resolve(directory), scene.sourcePath),
-      path.join('scenes', `${scene.id}.py`)
+    // The filename is a server-owned allocation id, so it stays independent of the Scene id (and of
+    // any UI reordering) while the file itself remains inside the Session's own `scenes` directory.
+    assert.match(
+      path.relative(path.resolve(directory), scene.sourcePath).replace(/\\/g, '/'),
+      /^scenes\/scene_[1-9]\d*\.py$/
     )
     assert.equal(fs.readFileSync(scene.sourcePath, 'utf8'), STUDIO_SCENE_SOURCE_TEMPLATE)
     // The file itself carries no positional or semantic name; only the path does.
@@ -143,20 +145,20 @@ export async function runSceneFoundationTests(): Promise<void> {
     assert.deepEqual(await service.listScenes(session.ownerId, session.id), [])
   })
 
-  await run('an occupied scene source fails closed without overwrite', async () => {
+  await run('an occupied scene source is skipped, never overwritten', async () => {
     const { persistence, session } = await createTestSession()
-    const sceneId = 'scene_occupied0000000000000000000001'
     const scenesDirectory = path.join(session.directory, 'scenes')
     fs.mkdirSync(scenesDirectory, { recursive: true })
-    const occupied = path.join(scenesDirectory, `${sceneId}.py`)
+    const occupied = path.join(scenesDirectory, 'scene_1.py')
     fs.writeFileSync(occupied, 'ORIGINAL = 1\n', 'utf8')
 
-    const service = createSceneService(persistence, { generateSceneId: () => sceneId })
-    const outcome = await service.createScene({ ownerId: session.ownerId, sessionId: session.id })
+    const service = createSceneService(persistence)
+    const scene = assertCreated(await service.createScene({ ownerId: session.ownerId, sessionId: session.id }))
 
-    assert.equal(outcome.status, 'source_conflict')
+    // The allocator steps past the occupied number instead of truncating it, and the scene is created.
+    assert.equal(path.basename(scene.sourcePath), 'scene_2.py')
     assert.equal(fs.readFileSync(occupied, 'utf8'), 'ORIGINAL = 1\n')
-    assert.deepEqual(await service.listScenes(session.ownerId, session.id), [])
+    assert.equal((await service.listScenes(session.ownerId, session.id)).length, 1)
   })
 
   await run('a filesystem failure leaves no persisted scene', async () => {

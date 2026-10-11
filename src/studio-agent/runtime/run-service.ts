@@ -162,9 +162,20 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
     // admission means a rejected Run (conflict, unavailable coordination) never writes anything.
     if (runInput.sceneSources) {
       try {
+        const scenes = await input.persistence.sceneStore.listBySessionId(runInput.ownerId, runInput.session.id)
+        const sourceFilenames = Object.fromEntries(scenes.map((scene) => [
+          scene.id,
+          scene.sourcePath.replace(/\\/g, '/').split('/').at(-1)!,
+        ]))
+        for (const sceneId of Object.keys(runInput.sceneSources)) {
+          if (!Object.hasOwn(sourceFilenames, sceneId)) {
+            throw new Error('Scene source does not belong to the admitted Session')
+          }
+        }
         await materializeStudioSceneSources({
           rootDirectory: runInput.session.directory,
-          sceneSources: runInput.sceneSources
+          sceneSources: runInput.sceneSources,
+          sourceFilenames,
         })
       } catch (error) {
         // The Run never came up: give the lease back instead of holding the session hostage.

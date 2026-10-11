@@ -42,6 +42,8 @@ export class StudioSceneSourceRejectedError extends Error {
 export async function materializeStudioSceneSources(input: {
   rootDirectory: string
   sceneSources: Record<string, string>
+  /** Server-owned filenames from persisted Scene records; never supplied by the browser. */
+  sourceFilenames?: Record<string, string>
 }): Promise<{ sceneIds: string[] }> {
   const sceneIds = Object.keys(input.sceneSources)
   if (sceneIds.length > MAX_STUDIO_SCENE_SOURCES) {
@@ -72,7 +74,11 @@ export async function materializeStudioSceneSources(input: {
       throw new StudioSceneSourceRejectedError('source_too_large', sceneId)
     }
 
-    const targetPath = path.join(scenesDirectory, `${sceneId}.py`)
+    const filename = input.sourceFilenames?.[sceneId] ?? `${sceneId}.py`
+    if (!/^[A-Za-z_][A-Za-z0-9_]*\.py$/.test(filename)) {
+      throw new StudioSceneSourceRejectedError('unsafe_scene_directory', sceneId)
+    }
+    const targetPath = path.join(scenesDirectory, filename)
     const existing = await lstat(targetPath).catch(() => null)
     if (existing?.isSymbolicLink()) {
       throw new StudioSceneSourceRejectedError('unsafe_scene_directory', sceneId)

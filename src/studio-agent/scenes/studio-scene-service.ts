@@ -104,9 +104,13 @@ export function createStudioSceneService(input: {
     // rejected before anything is created. It only resolves existing paths, so the file path
     // itself is derived from that same root and the same relative target.
     const sessionDirectory = workspaceProvider.normalizeDirectory(session.directory)
-    const relativeSourcePath = path.join(STUDIO_SCENE_DIRECTORY, `${sceneId}.py`)
+    // File numbers are stable allocation identifiers, independent of Scene ids and UI reordering.
+    const sourceDirectory = path.join(sessionDirectory, STUDIO_SCENE_DIRECTORY)
+    let sourceNumber: number
     let sourcePath: string
     try {
+      sourceNumber = readNextSourceNumber(sourceDirectory)
+      const relativeSourcePath = path.join(STUDIO_SCENE_DIRECTORY, `scene_${sourceNumber}.py`)
       await resolveSafeWorkspacePath(sessionDirectory, relativeSourcePath)
       sourcePath = path.resolve(sessionDirectory, relativeSourcePath)
     } catch (error) {
@@ -138,7 +142,16 @@ export function createStudioSceneService(input: {
 
     try {
       // `wx` fails closed on an existing file: an occupied path is never truncated.
-      fs.writeFileSync(sourcePath, STUDIO_SCENE_SOURCE_TEMPLATE, { encoding: 'utf8', flag: 'wx' })
+      while (true) {
+        try {
+          fs.writeFileSync(sourcePath, STUDIO_SCENE_SOURCE_TEMPLATE, { encoding: 'utf8', flag: 'wx' })
+          break
+        } catch (error) {
+          if (!isAlreadyExistsError(error)) throw error
+          sourceNumber += 1
+          sourcePath = path.join(scenesDirectory, `scene_${sourceNumber}.py`)
+        }
+      }
     } catch (error) {
       if (isAlreadyExistsError(error)) {
         return { status: 'source_conflict' }
@@ -307,6 +320,22 @@ function removeCreatedSourceFile(sourcePath: string): void {
   } catch (error) {
     logger.warn('Studio scene source compensation failed', { reason: readErrorMessage(error) })
   }
+}
+
+function readNextSourceNumber(directory: string): number {
+  let files: string[]
+  try {
+    files = fs.readdirSync(directory)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 1
+    throw error
+  }
+  let highest = 0
+  for (const file of files) {
+    const match = /^scene_([1-9]\d*)\.py$/.exec(file)
+    if (match) highest = Math.max(highest, Number(match[1]))
+  }
+  return highest + 1
 }
 
 /** Realpath containment: the directory the file is written into must stay beneath the Session root. */
