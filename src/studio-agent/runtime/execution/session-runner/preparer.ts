@@ -30,31 +30,45 @@ export async function prepareRun(
 ): Promise<StudioPreparedRunContext> {
   const prepareStartedAt = Date.now()
   // Scope first: a Scene Run whose Scene is missing, foreign or carries an unusable source path
-  // must fail closed before any render lookup, record or provider call. The scope is then used by
-  // the render context, both initial messages and every Tool call of this Run.
-  const executionScope = await loadStudioRunExecutionScope({
-    session: input.session,
-    sceneId: input.sceneId,
-    sceneStore: deps.sceneStore,
-  })
-  const renderContext = await deps.buildRenderContext({ session: input.session, sceneId: input.sceneId })
-  // One explicit scope for the Run and both initial messages: the scope is an argument here,
-  // never a metadata convention, and every record is persisted before execution proceeds.
+  // must fail closed before any record or provider call. The scope is then used by both initial
+  // messages and every Tool call of this Run.
+  //
+  // The render context is built from the same two arguments and never from the scope, so the two
+  // reads leave together: one link round trip instead of two in a row.
+  const [executionScope, renderContext] = await Promise.all([
+    loadStudioRunExecutionScope({
+      session: input.session,
+      sceneId: input.sceneId,
+      sceneStore: deps.sceneStore,
+    }),
+    deps.buildRenderContext({ session: input.session, sceneId: input.sceneId })
+  ])
+  // One explicit scope for the Run and both initial messages: the scope is an argument here, never a
+  // metadata convention, and every record is persisted before execution proceeds.
   const run = deps.createRun(input.session, input.inputText, input.runMetadata, input.sceneId)
-  const persistedRun = deps.runStore ? await deps.runStore.create(run) : run
-  const userMessage = await deps.messageStore.createUserMessage(createStudioUserMessage({
-    sessionId: input.session.id,
-    sceneId: input.sceneId,
-    text: input.inputText
-  }))
+  // The user message carries no Run id, so it leaves with the Run insert instead of after it.
+  const [persistedRun, userMessage] = await Promise.all([
+    deps.runStore ? deps.runStore.create(run) : Promise.resolve(run),
+    deps.messageStore.createUserMessage(createStudioUserMessage({
+      sessionId: input.session.id,
+      sceneId: input.sceneId,
+      text: input.inputText
+    }))
+  ])
   // The assistant message is stamped strictly after the user message, so the two never tie on
   // `created_at` (a tie is broken by a random UUID id and renders the conversation out of order).
-  const assistantMessage = await deps.createAssistantMessage(
-    input.session,
-    persistedRun.id,
-    input.sceneId,
-    userMessage.createdAt
-  )
+  // Marking the Run `running` needs nothing but the Run record, so that write leaves with it.
+  const [assistantMessage, updatedRun] = await Promise.all([
+    deps.createAssistantMessage(
+      input.session,
+      persistedRun.id,
+      input.sceneId,
+      userMessage.createdAt
+    ),
+    deps.runStore
+      ? deps.runStore.update(input.session.ownerId, persistedRun.id, { status: 'running' })
+      : Promise.resolve(null)
+  ])
   const eventBus = deps.sharedEventBus ?? new InMemoryStudioEventBus()
 
   getStudioTelemetry().event({ studioKind: input.session.studioKind, name: 'run.started', data: {
@@ -65,9 +79,7 @@ export async function prepareRun(
     hasCustomApiConfig: hasUsableCustomApiConfig(input.customApiConfig),
   } })
 
-  const runningRun = deps.runStore
-    ? await deps.runStore.update(input.session.ownerId, persistedRun.id, { status: 'running' }) ?? { ...persistedRun, status: 'running' }
-    : { ...persistedRun, status: 'running' as const }
+  const runningRun = updatedRun ?? { ...persistedRun, status: 'running' as const }
 
   eventBus.publish({
     type: 'run_updated',

@@ -1813,6 +1813,9 @@ export async function runDistributedRunCoordinationTests(): Promise<void> {
       'studio-run-cancellation-codec.ts',
       'studio-run-coordination-service.ts',
       'studio-run-coordinator.ts',
+      // The liveness sweep asks the coordinator whether a scope is still held, and stays out of
+      // transport details itself: it decides with the port, never with Redis directly.
+      'studio-run-liveness-sweeper.ts',
       'studio-run-scope.ts'
     ])
 
