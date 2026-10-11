@@ -64,6 +64,8 @@ for remote in "${REMOTES[@]}"; do
   fi
 done
 
+git lfs version >/dev/null || { echo "Error: Git LFS is required to publish model assets to Spaces"; exit 1; }
+
 stash_created=0
 temp_branch_created=0
 
@@ -101,6 +103,10 @@ fi
 git checkout --orphan "$TEMP_BRANCH" >/dev/null
 temp_branch_created=1
 update_space_readme
+# LFS attributes belong to the deployment snapshot only.
+git lfs install --local
+git lfs track '*.onnx' '*.f32'
+git add --renormalize -- data/models data/api-catalog
 git add -A
 
 for pattern in "${EXCLUDE_PATTERNS[@]}"; do

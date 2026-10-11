@@ -110,6 +110,8 @@ if ($missingRemotes.Count -gt 0) {
   throw "Error: remote not found: $($missingRemotes -join ', ')"
 }
 
+Invoke-Git -Args @('lfs', 'version') -ErrorMessage 'Git LFS is required to publish model assets to Spaces.'
+
 $current = Get-TrimmedGitOutput -Args @('branch', '--show-current') -ErrorMessage 'Failed to read current branch.'
 if ($current -ne $SourceBranch) {
   throw "Error: please checkout $SourceBranch first"
@@ -141,6 +143,10 @@ try {
 
   Update-SpaceReadme
 
+  # Keep LFS attributes in the deployment snapshot only; main retains its existing storage format.
+  Invoke-Git -Args @('lfs', 'install', '--local') -ErrorMessage 'Failed to initialize Git LFS.'
+  Invoke-Git -Args @('lfs', 'track', '*.onnx', '*.f32') -ErrorMessage 'Failed to configure model asset tracking.'
+  Invoke-Git -Args @('add', '--renormalize', '--', 'data/models', 'data/api-catalog') -ErrorMessage 'Failed to convert model assets to LFS pointers.'
   Invoke-Git -Args @('add', '-A') -ErrorMessage 'Failed to stage files on temp branch.'
 
   foreach ($pattern in $excludePatterns) {
