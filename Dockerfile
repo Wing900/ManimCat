@@ -104,9 +104,21 @@ RUN mkdir -p \
         /app/public/images \
         /app/public/videos \
         /app/tmp \
-        /data/redis
+        /data/redis \
+    # The render subprocess (manim / python) runs as `node` and must not be able to write outside
+    # /app and /data/redis. Owning /app also means a sandboxed renderer cannot mutate /usr/local
+    # or /opt/venv, even before a proper sandbox is added.
+    && chown -R node:node /app /data/redis
 
 ENV PORT=7860
 EXPOSE 7860
+
+# Drop root for the server process and every renderer it spawns.
+USER node
+
+# Probe /health on the configured PORT. timeout/start-period are short enough that a wedged
+# container is restarted instead of kept on life support.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "const port=process.env.PORT||3000;const r=require('http').get('http://localhost:'+port+'/health',(x)=>process.exit(x.statusCode===200?0:1));r.on('error',()=>process.exit(1));"
 
 CMD ["node", "start-with-redis-hf.cjs"]
