@@ -132,8 +132,7 @@ export function SessionSidebar({
     }, ROW_REMOVE_MS)
   }
 
-  // One element, two widths: collapsing is a width transition with the content cross-fading inside a
-  // clipped track, so the rail never swaps the root node in and out (which cannot be animated).
+  // The rail retains its root. Width settles once; only its content animates.
   return (
     <>
       {/* Narrow screens only: tapping outside closes the overlay, so the composer stays reachable. */}
@@ -153,7 +152,7 @@ export function SessionSidebar({
       <aside
         data-assemble="sidebar"
         aria-label={open ? t('studio.cinema.sidebarLabel') : undefined}
-        className={`flex shrink-0 flex-col overflow-hidden border-r border-black/5 transition-[width] duration-300 ease-move dark:border-white/10 ${
+        className={`flex shrink-0 flex-col overflow-hidden border-r border-black/5 dark:border-white/10 ${
           open
             ? 'studio-drawer-in absolute inset-y-0 left-0 z-30 w-60 bg-bg-primary shadow-xl lg:static lg:z-auto lg:bg-transparent lg:shadow-none'
             : 'w-14'

@@ -9,6 +9,16 @@ import {
   type StudioCinemaControllerDependencies,
 } from './cinema-controller'
 import type { StudioCinemaState } from './types'
+import { buildStudioCinemaSceneKey } from './types'
+import { selectStudioCinemaDisplayRender } from './scene-selectors'
+
+function readVisibleCapture(state: StudioCinemaState, sessionId: string | null) {
+  if (!sessionId || state.session.id !== sessionId || !state.selectedSceneId) return []
+  const scene = state.scenes[buildStudioCinemaSceneKey({ sessionId, sceneId: state.selectedSceneId })]
+  if (!scene) return []
+  const render = selectStudioCinemaDisplayRender(scene).render
+  return [{ identity: scene.identity, renders: render ? [render] : [] }]
+}
 
 /**
  * React binding of the Cinema controller.
@@ -82,34 +92,22 @@ export function useStudioCinema(input: UseStudioCinemaInput): UseStudioCinemaRes
       apply: (identity, renderId, url) => controller.applyLocalVideoCapture(identity, renderId, url),
     })
     mediaSessionRef.current = media
-    media.sync(Object.values(stateRef.current.scenes))
+    media.sync(readVisibleCapture(stateRef.current, sessionId))
     return () => {
       mediaSessionRef.current = null
       media.dispose()
     }
   }, [sessionId, controller])
 
-  // Only the identity of the Renders that could be captured is an input to the sync effect. Keying it
-  // on the whole state ran a sync on every keystroke, which is what stalled the composer.
+  // Only the selected display identity triggers I/O. History updates and typing are unrelated.
   const captureKey = useMemo(() => {
-    const parts: string[] = []
-    for (const scene of Object.values(state.scenes)) {
-      if (scene.identity.sessionId !== sessionId) continue
-      const ids = scene.renders
-        .filter(
-          (render) =>
-            render.status === 'completed' && render.kind === 'manim' && render.outputMode === 'video'
-        )
-        .map((render) => render.id)
-        .join('|')
-      parts.push(`${scene.identity.sceneId}:${ids}`)
-    }
-    return parts.join(';')
+    const visible = readVisibleCapture(state, sessionId)[0]
+    return JSON.stringify([sessionId, visible?.identity.sceneId, visible?.renders[0]?.id])
   }, [state, sessionId])
 
   useEffect(() => {
     // Reads the live state instead of closing over it: the key says when to sync, not what to sync.
-    mediaSessionRef.current?.sync(Object.values(stateRef.current.scenes))
+    mediaSessionRef.current?.sync(readVisibleCapture(stateRef.current, sessionId))
   }, [captureKey])
 
   useEffect(() => {

@@ -99,7 +99,7 @@ export function createInitialStudioCinemaRenderRefreshState(): StudioCinemaRende
   return { status: 'idle', pauseReason: null, refreshes: 0, consecutiveFailures: 0 }
 }
 
-export type StudioCinemaSnapshotStatus = 'idle' | 'loading' | 'ready' | 'error'
+export type StudioCinemaSnapshotStatus = 'idle' | 'loading' | 'refreshing' | 'ready' | 'error'
 
 export type StudioCinemaInitializationStatus = 'idle' | 'creating' | 'partial' | 'ready' | 'failed'
 
@@ -130,7 +130,11 @@ export interface StudioCinemaSceneState {
   /** Bumped on every draft edit, so a submit can clear only the text it actually captured. */
   draftVersion: number
   submitting: boolean
+  /** Local display record, replaced by the admitted message or an authoritative recovery read. */
+  pendingUserMessageId?: string | null
   submittedDraftVersion: number | null
+  /** Original composer text, retained only until admission resolves for safe failure recovery. */
+  submittedDraftText?: string | null
   cancelRequested: boolean
   /** A submit whose outcome is unknown: reconciliation is offered instead of an automatic retry. */
   needsReconciliation: boolean

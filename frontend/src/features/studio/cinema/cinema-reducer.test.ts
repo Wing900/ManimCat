@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { StudioScene } from '../protocol/studio-agent-types'
+import type { StudioScene, StudioSceneMessage } from '../protocol/studio-agent-types'
 import { selectSceneState } from './scene-state'
 import { studioCinemaReducer, type StudioCinemaAction } from './scene-reducer'
 import { readStudioCinemaActiveRun } from './scene-selectors'
@@ -572,16 +572,29 @@ describe('studio cinema scene reducer', () => {
     })
   })
 
-  it('keeps the draft on failure and flags an unknown outcome for reconciliation', () => {
+  it('moves the submitted text into the transcript and flags an unknown outcome for reconciliation', () => {
     const base = withScenes(openState(), [createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0)])
+    const optimistic: StudioSceneMessage = {
+      id: 'msg_pending_1',
+      sessionId: CINEMA_TEST_SESSION_ID,
+      sceneId: CINEMA_TEST_SCENE_A,
+      role: 'user',
+      text: 'draw',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
     const state = dispatchMany(base, [
       { type: 'draft/changed', identity: IDENTITY_A, text: 'draw' },
-      { type: 'submit/started', identity: IDENTITY_A },
+      { type: 'submit/started', identity: IDENTITY_A, message: optimistic },
       { type: 'submit/failed', identity: IDENTITY_A, code: 'run_submit_unknown', unknownOutcome: true },
     ])
 
     const record = sceneStateOf(state, CINEMA_TEST_SCENE_A)
-    expect(record.draft).toBe('draw')
+    // The composer was cleared at submission; an unknown outcome keeps the optimistic message, so the
+    // text stays visible while reconciliation is offered instead of being handed back to the composer.
+    expect(record.draft).toBe('')
+    expect(record.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual(['draw'])
+    expect(record.pendingUserMessageId).toBe('msg_pending_1')
     expect(record.submitting).toBe(false)
     expect(record.needsReconciliation).toBe(true)
     expect(record.feedback).toEqual({ code: 'run_submit_unknown', needsReconciliation: true })
@@ -634,7 +647,8 @@ describe('studio cinema scene reducer', () => {
     ])
 
     expect(sceneStateOf(state, CINEMA_TEST_SCENE_A).submitting).toBe(true)
-    expect(sceneStateOf(state, CINEMA_TEST_SCENE_A).draft).toBe('a')
+    // Submitting clears the composer of A immediately; B is untouched by it.
+    expect(sceneStateOf(state, CINEMA_TEST_SCENE_A).draft).toBe('')
     expect(sceneStateOf(state, CINEMA_TEST_SCENE_B).submitting).toBe(false)
     expect(sceneStateOf(state, CINEMA_TEST_SCENE_B).draft).toBe('b')
     expect(sceneStateOf(state, CINEMA_TEST_SCENE_B).messages).toHaveLength(1)

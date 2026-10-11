@@ -14,6 +14,7 @@
  */
 import type {
   StudioScene,
+  StudioSceneMessage,
   StudioSceneRun,
   StudioSceneSnapshot,
   StudioCreateSceneRunResponse,
@@ -86,7 +87,7 @@ export type StudioCinemaAction =
    */
   | { type: 'scene/render-refresh'; identity: StudioCinemaSceneIdentity; patch: Partial<StudioCinemaRenderRefreshState> }
   | { type: 'draft/changed'; identity: StudioCinemaSceneIdentity; text: string }
-  | { type: 'submit/started'; identity: StudioCinemaSceneIdentity }
+  | { type: 'submit/started'; identity: StudioCinemaSceneIdentity; message?: StudioSceneMessage }
   | { type: 'submit/accepted'; identity: StudioCinemaSceneIdentity; response: StudioCreateSceneRunResponse }
   | {
       type: 'submit/failed'
@@ -133,14 +134,14 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
     case 'scene/loading':
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
-        snapshotStatus: 'loading',
+        snapshotStatus: scene.snapshotStatus === 'ready' || scene.snapshotStatus === 'refreshing' ? 'refreshing' : 'loading',
         streamState: 'connecting',
         feedback: null,
       }))
     case 'scene/recovery-started':
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
-        snapshotStatus: 'loading',
+        snapshotStatus: scene.snapshotStatus === 'ready' || scene.snapshotStatus === 'refreshing' ? 'refreshing' : 'loading',
         feedback: null,
       }))
     case 'scene/created':
@@ -199,6 +200,12 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
         submitting: true,
+        draft: '',
+        submittedDraftText: scene.draft,
+        ...(action.message ? {
+          messages: [...scene.messages, action.message],
+          pendingUserMessageId: action.message.id,
+        } : {}),
         submittedDraftVersion: scene.draftVersion,
         needsReconciliation: false,
         feedback: null,
@@ -215,7 +222,13 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
         submitting: false,
+        draft: !action.unknownOutcome && scene.draftVersion === scene.submittedDraftVersion
+          ? scene.submittedDraftText ?? scene.draft
+          : scene.draft,
+        messages: action.unknownOutcome ? scene.messages : scene.messages.filter(message => message.id !== scene.pendingUserMessageId),
+        pendingUserMessageId: action.unknownOutcome ? scene.pendingUserMessageId : null,
         submittedDraftVersion: null,
+        submittedDraftText: null,
         needsReconciliation: action.unknownOutcome,
         feedback: { code: action.code, needsReconciliation: action.unknownOutcome },
       }))

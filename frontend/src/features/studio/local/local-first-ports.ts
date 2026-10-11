@@ -2,6 +2,9 @@ import { StudioApiRequestError } from '../api/client'
 import type { StudioRequestOptions } from '../api/studio-agent-api'
 import type { StudioServerPort } from '../api/studio-server-port'
 import { studioServerPort } from '../api/studio-server-port'
+import { resolveStudioEventStreamScope, subscribeStudioEvents } from '../api/studio-agent-events'
+import type { StudioEventSubscriptionOptions, StudioEventStreamScope } from '../api/studio-agent-events'
+import { projectLocalStudioEvent } from './local-event-identity'
 import type { StudioCinemaApiPort, StudioCinemaCancelResponse } from '../cinema/cinema-controller'
 import type { StudioCinemaSessionGatewayApi } from '../cinema/session/studio-cinema-session-gateway'
 import type {
@@ -16,6 +19,7 @@ import type {
   StudioScenePart,
   StudioSession,
   StudioSessionSnapshot,
+  StudioRun,
 } from '../protocol/studio-agent-types'
 import { createLocalStudioStore, type LocalScene, type LocalSession, type LocalStudioStore } from './local-studio-store'
 
@@ -37,11 +41,13 @@ import { createLocalStudioStore, type LocalScene, type LocalSession, type LocalS
 export interface LocalFirstStudioPorts {
   sessionApi: StudioCinemaSessionGatewayApi
   sceneApi: StudioCinemaApiPort
+  events: { subscribe: (options: StudioEventSubscriptionOptions) => Promise<void> }
 }
 
 export interface LocalFirstStudioPortsInput {
   store: LocalStudioStore
   server: StudioServerPort
+  subscribeEvents?: typeof subscribeStudioEvents
   /** Fallback title for a Session created without one; the gateway always supplies its own. */
   defaultTitle?: string
   /** Fallback kind for a Session created without one; the gateway always supplies its own. */
@@ -56,26 +62,35 @@ const DEFAULT_AGENT: StudioAgentType = 'builder'
 
 export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): LocalFirstStudioPorts {
   const { store, server } = input
+  const rebuilds = new Map<string, Promise<string>>()
+  const pendingUsers = new Map<string, StudioSceneMessage>()
+  const localSaves = new Map<string, Promise<void>>()
 
   /** The browser's own record of a Session, plus a refusal when this browser has never held one. */
   async function readLocal(sessionId: string): Promise<{ session: LocalSession; scenes: LocalScene[] }> {
-    const session = await store.getSession(sessionId)
+    const [session, scenes] = await Promise.all([store.getSession(sessionId), store.listScenes(sessionId)])
     if (!session) {
       throw new StudioApiRequestError('This browser has no such session', 'NOT_FOUND')
     }
-    return { session, scenes: await store.listScenes(sessionId) }
+    return { session, scenes }
   }
 
   /**
    * Runs `body` against the bound server Session, rebuilding it on the server when the server no
    * longer has it. Only `NOT_FOUND` heals: a rebuild on any other failure would hide the failure.
    */
-  async function withServerSession<T>(sessionId: string, body: (serverSessionId: string) => Promise<T>): Promise<T> {
-    const { session } = await readLocal(sessionId)
+  async function withServerSession<T>(
+    sessionId: string,
+    body: (serverSessionId: string, context: { session: LocalSession; scenes: LocalScene[] }) => Promise<T>,
+  ): Promise<T> {
+    const rebuilding = rebuilds.get(sessionId)
+    if (rebuilding) await rebuilding
+    const context = await readLocal(sessionId)
+    const { session } = context
 
     if (session.serverSessionId) {
       try {
-        return await body(session.serverSessionId)
+        return await body(session.serverSessionId, context)
       } catch (error) {
         if (!isNotFound(error)) {
           throw error
@@ -83,7 +98,8 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       }
     }
 
-    return body(await rebuildOnServer(sessionId))
+    const serverSessionId = await rebuildOnServer(sessionId, session.serverSessionId)
+    return body(serverSessionId, await readLocal(sessionId))
   }
 
   /**
@@ -91,8 +107,21 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
    * each as it goes. The Scenes are created empty on purpose — their code is written by the next Run,
    * which carries the whole Session's sources.
    */
-  async function rebuildOnServer(sessionId: string): Promise<string> {
+  function rebuildOnServer(sessionId: string, previousServerId?: string): Promise<string> {
+    const existing = rebuilds.get(sessionId)
+    if (existing) return existing
+    const pending = restoreServerSession(sessionId, previousServerId).finally(() => {
+      if (rebuilds.get(sessionId) === pending) rebuilds.delete(sessionId)
+    })
+    rebuilds.set(sessionId, pending)
+    return pending
+  }
+
+  async function restoreServerSession(sessionId: string, previousServerId?: string): Promise<string> {
     const { session, scenes } = await readLocal(sessionId)
+    if (previousServerId && session.serverSessionId && session.serverSessionId !== previousServerId) {
+      return session.serverSessionId
+    }
 
     const created = await server.createSession({
       projectId: session.projectId || input.projectId || DEFAULT_PROJECT_ID,
@@ -139,7 +168,7 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
 
   /** The transcript this browser owns, in order, as the server's seed shape. */
   async function localConversation(sessionId: string): Promise<Array<{ role: 'user' | 'assistant'; text: string }>> {
-    const messages = await store.listSessionMessages(sessionId)
+    const messages = [...await store.listSessionMessages(sessionId), ...[...pendingUsers.values()].filter(message => message.sessionId === sessionId)]
     return messages
       .map((message) => ({
         role: message.role,
@@ -153,17 +182,52 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
    * There is no stream here, so a read is where the browser learns what the server said; a repeat read
    * that finds the same text adds nothing.
    */
-  async function absorbAssistantReplies(
+  function absorbAssistantReplies(
     sessionId: string,
     serverMessages: Array<StudioMessage | StudioSceneMessage>,
+    runs: StudioRun[],
+    scope?: { serverSceneId: string; localSceneId: string },
+  ): Promise<void> {
+    const previous = localSaves.get(sessionId) ?? Promise.resolve()
+    const saving = previous.catch(() => {}).then(() => saveCompletedReplies(sessionId, serverMessages, runs, scope))
+    localSaves.set(sessionId, saving)
+    void saving.finally(() => { if (localSaves.get(sessionId) === saving) localSaves.delete(sessionId) }).catch(() => {})
+    return saving
+  }
+
+  async function saveCompletedReplies(
+    sessionId: string,
+    serverMessages: Array<StudioMessage | StudioSceneMessage>,
+    runs: StudioRun[],
     scope?: { serverSceneId: string; localSceneId: string },
   ): Promise<void> {
     const existing = await store.listSessionMessages(sessionId)
     const seen = new Set(existing.map(messageKey))
     let lastStamp = existing.at(-1)?.createdAt
+    const writes: StudioSceneMessage[] = []
+    const finishedUsers: string[] = []
+    const activeScenes = new Set(runs.filter(run => run.status === 'pending' || run.status === 'running').map(run => run.sceneId))
+    const { scenes } = await readLocal(sessionId)
+    for (const [runId, pending] of pendingUsers) {
+      if (pending.sessionId !== sessionId || (scope && pending.sceneId !== scope.localSceneId)) continue
+      const serverSceneId = scenes.find(scene => scene.id === pending.sceneId)?.serverSceneId
+      if (activeScenes.has(serverSceneId)) continue
+      if (!runs.some(run => run.id === runId && ['completed', 'failed', 'cancelled'].includes(run.status))) continue
+      finishedUsers.push(runId)
+      if (!existing.some(message => message.id === pending.id)) writes.push(pending)
+      seen.add(messageKey(pending))
+      lastStamp = pending.createdAt
+    }
 
     for (const message of serverMessages) {
-      if (message.role !== 'assistant') {
+      if (activeScenes.has(message.sceneId)) continue
+      if (message.role === 'user') {
+        if (!seen.has(messageKey(message))) {
+          const sceneId = message.sceneId ? localSceneIdOf(scenes, message.sceneId) : undefined
+          writes.push({ ...message, sessionId, ...(sceneId ? { sceneId } : {}) })
+          seen.add(messageKey(message))
+          lastStamp = message.createdAt
+        }
         continue
       }
 
@@ -175,7 +239,7 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       seen.add(key)
 
       const serverScope = message.sceneId
-      const localSceneId = scope && serverScope === scope.serverSceneId ? scope.localSceneId : undefined
+      const localSceneId = scope && serverScope === scope.serverSceneId ? scope.localSceneId : serverScope ? localSceneIdOf(scenes, serverScope) : undefined
 
       const recorded = buildAssistantMessage({
         sessionId,
@@ -183,9 +247,14 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         ...(localSceneId ? { sceneId: localSceneId } : {}),
         notBefore: lastStamp,
       })
-      await store.appendMessage(recorded)
+      writes.push(recorded)
       lastStamp = recorded.createdAt
     }
+    if (writes.length) {
+      if (store.appendMessages) await store.appendMessages(writes)
+      else for (const message of writes) await store.appendMessage(message)
+    }
+    for (const runId of finishedUsers) pendingUsers.delete(runId)
   }
 
   async function sessionSnapshot(sessionId: string, options?: StudioRequestOptions): Promise<StudioSessionSnapshot> {
@@ -193,7 +262,7 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       const snapshot = await server.getSessionSnapshot(serverSessionId, options)
       const { session, scenes } = await readLocal(sessionId)
 
-      await absorbAssistantReplies(sessionId, snapshot.messages)
+      await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs)
 
       return {
         ...snapshot,
@@ -295,12 +364,15 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       }),
 
     getSceneSnapshot: (sessionId, sceneId, options) =>
-      withServerSession(sessionId, async (serverSessionId) => {
-        const serverSceneId = await serverSceneIdFor(sessionId, sceneId)
+      withServerSession(sessionId, async (serverSessionId, { scenes }) => {
+        const scene = scenes.find(candidate => candidate.id === sceneId)
+        if (!scene?.serverSceneId) {
+          throw new StudioApiRequestError('This browser has no bound server scene', 'NOT_FOUND')
+        }
+        const serverSceneId = scene.serverSceneId
         const snapshot = await server.getSceneSnapshot(serverSessionId, serverSceneId, options)
-        const { scenes } = await readLocal(sessionId)
 
-        await absorbAssistantReplies(sessionId, snapshot.messages, { serverSceneId, localSceneId: sceneId })
+        await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs, { serverSceneId, localSceneId: sceneId })
 
         return {
           ...snapshot,
@@ -330,7 +402,8 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         // sources from here instead of depending on this request arriving again.
         if (runInput.code) {
           for (const [localSceneId, code] of Object.entries(runInput.code)) {
-            if (await store.getScene(sessionId, localSceneId)) {
+            const existing = await store.getScene(sessionId, localSceneId)
+            if (existing && existing.code !== code) {
               await store.updateSceneCode(sessionId, localSceneId, code)
             }
           }
@@ -352,13 +425,14 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
           options,
         )
 
-        const recorded = buildUserMessage({
+        const acceptedUser = response.messages.find(message => message.role === 'user')
+        const recorded = acceptedUser ? toLocalScopedSceneMessage(scenes, sessionId, sceneId, acceptedUser) : buildUserMessage({
           sessionId,
           sceneId,
           text: runInput.inputText,
           notBefore: (await store.listSessionMessages(sessionId)).at(-1)?.createdAt,
         })
-        await store.appendMessage(recorded)
+        pendingUsers.set(response.run.id, recorded)
 
         return {
           ...response,
@@ -374,13 +448,62 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
     cancelRun: (runId): Promise<StudioCinemaCancelResponse> => server.cancelRun(runId),
   }
 
-  return { sessionApi, sceneApi }
+  const events: LocalFirstStudioPorts['events'] = {
+    subscribe: (options) => {
+      const localScope = resolveStudioEventStreamScope(options)
+      return (input.subscribeEvents ?? subscribeStudioEvents)({
+        ...options,
+        resolveConnection: async () => {
+          const rebuilding = rebuilds.get(localScope.sessionId)
+          if (rebuilding) await rebuilding
+          let context = await readLocal(localScope.sessionId)
+          if (options.signal.aborted) throw new DOMException('Scene subscription aborted', 'AbortError')
+          const selected = localScope.kind === 'scene'
+            ? context.scenes.find(scene => scene.id === localScope.sceneId)
+            : null
+          if (localScope.kind === 'scene' && !selected) {
+            throw new StudioApiRequestError('This browser has no such scene', 'NOT_FOUND')
+          }
+          if (!context.session.serverSessionId || (selected && !selected.serverSceneId)) {
+            await rebuildOnServer(localScope.sessionId)
+            context = await readLocal(localScope.sessionId)
+          }
+          const serverSessionId = context.session.serverSessionId
+          const serverSceneId = localScope.kind === 'scene'
+            ? context.scenes.find(scene => scene.id === localScope.sceneId)?.serverSceneId
+            : undefined
+          if (!serverSessionId || (localScope.kind === 'scene' && !serverSceneId)) {
+            throw new StudioApiRequestError('Scene server binding is missing', 'NOT_FOUND')
+          }
+          const scope: StudioEventStreamScope = localScope.kind === 'scene'
+            ? { kind: 'scene', sessionId: serverSessionId, sceneId: serverSceneId! }
+            : { kind: 'session', sessionId: serverSessionId }
+          const sceneIds = new Map(context.scenes.flatMap(scene => scene.serverSceneId ? [[scene.serverSceneId, scene.id] as const] : []))
+          return { scope, onEvent: (event) => {
+            const projected = projectLocalStudioEvent(event, scope, localScope.sessionId, sceneIds)
+            if (projected) {
+              options.onEvent(projected)
+              if (projected.type === 'run.updated' && ['completed', 'failed', 'cancelled'].includes(projected.properties.run.status)) {
+                // Finish local persistence even when the UI no longer has this scene selected.
+                void sessionSnapshot(localScope.sessionId).catch(error => console.error('Local conversation save failed', error))
+              }
+            }
+          } }
+        },
+        onNotFound: async (scope) => {
+          await rebuildOnServer(localScope.sessionId, scope.sessionId)
+        },
+      })
+    },
+  }
+
+  return { sessionApi, sceneApi, events }
 }
 
 /**
- * One lazy instance for the two assembly points. The ports hold no state — every piece of it lives in
- * the store, which is IndexedDB — so sharing one instance only avoids re-opening the database per
- * call. Nothing is created until the first call, which is what lets the shape decision survive the
+ * One lazy instance shares the IndexedDB store and in-flight server restoration between HTTP and
+ * event subscriptions. Durable state stays in IndexedDB. Nothing is created until the first call,
+ * which is what lets the shape decision survive the
  * `GET /api/runtime-config` that resolves while the app is still booting.
  */
 let sharedPorts: LocalFirstStudioPorts | null = null

@@ -1,4 +1,4 @@
-import { getStudioApiBase, getStudioAuthHeaders } from './client'
+import { getStudioApiBase, getStudioAuthHeaders, StudioApiRequestError } from './client'
 import type { StudioExternalEvent } from '../protocol/studio-agent-events'
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000]
@@ -21,6 +21,12 @@ interface StudioEventSubscriptionBase {
   signal: AbortSignal
   onEvent: (event: StudioExternalEvent) => void
   onStatusChange?: (status: StudioEventConnectionStatus) => void
+  /** Resolve identity and frame projection together for each connection, including reconnects. */
+  resolveConnection?: () => Promise<{
+    scope: StudioEventStreamScope
+    onEvent: (event: StudioExternalEvent) => void
+  }>
+  onNotFound?: (scope: StudioEventStreamScope) => Promise<void>
 }
 
 /**
@@ -50,7 +56,7 @@ export function buildStudioEventStreamUrl(scope: StudioEventStreamScope): string
 
 export async function subscribeStudioEvents(options: StudioEventSubscriptionOptions): Promise<void> {
   let attempt = 0
-  const scope = resolveStudioEventStreamScope(options)
+  const requestedScope = resolveStudioEventStreamScope(options)
 
   while (!options.signal.aborted) {
     options.onStatusChange?.({
@@ -58,14 +64,28 @@ export async function subscribeStudioEvents(options: StudioEventSubscriptionOpti
       attempt,
     })
 
+    let scope = requestedScope
+    let connectionResolved = false
     try {
-      await consumeStudioEventStream(options, scope)
+      const connection = options.resolveConnection ? await options.resolveConnection() : null
+      if (options.signal.aborted) return
+      scope = connection?.scope ?? requestedScope
+      connectionResolved = true
+      await consumeStudioEventStream({ ...options, onEvent: connection?.onEvent ?? options.onEvent }, scope)
       if (!options.signal.aborted) {
         attempt += 1
       }
     } catch (error) {
       if (options.signal.aborted) {
         return
+      }
+
+      if (!connectionResolved && error instanceof StudioApiRequestError && error.code === 'NOT_FOUND') {
+        throw error
+      }
+      if (connectionResolved && error instanceof StudioApiRequestError && error.code === 'NOT_FOUND' && options.onNotFound) {
+        await options.onNotFound(scope)
+        if (options.signal.aborted) return
       }
 
       options.onStatusChange?.({
@@ -94,7 +114,10 @@ async function consumeStudioEventStream(
   })
 
   if (!response.ok || !response.body) {
-    throw new Error(`Studio event stream failed (${response.status})`)
+    throw new StudioApiRequestError(
+      `Studio event stream failed (${response.status})`,
+      response.status === 404 ? 'NOT_FOUND' : 'STUDIO_STREAM_FAILED',
+    )
   }
 
   options.onStatusChange?.({ state: 'connected', attempt: 0 })

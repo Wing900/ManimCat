@@ -31,6 +31,7 @@ import {
   runLocalTransaction,
 } from './local-studio-db'
 import { nextLocalSceneId } from './local-scene-ids'
+import { withResidentLocalReads } from './resident-local-store'
 import { nextLocalTrashId, type LocalRenderFingerprint } from './local-scene-state'
 
 /** A Session as the browser keeps it. `directory` is a server-side concept, so it is not carried. */
@@ -95,6 +96,7 @@ export interface LocalStudioStore {
   bindSceneServerId(sessionId: string, sceneId: string, serverSceneId: string): Promise<void>
 
   appendMessage(message: StudioSceneMessage): Promise<void>
+  appendMessages?(messages: readonly StudioSceneMessage[]): Promise<void>
   listMessages(sessionId: string, sceneId: string): Promise<StudioSceneMessage[]>
   /**
    * Every message of the Session in order, across Scenes. This is the transcript the browser replays
@@ -121,6 +123,10 @@ export interface LocalStudioStore {
 export const LOCAL_STUDIO_SESSION_PREFIX = 'sess_'
 
 export function createLocalStudioStore(factory: IDBFactory = indexedDB): LocalStudioStore {
+  return withResidentLocalReads(createIndexedDbStudioStore(factory), factory)
+}
+
+function createIndexedDbStudioStore(factory: IDBFactory): LocalStudioStore {
   let database: Promise<IDBDatabase> | null = null
   let closed = false
 
@@ -370,6 +376,14 @@ export function createLocalStudioStore(factory: IDBFactory = indexedDB): LocalSt
       await runLocalTransaction(handle, LOCAL_STUDIO_MESSAGES, 'readwrite', (tx) =>
         promisifyRequest(tx.objectStore(LOCAL_STUDIO_MESSAGES).put(message)),
       )
+    },
+
+    async appendMessages(messages) {
+      const handle = await db()
+      await runLocalTransaction(handle, LOCAL_STUDIO_MESSAGES, 'readwrite', async (tx) => {
+        const records = tx.objectStore(LOCAL_STUDIO_MESSAGES)
+        await Promise.all(messages.map(message => promisifyRequest(records.put(message))))
+      })
     },
 
     async listMessages(sessionId, sceneId) {

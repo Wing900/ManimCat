@@ -375,6 +375,13 @@ export class StudioCinemaController {
       return
     }
 
+    const stream = this.sceneStream.peek()
+    const record = selectSceneState(this.state, identity)
+    if (this.state.selectedSceneId === sceneId && stream && !stream.controller.signal.aborted
+      && record?.streamState !== 'disconnected' && record?.snapshotStatus !== 'error') {
+      return
+    }
+
     this.sceneStream.stop()
     this.dispatch({ type: 'scene/selected', generation: this.generation, sceneId })
     this.sceneStream.start(identity)
@@ -501,7 +508,16 @@ export class StudioCinemaController {
       ...(provider.customApiConfig ? { customApiConfig: provider.customApiConfig } : {}),
     }
 
-    this.dispatch({ type: 'submit/started', identity })
+    const submittedAt = new Date().toISOString()
+    this.dispatch({ type: 'submit/started', identity, message: {
+      id: `pending_${crypto.randomUUID()}`,
+      sessionId,
+      sceneId,
+      role: 'user',
+      text: input.inputText,
+      createdAt: submittedAt,
+      updatedAt: submittedAt,
+    } })
 
     try {
       const response = await this.deps.api.createSceneRun(sessionId, sceneId, input, {
@@ -930,7 +946,9 @@ function createDefaultCinemaApi(): StudioCinemaApiPort {
 const defaultDependencies: StudioCinemaControllerDependencies = {
   api: createDefaultCinemaApi(),
   provider: { resolve: () => resolveStudioProviderConfig() },
-  events: { subscribe: (options) => subscribeStudioEvents(options) },
+  events: { subscribe: (options) => isStudioClientDataMode()
+    ? localFirstStudioPorts().events.subscribe(options)
+    : subscribeStudioEvents(options) },
   clock: { now: () => Date.now() },
   createAbortController: () => new AbortController(),
   createWorkflowId: () => `cinema-init-${Math.random().toString(36).slice(2)}`,

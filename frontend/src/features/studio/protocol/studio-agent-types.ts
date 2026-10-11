@@ -381,5 +381,7 @@ export interface StudioCreateSceneRunInput {
 
 /** Accepted Scene Run response: the selected Scene's own records plus the accepted Run. */
 export interface StudioCreateSceneRunResponse extends StudioSceneSnapshot {
+  /** Admission returns only new records; full snapshots remain separate recovery reads. */
+  incremental?: boolean
   run: StudioSceneRun
 }

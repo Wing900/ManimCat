@@ -749,7 +749,7 @@ describe('cinema workspace', () => {
     expect(composer().value).toBe('scene one draft')
   })
 
-  it('keeps the card that is leaving mounted, so its media cannot lose the frame it was showing', async () => {
+  it('unmounts the Scene being left as soon as the switch starts, so no media is retained on stage', async () => {
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
       sceneSnapshots: {
@@ -775,15 +775,10 @@ describe('cinema workspace', () => {
     fireEvent.click(target!)
     await flush()
 
-    // The card that is leaving is the *same element*, not a rebuilt copy. That identity is the whole
-    // point: a `<video>` that is rebuilt has no data — it drops the frame it was showing, and until the
-    // metadata arrives it is laid out at the CSS default object size, which is the shrunken black box
-    // that used to fly out of a switch and then jump back to the real size.
-    const leaving = stage.querySelector('[data-leaving="true"]')
-    expect(leaving).not.toBeNull()
-    expect(leaving).toHaveAttribute('aria-hidden')
-    expect(leaving!.querySelector('[data-testid="cinema-screen"]')).toBe(before)
-    // Only the live card may claim the panel, so the card that is leaving never becomes a second one.
+    // Only the destination owns the stage: the card that was on screen is unmounted, and nothing is
+    // retained underneath the arriving card. One card, one `tabpanel`, no second surface.
+    expect(document.querySelector('[data-leaving="true"]')).toBeNull()
+    expect(stage.querySelector('[data-testid="cinema-screen"]')).not.toBe(before)
     expect(document.querySelectorAll('[role="tabpanel"]')).toHaveLength(1)
   })
 
@@ -801,12 +796,12 @@ describe('cinema workspace', () => {
     await flush()
     await flush()
 
-    // A new Session is the next card down the history list: the card that was on stage keeps its DOM and
-    // slides away, and the arriving card rises into place behind it.
-    const leaving = stage.querySelector('[data-leaving="true"]')
-    expect(leaving).not.toBeNull()
-    expect(leaving!.querySelector('[data-testid="cinema-screen"]')).toBe(first)
-    expect(stage.querySelector('[role="tabpanel"]')!.className).toMatch(/studio-content-rise(?!-out)/)
+    // A new Session is the next card down the history list: the card that was on stage is unmounted and
+    // the arriving card rises into place.
+    expect(document.querySelector('[data-leaving="true"]')).toBeNull()
+    const panel = stage.querySelector('[role="tabpanel"]')
+    expect(panel).not.toBeNull()
+    expect(panel!.className).toMatch(/studio-content-rise(?!-out)/)
   })
 
   it('deletes the session the user picked, and only after asking', async () => {
@@ -862,10 +857,9 @@ describe('cinema workspace', () => {
     fireEvent.click(within(document.querySelector(`[data-session-id="${CINEMA_TEST_SESSION_ID}"]`) as HTMLElement).getByRole('button', { name: /删除对话|Delete session/ }))
     fireEvent.click(screen.getByRole('button', { name: /^(删除|Delete)$/ }))
 
-    // The card that was on screen leaves with its own DOM and the Session that takes its place arrives:
-    // deleting what you are looking at is still a switch the user asked for, so it gets the card motion.
-    await waitFor(() => expect(stage.querySelector('[data-leaving="true"]')).not.toBeNull())
-    expect(stage.querySelector('[data-leaving="true"] [data-testid="cinema-screen"]')).toBe(before)
+    // The card that was on screen is unmounted and the Session that takes its place arrives: deleting
+    // what you are looking at is still a switch the user asked for.
+    await waitFor(() => expect(stage.querySelector('[data-testid="cinema-screen"]')).not.toBe(before))
     await waitFor(() => expect(harness.forgotten).toEqual([CINEMA_TEST_SESSION_ID]))
   })
 
@@ -898,10 +892,8 @@ describe('cinema workspace', () => {
 
     fireEvent.click(otherTab()!)
     await flush()
-    // The switch the user made slides: the card that was on stage is kept, still on stage, on its way out.
-    const leaving = stage.querySelector('[data-leaving="true"]')
-    expect(leaving).not.toBeNull()
-    expect(leaving!.querySelector('[data-testid="cinema-screen"]')).toBe(first)
+    // The switch the user made unmounts the card that was on stage.
+    expect(stage.querySelector('[data-testid="cinema-screen"]')).not.toBe(first)
 
     const second = otherTab()!
     fireEvent.click(second)
@@ -911,10 +903,10 @@ describe('cinema workspace', () => {
     expect(currentTab()).toBe(second)
     // …but the second switch did not start motion of its own: a CSS keyframe cannot be interrupted (it
     // jumps back to the far edge, which is the pile of half-moved cards fast scrubbing used to leave
-    // behind), so what is on stage is still the *first* card finishing its exit, and the live card
-    // carries no slide class at all.
-    expect(stage.querySelector('[data-leaving="true"] [data-testid="cinema-screen"]')).toBe(first)
-    expect(stage.querySelector('[role="tabpanel"]')!.className).not.toContain('studio-content-')
+    // behind), so the live card carries no slide class at all.
+    const panel = stage.querySelector('[role="tabpanel"]')
+    expect(panel).not.toBeNull()
+    expect(panel!.className).not.toContain('studio-content-')
   })
 
   it('lets another scene keep working while one scene runs', async () => {
@@ -1345,10 +1337,12 @@ describe('cinema workspace', () => {
     fireEvent.click(screen.getByText('Session 2'))
     await flush()
 
-    // The Session being left keeps its screen and its draft, but nothing is actionable.
-    expect(screen.getByText('Switching session…')).toBeInTheDocument()
+    // The stage belongs to the destination, which has no Scene yet, so it reports the pending read and
+    // nothing of the Session being left is on screen or actionable. The text typed earlier still belongs
+    // to that Session's own Scene draft (covered by the per-Scene draft spec), not to this composer.
+    expect(screen.getByText('Loading conversation history…')).toBeInTheDocument()
     expect(screen.getByText('A session switch is in progress; one moment.')).toBeInTheDocument()
-    expect(composer().value).toBe('keep me')
+    expect(composer().value).toBe('')
     expect(screen.getByLabelText('Send')).toBeDisabled()
 
     fireEvent.click(screen.getByLabelText('Send'))
@@ -1367,7 +1361,7 @@ describe('cinema workspace', () => {
     })
     await flush()
 
-    expect(screen.queryByText('Switching session…')).toBeNull()
+    expect(screen.queryByText('Loading conversation history…')).toBeNull()
     fireEvent.change(composer(), { target: { value: 'draw for b' } })
     await flush()
     fireEvent.click(screen.getByLabelText('Send'))

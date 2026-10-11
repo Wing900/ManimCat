@@ -11,6 +11,7 @@ import type {
   StudioCinemaFeedbackCode,
   StudioCinemaRenderRefreshState,
   StudioCinemaStreamState,
+  StudioCinemaSnapshotStatus,
 } from '../types'
 
 /**
@@ -47,7 +48,7 @@ export function readStudioCinemaRunStatusKey(status: StudioRunStatus): Translati
 /** Lightweight Scene state for the strip and the sidebar; a background Scene is never "live". */
 export function readStudioCinemaSceneStatusKey(input: {
   isBusy: boolean
-  snapshotStatus: 'idle' | 'loading' | 'ready' | 'error'
+  snapshotStatus: StudioCinemaSnapshotStatus
   hasFailedOutcome: boolean
   needsReconciliation: boolean
   streamState: StudioCinemaStreamState
@@ -63,6 +64,9 @@ export function readStudioCinemaSceneStatusKey(input: {
   }
   if (input.snapshotStatus === 'error') {
     return 'studio.cinema.sceneStatusUnreachable'
+  }
+  if (input.snapshotStatus === 'refreshing') {
+    return 'studio.cinema.sceneStatusSyncing'
   }
   if (input.snapshotStatus === 'loading' || input.streamState === 'connecting') {
     return 'studio.cinema.sceneStatusLoading'
@@ -81,7 +85,7 @@ export function readStudioCinemaCatStatus(input: {
   hasActiveRun: boolean
   hasActiveRender: boolean
   needsReconciliation: boolean
-  snapshotStatus: 'idle' | 'loading' | 'ready' | 'error'
+  snapshotStatus: StudioCinemaSnapshotStatus
   streamState: StudioCinemaStreamState
   renderRefresh: StudioCinemaRenderRefreshState
   hasFailedOutcome: boolean
@@ -99,6 +103,9 @@ export function readStudioCinemaCatStatus(input: {
   }
   if (input.hasActiveRun || input.hasActiveRender) {
     return { key: cinemaUnitKey(input.studioKind, 'catWorking'), params, tone: 'busy' }
+  }
+  if (input.snapshotStatus === 'refreshing') {
+    return { key: 'studio.cinema.catSyncing', params, tone: 'busy' }
   }
   if (input.renderRefresh.status === 'paused') {
     return { key: 'studio.cinema.catRefreshPaused', params, tone: 'warning' }

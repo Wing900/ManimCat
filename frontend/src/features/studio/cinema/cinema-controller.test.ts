@@ -356,6 +356,46 @@ async function selectSceneAndConnect(harness: Harness, sceneId: string): Promise
   return subscription
 }
 
+describe('cached scene navigation', () => {
+  it('joins the current connecting or connected Scene instead of reopening its stream', async () => {
+    const harness = createHarness()
+    await seedScenes(harness, [CINEMA_TEST_SCENE_A])
+    harness.controller.selectScene(CINEMA_TEST_SCENE_A)
+    harness.controller.selectScene(CINEMA_TEST_SCENE_A)
+    expect(harness.subscriptions).toHaveLength(1)
+    lastSubscription(harness).emitStatus({ state: 'connected', attempt: 0 })
+    await flush()
+    harness.controller.selectScene(CINEMA_TEST_SCENE_A)
+    expect(harness.subscriptions).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    harness.controller.dispose()
+  })
+
+  it('keeps a previously loaded Scene visible while its authoritative snapshot refreshes', async () => {
+    const refresh = createDeferred<StudioSceneSnapshot>()
+    let visits = 0
+    const harness = createHarness({ getSceneSnapshot: (sessionId, sceneId) => {
+      if (sceneId === CINEMA_TEST_SCENE_A && ++visits > 1) return refresh.promise
+      return Promise.resolve(createTestSceneSnapshot(sessionId, sceneId, {
+        messages: [assistantMessage(sessionId, sceneId, 'cached content')],
+      }))
+    } })
+    await seedScenes(harness, [CINEMA_TEST_SCENE_A, CINEMA_TEST_SCENE_B])
+    await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_A)
+    await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_B)
+    harness.controller.selectScene(CINEMA_TEST_SCENE_A)
+    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('refreshing')
+    expect(readAssistantText(harness, CINEMA_TEST_SCENE_A)).toBe('cached content')
+    harness.controller.setDraft(CINEMA_TEST_SCENE_A, 'next request')
+    expect(readStudioCinemaSceneEligibility(sceneRecord(harness, CINEMA_TEST_SCENE_A)).canSubmit).toBe(false)
+    lastSubscription(harness).emitStatus({ state: 'connected', attempt: 0 })
+    refresh.resolve(createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A))
+    await flush()
+    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('ready')
+    harness.controller.dispose()
+  })
+})
+
 /** One assistant message with a single text part, as the authoritative snapshot carries it. */
 function assistantMessage(
   sessionId: string,
@@ -617,7 +657,9 @@ describe('studio cinema controller', () => {
 
     expect(outcome.status).toBe('unknown')
     expect(record.submitting).toBe(false)
-    expect(record.draft).toBe('draw')
+    // The composer was cleared at submission and the optimistic message carries the text instead.
+    expect(record.draft).toBe('')
+    expect(record.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual(['draw'])
     expect(record.runs).toHaveLength(0)
     expect(record.feedback?.needsReconciliation).toBe(true)
   })

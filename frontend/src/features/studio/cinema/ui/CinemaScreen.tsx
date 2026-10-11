@@ -1,10 +1,11 @@
-import { useLayoutEffect, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { TranslationKey } from '../../../../shared/i18n/messages'
 import { useI18n } from '../../../../shared/i18n/index'
 import ManimCatLogo from '../../../../shared/components/ManimCatLogo'
 import type { StudioCinemaScreenState } from './cinema-labels'
 import type { StudioKind } from '../../protocol/studio-agent-types'
 import { cinemaUnitKey } from './cinema-copy'
+import { useVideoActivity } from './use-video-activity'
 
 /**
  * The video screen (task 11C2).
@@ -29,6 +30,8 @@ import { cinemaUnitKey } from './cinema-copy'
  */
 
 export interface CinemaScreenProps {
+  /** Only the selected, visible card owns playback. */
+  active?: boolean
   state: StudioCinemaScreenState
   studioKind: StudioKind
   sceneIndex: number
@@ -77,10 +80,13 @@ const mediaClass = (mediaReady: boolean) =>
  */
 const LOADING_ART_CLASS = 'aspect-video w-[min(56%,600px)]'
 
-const LoadingClip = ({ ink, surface }: { ink: 'light' | 'dark'; surface: string }) => (
+const LoadingClip = ({ ink, surface, active }: { ink: 'light' | 'dark'; surface: string; active: boolean }) => {
+  const ref = useRef<HTMLVideoElement>(null)
+  useVideoActivity(ref, active, ink)
+  return (
   <video
+    ref={ref}
     className={`${surface} ${LOADING_ART_CLASS}`}
-    autoPlay
     loop
     muted
     playsInline
@@ -89,16 +95,18 @@ const LoadingClip = ({ ink, surface }: { ink: 'light' | 'dark'; surface: string 
     <source src={`/studio-loading-${ink}.webm`} type="video/webm" />
     <source src={`/studio-loading-${ink}.mp4`} type="video/mp4" />
   </video>
-)
+  )
+}
 
-const LoadingArt = () => (
+const LoadingArt = ({ active }: { active: boolean }) => (
   <>
-    <LoadingClip ink="light" surface="dark:hidden" />
-    <LoadingClip ink="dark" surface="hidden dark:block" />
+    <LoadingClip ink="light" surface="dark:hidden" active={active} />
+    <LoadingClip ink="dark" surface="hidden dark:block" active={active} />
   </>
 )
 
 export function CinemaScreen({
+  active = true,
   state,
   studioKind,
   sceneIndex,
@@ -114,6 +122,8 @@ export function CinemaScreen({
   const [reloadToken, setReloadToken] = useState(0)
   const [failedLocalUrl, setFailedLocalUrl] = useState<string | null>(null)
   const effectiveUrl = failedLocalUrl === playableUrl && fallbackVideoUrl ? fallbackVideoUrl : playableUrl
+  const videoRef = useRef<HTMLVideoElement>(null)
+  useVideoActivity(videoRef, active && state === 'playable' && mediaKind !== 'image', `${effectiveUrl}-${reloadToken}`)
   // Whether the media element mounted *right now* has painted. Nothing shorter than that is safe: a
   // card that re-mounts its media — the one that leaves, and the one that arrives — gets a brand new
   // `<img>`/`<video>`, and until that element has data it has no intrinsic size. A `<video>` then falls
@@ -186,11 +196,13 @@ export function CinemaScreen({
 
         {state === 'playable' && playableUrl && mediaKind !== 'image' ? (
           <video
+            ref={videoRef}
             key={`${effectiveUrl}-${reloadToken}`}
             src={effectiveUrl ?? undefined}
             controls
+            muted
             playsInline
-            preload="metadata"
+            preload={active ? 'auto' : 'none'}
             className={`${mediaClass(mediaReady)} bg-black`}
             onLoadedMetadata={() => setMediaReady(true)}
             onError={() => {
@@ -216,7 +228,7 @@ export function CinemaScreen({
           ? placeholder(
               'studio.cinema.screenRenderingTitle',
               'studio.cinema.screenRenderingHint',
-              <LoadingArt />,
+              <LoadingArt active={active} />,
               false,
             )
           : null}

@@ -338,6 +338,18 @@ select option:checked {
 .studio-placeholder-in { animation: studio-placeholder-in 0.26s var(--ease-soft) backwards; }
 .studio-slide-in-right { animation: studio-slide-in-right 0.26s var(--ease-enter) both; }
 .studio-slide-out-right { animation: studio-slide-out-right 0.18s var(--ease-exit) both; }
+
+/* Conversation motion is independent of stage layout: animate only its painted surface. */
+@keyframes cinema-history-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes cinema-history-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(100%); }
+}
+.cinema-history-in { animation: cinema-history-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.cinema-history-out { animation: cinema-history-out 0.34s cubic-bezier(0.4, 0, 0.2, 1) both; }
 .studio-slide-in-left { animation: studio-slide-in-left 0.3s var(--ease-move) both; }
 .studio-slide-out-left { animation: studio-slide-out-left 0.22s var(--ease-exit) both; }
 
@@ -416,7 +428,7 @@ select option:checked {
 @media (prefers-reduced-motion: reduce) {
   .studio-fade-in, .studio-fade-out, .studio-rise-in, .studio-pop-in, .studio-pop-out,
   .studio-sheet-in, .studio-sheet-out,
-  .studio-media-in, .studio-slide-in-right, .studio-slide-out-right,
+  .studio-media-in, .studio-slide-in-right, .studio-slide-out-right, .cinema-history-in, .cinema-history-out,
   .studio-slide-in-left, .studio-slide-out-left { animation: none !important; }
   .studio-collapse { transition: none !important; }
   .studio-drawer-in { animation: none !important; }

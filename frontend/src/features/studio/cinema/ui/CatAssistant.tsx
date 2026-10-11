@@ -101,7 +101,7 @@ export function CatAssistant({
         ref={buttonRef}
         type="button"
         tabIndex={historyOpen ? -1 : 0}
-        aria-hidden={historyOpen || undefined}
+        inert={historyOpen || undefined}
         className={`cinema-cat-button flex h-16 w-16 items-center justify-center transition-transform duration-200 ease-ui hover:scale-105 focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 lg:h-24 lg:w-24 ${
           historyOpen ? 'pointer-events-none' : 'pointer-events-auto'
         }`}

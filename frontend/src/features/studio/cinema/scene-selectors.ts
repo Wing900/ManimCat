@@ -238,7 +238,7 @@ export function readStudioCinemaSceneEligibility(
   const canReconcile = scene.needsReconciliation || scene.snapshotStatus === 'error' || scene.convergencePending
 
   let submitBlockReason: StudioCinemaSubmitBlockReason | null = null
-  if (scene.snapshotStatus === 'loading' || scene.snapshotStatus === 'idle') {
+  if (scene.snapshotStatus === 'loading' || scene.snapshotStatus === 'refreshing' || scene.snapshotStatus === 'idle') {
     submitBlockReason = 'loading'
   } else if (scene.snapshotStatus === 'error') {
     submitBlockReason = 'snapshot_failed'
@@ -429,6 +429,9 @@ export function selectStudioCinemaUserStatus(scene: StudioCinemaSceneState): Stu
   }
   if (scene.snapshotStatus === 'loading') {
     return { code: 'scene_loading', kind: 'working' }
+  }
+  if (scene.snapshotStatus === 'refreshing') {
+    return { code: 'stream_resync', kind: 'connection' }
   }
   if (scene.convergencePending) {
     return { code: 'stream_resync', kind: 'connection' }

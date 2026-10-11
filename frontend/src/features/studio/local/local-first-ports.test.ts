@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { StudioApiRequestError } from '../api/client'
 import type { StudioServerPort } from '../api/studio-server-port'
+import type { StudioEventSubscriptionOptions } from '../api/studio-agent-events'
+import type { StudioExternalEvent } from '../protocol/studio-agent-events'
 import type {
   StudioCreateSceneRunInput,
   StudioMessage,
@@ -245,6 +247,47 @@ function createPorts() {
 }
 
 describe('the client shape of the Studio ports', () => {
+  it('translates the event connection and every frame using the same captured binding', async () => {
+    const fake = createFakeServer()
+    const store = createFakeStore()
+    let subscription: StudioEventSubscriptionOptions | undefined
+    const received: StudioExternalEvent[] = []
+    const ports = createLocalFirstStudioPorts({ store, server: fake.server,
+      subscribeEvents: async options => { subscription = options },
+    })
+    const session = await ports.sessionApi.createSession({ projectId: PROJECT_ID })
+    const scene = await ports.sceneApi.createScene(session.id)
+    await ports.events.subscribe({ scope: { kind: 'scene', sessionId: session.id, sceneId: scene.id },
+      signal: new AbortController().signal, onEvent: event => received.push(event),
+    })
+    const connection = await subscription!.resolveConnection!()
+    expect(connection.scope).toEqual({ kind: 'scene', sessionId: 'sess_srv_1', sceneId: 'scene_srv_2' })
+    connection.onEvent({ type: 'run.updated', properties: { sessionId: 'sess_srv_1',
+      run: dtoSceneRun('run_1', 'sess_srv_1', 'scene_srv_2'),
+    } })
+    connection.onEvent({ type: 'assistant.text', properties: { sessionId: 'sess_srv_1',
+      sceneId: 'scene_srv_2', runId: 'run_1', messageId: 'msg_1', text: 'done',
+    } })
+    expect(received).toMatchObject([
+      { properties: { sessionId: session.id, run: { sessionId: session.id, sceneId: scene.id } } },
+      { properties: { sessionId: session.id, sceneId: scene.id, text: 'done' } },
+    ])
+    connection.onEvent({ type: 'assistant.text', properties: { sessionId: 'sess_srv_1',
+      sceneId: 'another_scene', runId: 'run_2', messageId: 'msg_2', text: 'foreign',
+    } })
+    expect(received).toHaveLength(2)
+
+    fake.forgetEverything()
+    await Promise.all([
+      subscription!.onNotFound!(connection.scope), subscription!.onNotFound!(connection.scope),
+    ])
+    const recovered = await subscription!.resolveConnection!()
+    expect(recovered.scope).toEqual({ kind: 'scene', sessionId: 'sess_srv_3', sceneId: 'scene_srv_4' })
+    // A delayed 404 for the old binding must reuse the completed restoration.
+    await subscription!.onNotFound!(connection.scope)
+    expect((await subscription!.resolveConnection!()).scope).toEqual(recovered.scope)
+  })
+
   it('keeps the identity the browser owns while the server mints its own', async () => {
     const { ports, store } = createPorts()
 

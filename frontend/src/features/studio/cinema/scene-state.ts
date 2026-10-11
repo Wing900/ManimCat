@@ -53,12 +53,14 @@ export function createSceneState(
     identity,
     scene,
     messages: [],
+    pendingUserMessageId: null,
     runs: [],
     renders: [],
     draft: '',
     draftVersion: 0,
     submitting: false,
     submittedDraftVersion: null,
+    submittedDraftText: null,
     cancelRequested: false,
     needsReconciliation: false,
     snapshotStatus: 'idle',
@@ -85,6 +87,7 @@ export function mergeSceneSnapshot(
   let next: StudioCinemaSceneState = {
     ...scene,
     messages: [...snapshot.messages],
+    pendingUserMessageId: null,
     snapshotStatus: 'ready',
     feedback: null,
     needsReconciliation: false,
@@ -104,14 +107,19 @@ export function mergeSceneSnapshot(
 
 /**
  * Accepted submit response: the same projection as the Scene snapshot plus the accepted Run. The
- * draft is cleared only when it is still the exact version the submit captured, so text typed while
- * waiting stays in the composer.
+ * composer was cleared at submission. Preserve text typed while admission was pending.
  */
 export function mergeAcceptedRun(
   scene: StudioCinemaSceneState,
   response: StudioCreateSceneRunResponse,
 ): StudioCinemaSceneState {
-  const snapshot = mergeSceneSnapshot(scene, response)
+  // Preserve history and SSE text that may have arrived before the admission response.
+  const messages = response.incremental
+    ? [...new Map([...response.messages, ...scene.messages.filter(message => message.id !== scene.pendingUserMessageId)]
+      .map(message => [message.id, message])).values()]
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+    : response.messages
+  const snapshot = mergeSceneSnapshot(scene, { ...response, messages })
   // P3: the response's top-level `run` is the accepted Run. Without this the Scene has no active
   // Run until the next SSE or snapshot whenever `runs` does not already carry it. `upsertSceneRun`
   // remains the single authoritative merge rule (one entry per id, no terminal downgrade).
@@ -122,6 +130,7 @@ export function mergeAcceptedRun(
     ...merged,
     submitting: false,
     submittedDraftVersion: null,
+    submittedDraftText: null,
     draft: keepDraft ? scene.draft : '',
   }
 }
