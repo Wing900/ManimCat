@@ -15,7 +15,7 @@
 export const API_CATALOG_SCHEMA_VERSION = 1
 
 /** Fixed result window. The Builder decides; the retriever never invents a size. */
-export const API_RAG_TOP_K = 15
+export const API_RAG_TOP_K = 10
 
 export type ApiCatalogPackage = 'manim' | 'matplotlib'
 
@@ -66,6 +66,12 @@ export interface VerificationEntry {
   kind?: string
   owner?: string
   signature?: string
+  /**
+   * Rank of the candidate that already prints this signature. The verdict points at that row
+   * instead of repeating the signature, which the candidate list already carries verbatim.
+   * Absent on a verify-only answer, where no candidate exists to point at.
+   */
+  see_candidate?: number
   /** Canonical paths that share the request with equal rank. Present on AMBIGUOUS. */
   candidates?: string[]
 }
@@ -75,10 +81,10 @@ export interface CandidateEntry {
   symbol: string
   score: number
   kind: string
+  /** Alias into the result's `owners` map. The same class repeats on every member of a search. */
   owner?: string
   signature?: string
   doc?: string
-  searchDoc: string
 }
 
 export interface ApiSearchInput {
@@ -94,6 +100,11 @@ export interface ApiSearchResult {
   mode: ApiSearchMode
   /** Present only when the query ran (discover or hybrid). */
   query?: string
+  /**
+   * Every distinct owner path mentioned by this answer, keyed by the short alias that the
+   * `owner` fields carry. Absent when the answer names no owner.
+   */
+  owners?: Record<string, string>
   /** Baseline verdicts for the symbols the Builder named. */
   verification: VerificationEntry[]
   /** Baseline-augmented Search Catalog hits, best first. */

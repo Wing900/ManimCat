@@ -111,8 +111,7 @@ export class ApiRagService {
         rank: position + 1,
         symbol: resolved?.path ?? hit.symbol,
         score: hit.score,
-        kind: resolved?.kind ?? 'unknown',
-        searchDoc: hit.searchDoc
+        kind: resolved?.kind ?? 'unknown'
       }
       if (resolved?.owner) candidate.owner = resolved.owner
       if (resolved?.signature) candidate.signature = resolved.signature
@@ -120,11 +119,28 @@ export class ApiRagService {
       return candidate
     })
 
+    // A member's owner is a full dotted path, and one class owns most of a search: repeating it
+    // costs more than every other field trim combined. Each distinct path is written once into
+    // `owners` and referenced by its short alias, which the Builder reads back through the map.
+    const owners = buildOwnerAliases([...verification, ...candidates])
+
+    // A verified symbol that also arrives as a candidate already carries its signature: the
+    // verdict points at that row rather than printing the same text twice. A verify-only answer
+    // keeps the signature, because there is no candidate to point at.
+    const rankBySymbol = new Map(candidates.map((candidate) => [candidate.symbol, candidate.rank]))
+    for (const entry of verification) {
+      const rank = entry.canonicalSymbol ? rankBySymbol.get(entry.canonicalSymbol) : undefined
+      if (rank === undefined) continue
+      delete entry.signature
+      entry.see_candidate = rank
+    }
+
     return {
       packageName: index.catalog.packageName,
       packageVersion: index.catalog.packageVersion,
       mode: requested.length > 0 ? 'hybrid' : 'discover',
       query,
+      ...(Object.keys(owners).length > 0 ? { owners } : {}),
       verification,
       candidates
     }
@@ -172,4 +188,30 @@ export class ApiRagService {
 
     return { catalog, resolver, retriever }
   }
+}
+
+/**
+ * Writes each distinct owner path once and rewrites every `owner` field to its short alias.
+ * The alias is the last path segment; a second class with the same short name gets a `#2` suffix.
+ * Mutates the entries in place, so callers pass the objects they are about to return.
+ */
+export function buildOwnerAliases(entries: Array<{ owner?: string }>): Record<string, string> {
+  const aliasByPath = new Map<string, string>()
+  const aliases: Record<string, string> = {}
+  for (const entry of entries) {
+    const path = entry.owner
+    if (!path) continue
+    let alias = aliasByPath.get(path)
+    if (!alias) {
+      const base = path.split('.').pop() ?? path
+      alias = base
+      for (let suffix = 2; aliases[alias] !== undefined; suffix += 1) {
+        alias = `${base}#${suffix}`
+      }
+      aliases[alias] = path
+      aliasByPath.set(path, alias)
+    }
+    entry.owner = alias
+  }
+  return aliases
 }

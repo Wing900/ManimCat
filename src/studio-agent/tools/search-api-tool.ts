@@ -29,8 +29,12 @@ export function createStudioSearchApiTool(
     name: SEARCH_API_TOOL_NAME,
     parameters: searchApiToolParameters,
     description:
-      'Search the verified API catalog before writing code that calls it. Never call an API the ' +
-      'result does not name, and pick from the APIs an ambiguous name lists.',
+      'Search the verified API catalog before writing code that calls it. Write `query` as one ' +
+      '`verb + object + context` sentence — the exact form the catalog is authored in, such as ' +
+      '"draw a circle centered at the origin" or "plot a bar chart from values". A bare noun ' +
+      'recalls almost nothing. Name every API you intend to call in `symbols`, as `Class.member` ' +
+      'when you mean a member: a bare member name is not a symbol. Never call an API the result ' +
+      'does not name, and pick from the APIs an ambiguous name lists.',
     allowedAgents: ['builder'],
     allowedStudioKinds: [studioKind],
     execute: async (input) => {

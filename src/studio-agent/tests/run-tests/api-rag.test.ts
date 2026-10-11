@@ -7,7 +7,7 @@ import {
   validateBaselineCatalog
 } from '../../../knowledge/api-rag/baseline-catalog'
 import { createCosineRetriever, l2Normalize } from '../../../knowledge/api-rag/cosine-retriever'
-import { ApiRagService } from '../../../knowledge/api-rag/api-rag-service'
+import { ApiRagService, buildOwnerAliases } from '../../../knowledge/api-rag/api-rag-service'
 import {
   assertSearchCatalogResolvable,
   readSearchCatalog,
@@ -196,9 +196,21 @@ export async function runApiRagTests(): Promise<void> {
     assert.deepEqual(result.candidates.map((candidate) => candidate.rank).slice(0, 3), [1, 2, 3])
     for (const candidate of result.candidates) {
       assert.ok(candidate.symbol.startsWith('manim.'), `candidate symbol must be canonical: ${candidate.symbol}`)
-      assert.equal(typeof candidate.searchDoc, 'string')
+      // The retriever's recall text is an implementation detail and never reaches the Builder.
+      assert.equal('searchDoc' in candidate, false)
       assert.equal(typeof candidate.score, 'number')
       assert.notEqual(candidate.kind, 'unknown')
+      if (candidate.owner) {
+        // An owner field is an alias: it must resolve in `owners` to the real dotted path.
+        assert.ok(result.owners?.[candidate.owner]?.startsWith('manim.'), `owner alias must resolve: ${candidate.owner}`)
+      }
+    }
+
+    // A verdict never repeats a signature the candidate list already prints.
+    for (const entry of result.verification) {
+      if (entry.see_candidate === undefined) continue
+      assert.equal(entry.signature, undefined)
+      assert.equal(result.candidates[entry.see_candidate - 1].symbol, entry.canonicalSymbol)
     }
 
     await assert.rejects(() => service.search('manim', { query: '   ' }), /requires a query, symbols, or both/)
@@ -296,6 +308,29 @@ export async function runApiRagTests(): Promise<void> {
         assert.ok(Math.abs(Math.sqrt(squared) - 1) < 1e-4, `${packageName} row ${row} is not normalized`)
       }
     }
+  })
+
+  await run('owner aliases carry each distinct owner path once', async () => {
+    const entries = [
+      { owner: 'manim.mobject.graphing.coordinate_systems.CoordinateSystem' },
+      { owner: 'manim.mobject.graphing.coordinate_systems.CoordinateSystem' },
+      { owner: 'manim.mobject.table.Table' },
+      { owner: 'manim.other.Table' },
+      {}
+    ]
+    const owners = buildOwnerAliases(entries)
+    assert.deepEqual(owners, {
+      CoordinateSystem: 'manim.mobject.graphing.coordinate_systems.CoordinateSystem',
+      Table: 'manim.mobject.table.Table',
+      'Table#2': 'manim.other.Table'
+    })
+    assert.deepEqual(entries.map((entry) => (entry as { owner?: string }).owner), [
+      'CoordinateSystem',
+      'CoordinateSystem',
+      'Table',
+      'Table#2',
+      undefined
+    ])
   })
 
   await run('the search_api tool passes structured JSON to the Builder', async () => {
