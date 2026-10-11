@@ -138,7 +138,7 @@ cd ..
 npm run dev
 ```
 
-访问 `http://localhost:3000`。环境变量、部署方式以及上游路由示例请查看[部署文档](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.zh-CN.md)。
+访问 `http://localhost:3000`。环境变量见 [`.env.example`](.env.example)，部署要点见下方[部署](#部署)。
 
 如果你直接用 Docker 镜像部署，也可以从 `wingflow/manimcat` 开始，而不是自行本地构建。
 
@@ -216,7 +216,34 @@ flowchart LR
 
 ## 部署
 
-请查看[部署文档](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.zh-CN.md)。
+### Hugging Face Spaces（Docker）
+
+使用仓库的 `Dockerfile`，监听端口为 `7860`。容器启动脚本会启动内置 Redis，无需在 Space 中运行 Docker Compose。
+
+在 Space 的 Settings 中配置环境变量；敏感值放入 Secrets，勿写入仓库、Dockerfile 或前端：
+
+| 配置 | 用途 |
+| --- | --- |
+| `STUDIO_DATA_MODE=client` | 单实例、浏览器保存会话的部署方式 |
+| `STUDIO_EVENT_TRANSPORT=redis`、`STUDIO_RUN_COORDINATION=redis` | 事件推送与运行协调 |
+| `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` | 启用 CatKey 时校验密钥、记录用量；Service Role Key 仅供后端使用 |
+| `CATKEY_UPSTREAM_URL`、`CATKEY_UPSTREAM_API_KEY`、`CATKEY_UPSTREAM_MODEL` | 启用 CatKey 时指定兼容 OpenAI 的服务端上游 |
+
+BYOK 用户在页面设置自己的上游。若需要服务端保存 Studio 会话，使用 `STUDIO_DATA_MODE=server`、`ENABLE_STUDIO_DB=true`，并配置 Supabase 和对应表结构；多副本部署还需要共享 Redis 与可访问的渲染文件存储。
+
+同步到 Space 前，先将需要发布的改动提交到 `main`，再运行：
+
+```powershell
+./scripts/sync-space.ps1
+```
+
+Linux/macOS 可运行 `bash scripts/sync-space.sh`。脚本默认发布已提交的 `main` 到 `space`、`space-show` 两个 remote，并覆盖其远端 `main`；请先核对 remote 地址。脚本会注入 Space 配置，未提交的改动不会进入发布快照。
+
+部署注意：
+
+- 未配置持久存储时，将容器中的视频、工作区和 Redis 数据视为临时数据，重建后可能丢失；数据库保存会话不等于保存视频文件。
+- 上线前运行 `npm audit --omit=dev` 并处理安全告警。启动后检查 `/health`，再验证真实模型调用与视频播放。
+- 本地 Docker 已验证网页、Manim、LaTeX、中文、Matplotlib 和 MiniLM 推理；HF 线上运行、CatKey 与 Supabase 联调仍需部署后验证。
 
 ## 在原项目基础上的主要扩展
 

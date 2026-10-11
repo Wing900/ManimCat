@@ -1,13 +1,11 @@
 import { execFile } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { createLogger } from '../../shared/logging/logger'
 
 const logger = createLogger('BgmMixer')
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const TRACKS_DIR = path.join(__dirname, 'tracks')
+const TRACKS_DIR = path.join(process.cwd(), 'src', 'audio', 'tracks')
 const FADE_DURATION = 3
 
 function getTrackFiles(): string[] {

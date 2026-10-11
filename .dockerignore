@@ -70,6 +70,7 @@ CHANGELOG.md
 LICENSE
 *.md
 !src/prompts/templates/**/*.md
+!src/studio-agent/prompts/templates/**/*.md
 docs/
 
 # Docker files

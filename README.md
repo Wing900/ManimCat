@@ -138,7 +138,7 @@ cd ..
 npm run dev
 ```
 
-Open `http://localhost:3000`. For environment variables and deployment-specific setup, see the [deployment guide](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.md).
+Open `http://localhost:3000`. See [`.env.example`](.env.example) for environment variables and [Deployment](#deployment) below for deployment notes.
 
 If you want a direct Docker deployment path, you can also start from the published image `wingflow/manimcat` instead of building locally first.
 
@@ -214,11 +214,36 @@ flowchart LR
     class E1 event;
 ```
 
-For environment variables, deployment modes, and upstream-routing examples, see the [deployment guide](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.md).
-
 ## Deployment
 
-Please see the [deployment guide](https://github.com/Wing900/ManimCat/blob/main/DEPLOYMENT.md).
+### Hugging Face Spaces (Docker)
+
+Use the repository's `Dockerfile`, listening on port `7860`. Its startup script launches embedded Redis; Docker Compose is not needed inside the Space.
+
+Configure environment variables in Space Settings. Store sensitive values in Secrets, never in the repository, Dockerfile, or frontend:
+
+| Configuration | Purpose |
+| --- | --- |
+| `STUDIO_DATA_MODE=client` | Single-instance deployment with browser-owned sessions |
+| `STUDIO_EVENT_TRANSPORT=redis`, `STUDIO_RUN_COORDINATION=redis` | Event delivery and run coordination |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | CatKey validation and usage recording when CatKey is enabled; the Service Role Key stays server-side |
+| `CATKEY_UPSTREAM_URL`, `CATKEY_UPSTREAM_API_KEY`, `CATKEY_UPSTREAM_MODEL` | Fixed OpenAI-compatible server upstream when CatKey is enabled |
+
+BYOK users configure their upstream in the UI. For server-side Studio session persistence, set `STUDIO_DATA_MODE=server` and `ENABLE_STUDIO_DB=true`, and configure Supabase with the required tables. Multiple replicas also require shared Redis and accessible render-file storage.
+
+Before syncing to Spaces, commit the changes to publish on `main`, then run:
+
+```powershell
+./scripts/sync-space.ps1
+```
+
+On Linux/macOS, run `bash scripts/sync-space.sh`. By default, the script publishes committed `main` to the `space` and `space-show` remotes, overwriting their remote `main`; check the remote URLs first. It injects Space metadata. Uncommitted changes are excluded from the deployment snapshot.
+
+Deployment notes:
+
+- Without persistent storage, treat container videos, workspaces, and Redis data as temporary: rebuilds may remove them. Database-backed sessions do not preserve video files.
+- Run `npm audit --omit=dev` and address security findings before public deployment. After startup, check `/health`, then verify a real model request and video playback.
+- Local Docker checks covered the web UI, Manim, LaTeX, Chinese text, Matplotlib, and MiniLM inference. HF hosting, CatKey, and Supabase integration still require verification after deployment.
 
 ## Major Additions
 

@@ -23,8 +23,9 @@ RUN apk add --no-cache ca-certificates curl \
 # Build a clean Manim venv without the upstream [jupyterlab] extra.
 FROM python:3.14-slim AS manim_builder
 ARG MANIM_VERSION
-RUN apt-get update -qq \
-    && apt-get install --no-install-recommends -y \
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Retries=3 update -qq \
+    && apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
         build-essential \
         cmake \
         gcc \
@@ -37,9 +38,10 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/*
 RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
+ARG MATPLOTLIB_VERSION=3.10.8
 RUN pip install --no-cache-dir \
         "manim==${MANIM_VERSION}" \
-        matplotlib
+        "matplotlib==${MATPLOTLIB_VERSION}"
 
 # Compile both applications, then retain production Node dependencies only.
 FROM node:22-bookworm-slim AS node_builder
@@ -59,12 +61,16 @@ RUN npm run build \
 
 # Runtime contains rendering and serving capabilities only.
 FROM python:3.14-slim AS runtime
+RUN groupadd --gid 1000 node \
+    && useradd --uid 1000 --gid node --create-home node
+ENV HOME=/home/node
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH=/opt/venv/bin:/usr/local/texlive/bin/armhf-linux:/usr/local/texlive/bin/aarch64-linux:/usr/local/texlive/bin/x86_64-linux:$PATH
 ENV NODE_ENV=production
 
-RUN apt-get update -qq \
-    && apt-get install --no-install-recommends -y \
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Retries=3 update -qq \
+    && apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
         ca-certificates \
         ffmpeg \
         fontconfig \
