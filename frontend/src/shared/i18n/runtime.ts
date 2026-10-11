@@ -61,5 +61,13 @@ export function localizeApiMessage(message: string): string {
     return 'Job not found.';
   }
 
+  // The address itself only redirects. The target is carried through, because that is the fix.
+  const redirect = /上游地址发生了重定向（(\d+)(?: → (\S+?))?）/.exec(message);
+  if (redirect) {
+    return redirect[2]
+      ? `The upstream address redirects (${redirect[1]} → ${redirect[2]}). Use that final address as the Base URL.`
+      : `The upstream address redirects (${redirect[1]}). Use the final address as the Base URL.`;
+  }
+
   return message;
 }

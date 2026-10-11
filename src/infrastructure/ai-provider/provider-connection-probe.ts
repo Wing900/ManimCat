@@ -6,7 +6,7 @@
  */
 
 import type { CustomApiConfig } from '../../types'
-import { createCustomOpenAIClient } from './provider-client-factory'
+import { assertBaseUrlIsFinal, createCustomOpenAIClient } from './provider-client-factory'
 
 export interface ConnectionProbeResult {
   model: string
@@ -14,6 +14,9 @@ export interface ConnectionProbeResult {
 }
 
 export async function testBackendAIConnection(config: CustomApiConfig): Promise<ConnectionProbeResult> {
+  // 先问一句地址本身是不是只转发。跟着重定向走，POST 会被降级成 GET，最后报出与病因无关的 405。
+  await assertBaseUrlIsFinal(config.apiUrl)
+
   const client = createCustomOpenAIClient(config)
   const model = config.model
 
