@@ -12,6 +12,7 @@ import {
   rememberStudioSessionId,
   writeLastStudioSessionId,
 } from '../../session-history/session-storage'
+import { getLocalFirstStudioPorts, isClientDataShape } from '../../local-data/local-first-runtime'
 import {
   StudioCinemaSessionGateway,
   type StudioCinemaSessionGatewayDependencies,
@@ -99,11 +100,14 @@ function createDefaultDependencies(
   title: string
 ): Omit<StudioCinemaSessionGatewayDependencies, 'storage' | 'isOwned'> {
   return {
-    api: {
-      createSession: (input) => createStudioSession(input),
-      getSessionSnapshot: (sessionId, options) => getStudioSessionSnapshot(sessionId, options),
-      deleteSession: (sessionId) => deleteStudioSession(sessionId),
-    },
+    // 托管形态直连服务端；客户端形态（`STUDIO_DATA_MODE=client`）会话身份由浏览器持有。
+    api: isClientDataShape()
+      ? getLocalFirstStudioPorts().sessionApi
+      : {
+          createSession: (input) => createStudioSession(input),
+          getSessionSnapshot: (sessionId, options) => getStudioSessionSnapshot(sessionId, options),
+          deleteSession: (sessionId) => deleteStudioSession(sessionId),
+        },
     createAbortController: () => new AbortController(),
     projectId: STUDIO_CINEMA_SESSION_PROJECT_ID,
     defaultTitle: title,

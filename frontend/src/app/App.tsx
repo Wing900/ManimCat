@@ -9,6 +9,7 @@ import { AiModifyModal } from '../features/workflow/components/AiModifyModal';
 import { DonationModal } from '../features/donation/DonationModal';
 import { ConnectionGuide } from '../features/connection/ConnectionGuide';
 import { hasConnection } from '../features/connection/connection-types';
+import { loadStudioDataMode } from '../infrastructure/api/runtime-config';
 import { saveConnection, useConnection } from '../features/connection/connection-storage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { PromptSettings } from '../features/prompts/PromptSettings';
@@ -59,6 +60,12 @@ function App() {
     referenceImages?: ReferenceImage[];
     renderCacheKey: string;
   } | null>(null);
+
+  useEffect(() => {
+    // 部署形态在启动时问一次：UI 的两个装配点读这个已解析的值，所以在打开工作区之前就该有答案。
+    // 失败时它保持 `server`，所以这里不需要 await，也不需要错误分支。
+    void loadStudioDataMode();
+  }, []);
 
   useEffect(() => {
     return () => {

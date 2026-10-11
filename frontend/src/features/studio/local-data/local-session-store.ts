@@ -19,7 +19,15 @@ export interface LocalStudioSessionStore {
   /** 把浏览器看到的一条消息记进本地正文。空文本不记；与末条完全相同的重复不记。 */
   recordMessage: (
     sessionId: string,
-    message: { role: LocalStudioMessage['role']; text: string }
+    message: { role: LocalStudioMessage['role']; text: string; sceneId?: string }
+  ) => Promise<LocalStudioSessionRecord | null>;
+  /**
+   * 同上去重，但比的是**整段正文**而不只是末条：这一条用于「从读取中吸收服务端已知的消息」，
+   * 同一条回复可能被读到多次，中间可能又插入了用户的新输入。
+   */
+  recordMessageOnce: (
+    sessionId: string,
+    message: { role: LocalStudioMessage['role']; text: string; sceneId?: string }
   ) => Promise<LocalStudioSessionRecord | null>;
   /** 落地一个场景的源码（浏览器持有代码）。同一本地 id 覆盖，不新增。 */
   upsertScene: (
@@ -106,13 +114,24 @@ export function createLocalStudioSessionStore(backend: LocalSessionBackend, degr
           return record;
         }
 
-        return {
-          ...record,
-          messages: [
-            ...record.messages,
-            { id: `msg_local_${crypto.randomUUID()}`, role: message.role, text, createdAt: nowIso() }
-          ]
-        };
+        return appendMessage(record, { ...message, text });
+      }),
+
+    recordMessageOnce: (sessionId, message) =>
+      mutate(sessionId, (record) => {
+        const text = message.text.trim();
+        if (!text) {
+          return record;
+        }
+
+        const alreadyKnown = record.messages.some(
+          (candidate) => candidate.role === message.role && candidate.text === text
+        );
+        if (alreadyKnown) {
+          return record;
+        }
+
+        return appendMessage(record, { ...message, text });
       }),
 
     upsertScene: (sessionId, scene) =>
@@ -162,4 +181,23 @@ export function createDefaultLocalStudioSessionStore(): LocalStudioSessionStore 
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function appendMessage(
+  record: LocalStudioSessionRecord,
+  message: { role: LocalStudioMessage['role']; text: string; sceneId?: string }
+): LocalStudioSessionRecord {
+  return {
+    ...record,
+    messages: [
+      ...record.messages,
+      {
+        id: `msg_local_${crypto.randomUUID()}`,
+        role: message.role,
+        text: message.text,
+        createdAt: nowIso(),
+        ...(message.sceneId ? { sceneId: message.sceneId } : {})
+      }
+    ]
+  };
 }

@@ -372,6 +372,11 @@ export interface StudioCreateSceneRunInput {
    * Absent means "leave the workspace alone" (a Legacy Run, or a caller with nothing to sync).
    */
   code?: Record<string, string>
+  /**
+   * The conversation this browser already owns, replayed so the Run has the context it was given
+   * (`STUDIO_DATA_MODE=client`). The server inserts it only when it holds no history for the Session.
+   */
+  conversation?: Array<{ role: 'user' | 'assistant'; text: string }>
 }
 
 /** Accepted Scene Run response: the selected Scene's own records plus the accepted Run. */

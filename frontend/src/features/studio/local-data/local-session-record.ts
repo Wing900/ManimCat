@@ -9,6 +9,8 @@ export interface LocalStudioMessage {
   role: 'user' | 'assistant';
   text: string;
   createdAt: string;
+  /** 归属的本地场景 id（有场景时）。历史面板按场景读，所以本地正文也要带这个作用域。 */
+  sceneId?: string;
 }
 
 export interface LocalStudioScene {
@@ -45,4 +47,10 @@ export interface LocalStudioSessionSummary {
 export interface LocalStudioRunContext {
   conversation: Array<{ role: 'user' | 'assistant'; text: string }>;
   sceneSources: Array<{ localSceneId: string; serverSceneId: string | null; source: string }>;
+}
+
+/** 一条本地消息转成协议消息时需要的作用域信息。 */
+export interface LocalStudioMessageScope {
+  serverSessionId: string;
+  localToServerSceneId: Record<string, string>;
 }

@@ -18,6 +18,7 @@ import {
   reorderStudioScenes,
 } from '../api/studio-agent-api'
 import { subscribeStudioEvents } from '../api/studio-agent-events'
+import { getLocalFirstStudioPorts, isClientDataShape } from '../local-data/local-first-runtime'
 import { resolveStudioProviderConfig } from '../api/studio-provider-config'
 import type { CustomApiConfig } from '../../../shared/types/api'
 import { readStudioCinemaRequestError, STALE_RESULT, type StudioCinemaSnapshotOutcome } from './internals/request-error'
@@ -906,8 +907,16 @@ export class StudioCinemaController {
   }
 }
 
-const defaultDependencies: StudioCinemaControllerDependencies = {
-  api: {
+/**
+ * Scene 层的端口：托管形态直连服务端；客户端形态（`STUDIO_DATA_MODE=client`）换成本地优先端口，
+ * 由它翻译身份、自愈服务端重启，并把本地正文叠回快照。
+ */
+function createDefaultCinemaApi(): StudioCinemaApiPort {
+  if (isClientDataShape()) {
+    return getLocalFirstStudioPorts().sceneApi;
+  }
+
+  return {
     createScene: (sessionId, options) => createStudioScene(sessionId, options),
     reorderScenes: (sessionId, sceneIds) => reorderStudioScenes(sessionId, sceneIds),
     getSceneSnapshot: (sessionId, sceneId, options) => getStudioSceneSnapshot(sessionId, sceneId, options),
@@ -917,7 +926,11 @@ const defaultDependencies: StudioCinemaControllerDependencies = {
     // Preserve property presence: an absent Run is the status-only compatibility shape;
     // explicitly supplied malformed/null Runs must still reach the verdict as rejected.
     cancelRun: (runId) => cancelStudioRun({ runId }),
-  },
+  };
+}
+
+const defaultDependencies: StudioCinemaControllerDependencies = {
+  api: createDefaultCinemaApi(),
   provider: { resolve: () => resolveStudioProviderConfig() },
   events: { subscribe: (options) => subscribeStudioEvents(options) },
   clock: { now: () => Date.now() },
