@@ -93,8 +93,13 @@ export function setupShutdownHandlers(options: ShutdownOptions): void {
     shutdown('UNCAUGHT_EXCEPTION')
   })
 
-  process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled rejection', { reason, promise })
+  process.on('unhandledRejection', (reason) => {
+    // `{ reason }` logs as `{}`: an Error's properties are not enumerable, so the message and the
+    // stack — the only two things that identify the failure — were being dropped.
+    logger.error('Unhandled rejection', {
+      reason: reason instanceof Error ? reason.message : String(reason),
+      stack: reason instanceof Error ? reason.stack : undefined
+    })
     shutdown('UNHANDLED_REJECTION')
   })
 }

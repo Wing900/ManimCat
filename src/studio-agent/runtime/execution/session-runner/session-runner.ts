@@ -54,11 +54,21 @@ export class StudioSessionRunner {
   async startBackgroundRun(input: StudioRunRequestInput): Promise<StudioBackgroundRunHandle> {
     const prepared = await prepareRun(this.deps, input)
     const abortController = new AbortController()
+    const completion = this.executePreparedRun(prepared, abortController.signal)
+
+    // A Run can fail before it takes its first await — the provider configuration is checked
+    // synchronously — which makes this promise already rejected the moment it exists. Its consumer
+    // only sees it after an `await` and attaches its own handler after further I/O, so without this
+    // line the rejection is observed as unhandled first and the process-level policy shuts the
+    // server down. Marking it handled here does not swallow anything: the promise stays rejected, so
+    // the real handler still receives the error.
+    void completion.catch(() => undefined)
+
     return {
       run: prepared.run,
       assistantMessage: prepared.assistantMessage,
       abort: (reason?: string) => abortController.abort(reason ?? 'Run cancelled'),
-      completion: this.executePreparedRun(prepared, abortController.signal)
+      completion
     }
   }
 
