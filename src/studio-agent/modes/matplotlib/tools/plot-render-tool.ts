@@ -96,7 +96,7 @@ async function executePlotRenderTool(
 
       return {
         title,
-        output: `plot_render_id: ${render.id}`,
+        output: `version: ${render.metadata?.label}\noutput_directory: ${render.metadata?.workspaceOutputDirectory}\nplot_render_id: ${render.id}`,
         attachments,
         metadata: {
           renderId: render.id,

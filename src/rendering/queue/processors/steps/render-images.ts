@@ -9,6 +9,7 @@ import { isJobCancelled } from '../../../job/job-cancel-store'
 import { JobCancelledError } from '../../../../shared/errors/errors'
 import { resolveJobTimeoutMs } from '../../../../utils/job-timeout'
 import { resolveRenderCacheWorkspace } from '../../../../utils/render-cache-workspace'
+import { workspaceRenderOutputDirectory } from '../../../workspace-output-directory'
 import {
   createRenderFailureEvent,
   extractCodeSnippet,
@@ -26,12 +27,12 @@ import { executeRenderWithRetry } from './render-with-retry'
 
 const logger = createLogger('RenderImageStep')
 
-function writeImagesIntoWorkspace(workspaceDirectory: string | undefined, jobId: string, sourceImagePaths: string[]): string[] | undefined {
+function writeImagesIntoWorkspace(workspaceDirectory: string | undefined, jobId: string, sourceImagePaths: string[], versionDirectory?: string): string[] | undefined {
   if (!workspaceDirectory || sourceImagePaths.length === 0) {
     return undefined
   }
 
-  const workspaceOutputDir = path.join(workspaceDirectory, 'renders', jobId)
+  const workspaceOutputDir = workspaceRenderOutputDirectory(workspaceDirectory, jobId, versionDirectory)
   fs.mkdirSync(workspaceOutputDir, { recursive: true })
 
   return sourceImagePaths.map((sourcePath, index) => {
@@ -141,7 +142,7 @@ async function renderImageBlocks(
       const stageName = `image-render-${block.index}`
       logger.info('Image render stage started', { jobId, stage: stageName, blockIndex: block.index })
 
-      const blockWorkspace = resolveRenderCacheWorkspace(renderCacheKey, 'image', block.index)
+      const blockWorkspace = resolveRenderCacheWorkspace(renderCacheKey, 'image', jobId, block.index)
       const blockDir = blockWorkspace.tempDir
       const mediaDir = blockWorkspace.mediaDir
       const codeFile = blockWorkspace.codeFile
@@ -234,7 +235,8 @@ export async function renderImages(
   onStageUpdate?: () => Promise<void>,
   clientId?: string,
   workspaceDirectory?: string,
-  renderCacheKey?: string
+  renderCacheKey?: string,
+  workspaceOutputDirectory?: string
 ): Promise<RenderResult> {
   const { code, usedAI, generationType, sceneDesign } = codeResult
   const frameRate = videoConfig?.frameRate || 15
@@ -333,7 +335,7 @@ export async function renderImages(
 
   await ensureJobNotCancelled(jobId)
 
-  const workspaceImagePaths = writeImagesIntoWorkspace(workspaceDirectory, jobId, finalImageOutputPaths)
+  const workspaceImagePaths = writeImagesIntoWorkspace(workspaceDirectory, jobId, finalImageOutputPaths, workspaceOutputDirectory)
 
   return {
     jobId,

@@ -8,6 +8,7 @@ export interface ManimRenderSubmissionInput {
   outputMode: OutputMode
   quality: VideoQuality
   workspaceDirectory: string
+  workspaceOutputDirectory?: string
   signal?: AbortSignal
 }
 

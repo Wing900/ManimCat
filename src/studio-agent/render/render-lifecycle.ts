@@ -3,6 +3,7 @@ import type { StudioRenderStore } from '../domain/store-types'
 import type { StudioRuntimeBackedToolContext } from '../runtime/tools/tool-runtime-context'
 import { isStudioRunCancelledError, throwIfStudioRunCancelled } from '../runtime/execution/run-cancellation'
 import { publishStudioRenderUpdated } from './render-events'
+import { reserveRenderOutputWorkspace } from './render-output-workspace'
 
 /** Status a render record takes when its execution throws. A cancelled Run always wins. */
 export function studioRenderFailureStatus(error: unknown): 'cancelled' | 'failed' {
@@ -39,6 +40,10 @@ export async function executeStudioRenderLifecycle(
   }
 
   const render = input.createRender()
+  render.metadata = {
+    ...render.metadata,
+    ...reserveRenderOutputWorkspace(context.session.directory, render.sceneId),
+  }
   const created = await renderStore.create(render)
   publishStudioRenderUpdated(context.eventBus, created)
 

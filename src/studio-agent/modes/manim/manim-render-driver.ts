@@ -26,6 +26,8 @@ export function createManimRenderDriver(options: {
         outputMode: input.render.outputMode,
         quality: input.render.quality ?? 'medium',
         workspaceDirectory: input.workspaceDirectory,
+        workspaceOutputDirectory: typeof input.render.metadata?.workspaceOutputDirectory === 'string'
+          ? input.render.metadata.workspaceOutputDirectory : undefined,
         signal: input.signal,
       })
       return { jobId, status: 'queued' }

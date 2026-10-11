@@ -77,8 +77,8 @@ async function executeRenderTool(
         metadata: { renderId: render.id, jobId, outputMode, quality, phase: 'render' },
       })
       return {
-        title: `Render queued ${jobId}`,
-        output: `render_id: ${render.id}\nrender_job_id: ${jobId}`,
+        title: `Render ${render.metadata?.label ?? ''} queued`,
+        output: `version: ${render.metadata?.label}\noutput_directory: ${render.metadata?.workspaceOutputDirectory}\nrender_id: ${render.id}\nrender_job_id: ${jobId}`,
         metadata: { renderId: render.id, jobId, outputMode, quality, phase: 'render' },
       }
     },

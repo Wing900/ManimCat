@@ -18,6 +18,8 @@ export function createMatplotlibRenderDriver(options: {
     async execute(input: StudioRenderExecutionInput): Promise<StudioRenderExecutionResult> {
       const execution = await renderPort.execute({
         workspaceDirectory: input.workspaceDirectory,
+        workspaceOutputDirectory: typeof input.render.metadata?.workspaceOutputDirectory === 'string'
+          ? input.render.metadata.workspaceOutputDirectory : undefined,
         renderId: input.render.id,
         code: input.code,
         signal: input.signal,

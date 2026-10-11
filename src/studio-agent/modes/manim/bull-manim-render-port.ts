@@ -28,7 +28,8 @@ export function createBullManimRenderPort(): ManimRenderPort {
           quality: input.quality,
           preGeneratedCode: input.code,
           timestamp: new Date().toISOString(),
-          workspaceDirectory: input.workspaceDirectory
+          workspaceDirectory: input.workspaceDirectory,
+          workspaceOutputDirectory: input.workspaceOutputDirectory
         },
         {
           jobId: input.jobId,

@@ -99,6 +99,7 @@ export interface VideoJobData {
   videoConfig?: VideoConfig
   promptOverrides?: PromptOverrides
   workspaceDirectory?: string
+  workspaceOutputDirectory?: string
   renderCacheKey?: string
 }
 

@@ -10,6 +10,7 @@ import { isJobCancelled } from '../../../job/job-cancel-store'
 import { storeJobStage } from '../../../../infrastructure/redis/job/redis-job-state-store'
 import { resolveJobTimeoutMs } from '../../../../utils/job-timeout'
 import { resolveRenderCacheWorkspace } from '../../../../utils/render-cache-workspace'
+import { workspaceRenderOutputDirectory } from '../../../workspace-output-directory'
 import {
   createRenderFailureEvent,
   extractCodeSnippet,
@@ -28,12 +29,12 @@ import { extractCodeContext } from '../../../../workflow/code-retry/utils'
 
 const logger = createLogger('RenderVideoStep')
 
-function writeVideoIntoWorkspace(workspaceDirectory: string | undefined, jobId: string, sourceVideoPath: string): string | undefined {
+function writeVideoIntoWorkspace(workspaceDirectory: string | undefined, jobId: string, sourceVideoPath: string, versionDirectory?: string): string | undefined {
   if (!workspaceDirectory) {
     return undefined
   }
 
-  const workspaceOutputDir = path.join(workspaceDirectory, 'renders', jobId)
+  const workspaceOutputDir = workspaceRenderOutputDirectory(workspaceDirectory, jobId, versionDirectory)
   fs.mkdirSync(workspaceOutputDir, { recursive: true })
   const workspaceVideoPath = path.join(workspaceOutputDir, 'output.mp4')
   fs.copyFileSync(sourceVideoPath, workspaceVideoPath)
@@ -58,7 +59,8 @@ export async function renderVideo(
   onStageUpdate?: () => Promise<void>,
   clientId?: string,
   workspaceDirectory?: string,
-  renderCacheKey?: string
+  renderCacheKey?: string,
+  workspaceOutputDirectory?: string
 ): Promise<RenderResult> {
   const { code, usedAI, generationType, sceneDesign } = codeResult
 
@@ -68,7 +70,7 @@ export async function renderVideo(
   logger.info('Rendering video', { jobId, quality, usedAI, frameRate, timeoutMs })
 
   const stableRenderCacheKey = renderCacheKey || workspaceDirectory || `job-${jobId}`
-  const cacheWorkspace = resolveRenderCacheWorkspace(stableRenderCacheKey, 'video')
+  const cacheWorkspace = resolveRenderCacheWorkspace(stableRenderCacheKey, 'video', jobId)
   const tempDir = cacheWorkspace.tempDir
   const mediaDir = cacheWorkspace.mediaDir
   const codeFile = cacheWorkspace.codeFile
@@ -204,7 +206,7 @@ export async function renderVideo(
     await addBackgroundMusic(outputPath)
   }
 
-  const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath)
+  const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath, workspaceOutputDirectory)
 
   return {
     jobId,

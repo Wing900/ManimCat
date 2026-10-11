@@ -100,7 +100,8 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
           () => storeProcessingStage(jobId, 'rendering'),
           data.clientId,
           data.workspaceDirectory,
-          data.renderCacheKey
+          data.renderCacheKey,
+          data.workspaceOutputDirectory
         )
       : await renderVideo(
           jobId,
@@ -114,7 +115,8 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
           () => storeProcessingStage(jobId, 'rendering'),
           data.clientId,
           data.workspaceDirectory,
-          data.renderCacheKey
+          data.renderCacheKey,
+          data.workspaceOutputDirectory
         )
   timings.render = Date.now() - renderStart
 
@@ -167,7 +169,8 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
           () => storeProcessingStage(jobId, 'rendering'),
           data.clientId,
           data.workspaceDirectory,
-          data.renderCacheKey
+          data.renderCacheKey,
+          data.workspaceOutputDirectory
         )
       : await renderVideo(
           jobId,
@@ -181,7 +184,8 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
           () => storeProcessingStage(jobId, 'rendering'),
           data.clientId,
           data.workspaceDirectory,
-          data.renderCacheKey
+          data.renderCacheKey,
+          data.workspaceOutputDirectory
         )
   timings.render = Date.now() - renderStart
 

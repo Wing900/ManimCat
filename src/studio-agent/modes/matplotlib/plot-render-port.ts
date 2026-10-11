@@ -1,5 +1,6 @@
 export interface PlotRenderInput {
   workspaceDirectory: string
+  workspaceOutputDirectory?: string
   renderId: string
   code: string
   signal?: AbortSignal

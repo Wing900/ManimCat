@@ -1110,7 +1110,8 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       'outputMode',
       'quality',
       'signal',
-      'workspaceDirectory'
+      'workspaceDirectory',
+      'workspaceOutputDirectory'
     ])
     assert.equal('sceneId' in (manimRequests[0] ?? {}), false, 'the render port payload is untouched')
 
@@ -1134,7 +1135,8 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
       'code',
       'renderId',
       'signal',
-      'workspaceDirectory'
+      'workspaceDirectory',
+      'workspaceOutputDirectory'
     ])
     assert.equal('sceneId' in (plotRequests[0] ?? {}), false, 'the plot port payload is untouched')
   })

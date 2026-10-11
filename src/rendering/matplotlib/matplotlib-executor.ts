@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
+import { workspaceRenderOutputDirectory } from '../workspace-output-directory'
 import { StudioRunCancelledError, isStudioRunCancelledError, readAbortReason, throwIfStudioRunCancelled } from '../../studio-agent/runtime/execution/run-cancellation'
 
 export interface MatplotlibExecutionResult {
@@ -14,12 +15,13 @@ export interface MatplotlibExecutionResult {
 
 export async function executeMatplotlibRender(input: {
   workspaceDirectory: string
+  workspaceOutputDirectory?: string
   renderId: string
   code: string
   signal?: AbortSignal
 }): Promise<MatplotlibExecutionResult> {
   throwIfStudioRunCancelled(input.signal)
-  const outputDir = join(input.workspaceDirectory, 'renders', input.renderId)
+  const outputDir = workspaceRenderOutputDirectory(input.workspaceDirectory, input.renderId, input.workspaceOutputDirectory)
   const matplotlibConfigDir = join(input.workspaceDirectory, '.cache', 'matplotlib')
   await mkdir(outputDir, { recursive: true })
   await mkdir(matplotlibConfigDir, { recursive: true })
