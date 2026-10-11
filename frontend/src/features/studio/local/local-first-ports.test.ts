@@ -305,7 +305,7 @@ describe('the client shape of the Studio ports', () => {
   })
 
   it('rebuilds a Session the server forgot and retries once with the new ids', async () => {
-    const { ports, store, forgetEverything } = createPorts()
+    const { ports, store, runs, forgetEverything } = createPorts()
 
     const session = await ports.sessionApi.createSession({ projectId: PROJECT_ID, title: 'Manim Studio' })
     const scene = await ports.sceneApi.createScene(session.id)
@@ -328,15 +328,18 @@ describe('the client shape of the Studio ports', () => {
     expect(snapshot.scene.id).toBe('scene_1')
     expect((await store.getSession('sess_mem_1'))?.serverSessionId).toBe('sess_srv_4')
     expect((await store.getScene('sess_mem_1', 'scene_1'))?.serverSceneId).toBe('scene_srv_5')
-    // The transcript the browser kept, including the message of the Run it submitted earlier.
-    expect(snapshot.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual([
-      'earlier',
-      'draw a circle',
-    ])
+    // The durable transcript holds only what the browser has confirmed. The message of the Run that
+    // never reported an outcome is still held in memory, so it is not lost — it rides the next seed.
+    expect(snapshot.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual(['earlier'])
 
-    // The retry used the new binding rather than the dead one.
+    // The retry used the new binding rather than the dead one…
     const nextRun = await ports.sceneApi.createSceneRun('sess_mem_1', 'scene_1', { inputText: 'again' })
     expect(nextRun.run.sessionId).toBe('sess_mem_1')
+    // …and it carried the still-unconfirmed message as context.
+    expect(runs.at(-1)?.input.conversation).toEqual([
+      { role: 'user', text: 'earlier' },
+      { role: 'user', text: 'draw a circle' },
+    ])
   })
 
   it('translates the sources it holds into the ids the server knows', async () => {
@@ -392,11 +395,17 @@ describe('the client shape of the Studio ports', () => {
       { role: 'user', text: 'what did we do' },
       { role: 'assistant', text: 'a circle' },
     ])
-    // The submitted message is part of the local transcript too.
+    // The submitted message is held in memory until its Run reports an outcome, so the durable
+    // transcript still ends with the reply it follows (a reload cannot show it twice), while the next
+    // Run already carries it as context.
     const recorded = await store.listSessionMessages(session.id)
-    expect(recorded.at(-1)).toMatchObject({ role: 'user', text: 'and now', sceneId: 'scene_1' })
-    // Written strictly after the transcript it follows, so a replay cannot reorder it.
-    expect(recorded.at(-1)!.createdAt > recorded.at(-2)!.createdAt).toBe(true)
+    expect(recorded.at(-1)).toMatchObject({ id: 'msg_local_2', role: 'assistant' })
+    await ports.sceneApi.createSceneRun(session.id, scene.id, { inputText: 'and again' })
+    expect(runs.at(-1)?.input.conversation).toEqual([
+      { role: 'user', text: 'what did we do' },
+      { role: 'assistant', text: 'a circle' },
+      { role: 'user', text: 'and now' },
+    ])
   })
 
   it('absorbs a reply the server already knows, exactly once', async () => {
