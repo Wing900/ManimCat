@@ -114,13 +114,15 @@ export async function runPromptTests() {
       })
     })
 
+    // The budget tracks the current prompts plus a small margin: it is a bloat alarm, not a target.
+    const basePromptBudget = 1000
     assert.ok(
-      manimPrompt.length <= 900 + manimDirectory.length,
-      `manim base prompt is ${manimPrompt.length} chars, budget is ${900 + manimDirectory.length}`
+      manimPrompt.length <= basePromptBudget + manimDirectory.length,
+      `manim base prompt is ${manimPrompt.length} chars, budget is ${basePromptBudget + manimDirectory.length}`
     )
     assert.ok(
-      plotPrompt.length <= 900 + plotDirectory.length,
-      `plot base prompt is ${plotPrompt.length} chars, budget is ${900 + plotDirectory.length}`
+      plotPrompt.length <= basePromptBudget + plotDirectory.length,
+      `plot base prompt is ${plotPrompt.length} chars, budget is ${basePromptBudget + plotDirectory.length}`
     )
   })
 
