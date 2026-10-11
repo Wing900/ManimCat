@@ -1,5 +1,5 @@
 import { createLogger } from '../../../shared/logging/logger'
-import type { StudioEventBus } from '../../domain/types'
+import type { StudioEventBus, StudioRun } from '../../domain/types'
 import type { StudioRunStore } from '../../domain/store-types'
 import {
   resolveStudioRunCancellationTtlMs,
@@ -14,6 +14,11 @@ import {
 } from './studio-run-coordinator'
 import { createInMemoryStudioRunCoordinator } from './in-memory-studio-run-coordinator'
 import {
+  STUDIO_RUN_LIVENESS_SWEEP_INTERVAL_MS,
+  createStudioRunLivenessSweeper,
+  type StudioRunLivenessSweeper
+} from './studio-run-liveness-sweeper'
+import {
   StudioRunCoordinationService,
   type StudioRunRenewalScheduler
 } from './studio-run-coordination-service'
@@ -22,6 +27,8 @@ import {
 export interface StudioRunCoordinationRuntime {
   service: StudioRunCoordinationService
   transport: StudioRunCoordinationTransport
+  /** Absent when the transport cannot prove a scope has no owner (see the factory below). */
+  runLiveness?: StudioRunLivenessSweeper
   start(): Promise<void>
   close(): Promise<void>
 }
@@ -70,11 +77,52 @@ export function createDefaultStudioRunCoordination(
     leaseRenewMs
   })
 
+  // A sweep only means something where the lease lives where other processes can see it. With the
+  // in-memory transport, "this scope is free" proves nothing about a replica this process cannot
+  // observe, so the sweep stays off instead of guessing: an empty local map would kill live Runs.
+  const activeRunFeed = readActiveRunFeed(options.runStore)
+  const runLiveness =
+    transport === 'redis' && activeRunFeed
+      ? createStudioRunLivenessSweeper({
+          logger,
+          port: {
+            listActiveRuns: activeRunFeed,
+            readScopeLiveness: (scope) => service.readScopeLiveness(scope),
+            reconcileScopeRuns: (input) => service.reconcileStaleRuns(input)
+          }
+        })
+      : undefined
+  logger.info(
+    runLiveness
+      ? `Studio Run liveness sweep every ${STUDIO_RUN_LIVENESS_SWEEP_INTERVAL_MS / 1000}s: a Run whose owner died is finalized once its lease expires`
+      : 'Studio Run liveness sweep is off: it needs the Redis transport and a store that can list active Runs'
+  )
+
   return {
     service,
     transport,
-    start: () => service.start(),
-    close: () => service.close()
+    runLiveness,
+    start: async () => {
+      await service.start()
+      runLiveness?.start()
+    },
+    close: async () => {
+      // Stop sweeping first: while this process still holds leases it must not also be judging them.
+      runLiveness?.stop()
+      await service.close()
+    }
+  }
+
+  /**
+   * The active-Run feed is a capability, not a core read: a store either offers it or the sweep stays
+   * off. Binding here keeps the call site free of the optional-chaining dance and of non-null claims.
+   */
+  function readActiveRunFeed(store: StudioRunStore | undefined): ((limit: number) => Promise<StudioRun[]>) | null {
+    const feed = store?.listActiveRuns
+    if (!store || !feed) {
+      return null
+    }
+    return (limit) => feed.call(store, limit)
   }
 
   function createRedisCoordinator(): StudioRunCoordinatorPort {

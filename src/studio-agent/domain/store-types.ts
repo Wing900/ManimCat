@@ -79,6 +79,15 @@ export interface StudioRunStore {
    * Scene scope are excluded; `listBySessionId` keeps returning both legacy and Scene-scoped Runs.
    */
   listBySceneId: (ownerId: string, sceneId: string) => Promise<StudioRun[]>
+  /**
+   * Every Run still in an active status, across owners and Sessions, oldest first.
+   *
+   * Optional on purpose: it is a capability rather than a core read. The liveness sweep needs it
+   * (it is looking for Runs whose owner process died, and a dead process leaves no scope behind to
+   * ask about), and where a backend does not offer it the sweep stays off instead of guessing.
+   * `limit` is required so a growing table can never turn one sweep into an unbounded scan.
+   */
+  listActiveRuns?: (limit: number) => Promise<StudioRun[]>
 }
 
 export interface StudioRenderTransitionInput {

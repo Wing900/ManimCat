@@ -3,7 +3,7 @@ import type { StudioRun, StudioRunStore } from '../../domain/types'
 import type { StudioRunRow, JsonRecord } from './supabase-persistence-shared'
 import { TABLES, compactObject, asOptional, asNullable, readStudioSceneId } from './supabase-persistence-shared'
 import { readStudioTokenUsage } from '../../runs/token-usage'
-import { canTransitionStudioRunStatus } from '../../runs/run-status-transitions'
+import { canTransitionStudioRunStatus, STUDIO_RUN_ACTIVE_STATUSES } from '../../runs/run-status-transitions'
 
 export function createSupabaseStudioRunStore(client: SupabaseClient): StudioRunStore {
   return {
@@ -80,6 +80,20 @@ export function createSupabaseStudioRunStore(client: SupabaseClient): StudioRunS
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
       if (error) throw new Error(`[StudioDB] Failed to list scene runs: ${error.message}`)
+      return (data ?? []).map((row) => fromRunRow(row as StudioRunRow))
+    },
+    async listActiveRuns(limit) {
+      // Deliberately cross-owner: a Run whose owner process died is not reachable by owner, and the
+      // status filter is the whole predicate. Ordered oldest first so a capped sweep takes the Runs
+      // that have been claiming to be alive the longest.
+      const { data, error } = await client
+        .from(TABLES.runs)
+        .select('*')
+        .in('status', [...STUDIO_RUN_ACTIVE_STATUSES])
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(limit)
+      if (error) throw new Error(`[StudioDB] Failed to list active runs: ${error.message}`)
       return (data ?? []).map((row) => fromRunRow(row as StudioRunRow))
     },
   }

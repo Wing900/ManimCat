@@ -1,5 +1,5 @@
 import type { StudioRun, StudioRunStore, StudioRunTransitionInput, StudioRunTransitionResult } from '../domain/types'
-import { canTransitionStudioRunStatus } from './run-status-transitions'
+import { canTransitionStudioRunStatus, STUDIO_RUN_ACTIVE_STATUSES } from './run-status-transitions'
 
 export class InMemoryStudioRunStore implements StudioRunStore {
   private readonly runs = new Map<string, StudioRun>()
@@ -66,6 +66,13 @@ export class InMemoryStudioRunStore implements StudioRunStore {
     return [...this.runs.values()]
       .filter((run) => run.ownerId === ownerId && run.sceneId === sceneId)
       .sort(compareByCreatedAtThenId)
+  }
+
+  async listActiveRuns(limit: number): Promise<StudioRun[]> {
+    return [...this.runs.values()]
+      .filter((run) => STUDIO_RUN_ACTIVE_STATUSES.includes(run.status))
+      .sort(compareByCreatedAtThenId)
+      .slice(0, limit)
   }
 }
 
