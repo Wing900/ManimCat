@@ -7,7 +7,9 @@ import type { TranslationKey } from '../../../../shared/i18n/messages'
  * characters of the newest assistant message for this Scene, then an ellipsis — so what the user reads
  * in the bubble is really what the cat said. A canned state report survives only for states the
  * assistant cannot describe itself: a failure, a reconnect, an unreadable status, a paused refresh.
- * Those carry the one recover entry the user can click.
+ * Those carry the one recover entry the user can click — except a failure: its reason already went
+ * back to the model inside the run (the loop feeds tool errors back and resumes), so the bubble
+ * states the fact and points at the composer instead of promising a details panel that has none.
  */
 
 export type CatFeedbackKind = 'transient' | 'persistent'
@@ -54,7 +56,9 @@ export function readStudioCinemaCatReplySnippet(text: string, max = CAT_REPLY_SN
 export function readStudioCinemaCatFeedback(statusKey: TranslationKey): CatFeedback | null {
   switch (statusKey) {
     case 'studio.cinema.catFailed':
-      return { bubbleKey: 'studio.cinema.catBubbleFailed', kind: 'persistent', hasRecoverEntry: true }
+      // The failure reason is not a user-facing document: the run already handed it to the model, and
+      // the history panel has no failure row to open (scene-conversation-model.ts keeps it that way).
+      return { bubbleKey: 'studio.cinema.catBubbleFailed', kind: 'persistent', hasRecoverEntry: false }
     case 'studio.cinema.catNeedsCheck':
       return { bubbleKey: 'studio.cinema.catBubbleCheck', kind: 'persistent', hasRecoverEntry: true }
     case 'studio.cinema.catUnreachable':
