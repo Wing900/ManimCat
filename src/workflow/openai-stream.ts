@@ -14,6 +14,9 @@ export interface ChatCompletionTextResult {
   content: string
   mode: 'stream' | 'stream-partial' | 'non-stream'
   response?: OpenAI.Chat.Completions.ChatCompletion
+  /** True when the stream produced only reasoning_content and no final content, so a non-stream
+   * follow-up turn was issued to make the model emit its answer. */
+  followupApplied?: boolean
 }
 
 const logger = createLogger('OpenAIStream')
@@ -136,6 +139,7 @@ export async function createChatCompletionText(
   let chunkCount = 0
   let firstChunkAt: number | null = null
   let content = ''
+  let reasoningContent = ''
   let streamUsage:
     | {
         prompt_tokens?: unknown
@@ -247,7 +251,8 @@ export async function createChatCompletionText(
         streamUsage = usage
       }
 
-      const delta = chunk.choices?.[0]?.delta?.content
+      const deltaChoice = chunk.choices?.[0]
+      const delta = deltaChoice?.delta?.content
       if (typeof delta === 'string' && delta.length > 0) {
         if (firstChunkAt === null) {
           firstChunkAt = Date.now()
@@ -258,6 +263,13 @@ export async function createChatCompletionText(
         }
         content += delta
         receivedContent = true
+      }
+      // Thinking models (DeepSeek-style) stream the chain-of-thought under `reasoning_content`
+      // separately from the final answer. Capture it so we can detect the case where the model
+      // burned its whole token budget on reasoning and never emitted final content.
+      const reasoningDelta = (deltaChoice?.delta as { reasoning_content?: unknown } | undefined)?.reasoning_content
+      if (typeof reasoningDelta === 'string' && reasoningDelta.length > 0) {
+        reasoningContent += reasoningDelta
       }
     }
 
@@ -291,8 +303,27 @@ export async function createChatCompletionText(
       usage: streamUsage
     })
 
+    const trimmedContent = content.trim()
+    const trimmedReasoning = reasoningContent.trim()
+    if (trimmedContent.length === 0 && trimmedReasoning.length > 0) {
+      logger.warn('OpenAI stream produced only reasoning content, issuing non-stream follow-up', {
+        model,
+        reasoningLength: trimmedReasoning.length,
+        chunkCount,
+        elapsedMs: Date.now() - startedAt
+      })
+      const followupContent = await issueReasoningFollowup(client, request, trimmedReasoning, options.usageLabel)
+      if (followupContent) {
+        return {
+          content: followupContent,
+          mode: 'non-stream',
+          followupApplied: true
+        }
+      }
+    }
+
     return {
-      content: content.trim(),
+      content: trimmedContent,
       mode: 'stream'
     }
   } catch (error) {
@@ -377,4 +408,124 @@ export async function createChatCompletionText(
 
     throw error
   }
+}
+
+const FOLLOWUP_USER_PROMPT =
+  '请基于以上思考，直接输出最终结果。不要重复推理过程，只给出最终答案。'
+const FOLLOWUP_USER_PROMPT_FALLBACK =
+  '上一次请求你只输出了推理过程而没有给出最终结果。请直接输出最终结果，不要再重复推理。'
+
+function isUnsupportedReasoningParamError(error: unknown): boolean {
+  if (!(error instanceof OpenAI.APIError)) {
+    return false
+  }
+  const message = `${error.name} ${error.message || ''}`.toLowerCase()
+  return (
+    message.includes('reasoning_content') ||
+    message.includes('unknown parameter') ||
+    message.includes('unsupported') ||
+    message.includes('unexpected parameter')
+  )
+}
+
+/**
+ * When a thinking model spends its whole token budget on `reasoning_content` and emits no final
+ * answer, send one non-stream follow-up turn that asks the model to emit the answer directly.
+ *
+ * Strategy B: hand the prior reasoning back to the model as an assistant turn carrying
+ * `reasoning_content` (the DeepSeek multi-turn convention), then a user turn asking for the final
+ * answer. If the upstream provider rejects the `reasoning_content` input field, fall back to
+ * Strategy A: a plain user turn that just asks for the final result without the prior reasoning.
+ *
+ * Returns the trimmed final content, or `null` if the follow-up also produced nothing usable (the
+ * caller will then surface the original empty content so upstream retry/error handling applies).
+ */
+async function issueReasoningFollowup(
+  client: OpenAI,
+  request: ChatCompletionRequest,
+  reasoningContent: string,
+  usageLabel?: string
+): Promise<string | null> {
+  const baseMessages = ((request as { messages?: unknown }).messages ?? []) as unknown[]
+  const maxTokens = (request as { max_completion_tokens?: unknown }).max_completion_tokens ??
+    (request as { max_tokens?: unknown }).max_tokens
+  const model = String((request as { model?: unknown }).model || '')
+  const label = `${usageLabel || 'chat-completion'}-followup`
+
+  const recordFollowupUsage = (usage: unknown): void => {
+    recordJobTokenUsage({
+      label,
+      model,
+      mode: 'non-stream',
+      maxTokens,
+      usage: usage as { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown } | undefined
+    })
+  }
+
+  const createNonStream = (messages: unknown[]) =>
+    client.chat.completions.create({
+      ...request,
+      messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      stream: false
+    } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming)
+
+  // Strategy B: replay reasoning_content so the model can continue from its own chain-of-thought.
+  try {
+    const response = await createNonStream([
+      ...baseMessages,
+      {
+        role: 'assistant',
+        content: '',
+        reasoning_content: reasoningContent
+      },
+      {
+        role: 'user',
+        content: FOLLOWUP_USER_PROMPT
+      }
+    ])
+    const rawContent = response.choices?.[0]?.message?.content
+    const normalized = typeof rawContent === 'string' ? rawContent.trim() : ''
+    recordFollowupUsage((response as unknown as { usage?: unknown }).usage)
+    if (normalized.length > 0) {
+      logger.info('OpenAI reasoning follow-up (strategy B) produced final content', {
+        model,
+        contentLength: normalized.length
+      })
+      return normalized
+    }
+  } catch (error) {
+    if (!isUnsupportedReasoningParamError(error)) {
+      logger.warn('OpenAI reasoning follow-up (strategy B) failed with non-param error', {
+        model,
+        ...getErrorMeta(error)
+      })
+      throw error
+    }
+    logger.warn('OpenAI reasoning follow-up (strategy B) rejected reasoning_content param, falling back to strategy A', {
+      model,
+      ...getErrorMeta(error)
+    })
+  }
+
+  // Strategy A: ask for the final result without replaying reasoning (provider-agnostic).
+  const response = await createNonStream([
+    ...baseMessages,
+    {
+      role: 'user',
+      content: FOLLOWUP_USER_PROMPT_FALLBACK
+    }
+  ])
+  const rawContent = response.choices?.[0]?.message?.content
+  const normalized = typeof rawContent === 'string' ? rawContent.trim() : ''
+  recordFollowupUsage((response as unknown as { usage?: unknown }).usage)
+  if (normalized.length > 0) {
+    logger.info('OpenAI reasoning follow-up (strategy A) produced final content', {
+      model,
+      contentLength: normalized.length
+    })
+    return normalized
+  }
+
+  logger.warn('OpenAI reasoning follow-up produced no final content', { model })
+  return null
 }
