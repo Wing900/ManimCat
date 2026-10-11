@@ -6,11 +6,13 @@ import type { CatKeyRecord } from '../domain/cat-key'
  *
  * Keys are issued and revoked by hand (the repository's own port documents writes as SQL-Editor
  * only), so this window *is* the revocation latency: a CatKey switched to `revoked` keeps working
- * until the entry that remembered it expires. Five minutes is the default because it already removes
- * the registry lookup from the hot path while keeping a manual revocation from lasting long enough to
- * be forgotten; `CATKEY_CACHE_TTL_SECONDS` overrides it, and restarting the server clears it.
+ * until the entry that remembered it expires. Twelve hours is the product decision — a CatKey is
+ * long-lived by design and the lookup is one full round trip on every request otherwise. A shorter
+ * `CATKEY_CACHE_TTL_SECONDS` tightens the revocation latency, and restarting the server clears the
+ * cache outright, which is the escape hatch when a key has to stop working now. The first lookup of
+ * a key always reaches the registry, so issuance is never delayed by this.
  */
-export const DEFAULT_CAT_KEY_CACHE_TTL_MS = 5 * 60 * 1000
+export const DEFAULT_CAT_KEY_CACHE_TTL_MS = 12 * 60 * 60 * 1000
 
 /** Reads the configured window, falling back to the default for anything unusable. */
 export function readCatKeyCacheTtlMs(raw: string | undefined = process.env.CATKEY_CACHE_TTL_SECONDS): number {
