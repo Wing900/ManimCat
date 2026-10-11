@@ -5,6 +5,8 @@ export type ConnectionMode = 'catkey' | 'byok'
 export interface ConnectionSettings {
   version: 1
   activeMode: ConnectionMode | null
+  /** 「暂时不选」：引导页被叉掉过一次就别再来烦。清空 AI 设置会把它复位。 */
+  dismissed: boolean
   catkey: { key: string }
   byok: {
     browserSecret: string
@@ -24,6 +26,7 @@ export function createConnectionSettings(): ConnectionSettings {
   return {
     version: 1,
     activeMode: null,
+    dismissed: false,
     catkey: { key: '' },
     byok: { browserSecret: '', provider: 'openai-compatible', apiUrl: OPENAI_DEFAULT_URL, apiKey: '', model: '' },
   }

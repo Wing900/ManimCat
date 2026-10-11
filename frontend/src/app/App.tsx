@@ -7,7 +7,9 @@ import { useGame2048 } from '../features/workflow/hooks/useGame2048';
 import { useTabTitle } from '../shared/hooks/useTabTitle';
 import { AiModifyModal } from '../features/workflow/components/AiModifyModal';
 import { DonationModal } from '../features/donation/DonationModal';
-import { AccessGate } from '../features/connection/AccessGate';
+import { ConnectionGuide } from '../features/connection/ConnectionGuide';
+import { hasConnection } from '../features/connection/connection-types';
+import { saveConnection, useConnection } from '../features/connection/connection-storage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { PromptSettings } from '../features/prompts/PromptSettings';
 import { StudioPage } from './routes/StudioPage';
@@ -34,6 +36,7 @@ function App() {
   const { status, result, error, jobId, stage, submittedAt, generate, renderWithCode, modifyWithAI, reset, cancel, cancelAndReset } = useGeneration();
   const problemFraming = useProblemFraming();
   const game = useGame2048();
+  const connection = useConnection();
   useTabTitle(status, stage);
 
   const [overlay, setOverlay] = useState<'settings' | 'prompts' | null>(null);
@@ -243,6 +246,10 @@ function App() {
   const isBusy = status === 'processing' || status === 'cancelling';
   const displayResult = result ?? lastCompletedResult;
 
+  // 引导页只在「没有连接、没被叉掉过、也没有别的页浮在上面」时出现。最后一条就是「先回主界面才弹」。
+  const showGuide = !hasConnection(connection) && !connection.dismissed && overlay === null;
+  const dismissGuide = () => saveConnection({ ...connection, dismissed: true });
+
   const renderScreen = (name: Screen) => {
     if (name === 'classic') {
       return (
@@ -316,7 +323,6 @@ function App() {
   };
 
   return (
-    <AccessGate>
     <div className="min-h-screen bg-bg-primary transition-colors duration-300 overflow-x-hidden">
       {exitSliding && (
         <div className="fixed inset-0 z-[90] overflow-hidden">
@@ -358,8 +364,9 @@ function App() {
         onClose={() => setAiModifyOpen(false)}
         onSubmit={handleAiModifySubmit}
       />
+
+      {showGuide && <ConnectionGuide onDismiss={dismissGuide} />}
     </div>
-    </AccessGate>
   );
 }
 

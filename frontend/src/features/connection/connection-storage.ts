@@ -13,6 +13,7 @@ function readConnection(raw: string): ConnectionSettings {
   return {
     version: 1,
     activeMode: value.activeMode === 'catkey' || value.activeMode === 'byok' ? value.activeMode : null,
+    dismissed: value.dismissed === true,
     catkey: { key: text(value.catkey?.key) },
     byok: {
       browserSecret: text(value.byok?.browserSecret),
@@ -49,6 +50,7 @@ export function loadConnection(): ConnectionSettings {
       connection.activeMode = 'byok'
     } else if (connection.catkey.key) connection.activeMode = 'catkey'
     if (!hasConnection(connection)) connection.activeMode = null
+  connection.dismissed = false
     if (legacy.api) {
       delete legacy.api
       localStorage.setItem('manimcat_settings', JSON.stringify(legacy))
@@ -66,6 +68,11 @@ export function saveConnection(connection: ConnectionSettings): void {
   }
   localStorage.setItem(CONNECTION_STORAGE_KEY, JSON.stringify(normalized))
   window.dispatchEvent(new Event(CONNECTION_CHANGED))
+}
+
+/** 全清：连接方式、CatKey、BYOK 的 Key / 地址 / 模型一起回出厂；引导页随之复位。 */
+export function clearConnection(): void {
+  saveConnection(createConnectionSettings())
 }
 
 function subscribe(listener: () => void): () => void {

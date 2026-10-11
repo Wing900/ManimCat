@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { useI18n } from '../../shared/i18n/index'
 import type { ConnectionMode, ConnectionSettings } from '../connection/connection-types'
+import { clearConnection } from '../connection/connection-storage'
 import { CatKeyForm } from '../connection/CatKeyForm'
 import { ByokForm } from '../connection/ByokForm'
+import { ClearAiSettingsDialog } from './ClearAiSettingsDialog'
+import { TrashMark } from './settings-icons'
 
 interface AiConnectionSettingsProps {
   connection: ConnectionSettings
   onSaved: (next: ConnectionSettings) => void
+  /** 清空之后离开设置页：主界面回来了，引导页才浮上来。 */
+  onCleared: () => void
 }
 
 const MODE_LABEL_KEYS = {
@@ -21,10 +26,11 @@ const MODE_LABEL_KEYS = {
  * solid blocks: on a settings page the only filled thing is the action you press. The solid ink
  * button lives in the form below, where it belongs.
  */
-export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettingsProps) {
+export function AiConnectionSettings({ connection, onSaved, onCleared }: AiConnectionSettingsProps) {
   const { t } = useI18n()
   const [mode, setMode] = useState<ConnectionMode>(connection.activeMode ?? 'catkey')
   const [direction, setDirection] = useState<'left' | 'right'>('right')
+  const [confirmingClear, setConfirmingClear] = useState(false)
 
   // 药丸往哪边滑，下面的表单就从哪边进来，两步读成一个动作。
   const selectMode = (next: ConnectionMode) => {
@@ -33,7 +39,15 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
     setMode(next)
   }
 
-  const disconnect = () => onSaved({ ...connection, activeMode: null })
+  /**
+   * 清空之后不停在这一页，而是回主界面——那一屏才浮出来问你选哪种方式。顺序不能反：只有设置页走完了，
+   * App 才会把引导页放出来（见 App 的 `showGuide`）。
+   */
+  const handleClearAll = () => {
+    setConfirmingClear(false)
+    clearConnection()
+    onCleared()
+  }
 
   return (
     <div className="space-y-8">
@@ -66,29 +80,33 @@ export function AiConnectionSettings({ connection, onSaved }: AiConnectionSettin
       {/* 换模式 = 换表单，所以这里重挂；顺带把上一张表单的校验报错也清掉，方向交给上面的 direction。 */}
       <div key={mode} className={direction === 'right' ? 'panel-in-right' : 'panel-in-left'}>
         {mode === 'catkey' && (
-          <div className="space-y-8">
-            {connection.activeMode === 'catkey' && (
-              <div className="flex items-center justify-between rounded-2xl bg-bg-secondary/50 px-4 py-3">
-                <span className="text-sm text-text-primary">{t('connection.catkey.status.connected')}</span>
-                <button
-                  type="button"
-                  onClick={disconnect}
-                  className="text-sm font-medium text-red-600 transition-colors duration-200 ease-ui hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  {t('connection.catkey.disconnect')}
-                </button>
-              </div>
-            )}
-            <CatKeyForm
-              connection={connection}
-              submitLabel={t('connection.catkey.verifyAndSave')}
-              onSaved={onSaved}
-            />
-          </div>
+          <CatKeyForm
+            connection={connection}
+            submitLabel={t('connection.catkey.verifyAndSave')}
+            onSaved={onSaved}
+          />
         )}
 
         {mode === 'byok' && <ByokForm connection={connection} onSaved={onSaved} />}
       </div>
+
+      {/* 破坏性动作放在离表单最远的右下角，用文字的重量而不是填充块——它是这页唯一的减法。 */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setConfirmingClear(true)}
+          className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm text-text-secondary/70 transition-colors duration-200 ease-ui hover:bg-red-500/5 hover:text-red-600"
+        >
+          <TrashMark className="h-4 w-4" />
+          {t('settings.ai.clearAll')}
+        </button>
+      </div>
+
+      <ClearAiSettingsDialog
+        isOpen={confirmingClear}
+        onCancel={() => setConfirmingClear(false)}
+        onConfirm={handleClearAll}
+      />
     </div>
   )
 }

@@ -97,7 +97,7 @@ export function SettingsPage({ exiting, onClose }: SettingsPageProps) {
           {/* key 换了才重挂，动画跟着内容走：切分区是“落位”，再点同一个分区不会再播一遍。 */}
           <div key={section} className="panel-in mx-auto w-full max-w-xl px-8 py-10">
             {section === 'ai' ? (
-              <AiConnectionSettings connection={connection} onSaved={saveConnection} />
+              <AiConnectionSettings connection={connection} onSaved={saveConnection} onCleared={handleClose} />
             ) : (
               <VideoSettings videoConfig={config.video} onUpdate={updateVideo} />
             )}

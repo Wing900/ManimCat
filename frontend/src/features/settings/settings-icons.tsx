@@ -52,3 +52,19 @@ export function VideoMark(props: IconProps) {
     </svg>
   )
 }
+
+/**
+ * Clearing every AI setting: a bin — lid, handle, body.
+ *
+ * It is the one subtractive act on the page, so it keeps the same stroke weight as everything else
+ * and sits in the bottom-right corner, furthest from the form it removes.
+ */
+export function TrashMark(props: IconProps) {
+  return (
+    <svg {...mark(props)}>
+      <path d="M4.8 7.4h14.4" />
+      <path d="M9.6 7.4V5.9a1.2 1.2 0 0 1 1.2-1.2h2.4a1.2 1.2 0 0 1 1.2 1.2v1.5" />
+      <path d="M6.6 7.4l.9 10.1a1.6 1.6 0 0 0 1.6 1.5h5.8a1.6 1.6 0 0 0 1.6-1.5l.9-10.1" />
+    </svg>
+  )
+}

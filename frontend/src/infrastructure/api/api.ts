@@ -126,7 +126,30 @@ export async function generateProblemFraming(
     throw new Error(await parseApiErrorMessage(response, translate('api.problemFramingFailed')));
   }
 
-  return response.json();
+  const data = (await response.json()) as ProblemFramingResponse;
+  if (!isUsableProblemFramingPlan(data?.plan)) {
+    // The planner must return its own content. An empty plan is a failure, never a card.
+    throw new Error(translate('api.problemFramingEmpty'));
+  }
+
+  return data;
+}
+
+/**
+ * Shape guard for the planning card. The backend already rejects plans it would have to invent
+ * (src/workflow/problem-framing/parser.ts), so this only catches drift that would render an empty card.
+ */
+function isUsableProblemFramingPlan(plan: ProblemFramingResponse['plan'] | undefined): boolean {
+  if (!plan || typeof plan !== 'object') {
+    return false;
+  }
+  if (!plan.headline?.trim() || !plan.summary?.trim()) {
+    return false;
+  }
+  if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
+    return false;
+  }
+  return plan.steps.every((step) => Boolean(step?.title?.trim() && step?.content?.trim()));
 }
 
 export async function getPromptDefaults(locale?: PromptLocale, signal?: AbortSignal): Promise<PromptDefaults> {
