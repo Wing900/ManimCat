@@ -105,8 +105,8 @@ temp_branch_created=1
 update_space_readme
 # LFS attributes belong to the deployment snapshot only.
 git lfs install --local
-git lfs track '*.onnx' '*.f32'
-git add --renormalize -- data/models data/api-catalog
+git lfs track '*.onnx' '*.f32' '*.mp4' '*.webm' '*.png'
+git add --renormalize -- data/models data/api-catalog frontend/public public
 git add -A
 
 for pattern in "${EXCLUDE_PATTERNS[@]}"; do

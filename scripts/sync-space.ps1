@@ -145,8 +145,8 @@ try {
 
   # Keep LFS attributes in the deployment snapshot only; main retains its existing storage format.
   Invoke-Git -Args @('lfs', 'install', '--local') -ErrorMessage 'Failed to initialize Git LFS.'
-  Invoke-Git -Args @('lfs', 'track', '*.onnx', '*.f32') -ErrorMessage 'Failed to configure model asset tracking.'
-  Invoke-Git -Args @('add', '--renormalize', '--', 'data/models', 'data/api-catalog') -ErrorMessage 'Failed to convert model assets to LFS pointers.'
+  Invoke-Git -Args @('lfs', 'track', '*.onnx', '*.f32', '*.mp4', '*.webm', '*.png') -ErrorMessage 'Failed to configure binary asset tracking.'
+  Invoke-Git -Args @('add', '--renormalize', '--', 'data/models', 'data/api-catalog', 'frontend/public', 'public') -ErrorMessage 'Failed to convert binary assets to LFS pointers.'
   Invoke-Git -Args @('add', '-A') -ErrorMessage 'Failed to stage files on temp branch.'
 
   foreach ($pattern in $excludePatterns) {
