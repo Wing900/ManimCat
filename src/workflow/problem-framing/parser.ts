@@ -114,6 +114,9 @@ export function parseProblemFramingResponse(text: string, locale: PromptLocale):
   try {
     return normalizeProblemFramingPlan(JSON.parse(extractProblemFramingJson(cleaned)), locale)
   } catch (error) {
+    if (error instanceof ProblemFramingFormatError) {
+      throw error
+    }
     throw new ProblemFramingFormatError(
       `Problem framing response matched neither the tagged protocol nor legacy JSON: ${error instanceof Error ? error.message : String(error)}`,
     )
@@ -145,14 +148,9 @@ export function normalizeProblemFramingPlan(raw: unknown, locale: PromptLocale):
     designer_hint?: unknown
   }
 
-  const fallbackStepTitle = locale === 'en-US' ? 'Step' : '步骤'
-  const fallbackStepContent = locale === 'en-US'
-    ? 'Continue clarifying the visual direction and storytelling order for this part.'
-    : '继续细化这一段的可视化表达和叙事顺序。'
-  const fallbackHeadline = locale === 'en-US' ? 'A fresh visualization plan' : '新的可视化方案'
-  const fallbackSummary = locale === 'en-US'
-    ? 'The expression path has been organized more clearly.'
-    : '整理出一个更清晰的表达路径。'
+  // The parser never invents user-visible content: a plan the model did not write is a format error the
+  // caller can repair, not a card filled with placeholder text. Only the decoration fields below keep a
+  // neutral default, and nothing renders them (no `visualMotif`/`designerHint` consumer in frontend/src).
   const fallbackMotif = locale === 'en-US' ? 'Cat paws are sorting the steps across the card.' : '猫爪在卡片上整理出步骤。'
   const fallbackHint = locale === 'en-US'
     ? 'The next designer stage should expand these three steps into concrete animation design.'
@@ -161,26 +159,36 @@ export function normalizeProblemFramingPlan(raw: unknown, locale: PromptLocale):
   const steps = Array.isArray(input.steps) ? input.steps : []
   const normalizedSteps = steps
     .slice(0, 5)
-    .map((step, index) => {
+    .map((step) => {
       const item = step && typeof step === 'object' ? step as { title?: unknown; content?: unknown } : {}
       return {
-        title: sanitizeString(item.title, `${fallbackStepTitle} ${index + 1}`),
+        title: sanitizeString(item.title, ''),
         content: sanitizeString(item.content, ''),
       }
     })
-    .filter((step) => step.content)
+    .filter((step) => step.title && step.content)
 
-  while (normalizedSteps.length < 3) {
-    normalizedSteps.push({
-      title: `${fallbackStepTitle} ${normalizedSteps.length + 1}`,
-      content: fallbackStepContent,
-    })
+  const headline = sanitizeString(input.headline, '')
+  const summary = sanitizeString(input.summary, '')
+  const missing: string[] = []
+  if (!headline) {
+    missing.push('headline')
+  }
+  if (!summary) {
+    missing.push('summary')
+  }
+  if (normalizedSteps.length < 3) {
+    missing.push(`at least 3 complete steps (received ${normalizedSteps.length})`)
+  }
+  if (missing.length > 0) {
+    // This message lands in the repair prompt, so it names exactly what the model must supply.
+    throw new ProblemFramingFormatError(`Plan is missing required content: ${missing.join(', ')}`)
   }
 
   return {
     mode: input.mode === 'clarify' ? 'clarify' : 'invent',
-    headline: sanitizeString(input.headline, fallbackHeadline),
-    summary: sanitizeString(input.summary, fallbackSummary),
+    headline,
+    summary,
     steps: normalizedSteps,
     visualMotif: sanitizeString(input.visualMotif ?? input.visual_motif, fallbackMotif),
     designerHint: sanitizeString(input.designerHint ?? input.designer_hint, fallbackHint),

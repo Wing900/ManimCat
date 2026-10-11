@@ -445,23 +445,23 @@ function ProblemFramingOverlayContent({
               </section>
 
               {plan && <aside className="px-5 pb-5 pt-1 sm:px-7 sm:pb-6">
-                <div className="mx-auto grid max-w-[860px] gap-4 lg:grid-cols-[minmax(0,520px)_auto] lg:items-center lg:translate-x-8">
-                  <div className="lg:translate-y-3">
+                <div className="mx-auto grid max-w-[860px] gap-4 lg:grid-cols-[minmax(0,520px)_auto] lg:items-center">
+                  <div>
                     <textarea
                       value={adjustment}
                       onChange={(event) => onAdjustmentChange(event.target.value)}
                       rows={2}
                       placeholder={t('problem.adjustPlaceholder')}
-                      className="mt-3 min-h-[68px] w-full resize-none rounded-2xl bg-bg-secondary/50 px-4 py-3 text-sm leading-6 text-text-primary placeholder-text-secondary/40 outline-none transition-all focus:bg-bg-secondary/70 focus:ring-2 focus:ring-accent/20"
+                      className="min-h-[68px] w-full resize-none rounded-2xl bg-bg-secondary/50 px-4 py-3 text-sm leading-6 text-text-primary placeholder-text-secondary/40 outline-none transition-all focus:bg-bg-secondary/70 focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
 
-                  <div className="flex items-center justify-center gap-5 lg:justify-start lg:translate-x-3 lg:translate-y-3">
+                  <div className="flex items-center justify-center gap-5">
                     <button
                       type="button"
                       onClick={onRetry}
                       disabled={status === 'loading' || !adjustment.trim()}
-                      className="px-6 py-3.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-2xl transition-all disabled:cursor-not-allowed disabled:opacity-45 focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="px-6 py-3 text-sm font-medium text-text-secondary hover:text-text-primary bg-bg-secondary/50 hover:bg-bg-secondary/70 rounded-2xl transition-all disabled:cursor-not-allowed disabled:opacity-45 focus:outline-none focus:ring-2 focus:ring-accent/20"
                     >
                       {t('problem.adjustAction')}
                     </button>
@@ -469,7 +469,7 @@ function ProblemFramingOverlayContent({
                       type="button"
                       onClick={onGenerate}
                       disabled={!plan || status === 'loading' || generating}
-                      className="group relative px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-full shadow-sm shadow-accent/10 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:shadow-accent/15 active:scale-[0.97] overflow-hidden"
+                      className="group relative px-5 py-3 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-full shadow-sm shadow-accent/10 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:shadow-accent/15 active:scale-[0.97] overflow-hidden"
                     >
                       <span className="relative z-10 flex items-center gap-2">
                         {generating ? (

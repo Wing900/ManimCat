@@ -19,7 +19,7 @@ test('rejects an HTML response before JSON parsing', () => {
   )
 })
 
-test('normalizes aliases, trims content, limits steps, and supplies the required minimum', () => {
+test('normalizes aliases, trims content, and limits steps to five', () => {
   const plan = normalizeProblemFramingPlan({
     mode: 'clarify',
     headline: '  Quadratic   function  ',
@@ -52,14 +52,52 @@ test('normalizes aliases, trims content, limits steps, and supplies the required
   })
 })
 
-test('fills missing steps and localized fallback content', () => {
-  const plan = normalizeProblemFramingPlan({ steps: [{ content: '保留的步骤' }] }, 'zh-CN')
+test('rejects an incomplete plan instead of inventing its content', () => {
+  assert.throws(
+    () => normalizeProblemFramingPlan({ steps: [{ content: '保留的步骤' }] }, 'zh-CN'),
+    /missing required content: headline, summary/,
+  )
 
-  assert.equal(plan.mode, 'invent')
-  assert.equal(plan.steps.length, 3)
-  assert.deepEqual(plan.steps[0], { title: '步骤 1', content: '保留的步骤' })
-  assert.deepEqual(plan.steps[2], {
-    title: '步骤 3',
-    content: '继续细化这一段的可视化表达和叙事顺序。',
-  })
+  assert.throws(
+    () => normalizeProblemFramingPlan({
+      headline: '标题',
+      summary: '摘要',
+      steps: [
+        { title: '甲', content: '乙' },
+        { title: '丙', content: '丁' },
+      ],
+    }, 'zh-CN'),
+    /at least 3 complete steps \(received 2\)/,
+  )
+
+  // A step with a title but no content is not a complete step: three of them stay three short.
+  assert.throws(
+    () => normalizeProblemFramingPlan({
+      headline: '标题',
+      summary: '摘要',
+      steps: [{ title: '甲' }, { title: '乙' }, { title: '丙' }],
+    }, 'zh-CN'),
+    /at least 3 complete steps \(received 0\)/,
+  )
+})
+
+test('keeps a complete plan intact', () => {
+  const plan = normalizeProblemFramingPlan({
+    mode: 'invent',
+    headline: '标题',
+    summary: '摘要',
+    steps: [
+      { title: '甲', content: '乙' },
+      { title: '丙', content: '丁' },
+      { title: '戊', content: '己' },
+    ],
+  }, 'zh-CN')
+
+  assert.deepEqual(plan.steps, [
+    { title: '甲', content: '乙' },
+    { title: '丙', content: '丁' },
+    { title: '戊', content: '己' },
+  ])
+  assert.equal(plan.headline, '标题')
+  assert.equal(plan.summary, '摘要')
 })
