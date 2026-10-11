@@ -197,23 +197,29 @@ export async function runPromptTests() {
   })
 
   await run('workspace path errors expose allowed roots for debugging', async () => {
+    // Absolute paths derived from this platform's own root. A literal like `D:\outside` is only a
+    // *relative* name on a POSIX runner, so it would be joined under the workspace root and the
+    // assertion would fail there — the fixture has to be platform-shaped, not Windows-shaped.
+    const platformRoot = path.parse(process.cwd()).root
+    const workspaceRoot = path.join(platformRoot, 'manimcat-test-workspace')
+    const allowedRoot = path.join(platformRoot, 'manimcat-test-skills')
+    // Left unnormalized, so the error still has to report the caller's own target verbatim.
+    const outsideTarget = [workspaceRoot, '..', 'outside', 'file.md'].join(path.sep)
+
     let error: unknown
     try {
-      resolveWorkspacePath('D:\\workspace', 'D:\\outside\\file.md', {
-        allowedRoots: ['D:\\skills\\demo']
+      resolveWorkspacePath(workspaceRoot, outsideTarget, {
+        allowedRoots: [allowedRoot]
       })
     } catch (caught) {
       error = caught
     }
 
     assert.ok(error instanceof WorkspacePathError)
-    assert.equal(error.targetPath, 'D:\\outside\\file.md')
-    assert.equal(error.resolvedPath, path.resolve('D:\\outside\\file.md'))
-    assert.equal(error.workspaceRoot, path.resolve('D:\\workspace'))
-    assert.deepEqual(error.allowedRoots, [
-      path.resolve('D:\\workspace'),
-      path.resolve('D:\\skills\\demo')
-    ])
+    assert.equal(error.targetPath, outsideTarget)
+    assert.equal(error.resolvedPath, path.resolve(outsideTarget))
+    assert.equal(error.workspaceRoot, workspaceRoot)
+    assert.deepEqual(error.allowedRoots, [workspaceRoot, allowedRoot])
   })
 
   console.log('  Prompt tests passed')
