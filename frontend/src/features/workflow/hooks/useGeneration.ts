@@ -115,13 +115,8 @@ export function useGeneration(): UseGenerationReturn {
           return;
         }
         transientPollErrorCountRef.current = 0;
-        if (typeof data.revision === 'number') {
-          if (data.revision < latestRevisionRef.current) {
-            return;
-          }
-          latestRevisionRef.current = data.revision;
-        }
-
+        // Terminal results outlive the progress record, whose revision may reset to zero.
+        // Accept the current polling session's terminal state before ordering live progress.
         if (data.status === 'completed') {
           clearPolling();
           clearActiveJob();
@@ -142,6 +137,13 @@ export function useGeneration(): UseGenerationReturn {
             setError(data.error ? localizeApiMessage(data.error) : t('generation.failed'));
           }
           return;
+        }
+
+        if (typeof data.revision === 'number') {
+          if (data.revision < latestRevisionRef.current) {
+            return;
+          }
+          latestRevisionRef.current = data.revision;
         }
 
         const nextSubmittedAt = data.submitted_at ?? initialSubmittedAt;

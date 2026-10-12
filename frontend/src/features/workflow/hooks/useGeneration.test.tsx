@@ -134,6 +134,46 @@ describe('useGeneration', () => {
     expect(sessionStorage.getItem('manimcat_active_job')).toBe('{"jobId":"job-1"}')
   })
 
+  it.each(['completed', 'failed'] as const)('accepts %s after the progress revision is cleared and stops polling', async (terminalStatus) => {
+    mockedGetJobStatus
+      .mockResolvedValueOnce({
+        jobId: 'job-1',
+        status: 'processing',
+        stage: 'rendering',
+        revision: 5,
+      })
+      .mockResolvedValueOnce({
+        jobId: 'job-1',
+        status: terminalStatus,
+        revision: 0,
+        video_url: terminalStatus === 'completed' ? '/videos/job-1.mp4' : undefined,
+        error: terminalStatus === 'failed' ? 'Render failed' : undefined,
+      })
+
+    const { result } = renderHook(() => useGeneration(), { wrapper })
+    await act(async () => {
+      await result.current.generate({ concept: 'test', outputMode: 'video' })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(result.current.status).toBe('processing')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(result.current.status).toBe(terminalStatus === 'completed' ? 'completed' : 'error')
+    if (terminalStatus === 'completed') {
+      expect(result.current.result?.video_url).toBe('/videos/job-1.mp4')
+    } else {
+      expect(result.current.error).toBe('Render failed')
+    }
+    expect(sessionStorage.getItem('manimcat_active_job')).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(mockedGetJobStatus).toHaveBeenCalledTimes(2)
+  })
+
   it('ignores stale poll responses with an older revision', async () => {
     mockedGetJobStatus
       .mockResolvedValueOnce({
