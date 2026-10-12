@@ -151,6 +151,13 @@ export function CinemaScreen({
     ? 'bg-ink/10 text-ink hover:bg-ink/20 dark:bg-white/10 dark:text-white/90 dark:hover:bg-white/20'
     : 'bg-bg-tertiary/60 text-text-secondary hover:bg-bg-tertiary'
 
+  // The playback problem is reported on the page's own surface and with the footer's own chips, not on
+  // a black slab: the bar stands on the result, and a slab that blackens the bottom of the video is the
+  // one thing it must not do. The surface is `bg-primary`, not the chip's `bg-tertiary`, so a chip keeps
+  // an edge against it in both the on-stage and off-stage branches.
+  const chipBarSurface = 'bg-bg-primary/85'
+  const chipBarText = onStage ? 'text-ink/70 dark:text-white/80' : 'text-text-secondary'
+
   // A placeholder draws in the ink of the surface it is on. `hintVisible = false` keeps the sentence
   // for screen readers only.
   const placeholder = (
@@ -239,11 +246,15 @@ export function CinemaScreen({
       </div>
 
       {playbackFailed && state === 'playable' ? (
-        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-2 bg-black/80 px-3 py-2">
-          <p className="studio-rise-in flex-1 text-sm text-white/90">{t('studio.cinema.screenPlaybackFailed')}</p>
+        <div
+          className={`absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-2 px-3 py-2 ${chipBarSurface}`}
+        >
+          <p className={`studio-rise-in flex-1 text-sm ${chipBarText}`}>
+            {t('studio.cinema.screenPlaybackFailed')}
+          </p>
           <button
             type="button"
-            className="inline-flex min-h-[36px] items-center rounded-md bg-white/10 px-2.5 text-sm text-white/90 transition-colors hover:bg-white/20"
+            className={`inline-flex min-h-[36px] items-center rounded-full px-2.5 text-sm transition-colors ${chipButtonInk}`}
             onClick={() => {
               setPlaybackFailed(false)
               setReloadToken((token) => token + 1)
@@ -253,7 +264,7 @@ export function CinemaScreen({
           </button>
           <button
             type="button"
-            className="inline-flex min-h-[36px] items-center rounded-md bg-white/10 px-2.5 text-sm text-white/90 transition-colors hover:bg-white/20"
+            className={`inline-flex min-h-[36px] items-center rounded-full px-2.5 text-sm transition-colors ${chipButtonInk}`}
             onClick={onReconcile}
           >
             {t('studio.cinema.reconcile')}
