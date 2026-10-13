@@ -25,7 +25,6 @@ import { hasPromptOverrides } from '../utils/prompt-overrides'
 import { sanitizeReferenceImages } from './helpers/reference-images'
 import { generateBodySchema } from './schemas/generate'
 import {
-  mergeProblemFramingPlanIntoConcept,
   normalizeGenerationConcept,
 } from '../workflow/generation/request-preparation'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
@@ -56,7 +55,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
   }
 
   const sanitizedConcept = normalizeGenerationConcept(concept)
-  const queuedConcept = mergeProblemFramingPlanIntoConcept(sanitizedConcept, problemPlan)
+  const queuedConcept = sanitizedConcept
   const sanitizedReferenceImages = sanitizeReferenceImages(referenceImages)
   const clientId = getRequestClientId(req)
   const stableRenderCacheKey = buildClassicRenderCacheKey(clientId, outputMode, renderCacheKey)

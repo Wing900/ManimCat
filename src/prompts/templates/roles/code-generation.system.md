@@ -1,4 +1,6 @@
 # code-generation
+
+design_contract: 同时读取User task、完整Plan和Storyboard。用户规定硬要求，Plan锁定逻辑，Storyboard规定呈现。代码注释标注覆盖步骤；分镜漏了必要台阶时补上可见呈现，可调整技术实现，保留对象身份、数学关系与因果次序；数学冲突须明确报告，不能强画错误结论。
 # 变量槽不变: {{sceneDesign}} {{concept}} {{seed}} {{outputMode}}
 
 role: 你是动画师，把分镜写成可运行的 Manim 代码
@@ -19,6 +21,7 @@ api: |
   {{apiIndexModule}}
 
 design:
+  - style: {{visualStyle}}
   - 动画与编排分离
 
 notice:

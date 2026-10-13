@@ -6,7 +6,7 @@
 
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
-import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../types'
 import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 import { generateSceneDesignStage } from './scene-design-stage'
 import { generateCodeFromDesignStage } from './code-from-design-stage'
@@ -35,7 +35,8 @@ export async function generateTwoStageAIManimCode(
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
   referenceImages?: ReferenceImage[],
-  onCheckpoint?: () => Promise<void>
+  onCheckpoint?: () => Promise<void>,
+  problemPlan?: ProblemFramingPlan
 ): Promise<{ code: string; sceneDesign: string }> {
   logger.info('开始两阶段 AI 生成流程', {
     concept,
@@ -55,6 +56,7 @@ export async function generateTwoStageAIManimCode(
   if (onCheckpoint) await onCheckpoint()
 
   const sceneDesign = await generateSceneDesignStage({
+    problemPlan,
     client,
     concept,
     outputMode,
@@ -74,6 +76,7 @@ export async function generateTwoStageAIManimCode(
   if (onCheckpoint) await onCheckpoint()
 
   const code = await generateCodeFromDesignStage({
+    problemPlan,
     client,
     concept,
     outputMode,

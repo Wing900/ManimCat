@@ -1,9 +1,9 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
-import { generateCodeGenerationPrompt, getRoleSystemPrompt } from '../../prompts'
-import type { OutputMode, PromptOverrides } from '../../types'
+import { getRoleUserPrompt, getRoleSystemPrompt } from '../../prompts'
+import type { OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
+import { formatProblemFramingPlan } from '../generation/request-preparation'
 import {
-  applyPromptTemplate,
   buildCompletionDiagnostics,
   extractCodeFromResponse,
   generateUniqueSeed,
@@ -20,6 +20,7 @@ const TRANSPORT_MAX_ATTEMPTS = parseInt(process.env.CODE_GENERATION_TRANSPORT_AT
 interface CodeFromDesignStageParams {
   client: OpenAI
   concept: string
+  problemPlan?: ProblemFramingPlan
   outputMode: OutputMode
   sceneDesign: string
   model: string
@@ -51,10 +52,10 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
   try {
     const seed = generateUniqueSeed(`${concept}-${sceneDesign.slice(0, 20)}`)
     const systemPrompt = getRoleSystemPrompt('codeGeneration', promptOverrides)
-    const userPromptOverride = promptOverrides?.roles?.codeGeneration?.user
-    const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, seed, sceneDesign, outputMode }, promptOverrides)
-      : generateCodeGenerationPrompt(concept, seed, sceneDesign, outputMode)
+    const userPrompt = getRoleUserPrompt('codeGeneration', {
+      concept, seed, sceneDesign, outputMode, plan: formatProblemFramingPlan(params.problemPlan),
+      isVideo: outputMode === 'video', isImage: outputMode === 'image',
+    }, promptOverrides)
 
     logger.info('开始阶段2：根据设计方案生成代码', { concept, outputMode, seed })
     const { content, mode, response } = await executeAiStageWithTransportRetry(

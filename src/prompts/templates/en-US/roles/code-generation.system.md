@@ -1,4 +1,6 @@
 # code-generation
+
+design_contract: Read User task, complete Plan and Storyboard together. User owns hard constraints, Plan owns logic, Storyboard owns presentation. Mark covered steps in code comments; supply visible presentation for necessary steps omitted by Storyboard. Adapt implementation while preserving identities, mathematical relationships and causal order. Explicitly report mathematical conflicts; do not force an incorrect conclusion.
 # template variables: {{sceneDesign}} {{concept}} {{seed}} {{outputMode}}
 
 role: You are the animator. Turn the storyboard into runnable Manim code.
@@ -19,6 +21,7 @@ api: |
   {{apiIndexModule}}
 
 design:
+  - style: {{visualStyle}}
   - Separate animation from arrangement
 
 notice:

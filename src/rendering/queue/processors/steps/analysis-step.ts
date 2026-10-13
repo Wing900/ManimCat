@@ -6,7 +6,7 @@
 import { generateTwoStageAIManimCode } from '../../../../workflow/concept-design/concept-designer'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { createLogger } from '../../../../shared/logging/logger'
-import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../../../../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../../../types'
 
 const logger = createLogger('AnalysisStep')
 
@@ -27,6 +27,7 @@ export interface GenerationResult {
   usedAI: boolean
   generationType: string
   sceneDesign?: string
+  problemPlan?: ProblemFramingPlan
 }
 
 /**
@@ -59,7 +60,8 @@ export async function generateCode(
   analyzeResult: AnalysisResult,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  problemPlan?: ProblemFramingPlan
 ): Promise<GenerationResult> {
   const { analysisType, code, needsAI } = analyzeResult
   logger.info('Generating code', { jobId, outputMode, needsAI, analysisType, hasImages: !!referenceImages?.length })
@@ -73,7 +75,8 @@ export async function generateCode(
         customApiConfig,
         promptOverrides,
         referenceImages,
-        () => ensureJobNotCancelled(jobId)
+        () => ensureJobNotCancelled(jobId),
+        problemPlan
       )
       if (result.code && result.code.length > 0) {
         logger.info('Two-stage AI code generation succeeded', { jobId, length: result.code.length, hasSceneDesign: !!result.sceneDesign })
@@ -81,7 +84,8 @@ export async function generateCode(
           code: result.code,
           usedAI: true,
           generationType: 'two-stage-ai',
-          sceneDesign: result.sceneDesign
+          sceneDesign: result.sceneDesign,
+          problemPlan
         }
       }
       throw new Error('Two-stage AI returned an empty code result')
@@ -93,7 +97,7 @@ export async function generateCode(
 
   if (code) {
     logger.info('Using pre-generated code', { jobId, length: code.length })
-    return { code, usedAI: false, generationType: analysisType }
+    return { code, usedAI: false, generationType: analysisType, problemPlan }
   }
 
   throw new Error('No renderable code was generated')
@@ -110,7 +114,8 @@ export async function analyzeAndGenerate(
   _timings: Record<string, number>,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  problemPlan?: ProblemFramingPlan
 ): Promise<GenerationResult> {
   const analysisResult = await analyzeConcept(jobId, concept, quality, outputMode)
   return generateCode(
@@ -121,6 +126,7 @@ export async function analyzeAndGenerate(
     analysisResult,
     customApiConfig,
     promptOverrides,
-    referenceImages
+    referenceImages,
+    problemPlan
   )
 }

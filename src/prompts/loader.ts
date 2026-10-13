@@ -24,6 +24,7 @@ export type SharedModuleType = 'apiIndex' | 'specification'
 /** 模板变量 */
 export interface TemplateVariables {
   concept?: string
+  plan?: string
   seed?: string
   sceneDesign?: string
   feedbackHistory?: string
@@ -177,6 +178,12 @@ function assembleTemplate(
     specification
   )
 
+  // Visual policy is shared by planning and coding, independently of code-only constraints.
+  if (result.includes('{{visualStyle}}')) {
+    const visualStyle = readTemplate(resolveTemplateFile(path.join('shared', 'visual-style.md'), resolveLocale(overrides)))
+    result = replaceLiteral(result, '{{visualStyle}}', visualStyle.trim())
+  }
+
   // 3. 处理条件块
   result = processConditionals(result, variables as Record<string, TemplateValue>)
 
@@ -215,7 +222,14 @@ export function getRoleUserPrompt(
   const locale = resolveLocale(overrides)
   const template = override ?? readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS[role].user, locale))
 
-  return assembleTemplate(template, variables, overrides)
+  let result = assembleTemplate(template, variables, overrides)
+  if (role === 'codeRetry' && variables.sceneDesign && !/\{\{\s*sceneDesign\s*\}\}/.test(template)) {
+    result += `\n\nStoryboard:\n${variables.sceneDesign}`
+  }
+  // Custom user templates may predate Plan; the design basis must still reach the model.
+  return variables.plan && !/\{\{\s*plan\s*\}\}/.test(template)
+    ? `${result}\n\nPlan:\n${variables.plan}`
+    : result
 }
 
 /**

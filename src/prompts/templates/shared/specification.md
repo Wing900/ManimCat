@@ -1,5 +1,12 @@
 ## Shared Specification
 
+### Visible Information and Motion Invariants
+
+- On light backgrounds, explicitly set a dark base color for every `Text`, `Tex`, and `MathTex`, including operators, exponents and equality signs, before selective highlighting. Pastel geometry colors do not make white formulas legible.
+- Fit captions within the screen safe area: split long sentences into timed captions or wrap lines, cap width, and preserve readable size. Never let a single long `Text` overflow horizontally.
+- Derive dependent geometry from a single state variable. Constant length/area/contact constraints must hold throughout animation, not just at sampled endpoints. Do not interpolate endpoints independently when that breaks a constraint.
+- When demonstrating uniform motion or equal-time sampling, animate the independent variable with `rate_func=linear`; easing and pauses change the demonstrated timing. Compute samples from the same model and timeline rather than guessed coordinates.
+
 ### Strictly Forbidden
 
 - **No chatter**: do not add filler before or after code

@@ -149,7 +149,8 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
     timings,
     data.customApiConfig,
     promptOverrides,
-    referenceImages
+    referenceImages,
+    data.problemPlan
   )
   timings.analyze = Date.now() - analyzeStart
 

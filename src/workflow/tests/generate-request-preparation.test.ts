@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  mergeProblemFramingPlanIntoConcept,
+  formatProblemFramingPlan,
   normalizeGenerationConcept,
 } from '../generation/request-preparation'
 
@@ -12,16 +12,16 @@ test('normalizes whitespace before queue submission', () => {
   )
 })
 
-test('preserves a concept when no problem framing plan exists', () => {
+test('omits Plan context when no problem framing plan exists', () => {
   assert.equal(
-    mergeProblemFramingPlanIntoConcept('Explain vectors'),
-    'Explain vectors',
+    formatProblemFramingPlan(),
+    '',
   )
 })
 
-test('serializes the complete problem framing plan into a stable queue concept', () => {
+test('serializes the complete Plan independently of the user concept', () => {
   assert.equal(
-    mergeProblemFramingPlanIntoConcept('Explain vectors', {
+    formatProblemFramingPlan({
       mode: 'clarify',
       headline: 'Vector addition',
       summary: 'Build head-to-tail intuition.',
@@ -33,9 +33,6 @@ test('serializes the complete problem framing plan into a stable queue concept',
       designerHint: 'Animate displacement.',
     }),
     [
-      'Explain vectors',
-      '',
-      '[Problem Framing Context]',
       'Mode: clarify',
       'Headline: Vector addition',
       'Summary: Build head-to-tail intuition.',

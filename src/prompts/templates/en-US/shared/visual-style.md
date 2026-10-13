@@ -1,0 +1,1 @@
+Warm ivory #FFF9F0; sweet, unwashed macaron Morandi palette: #E89B96 / #E8B184 / #CAD895 / #97CEB9 / #9AAEDB; dark gray text #454545, gray-blue guides #A6B1BA, translucent fills; minimal labels, captions on request; user requirements take priority.

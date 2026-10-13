@@ -1,5 +1,5 @@
 import { createRetryContext, executeCodeRetry } from '../../../../workflow/code-retry/manager'
-import type { OutputMode, PromptOverrides } from '../../../../types'
+import type { OutputMode, PromptOverrides, ProblemFramingPlan } from '../../../../types'
 
 export interface RenderAttemptResult {
   success: boolean
@@ -22,6 +22,7 @@ interface RenderFailureLogArgs {
 }
 
 interface ExecuteRenderWithRetryArgs {
+  problemPlan?: ProblemFramingPlan
   concept: string
   outputMode: OutputMode
   sceneDesign?: string
@@ -58,7 +59,8 @@ export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): 
       concept,
       sceneDesign?.trim() || `概念: ${concept}`,
       promptOverrides,
-      outputMode
+      outputMode,
+      args.problemPlan
     )
 
     const retryManagerResult = await executeCodeRetry(

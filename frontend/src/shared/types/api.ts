@@ -114,6 +114,7 @@ export interface GenerateRequest {
 export interface ProblemFramingStep {
   title: string;
   content: string;
+  phase?: 'background' | 'phenomenon' | 'derivation' | 'closing';
 }
 
 export interface ProblemFramingPlan {
@@ -123,6 +124,14 @@ export interface ProblemFramingPlan {
   steps: ProblemFramingStep[];
   visualMotif: string;
   designerHint: string;
+  question?: string;
+  answer?: string;
+  audience?: string;
+  backgroundRules?: string;
+  selectedRoute?: string;
+  alternativeRoutes?: string;
+  outOfScope?: string;
+  specialCases?: string;
 }
 
 export interface ProblemFramingRequest {

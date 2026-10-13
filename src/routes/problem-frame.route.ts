@@ -8,29 +8,16 @@ import { ValidationError } from '../shared/errors/errors'
 import { generateProblemFramingPlan } from '../workflow/problem-framing/problem-framing'
 import { customApiConfigSchema, promptOverridesSchema } from './schemas/common'
 import { referenceImagesSchema } from './helpers/reference-images'
+import { problemPlanSchema } from './schemas/problem-plan'
 
 const router = express.Router()
-
-const planStepSchema = z.object({
-  title: z.string(),
-  content: z.string()
-})
-
-const currentPlanSchema = z.object({
-  mode: z.enum(['clarify', 'invent']),
-  headline: z.string(),
-  summary: z.string(),
-  steps: z.array(planStepSchema).max(6),
-  visualMotif: z.string(),
-  designerHint: z.string()
-})
 
 const bodySchema = z.object({
   concept: z.string().min(1, '概念不能为空'),
   feedback: z.string().max(4000).optional(),
   feedbackHistory: z.array(z.string().max(4000)).max(20).optional(),
   locale: z.enum(['zh-CN', 'en-US']).optional(),
-  currentPlan: currentPlanSchema.optional(),
+  currentPlan: problemPlanSchema.optional(),
   referenceImages: referenceImagesSchema,
   promptOverrides: promptOverridesSchema.optional(),
   customApiConfig: customApiConfigSchema.optional()

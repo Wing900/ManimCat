@@ -94,6 +94,7 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
       content: response.content,
       locale,
       maxRepairAttempts: Math.max(0, PLANNER_FORMAT_RETRIES),
+      requireDesignFields: !promptOverrides.roles?.problemFraming?.system,
       repair: async ({ content, error, attempt }) => {
         logger.warn('Problem framing format invalid, requesting format repair', {
           attempt,
@@ -109,8 +110,8 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
               {
                 role: 'system',
                 content: locale === 'en-US'
-                  ? 'Repair formatting only. Preserve the meaning. Output one complete <plan> block with <mode>, <headline>, <summary>, <steps>, 3-5 repeated <step><title>...</title><content>...</content></step> blocks, <visual_motif>, and <designer_hint>. Output no other text.'
-                  : '只修复格式，保留原意。仅输出一个完整 <plan> 块，包含 <mode>、<headline>、<summary>、<steps>、3–5 个重复的 <step><title>...</title><content>...</content></step>、<visual_motif>、<designer_hint>，标签外不输出文字。',
+                  ? 'Repair formatting only; preserve every decision. Output one complete plan with mode/headline/summary/question/answer/audience/background_rules/selected_route/alternative_routes/out_of_scope/special_cases/visual_motif/designer_hint, and 3–12 repeated step blocks with phase/title/content. phase is background, phenomenon, derivation, or closing. Never truncate later steps or erase fields. No other text.'
+                  : '只修复格式，保留全部决定。输出完整plan，包含mode/headline/summary/question/answer/audience/background_rules/selected_route/alternative_routes/out_of_scope/special_cases/visual_motif/designer_hint，以及3–12个含phase/title/content的step；phase为background、phenomenon、derivation或closing。不得截掉后续步骤或删字段，标签外零文字。',
               },
               {
                 role: 'user',

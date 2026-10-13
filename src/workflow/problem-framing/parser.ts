@@ -1,18 +1,12 @@
-import type { PromptLocale } from '../../types'
+import type { PromptLocale, ProblemFramingPlan, ProblemFramingStep } from '../../types'
+export type { ProblemFramingPlan, ProblemFramingStep } from '../../types'
 
-export interface ProblemFramingStep {
-  title: string
-  content: string
-}
-
-export interface ProblemFramingPlan {
-  mode: 'clarify' | 'invent'
-  headline: string
-  summary: string
-  steps: ProblemFramingStep[]
-  visualMotif: string
-  designerHint: string
-}
+const DESIGN_FIELDS = {
+  question: 'question', answer: 'answer', audience: 'audience',
+  backgroundRules: 'background_rules', selectedRoute: 'selected_route',
+  alternativeRoutes: 'alternative_routes', outOfScope: 'out_of_scope', specialCases: 'special_cases',
+} as const
+const PHASES = ['background', 'phenomenon', 'derivation', 'closing'] as const
 
 export class ProblemFramingFormatError extends Error {
   constructor(message: string) {
@@ -83,9 +77,9 @@ function parseTaggedPlan(text: string, locale: PromptLocale): ProblemFramingPlan
     .map((block) => ({
       title: extractCompleteTag(block, 'title') || '',
       content: extractCompleteTag(block, 'content') || '',
+      phase: extractCompleteTag(block, 'phase'),
     }))
     .filter((step) => step.title && step.content)
-    .slice(0, 6)
 
   if (!headline || !summary || steps.length < 3) {
     throw new ProblemFramingFormatError(
@@ -100,19 +94,20 @@ function parseTaggedPlan(text: string, locale: PromptLocale): ProblemFramingPlan
     steps,
     visualMotif: extractCompleteTag(cleaned, 'visual_motif'),
     designerHint: extractCompleteTag(cleaned, 'designer_hint'),
+    ...Object.fromEntries(Object.entries(DESIGN_FIELDS).map(([key, tag]) => [key, extractCompleteTag(cleaned, tag)])),
   }, locale)
 }
 
-export function parseProblemFramingResponse(text: string, locale: PromptLocale): ProblemFramingPlan {
+export function parseProblemFramingResponse(text: string, locale: PromptLocale, requireDesignFields = false): ProblemFramingPlan {
   const cleaned = stripCodeFence(text)
   const hasTaggedPlan = /<(?:plan|headline|steps?|step)>/i.test(cleaned)
 
   if (hasTaggedPlan) {
-    return parseTaggedPlan(cleaned, locale)
+    return validatePlanContract(parseTaggedPlan(cleaned, locale), requireDesignFields)
   }
 
   try {
-    return normalizeProblemFramingPlan(JSON.parse(extractProblemFramingJson(cleaned)), locale)
+    return validatePlanContract(normalizeProblemFramingPlan(JSON.parse(extractProblemFramingJson(cleaned)), locale), requireDesignFields)
   } catch (error) {
     if (error instanceof ProblemFramingFormatError) {
       throw error
@@ -121,6 +116,14 @@ export function parseProblemFramingResponse(text: string, locale: PromptLocale):
       `Problem framing response matched neither the tagged protocol nor legacy JSON: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
+}
+
+function validatePlanContract(plan: ProblemFramingPlan, required: boolean): ProblemFramingPlan {
+  if (!required) return plan
+  const missing = Object.keys(DESIGN_FIELDS).filter(key => !plan[key as keyof typeof DESIGN_FIELDS])
+  if (plan.steps.some(step => !step.phase)) missing.push('phase for each step')
+  if (missing.length) throw new ProblemFramingFormatError(`Expanded plan requires ${missing.join(', ')}`)
+  return plan
 }
 
 function sanitizeString(value: unknown, fallback: string): string {
@@ -137,7 +140,7 @@ export function normalizeProblemFramingPlan(raw: unknown, locale: PromptLocale):
     throw new Error('Problem framing response was not an object')
   }
 
-  const input = raw as {
+  const input = raw as Record<string, unknown> & {
     mode?: unknown
     headline?: unknown
     summary?: unknown
@@ -150,20 +153,23 @@ export function normalizeProblemFramingPlan(raw: unknown, locale: PromptLocale):
 
   // The parser never invents user-visible content: a plan the model did not write is a format error the
   // caller can repair, not a card filled with placeholder text. Only the decoration fields below keep a
-  // neutral default, and nothing renders them (no `visualMotif`/`designerHint` consumer in frontend/src).
+  // neutral default for legacy cards; the expanded design contract is validated separately.
   const fallbackMotif = locale === 'en-US' ? 'Cat paws are sorting the steps across the card.' : '猫爪在卡片上整理出步骤。'
   const fallbackHint = locale === 'en-US'
-    ? 'The next designer stage should expand these three steps into concrete animation design.'
-    : '下一阶段继续把三步扩成具体动画设计。'
+    ? 'The next designer stage should expand the planned steps into concrete animation design.'
+    : '下一阶段把规划步骤展开为具体动画设计。'
 
   const steps = Array.isArray(input.steps) ? input.steps : []
   const normalizedSteps = steps
-    .slice(0, 5)
     .map((step) => {
-      const item = step && typeof step === 'object' ? step as { title?: unknown; content?: unknown } : {}
+      const item = step && typeof step === 'object' ? step as { title?: unknown; content?: unknown; phase?: unknown } : {}
+      if (item.phase !== undefined && !PHASES.includes(item.phase as typeof PHASES[number])) {
+        throw new ProblemFramingFormatError('Step phase must be background, phenomenon, derivation, or closing')
+      }
       return {
         title: sanitizeString(item.title, ''),
         content: sanitizeString(item.content, ''),
+        ...(item.phase === undefined ? {} : { phase: item.phase as ProblemFramingStep['phase'] }),
       }
     })
     .filter((step) => step.title && step.content)
@@ -180,6 +186,22 @@ export function normalizeProblemFramingPlan(raw: unknown, locale: PromptLocale):
   if (normalizedSteps.length < 3) {
     missing.push(`at least 3 complete steps (received ${normalizedSteps.length})`)
   }
+  if (steps.length > 12) {
+    missing.push('at most 12 steps; reduce the plan explicitly instead of truncating it')
+  }
+  const designFields: Partial<ProblemFramingPlan> = {}
+  for (const [key, alias] of Object.entries(DESIGN_FIELDS)) {
+    const value = input[key] ?? input[alias]
+    if (value !== undefined) {
+      const text = sanitizeString(value, '')
+      if (!text) missing.push(key)
+      else Object.assign(designFields, { [key]: text })
+    }
+  }
+  // Legacy cards remain readable; expanded cards must carry all their design decisions.
+  if (Object.keys(designFields).length > 0) {
+    for (const key of Object.keys(DESIGN_FIELDS)) if (!(key in designFields) && !missing.includes(key)) missing.push(key)
+  }
   if (missing.length > 0) {
     // This message lands in the repair prompt, so it names exactly what the model must supply.
     throw new ProblemFramingFormatError(`Plan is missing required content: ${missing.join(', ')}`)
@@ -192,5 +214,6 @@ export function normalizeProblemFramingPlan(raw: unknown, locale: PromptLocale):
     steps: normalizedSteps,
     visualMotif: sanitizeString(input.visualMotif ?? input.visual_motif, fallbackMotif),
     designerHint: sanitizeString(input.designerHint ?? input.designer_hint, fallbackHint),
+    ...designFields,
   }
 }

@@ -1,22 +1,7 @@
-import { getSharedModule, getRoleSystemPrompt, getRoleUserPrompt } from '../../prompts'
-import type { PromptOverrides } from '../../types'
+import { getRoleSystemPrompt, getRoleUserPrompt } from '../../prompts'
+import type { PromptOverrides, ProblemFramingPlan } from '../../types'
 import type { CodeRetryContext } from './types'
-
-function applyPromptTemplate(
-  template: string,
-  values: Record<string, string | boolean>,
-  promptOverrides?: PromptOverrides
-): string {
-  let output = template
-
-  output = output.replace(/\{\{apiIndexModule\}\}/g, getSharedModule('apiIndex', promptOverrides))
-  output = output.replace(/\{\{sharedSpecification\}\}/g, getSharedModule('specification', promptOverrides))
-
-  for (const [key, value] of Object.entries(values)) {
-    output = output.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), String(value))
-  }
-  return output
-}
+import { formatProblemFramingPlan } from '../generation/request-preparation'
 
 export function getCodeRetrySystemPrompt(promptOverrides?: PromptOverrides): string {
   return getRoleSystemPrompt('codeRetry', promptOverrides)
@@ -29,12 +14,16 @@ export function buildRetryFixPrompt(
   codeSnippet: string | undefined,
   attempt: number | string,
   outputMode: 'video' | 'image',
-  promptOverrides?: PromptOverrides
+  promptOverrides?: PromptOverrides,
+  problemPlan?: ProblemFramingPlan,
+  sceneDesign?: string
 ): string {
   return getRoleUserPrompt(
     'codeRetry',
     {
       concept,
+      plan: formatProblemFramingPlan(problemPlan),
+      sceneDesign,
       errorMessage,
       code,
       codeSnippet,
@@ -54,24 +43,6 @@ export function buildRetryPrompt(
   currentCode: string,
   codeSnippet?: string
 ): string {
-  const override = context.promptOverrides?.roles?.codeRetry?.user
-  if (override) {
-    return applyPromptTemplate(
-      override,
-      {
-        concept: context.concept,
-        errorMessage,
-        code: currentCode,
-        codeSnippet: codeSnippet || '',
-        attempt: String(attempt),
-        outputMode: context.outputMode,
-        isImage: context.outputMode === 'image',
-        isVideo: context.outputMode === 'video'
-      },
-      context.promptOverrides
-    )
-  }
-
   return buildRetryFixPrompt(
     context.concept,
     errorMessage,
@@ -79,6 +50,8 @@ export function buildRetryPrompt(
     codeSnippet,
     attempt,
     context.outputMode,
-    context.promptOverrides
+    context.promptOverrides,
+    context.problemPlan,
+    context.sceneDesign
   )
 }

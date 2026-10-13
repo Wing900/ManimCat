@@ -1,4 +1,4 @@
-import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
 import type { ApiSearchInput } from '../../knowledge/api-rag'
 import type { RenderFailureCategory } from './render-failure-policy'
 
@@ -8,6 +8,7 @@ export interface ChatMessage {
 }
 
 export interface CodeRetryContext {
+  problemPlan?: ProblemFramingPlan
   concept: string
   sceneDesign: string
   outputMode: OutputMode

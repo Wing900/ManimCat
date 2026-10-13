@@ -8,6 +8,7 @@ import type { PromptLocale } from '../../types'
 interface ProblemFramingFormatRepairOptions {
   content: string
   locale: PromptLocale
+  requireDesignFields?: boolean
   maxRepairAttempts: number
   repair: (input: {
     content: string
@@ -24,7 +25,7 @@ export async function parseProblemFramingWithRepair(
 
   for (let attempt = 0; attempt <= options.maxRepairAttempts; attempt += 1) {
     try {
-      return parseProblemFramingResponse(content, options.locale)
+      return parseProblemFramingResponse(content, options.locale, options.requireDesignFields)
     } catch (error) {
       if (!(error instanceof ProblemFramingFormatError)) {
         throw error

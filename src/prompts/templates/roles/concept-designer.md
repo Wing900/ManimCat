@@ -1,6 +1,11 @@
 Design an executable storyboard for this concept.
 
 Concept: {{concept}}
+{{#if plan}}
+
+Plan (logical design basis):
+{{plan}}
+{{/if}}
 Seed: {{seed}}
 Output mode: {{outputMode}}
 

@@ -1,10 +1,16 @@
+User task: {{concept}}
+{{#if plan}}
+
+Plan (logical design basis):
+{{plan}}
+
+{{/if}}
 {{#if sceneDesign}}
 Storyboard:
 
 {{sceneDesign}}
 
 {{/if}}
-Concept: {{concept}}
 Seed: {{seed}}
 Output mode: {{outputMode}}
 

@@ -1,9 +1,9 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
-import { generateConceptDesignerPrompt, getRoleSystemPrompt } from '../../prompts'
-import type { OutputMode, PromptOverrides, ReferenceImage } from '../../types'
+import { getRoleUserPrompt, getRoleSystemPrompt } from '../../prompts'
+import type { OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../types'
+import { formatProblemFramingPlan } from '../generation/request-preparation'
 import {
-  applyPromptTemplate,
   buildCompletionDiagnostics,
   buildVisionUserMessage,
   cleanDesignText,
@@ -21,6 +21,7 @@ const logger = createLogger('SceneDesignStage')
 interface SceneDesignStageParams {
   client: OpenAI
   concept: string
+  problemPlan?: ProblemFramingPlan
   outputMode: OutputMode
   model: string
   promptOverrides?: PromptOverrides
@@ -48,10 +49,10 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
   try {
     const seed = generateUniqueSeed(concept)
     const systemPrompt = getRoleSystemPrompt('conceptDesigner', promptOverrides)
-    const userPromptOverride = promptOverrides?.roles?.conceptDesigner?.user
-    const userPrompt = userPromptOverride
-      ? applyPromptTemplate(userPromptOverride, { concept, seed, outputMode }, promptOverrides)
-      : generateConceptDesignerPrompt(concept, seed, outputMode)
+    const userPrompt = getRoleUserPrompt('conceptDesigner', {
+      concept, seed, outputMode, plan: formatProblemFramingPlan(params.problemPlan),
+      isVideo: outputMode === 'video', isImage: outputMode === 'image',
+    }, promptOverrides)
 
     logger.info('开始阶段1：生成场景设计方案', {
       concept,
