@@ -205,7 +205,7 @@ export async function renderVideo(
   const outputPath = path.join(outputDir, outputFilename)
   fs.copyFileSync(videoPath, outputPath)
 
-  if (videoConfig?.bgm !== false) {
+  if (videoConfig?.bgm === true) {
     await addBackgroundMusic(outputPath)
   }
 
