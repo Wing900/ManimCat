@@ -2,7 +2,8 @@
 
 - Only use APIs from the installed ManimGX runtime; its scene API is compatible with Manim Community Edition.
 - Import directly from the `manimgx` package root.
-- Use native Typst syntax: `MathTypst('frac(a, b)')` for formulas and `Typst('面积为 $pi r^2$')` for Chinese mixed with mathematics. `MathTypst` takes the math body without enclosing `$` signs.
+- Use native Typst syntax, not LaTeX. Example: `Typst('恒等式：$sum_(n=1)^infinity 1/n^2 = pi^2/6$')`; the LaTeX form `\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}` is invalid in Typst. Use `frac(a, b)`, `sqrt(x)`, `pi`, `alpha`; never `\frac`, `\sqrt`, `\pi`, `\alpha`.
+- `MathTypst` takes the math body without enclosing `$` signs. In Typst math, consecutive letters form one identifier; quote literal labels: `Typst('$"OC" = "OD"$')`, not `Typst('$OC = OD$')`.
 - `Scene.play()` accepts `Animation` objects or `.animate` builders: use `self.play(mob.animate.shift(...))`, not `self.play(mob.shift(...))`.
 - Read position with `mob.get_center()`; `mob.center()` moves the object to `ORIGIN`.
 - Use `set_width/height`, `scale_to_fit_width/height`, or `stretch_to_fit_width/height`; `stretch_to_fit(width=..., height=...)` does not exist.
