@@ -22,8 +22,9 @@ import type {
  * the Scene store keeps is verified and copied here, and a frame that is malformed, carries an
  * unknown type, or carries no verifiable Scene scope decodes to `null`. There is deliberately no
  * cast from the wider Legacy event types into the Scene records: a Legacy Session frame (no
- * `sceneId`) can never become a Scene event, and the model's Tool `raw`/`input`, the internal
- * `error` text and the private `sourcePath` are never copied into a Scene record.
+ * `sceneId`) can never become a Scene event, and the model's Tool `raw`/`input`, the private
+ * `sourcePath` and arbitrary metadata are never copied into a Scene record. The Run `error` is
+ * copied on purpose: the client shows and logs the real failure instead of discarding it.
  */
 export function decodeStudioCinemaSceneEvent(event: unknown): StudioCinemaScopedSceneEvent | null {
   if (!isRecord(event)) {
@@ -135,7 +136,8 @@ function readScopedIdentity(sessionId: string, sceneId: unknown): StudioCinemaSc
 
 /**
  * One Scene Run narrowed out of any response body. Exported because the cancel response carries the
- * same record: the Scene store must never hold the wider Legacy Run (with `error`/`metadata`).
+ * same record: the Scene store must never hold the wider Legacy Run (with `metadata`). The failure
+ * `error` is kept on purpose so the client can display and log it.
  */
 export function readStudioCinemaSceneRun(value: unknown): StudioSceneRun | null {
   return decodeSceneRun(value)
@@ -156,6 +158,7 @@ function decodeSceneRun(value: unknown): StudioSceneRun | null {
   }
 
   const completedAt = readOptionalString(value.completedAt)
+  const error = readOptionalString(value.error)
   const tokenUsage = decodeTokenUsage(value.tokenUsage)
   return {
     id,
@@ -166,6 +169,7 @@ function decodeSceneRun(value: unknown): StudioSceneRun | null {
     activeAgent,
     createdAt,
     ...(completedAt === undefined ? {} : { completedAt }),
+    ...(error === undefined ? {} : { error }),
     ...(tokenUsage === undefined ? {} : { tokenUsage }),
   }
 }

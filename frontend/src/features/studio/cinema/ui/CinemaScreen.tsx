@@ -38,9 +38,8 @@ export interface CinemaScreenProps {
   playableUrl: string | null
   fallbackVideoUrl?: string
   mediaKind: 'video' | 'image' | null
-  refreshPausedReasonKey: TranslationKey | null
-  onResumeRefresh: () => void
-  onReconcile: () => void
+  /** Failure text of the latest Run; rendered only in the `failed` state. */
+  errorMessage?: string | null
 }
 
 /**
@@ -113,9 +112,7 @@ export function CinemaScreen({
   playableUrl,
   fallbackVideoUrl,
   mediaKind,
-  refreshPausedReasonKey,
-  onResumeRefresh,
-  onReconcile,
+  errorMessage,
 }: CinemaScreenProps) {
   const { t } = useI18n()
   const [playbackFailed, setPlaybackFailed] = useState(false)
@@ -147,6 +144,9 @@ export function CinemaScreen({
   // while there is nothing on screen to look at — including the gap between a locator existing and its
   // pixels arriving. Each surface has its own ink, and the art and the words share it.
   const onStage = state !== 'playable' || !mediaReady
+  // A Run can fail before it ever creates a Render, so the screen state is still `empty` while the
+  // failure text exists. The error wins over the empty placeholder in that case.
+  const showFailure = state === 'failed' || (state === 'empty' && Boolean(errorMessage))
   const chipButtonInk = onStage
     ? 'bg-ink/10 text-ink hover:bg-ink/20 dark:bg-white/10 dark:text-white/90 dark:hover:bg-white/20'
     : 'bg-bg-tertiary/60 text-text-secondary hover:bg-bg-tertiary'
@@ -223,7 +223,7 @@ export function CinemaScreen({
           />
         ) : null}
 
-        {state === 'empty'
+        {state === 'empty' && !showFailure
           ? placeholder(
               'studio.cinema.screenEmptyTitle',
               'studio.cinema.screenEmptyHint',
@@ -239,9 +239,28 @@ export function CinemaScreen({
               false,
             )
           : null}
-        {state === 'failed' ? placeholder('studio.cinema.screenFailedTitle', 'studio.cinema.screenFailedHint') : null}
         {state === 'media_gap'
           ? placeholder('studio.cinema.screenMediaGapTitle', 'studio.cinema.screenMediaGapHint')
+          : null}
+        {showFailure
+          ? (
+            <div
+              key={state}
+              className="studio-placeholder-in flex h-full flex-col items-center justify-center gap-3 px-6 text-center"
+            >
+              <p className="text-base text-ink dark:text-white/85">
+                {t('studio.cinema.screenFailedTitle')}
+              </p>
+              {errorMessage ? (
+                <pre
+                  role="alert"
+                  className="max-h-40 max-w-2xl overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/5 px-3 py-2 text-left font-mono text-xs leading-relaxed text-ink/70 dark:bg-white/10 dark:text-white/70"
+                >
+                  {errorMessage}
+                </pre>
+              ) : null}
+            </div>
+          )
           : null}
       </div>
 
@@ -262,41 +281,9 @@ export function CinemaScreen({
           >
             {t('studio.cinema.screenRetryPlayback')}
           </button>
-          <button
-            type="button"
-            className={`inline-flex min-h-[36px] items-center rounded-full px-2.5 text-sm transition-colors ${chipButtonInk}`}
-            onClick={onReconcile}
-          >
-            {t('studio.cinema.reconcile')}
-          </button>
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
-        {state === 'failed' || state === 'media_gap' ? (
-          <button
-            type="button"
-            className={`inline-flex min-h-[36px] items-center rounded-full px-2.5 text-sm transition-colors ${chipButtonInk}`}
-            onClick={onReconcile}
-          >
-            {t('studio.cinema.reconcile')}
-          </button>
-        ) : null}
-        {refreshPausedReasonKey ? (
-          <>
-            <span className={`text-sm ${onStage ? 'text-ink/55 dark:text-white/80' : 'text-text-secondary'}`}>
-              {t(refreshPausedReasonKey)}
-            </span>
-            <button
-              type="button"
-              className={`inline-flex min-h-[36px] items-center rounded-full px-2.5 text-sm transition-colors ${chipButtonInk}`}
-              onClick={onResumeRefresh}
-            >
-              {t('studio.cinema.renderRefreshResume')}
-            </button>
-          </>
-        ) : null}
-      </div>
     </section>
   )
 }

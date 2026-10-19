@@ -1100,7 +1100,7 @@ describe('cinema workspace', () => {
     expect(within(dialog).getByText(foldedResult)).toBeInTheDocument()
   })
 
-  it('offers a manual resume when automatic checking paused', async () => {
+  it('stops automatic checking after repeated failures without rewriting the render status', async () => {
     let reads = 0
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
@@ -1125,12 +1125,9 @@ describe('cinema workspace', () => {
       await harness.scheduler.fire()
     }
 
-    expect(screen.getByText('Automatic checking paused after repeated failures.')).toBeInTheDocument()
+    expect(screen.queryByText('Automatic checking paused after repeated failures.')).toBeNull()
     expect(harness.scheduler.pendingCount()).toBe(0)
 
-    fireEvent.click(screen.getByText('Keep checking'))
-    await flush()
-    expect(harness.scheduler.pendingCount()).toBe(1)
     // The render keeps its real status: the loop never rewrites it.
     expect(screen.queryByText('This attempt did not succeed')).toBeNull()
   })

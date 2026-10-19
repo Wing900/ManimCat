@@ -1,5 +1,7 @@
 import { spawn } from 'child_process'
+import fs from 'node:fs'
 import { createLogger } from '../shared/logging/logger'
+import { buildManimGxCommand } from '../rendering/manim/manimgx-runtime'
 import {
   registerManimProcess,
   cancelManimProcess,
@@ -8,7 +10,6 @@ import {
   wasManimProcessCancelled
 } from './manim-process-registry'
 import {
-  buildManimArgs,
   buildResult,
   createExecutionState,
   elapsedSeconds,
@@ -18,7 +19,7 @@ import {
   startMemoryMonitor
 } from './manim-executor-runtime'
 
-const logger = createLogger('ManimExecutor')
+const logger = createLogger('ManimGXExecutor')
 const FATAL_MANIM_ERROR_PATTERN = /(?:MemoryError:|Unable to allocate[^\r\n]*array|Fatal Python error:)/i
 
 export interface ManimExecutionResult {
@@ -27,6 +28,7 @@ export interface ManimExecutionResult {
   stderr: string
   peakMemoryMB: number
   exitCode?: number
+  outputPath?: string
 }
 
 export interface ManimExecuteOptions {
@@ -47,10 +49,10 @@ export function executeManimCommand(
   options: ManimExecuteOptions
 ): Promise<ManimExecutionResult> {
   const normalizedOptions = normalizeExecuteOptions(options)
-  const args = buildManimArgs(codeFile, normalizedOptions)
+  const { command, args, outputPath } = buildManimGxCommand(codeFile, normalizedOptions)
 
-  logger.info(`Job ${normalizedOptions.jobId}: starting manim process`, {
-    command: `manim ${args.join(' ')}`,
+  logger.info(`Job ${normalizedOptions.jobId}: starting ManimGX process`, {
+    command: `${command} ${args.join(' ')}`,
     cwd: normalizedOptions.tempDir
   })
 
@@ -58,7 +60,12 @@ export function executeManimCommand(
     const startTime = Date.now()
     const state = createExecutionState()
     const processGroup = process.platform !== 'win32'
-    const proc = spawn('manim', args, { cwd: normalizedOptions.tempDir, detached: processGroup, windowsHide: true })
+    const proc = spawn(command, args, {
+      cwd: normalizedOptions.tempDir,
+      detached: processGroup,
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
+    })
 
     registerManimProcess(normalizedOptions.jobId, proc, processGroup)
 
@@ -138,6 +145,7 @@ export function executeManimCommand(
     }, normalizedOptions.timeoutMs)
 
     proc.on('close', (code) => {
+      if (settled) return
       const elapsed = elapsedSeconds(startTime)
       const cancelled = wasManimProcessCancelled(normalizedOptions.jobId)
 
@@ -148,6 +156,17 @@ export function executeManimCommand(
       }
 
       if (code === 0) {
+        let hasOutput = false
+        try {
+          const output = fs.statSync(outputPath)
+          hasOutput = output.isFile() && output.size > 0
+        } catch {
+          // A missing artifact must become a render failure, not an uncaught callback error.
+        }
+        if (!hasOutput) {
+          settle(buildResult(false, state, `ManimGX completed without output: ${outputPath}`, code))
+          return
+        }
         logger.info(`Job ${normalizedOptions.jobId}: manim completed`, {
           elapsed: `${elapsed}s`,
           exitCode: code,
@@ -155,7 +174,7 @@ export function executeManimCommand(
           stderrLength: state.stderr.length,
           peakMemoryMB: state.peakMemoryMB
         })
-        settle(buildResult(true, state, undefined, code ?? undefined))
+        settle({ ...buildResult(true, state, undefined, code), outputPath })
         return
       }
 

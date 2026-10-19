@@ -74,7 +74,9 @@ describe('cinema display rules', () => {
     expect(readStudioCinemaCatStatus(catInput()).key).toBe('studio.cinema.catIdle')
     expect(readStudioCinemaCatStatus(catInput({ hasActiveRender: true })).key).toBe('studio.cinema.catWorking')
     expect(readStudioCinemaCatStatus(catInput({ submitting: true })).key).toBe('studio.cinema.catSubmitting')
-    expect(readStudioCinemaCatStatus(catInput({ hasFailedOutcome: true })).key).toBe('studio.cinema.catFailed')
+    expect(readStudioCinemaCatStatus(catInput({ hasFailedOutcome: true })).key).toBe(
+      'studio.cinema.catUnresponsive',
+    )
     expect(readStudioCinemaCatStatus(catInput({ needsReconciliation: true })).key).toBe(
       'studio.cinema.catNeedsCheck',
     )

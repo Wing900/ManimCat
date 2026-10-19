@@ -89,6 +89,7 @@ export function readStudioCinemaCatStatus(input: {
   streamState: StudioCinemaStreamState
   renderRefresh: StudioCinemaRenderRefreshState
   hasFailedOutcome: boolean
+  modelUnresponsive?: boolean
 }): StudioCinemaCatStatus {
   const params = { index: input.sceneIndex + 1 }
 
@@ -101,6 +102,9 @@ export function readStudioCinemaCatStatus(input: {
   if (input.submitting) {
     return { key: 'studio.cinema.catSubmitting', params, tone: 'busy' }
   }
+  if (input.modelUnresponsive || input.hasFailedOutcome) {
+    return { key: 'studio.cinema.catUnresponsive', params, tone: 'warning' }
+  }
   if (input.hasActiveRun || input.hasActiveRender) {
     return { key: cinemaUnitKey(input.studioKind, 'catWorking'), params, tone: 'busy' }
   }
@@ -112,9 +116,6 @@ export function readStudioCinemaCatStatus(input: {
   }
   if (input.streamState !== 'connected' && input.snapshotStatus === 'ready') {
     return { key: 'studio.cinema.catReconnecting', params, tone: 'warning' }
-  }
-  if (input.hasFailedOutcome) {
-    return { key: 'studio.cinema.catFailed', params, tone: 'error' }
   }
   return { key: 'studio.cinema.catIdle', params, tone: 'idle' }
 }

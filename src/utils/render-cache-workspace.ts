@@ -4,32 +4,9 @@ import { createHash } from 'crypto'
 
 const RENDER_CACHE_ROOT = path.join(process.cwd(), '.studio-workspace', 'render-cache')
 
-/**
- * Windows MAX_PATH, as this project actually meets it.
- *
- * The machines here run with `LongPathsEnabled = 0`, so 260 characters is a hard wall — and it is a
- * wall for **Python** specifically. manim pipes frames into ffmpeg (a native binary that copes with
- * long paths) and the partial movie files land on disk, then manim's own Python calls `os.utime` on
- * that same path and gets `FileNotFoundError: [WinError 3]` for a file that is demonstrably there.
- * The render then dies in `combine_to_movie()`, i.e. after every animation has played.
- *
- * Measured, not assumed: a 266-character path created through the `\\?\` API is reported as absent by
- * `os.path.exists` while `os.listdir` on its (231-character) parent lists it by name.
- *
- * So the two segments this module owns are kept short and, more importantly, **bounded**: a segment's
- * length no longer depends on how long the caller's key is. `slice(0, 8)` on the readable head plus a
- * 12-character digest caps the bucket at 21, the run segment at 12, which leaves the whole composed
- * path around 190 characters with ~70 to spare for whatever manim appends.
- */
+/** Bounded workspace names keep native rendering and Python paths within Windows MAX_PATH. */
 const WINDOWS_MAX_PATH = 260
 const PATH_SAFETY_MARGIN = 5
-
-/**
- * What manim appends below `mediaDir` for one partial movie file, worst case:
- * `\videos\scene\720p15\partial_movie_files\<SceneClassName>\<hash>.mp4` — ~91 characters with an
- * ordinary scene name and hash, budgeted at 120 to cover a long generated class name.
- */
-export const MANIM_MEDIA_TAIL_BUDGET = 120
 
 export interface RenderCacheWorkspace {
   key: string
@@ -80,21 +57,14 @@ function ensureWorkspace(rootDir: string): void {
   fs.mkdirSync(rootDir, { recursive: true })
 }
 
-/**
- * Refuses a workspace that manim could not finish in.
- *
- * The failure this prevents is invisible at the point it happens: manim renders every animation, then
- * dies in `combine_to_movie()` with a `FileNotFoundError` naming a file that is right there on disk,
- * and the user is handed a traceback from a library they never heard of. Failing here instead names
- * the real problem at the start of the run.
- */
+/** GX writes a single declared artifact; CE's nested partial-movie paths are no longer used. */
 function assertPathFitsWindowsLimit(mediaDir: string): void {
+  if (process.platform !== 'win32') return
   const ceiling = WINDOWS_MAX_PATH - PATH_SAFETY_MARGIN
-  if (mediaDir.length + MANIM_MEDIA_TAIL_BUDGET > ceiling) {
+  const outputPath = path.join(mediaDir, 'output.mp4')
+  if (outputPath.length > ceiling) {
     throw new Error(
-      `render cache path would exceed the Windows path limit: ` +
-        `${mediaDir.length} + ${MANIM_MEDIA_TAIL_BUDGET} (what manim appends) > ${ceiling}. ` +
-        `Shorten the composed segments, not the caller's key. Path: ${mediaDir}`
+      `Render output exceeds the Windows path limit (${ceiling} characters): ${outputPath}`
     )
   }
 }

@@ -55,10 +55,8 @@ export function readStudioCinemaCatReplySnippet(text: string, max = CAT_REPLY_SN
  */
 export function readStudioCinemaCatFeedback(statusKey: TranslationKey): CatFeedback | null {
   switch (statusKey) {
-    case 'studio.cinema.catFailed':
-      // The failure reason is not a user-facing document: the run already handed it to the model, and
-      // the history panel has no failure row to open (scene-conversation-model.ts keeps it that way).
-      return { bubbleKey: 'studio.cinema.catBubbleFailed', kind: 'persistent', hasRecoverEntry: false }
+    case 'studio.cinema.catUnresponsive':
+      return { bubbleKey: 'studio.cinema.catUnresponsive', kind: 'persistent', hasRecoverEntry: false }
     case 'studio.cinema.catNeedsCheck':
       return { bubbleKey: 'studio.cinema.catBubbleCheck', kind: 'persistent', hasRecoverEntry: true }
     case 'studio.cinema.catUnreachable':

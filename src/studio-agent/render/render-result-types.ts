@@ -33,3 +33,6 @@ export interface StudioRenderResult {
 
 /** Bound on the internal failure text kept on a render, so one provider dump cannot bloat a row. */
 export const STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH = 500
+
+/** Model-facing diagnostics retain the cause at the end of a traceback. */
+export const STUDIO_RENDER_TOOL_ERROR_MAX_LENGTH = 16_000

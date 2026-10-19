@@ -38,13 +38,13 @@ Requested change: {{instructions}}
 {{#if isVideo}}
 - Start with `### START ###`
 - End with `### END ###`
-- Use `from manim import *`
+- Use `from manimgx import *`
 - Keep `MainScene` unless true 3D is required
 {{/if}}
 {{#if isImage}}
 - Output only `YON_IMAGE` anchor blocks
 - Each block must contain one renderable Scene
-- Use `from manim import *`
+- Use `from manimgx import *`
 {{/if}}
 
 ## Constraint Layer

@@ -3,7 +3,6 @@ import path from 'path'
 import { createLogger } from '../../../../shared/logging/logger'
 import { cleanManimCode } from '../../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../../utils/manim-executor'
-import { findImageFile } from '../../../../utils/file-utils'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { isJobCancelled } from '../../../job/job-cancel-store'
 import { JobCancelledError } from '../../../../shared/errors/errors'
@@ -88,14 +87,6 @@ function parseImageCodeBlocks(code: string): ImageCodeBlock[] {
   return blocks
 }
 
-function detectSceneName(code: string): string {
-  const match = code.match(/class\s+([A-Za-z_]\w*)\s*\([^)]*Scene[^)]*\)\s*:/)
-  if (match?.[1]) {
-    return match[1]
-  }
-  throw new Error('Image code block is missing a renderable Scene class')
-}
-
 function clearPreviousImages(outputDir: string, jobId: string): void {
   const prefix = `${jobId}-`
   if (!fs.existsSync(outputDir)) {
@@ -148,7 +139,6 @@ async function renderImageBlocks(
       const codeFile = blockWorkspace.codeFile
 
       const cleaned = cleanManimCode(block.code)
-      const sceneName = detectSceneName(cleaned.code)
       fs.writeFileSync(codeFile, cleaned.code, 'utf-8')
 
       const options: ManimExecuteOptions = {
@@ -157,7 +147,6 @@ async function renderImageBlocks(
         frameRate,
         format: 'png',
         isCancelled: () => isJobCancelled(jobId),
-        sceneName,
         tempDir: blockDir,
         mediaDir,
         timeoutMs
@@ -178,7 +167,7 @@ async function renderImageBlocks(
         }
       }
 
-      const imagePath = findImageFile(mediaDir, sceneName)
+      const imagePath = renderResult.outputPath
       if (!imagePath) {
         return {
           success: false,

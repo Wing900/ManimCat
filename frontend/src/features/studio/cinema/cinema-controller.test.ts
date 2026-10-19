@@ -1335,7 +1335,8 @@ describe('studio cinema controller', () => {
     expect(record.cancelRequested).toBe(false)
     const cancelled = record.runs.find((run) => run.id === 'run_2')
     expect(cancelled?.status).toBe('cancelled')
-    expect(cancelled && 'error' in cancelled).toBe(false)
+    // The failure reason is public so the client can show and log it.
+    expect(cancelled?.error).toBe('internal failure text')
     expect(cancelled && 'ownerId' in cancelled).toBe(false)
   })
 

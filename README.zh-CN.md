@@ -32,7 +32,7 @@
 </p>
 
 <p align="center">
-  同时支持直接生成工作流与基于 Agent 的 Studio 协作，并由 Manim 与 matplotlib 双引擎支撑
+  同时支持直接生成工作流与基于 Agent 的 Studio 协作，并由 ManimGX 与 matplotlib 双引擎支撑
 </p>
 
 <!-- 装饰：几何点阵分隔 -->
@@ -41,7 +41,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
+  <img src="https://img.shields.io/badge/ManimGX-0.1.1-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimGX" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=for-the-badge" alt="License" />
@@ -79,7 +79,7 @@
 
 - `Workflow Mode` 用于直接生成与渲染，适合快速产出
 - `Agent Mode` 用于基于 Studio 的协作式创作、审阅、任务跟踪与迭代
-- `Manim` 负责动画、镜头与时间线驱动的数学叙事
+- `ManimGX` 负责动画、镜头与时间线驱动的数学叙事
 - `matplotlib` 负责 Plot Studio 中的静态数学图像、函数图、图表与教学插图
 - `Plot Studio` 是目前更成熟的 Studio 路径，主要面向静态可视化与迭代编辑
 - `Manim Studio` 面向动画创作，但目前仍处于相对更早期的阶段
@@ -140,6 +140,12 @@ npm run dev
 
 访问 `http://localhost:3000`。环境变量见 [`.env.example`](.env.example)，部署要点见下方[部署](#部署)。
 
+本地动画渲染使用 [ManimGX 0.1.1](https://github.com/academa-labs/manimgx)，需要 Python 3.13 或更新版本。Linux wheel 自带 lavapipe，可使用 CPU 渲染。
+
+ManimGX 使用原生 Typst 排版，本地渲染无需安装外部 TeX。Typst 支持在同一表达式中混排中文与数学符号。
+
+本地运行时请创建 Python 3.13+ 虚拟环境，运行 `python -m pip install -r requirements.txt` 安装依赖，再将 `MANIMGX_PYTHON` 设置为该环境的 Python 可执行文件路径，供应用调用渲染器。
+
 如果你直接用 Docker 镜像部署，也可以从 `wingflow/manimcat` 开始，而不是自行本地构建。
 
 
@@ -148,12 +154,12 @@ npm run dev
 ### 技术栈
 
 - 产品结构：Workflow 模式用于直接生成，Agent 模式用于 Studio 协作式工作流
-- 图形引擎：Manim 用于动画，`matplotlib` 用于 Plot Studio 静态图像
+- 图形引擎：ManimGX 用于动画，`matplotlib` 用于 Plot Studio 静态图像
 - 后端：Express + TypeScript、Bull + Redis、兼容 OpenAI 的上游路由、Studio Agent 运行时、可选 Supabase 历史记录
 - 前端：React 19、Vite、Tailwind CSS、经典生成界面、Studio 工作台界面、Plot Studio 极简工作区 UI
 - Agent 状态模型：围绕 session / run / task / work / result 组织长生命周期 Studio 交互
 - 实时层：Workflow 任务使用轮询，Agent 会话使用 Server-Sent Events 推送事件、权限请求与任务更新
-- 渲染运行时：Python、Manim Community Edition、`matplotlib`、LaTeX、`ffmpeg`
+- 渲染运行时：Python 3.14、ManimGX 0.1.1、`matplotlib`、`ffmpeg`；ManimGX 内置字体与排版组件
 - 部署：Docker / Docker Compose、Hugging Face Spaces
 
 ### Workflow Mode
@@ -344,6 +350,7 @@ ManimCat 早期版本包含 `manim-video-generator`（MIT）的代码。历史 C
 
 - [rohitg00/manim-video-generator](https://github.com/rohitg00/manim-video-generator)
 - [anomalyco/opencode](https://github.com/anomalyco/opencode)
+- [academa-labs/manimgx](https://github.com/academa-labs/manimgx) — 动画引擎与 Manim 兼容 API
 - [Linux.do](https://linux.do)
 - [阿里云百炼](https://bailian.console.aliyun.com)
 

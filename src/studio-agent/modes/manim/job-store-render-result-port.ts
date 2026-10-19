@@ -3,7 +3,7 @@ import { getBullJobStatus, getJobResult } from '../../../infrastructure/redis/jo
 import { readStudioPublicMediaLocator } from '../../render/studio-public-media-locator'
 import type { StudioRenderResultPort } from '../../render/render-result-port'
 import {
-  STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH,
+  STUDIO_RENDER_TOOL_ERROR_MAX_LENGTH,
   type StudioRenderResult,
   type StudioRenderResultMedia,
   type StudioRenderResultStatus
@@ -95,7 +95,7 @@ export function readCompletedResultMedia(result: CompletedJobResult): StudioRend
  */
 function readFailedResult(result: FailedJobResult): StudioRenderResult {
   const error = typeof result.data.error === 'string' ? result.data.error : ''
-  const internalError = error.slice(0, STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH)
+  const internalError = error.slice(-STUDIO_RENDER_TOOL_ERROR_MAX_LENGTH)
 
   if (result.data.cancelReason) {
     return { status: 'cancelled', ...(internalError ? { error: internalError } : {}) }

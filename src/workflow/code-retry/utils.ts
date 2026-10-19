@@ -106,7 +106,10 @@ export function extractCodeContext(
 ): string | undefined {
   const lines = code.split(/\r?\n/)
   const sourceFrames = [...errorMessage.matchAll(/File\s+["']([^"']+\.py)["'],\s+line\s+(\d+)/gi)]
-  const projectFrame = sourceFrames.find((match) => !/[\\/](?:site-packages|dist-packages|manim)[\\/]/i.test(match[1]))
+  const projectFrame = sourceFrames.find((match) =>
+    !/[\\/](?:site-packages|dist-packages|manim|manimgx)[\\/]/i.test(match[1]) &&
+    !/(?:^|[\\/])manimgx-runner\.py$/i.test(match[1])
+  )
   const richFrame = errorMessage.match(/[│|]\s*(?:❱|>)\s*(\d+)\s+/)
   const candidate = projectFrame?.[2] || richFrame?.[1]
   const targetLine = candidate ? Number.parseInt(candidate, 10) : extractTargetLine(errorMessage)

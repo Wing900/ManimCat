@@ -1,11 +1,5 @@
 # syntax=docker/dockerfile:1
 
-ARG MANIM_VERSION=0.20.1
-
-# The upstream image remains the authority for Manim's tested Minimal TeX Live.
-# Only the TeX tree is copied out; the upstream Jupyter-enabled Python venv is discarded.
-FROM manimcommunity/manim:v${MANIM_VERSION} AS manim_tex
-
 # Hugging Face source sync can omit binary tracks. Fetch them in a disposable stage so
 # curl and its package metadata never enter the runtime image.
 FROM alpine:3.22 AS audio_assets
@@ -20,28 +14,12 @@ RUN apk add --no-cache ca-certificates curl \
             "https://raw.githubusercontent.com/Wing900/ManimCat/main/src/audio/tracks/$file"; \
     done
 
-# Build a clean Manim venv without the upstream [jupyterlab] extra.
+# Build the rendering venv from pinned wheels; ManimGX bundles its Linux lavapipe renderer.
 FROM python:3.14-slim AS manim_builder
-ARG MANIM_VERSION
-RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
-    && apt-get -o Acquire::Retries=3 update -qq \
-    && apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
-        build-essential \
-        cmake \
-        gcc \
-        libegl-dev \
-        libffi-dev \
-        libcairo2-dev \
-        libpango1.0-dev \
-        make \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
 RUN python -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
-ARG MATPLOTLIB_VERSION=3.10.8
-RUN pip install --no-cache-dir \
-        "manim==${MANIM_VERSION}" \
-        "matplotlib==${MATPLOTLIB_VERSION}"
+COPY requirements.txt /tmp/render-requirements.txt
+RUN pip install --no-cache-dir --only-binary=:all: -r /tmp/render-requirements.txt
 
 # Compile both applications, then retain production Node dependencies only.
 FROM node:22-bookworm-slim AS node_builder
@@ -65,7 +43,7 @@ RUN groupadd --gid 1000 node \
     && useradd --uid 1000 --gid node --create-home node
 ENV HOME=/home/node
 ENV VIRTUAL_ENV=/opt/venv
-ENV PATH=/opt/venv/bin:/usr/local/texlive/bin/armhf-linux:/usr/local/texlive/bin/aarch64-linux:/usr/local/texlive/bin/x86_64-linux:$PATH
+ENV PATH=/opt/venv/bin:$PATH
 ENV NODE_ENV=production
 
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
@@ -76,20 +54,16 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
         fontconfig \
         fonts-noto-cjk \
         fonts-noto-core \
-        ghostscript \
         libegl1 \
-        libffi8 \
-        libgl1 \
-        libpango-1.0-0 \
-        libpangocairo-1.0-0 \
-        libpangoft2-1.0-0 \
-        libcairo2 \
+        libgcc-s1 \
+        libvulkan1 \
+        libxext6 \
         libstdc++6 \
+        mesa-vulkan-drivers \
         redis-server \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -f
 
-COPY --from=manim_tex /usr/local/texlive /usr/local/texlive
 COPY --from=manim_builder /opt/venv /opt/venv
 COPY --from=node_builder /usr/local/bin/node /usr/local/bin/node
 
@@ -101,6 +75,7 @@ COPY --from=node_builder /app/public ./public
 COPY --from=node_builder /app/data ./data
 COPY --from=node_builder /app/src/prompts/templates ./src/prompts/templates
 COPY --from=node_builder /app/src/studio-agent/prompts/templates ./src/studio-agent/prompts/templates
+COPY --from=node_builder /app/src/rendering/manim/manimgx-runner.py ./src/rendering/manim/manimgx-runner.py
 COPY --from=audio_assets /tracks ./src/audio/tracks
 COPY start-with-redis-hf.cjs ./
 
@@ -111,7 +86,7 @@ RUN mkdir -p \
         /app/public/videos \
         /app/tmp \
         /data/redis \
-    # The render subprocess (manim / python) runs as `node` and must not be able to write outside
+    # The render subprocess (ManimGX / python) runs as `node` and must not be able to write outside
     # /app and /data/redis. Owning /app also means a sandboxed renderer cannot mutate /usr/local
     # or /opt/venv, even before a proper sandbox is added.
     && chown -R node:node /app /data/redis

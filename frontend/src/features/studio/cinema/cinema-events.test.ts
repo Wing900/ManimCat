@@ -12,7 +12,7 @@ import {
  * `JSON.parse`-shaped value; nothing here opens a socket, so the guard is verified without a server.
  */
 describe('studio cinema scene event decoder', () => {
-  it('narrows a run.updated frame into a Scene run without internal fields', () => {
+  it('narrows a run.updated frame into a Scene run and keeps the failure reason', () => {
     const decoded = decodeStudioCinemaSceneEvent(
       createTestFrame('run.updated', {
         sessionId: CINEMA_TEST_SESSION_ID,
@@ -20,7 +20,7 @@ describe('studio cinema scene event decoder', () => {
           id: 'run_1',
           sessionId: CINEMA_TEST_SESSION_ID,
           sceneId: CINEMA_TEST_SCENE_A,
-          status: 'running',
+          status: 'failed',
           inputText: 'draw',
           activeAgent: 'builder',
           createdAt: '2026-03-22T00:00:00.000Z',
@@ -36,10 +36,11 @@ describe('studio cinema scene event decoder', () => {
     expect(decoded?.event.kind).toBe('run-updated')
     const run = decoded?.event.kind === 'run-updated' ? decoded.event.run : null
     expect(run).not.toBeNull()
-    expect(run && 'error' in run).toBe(false)
+    // The failure reason is exposed to the client; only the wider internal fields are dropped.
+    expect(run?.error).toBe('internal failure text')
     expect(run && 'metadata' in run).toBe(false)
     expect(run && 'ownerId' in run).toBe(false)
-    expect(run?.status).toBe('running')
+    expect(run?.status).toBe('failed')
   })
 
   it('narrows a render.updated frame and keeps only public media', () => {
@@ -220,7 +221,7 @@ describe('studio cinema scene event decoder', () => {
     })
 
     expect(narrowed?.status).toBe('cancelled')
-    expect(narrowed && 'error' in narrowed).toBe(false)
+    expect(narrowed?.error).toBe('internal failure text')
     expect(readStudioCinemaSceneRun({ id: 'run_1', status: 'cancelled' })).toBeNull()
     expect(readStudioCinemaSceneRun(null)).toBeNull()
   })

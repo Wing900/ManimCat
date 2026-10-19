@@ -1,7 +1,7 @@
 import type { CustomApiConfig } from '../../types'
 
 /** Used when `CATKEY_UPSTREAM_MODEL` is unset, so a CatKey deployment is never model-less. */
-const DEFAULT_CAT_KEY_UPSTREAM_MODEL = 'deepseek-flash'
+const DEFAULT_CAT_KEY_UPSTREAM_MODEL = 'deepseek-v4.1-flash:1017-cloud'
 
 /**
  * The fixed server-side upstream used by every CatKey request.

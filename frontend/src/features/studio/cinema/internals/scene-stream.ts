@@ -90,6 +90,11 @@ export class SceneStream {
         if (controller.signal.aborted || this.host.isStaleGeneration(generation)) {
           return
         }
+        console.error('[Studio cinema] Scene stream failed', {
+          sessionId: identity.sessionId,
+          sceneId: identity.sceneId,
+          error,
+        })
         this.host.dispatch({
           type: 'scene/stream-state',
           identity,
@@ -144,7 +149,9 @@ export class SceneStream {
 
     const decoded = decodeStudioCinemaSceneEvent(frame)
     if (!decoded) {
-      // Unknown type or malformed frame: dropped, never applied to a Scene record.
+      // Unknown type or malformed frame: dropped, never applied to a Scene record. Log the raw frame
+      // so a protocol mismatch is visible in the browser console instead of disappearing.
+      console.error('[Studio cinema] Dropped malformed Scene event', frame)
       return
     }
 
@@ -159,7 +166,21 @@ export class SceneStream {
 
     if (!isSameStudioCinemaScene(decoded.identity, identity)) {
       // A sibling Scene, another Session or a Legacy frame: never merged into this Scene.
+      console.warn('[Studio cinema] Dropped Scene event for another Scene', {
+        expected: identity,
+        received: decoded.identity,
+        kind: decoded.event.kind,
+      })
       return
+    }
+
+    if (decoded.event.kind === 'run-updated' && decoded.event.run.status === 'failed') {
+      console.error('[Studio cinema] Run failed', {
+        sessionId: identity.sessionId,
+        sceneId: identity.sceneId,
+        runId: decoded.event.run.id,
+        error: decoded.event.run.error ?? '(no error text)',
+      })
     }
 
     const window = this.recoverySlot.current(subscriptionId)
@@ -193,6 +214,15 @@ export class SceneStream {
     }
 
     if (status.state === 'reconnecting' || status.state === 'disconnected') {
+      if (status.error) {
+        console.warn('[Studio cinema] Scene stream reconnect', {
+          sessionId: identity.sessionId,
+          sceneId: identity.sceneId,
+          state: status.state,
+          attempt: status.attempt,
+          error: status.error,
+        })
+      }
       const stream = this.stream
       if (stream && stream.subscriptionId === subscriptionId) {
         // The next connection is a new epoch with its own recovery window.

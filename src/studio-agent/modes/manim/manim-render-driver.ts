@@ -23,6 +23,9 @@ export function createManimRenderDriver(options: {
         jobId,
         concept: input.render.concept,
         code: input.code,
+        ...(typeof input.render.metadata?.sceneName === 'string'
+          ? { sceneName: input.render.metadata.sceneName }
+          : {}),
         outputMode: input.render.outputMode,
         quality: input.render.quality ?? 'medium',
         workspaceDirectory: input.workspaceDirectory,

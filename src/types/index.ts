@@ -102,6 +102,8 @@ export interface VideoJobData {
    */
   catKeyId?: string
   preGeneratedCode?: string
+  /** Optional video entry point; otherwise the renderer selects the source's scene. */
+  sceneName?: string
   editCode?: string
   editInstructions?: string
   customApiConfig?: CustomApiConfig

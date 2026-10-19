@@ -20,7 +20,7 @@ const STUDIO_MODES: Record<StudioKind, StudioModeDefinition> = {
     label: 'Manim Studio',
     codeLanguage: 'manim-python',
     outputModes: ['video', 'image'],
-    runtimeSummary: 'Generate, inspect, render, and repair Manim Python.'
+    runtimeSummary: 'ManimGX 0.1.1. Use from manimgx import *; MathTypst/Typst/Text for typesetting, select() for named groups. Render Scene subclasses; pass sceneName when multiple.'
   },
   matplotlib: {
     kind: 'matplotlib',

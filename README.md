@@ -32,7 +32,7 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
 </p>
 
 <p align="center">
-  Combining direct workflow generation with agent-driven studio collaboration, powered by Manim and matplotlib
+  Combining direct workflow generation with agent-driven studio collaboration, powered by ManimGX and matplotlib
 </p>
 
 <!-- Geometric divider -->
@@ -41,7 +41,7 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/ManimCE-0.19.2-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimCE" />
+  <img src="https://img.shields.io/badge/ManimGX-0.1.1-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimGX" />
   <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=for-the-badge" alt="License" />
@@ -79,7 +79,7 @@ The project is now organized around three clear axes: `dual-mode`, `dual-engine`
 
 - `Workflow Mode` is for direct generation and rendering when you want fast outputs
 - `Agent Mode` is for Studio-based collaborative work with longer-lived sessions, task state, review, and iteration
-- `Manim` is used for animation and timeline-based mathematical storytelling
+- `ManimGX` is used for animation and timeline-based mathematical storytelling
 - `matplotlib` is used in Plot Studio for static math visuals, charts, and teaching figures
 - `Plot Studio` is the more mature Studio path today for static visual work and iterative editing
 - `Manim Studio` is the animation-oriented Studio path and is still at an earlier stage
@@ -140,7 +140,11 @@ npm run dev
 
 Open `http://localhost:3000`. See [`.env.example`](.env.example) for environment variables and [Deployment](#deployment) below for deployment notes.
 
-If you want a direct Docker deployment path, you can also start from the published image `wingflow/manimcat` instead of building locally first.
+If you want a direct Docker deployment path, you can also start from the published image `wingflow/manimcat` instead of building locally first. Local animation rendering uses [ManimGX 0.1.1](https://github.com/academa-labs/manimgx) and requires Python 3.13 or newer. The Linux wheel includes lavapipe for CPU rendering.
+
+ManimGX uses native Typst typesetting, so local rendering needs no external TeX installation. Typst supports Chinese text and mathematics in the same expression.
+
+For local rendering, create a Python 3.13+ virtual environment, install dependencies with `python -m pip install -r requirements.txt`, then set `MANIMGX_PYTHON` to that environment's Python executable so the app can use the renderer.
 
 
 ## Technology
@@ -148,12 +152,12 @@ If you want a direct Docker deployment path, you can also start from the publish
 ### Tech Stack
 
 - Product structure: Workflow mode for direct generation, Agent mode for Studio-based collaborative work
-- Visual engines: Manim for animation, `matplotlib` for Plot Studio static figures
+- Visual engines: ManimGX for animation, `matplotlib` for Plot Studio static figures
 - Backend: Express + TypeScript, Bull + Redis, OpenAI-compatible upstream routing, Studio agent runtime, optional Supabase history storage
 - Frontend: React 19, Vite, Tailwind CSS, classic generator UI, Studio workspace shell, Plot Studio minimal workspace UI
 - Agent state model: session / run / task / work / result lifecycle for longer-lived studio interactions
 - Realtime layer: polling for Workflow jobs, Server-Sent Events for Agent sessions, permission requests, and task updates
-- Rendering runtime: Python, Manim Community Edition, `matplotlib`, LaTeX, `ffmpeg`
+- Rendering runtime: Python 3.14, ManimGX 0.1.1, `matplotlib`, `ffmpeg`; ManimGX bundles fonts and typesetting
 - Deployment: Docker / Docker Compose, Hugging Face Spaces
 
 ### Workflow Mode
@@ -337,6 +341,7 @@ If this project gave you useful ideas or helped you in some way, that is already
 
 - [rohitg00/manim-video-generator](https://github.com/rohitg00/manim-video-generator)
 - [anomalyco/opencode](https://github.com/anomalyco/opencode)
+- [academa-labs/manimgx](https://github.com/academa-labs/manimgx) — animation engine and Manim-compatible API
 - [Linux.do](https://linux.do)
 - [Alibaba Cloud Bailian](https://bailian.console.aliyun.com)
 

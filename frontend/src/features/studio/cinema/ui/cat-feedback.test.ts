@@ -42,11 +42,11 @@ describe('readStudioCinemaCatFeedback', () => {
     expect(readStudioCinemaCatFeedback('studio.cinema.catRefreshPaused')?.hasRecoverEntry).toBe(true)
   })
 
-  it('states a failure without offering a details entry (the reason went to the model)', () => {
-    const failed = readStudioCinemaCatFeedback('studio.cinema.catFailed')
-    expect(failed?.kind).toBe('persistent')
-    expect(failed?.hasRecoverEntry).toBe(false)
-    expect(failed?.bubbleKey).toBe('studio.cinema.catBubbleFailed')
+  it('states an unresponsive model without offering a details entry', () => {
+    const unresponsive = readStudioCinemaCatFeedback('studio.cinema.catUnresponsive')
+    expect(unresponsive?.kind).toBe('persistent')
+    expect(unresponsive?.hasRecoverEntry).toBe(false)
+    expect(unresponsive?.bubbleKey).toBe('studio.cinema.catUnresponsive')
   })
 
   it('keeps a reconnect as persistent but without a recover entry (the cat is handling it)', () => {

@@ -115,7 +115,8 @@ export async function runPromptTests() {
     })
 
     // The budget tracks the current prompts plus a small margin: it is a bloat alarm, not a target.
-    const basePromptBudget = 1000
+    // ManimGX runtime facts are longer than the old one-line Manim summary, so the ceiling grew once.
+    const basePromptBudget = 1100
     assert.ok(
       manimPrompt.length <= basePromptBudget + manimDirectory.length,
       `manim base prompt is ${manimPrompt.length} chars, budget is ${basePromptBudget + manimDirectory.length}`

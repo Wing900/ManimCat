@@ -38,7 +38,7 @@ Requested change: {{instructions}}
 {{#if isVideo}}
 - Start with `### START ###`
 - End with `### END ###`
-- Use `from manim import *`
+- Use `from manimgx import *`
 - Keep `MainScene` unless true 3D is required
 {{/if}}
 {{#if isImage}}
@@ -46,7 +46,7 @@ Requested change: {{instructions}}
 - Keep block numbering continuous from `YON_IMAGE_1`
 - Each block must contain one renderable Scene
 - Preserve unaffected blocks unless the requested change requires touching them
-- Use `from manim import *`
+- Use `from manimgx import *`
 {{/if}}
 
 ## Constraint Layer

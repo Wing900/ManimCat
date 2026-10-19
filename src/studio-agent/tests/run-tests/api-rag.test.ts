@@ -63,9 +63,9 @@ function createFakeSearchVectors(): SearchVectorsSource {
 export async function runApiRagTests(): Promise<void> {
   await run('baseline catalog loads from data/api-catalog and matches its package', async () => {
     const catalog = await loadBaselineCatalog('manim')
-    assert.equal(catalog.packageName, 'manim')
-    assert.ok(catalog.symbols['manim.MathTex'], 'canonical symbol must be indexed')
-    assert.ok(Object.keys(catalog.symbols).length > 1000)
+    assert.equal(catalog.packageName, 'manimgx')
+    assert.ok(catalog.symbols['manimgx.MathTex'], 'canonical symbol must be indexed')
+    assert.ok(Object.keys(catalog.symbols).length > 500)
     assert.match(baselineCatalogPath('manim').replace(/\\/g, '/'), /data\/api-catalog\/manim\/baseline\.json$/)
   })
 
@@ -90,26 +90,26 @@ export async function runApiRagTests(): Promise<void> {
     const catalog = await loadBaselineCatalog('manim')
     const resolver = createBaselineResolver(catalog)
 
-    const exact = resolver.verify('manim.MathTex')
+    const exact = resolver.verify('manimgx.MathTex')
     assert.equal(exact.verdict, 'FOUND')
-    assert.equal(exact.canonicalSymbol, 'manim.MathTex')
+    assert.equal(exact.canonicalSymbol, 'manimgx.MathTex')
 
     const shortName = resolver.verify('MathTex')
-    assert.equal(shortName.canonicalSymbol, 'manim.MathTex')
+    assert.equal(shortName.canonicalSymbol, 'manimgx.MathTex')
 
     const alias = Object.entries(catalog.aliasIndex)[0]
     assert.ok(alias, 'the catalog must carry aliases')
     assert.equal(resolver.verify(alias[0]).canonicalSymbol, alias[1])
 
-    const member = resolver.verify('manim.Axes.add_coordinates')
+    const member = resolver.verify('manimgx.Axes.add_coordinates')
     assert.equal(member.verdict, 'FOUND')
     // `owner` is the class that declares the member, spelled the way the module tree spells it,
     // and it resolves back to the same class through the alias index.
-    assert.equal(member.owner, 'manim.mobject.graphing.coordinate_systems.CoordinateSystem')
-    assert.equal(resolver.verify(member.owner ?? '').canonicalSymbol, 'manim.CoordinateSystem')
+    assert.equal(member.owner, 'manimgx.Axes')
+    assert.equal(resolver.verify(member.owner ?? '').canonicalSymbol, 'manimgx.Axes')
 
-    assert.deepEqual(resolver.verify('manim.NoSuchApiAtAll'), {
-      requested: 'manim.NoSuchApiAtAll',
+    assert.deepEqual(resolver.verify('manimgx.NoSuchApiAtAll'), {
+      requested: 'manimgx.NoSuchApiAtAll',
       verdict: 'NOT_FOUND'
     })
   })
@@ -124,10 +124,10 @@ export async function runApiRagTests(): Promise<void> {
     assertSearchCatalogResolvable(searchCatalog, resolver, 'manim')
 
     assert.throws(
-      () => assertSearchCatalogResolvable({ 'manim.NoSuchApiAtAll': 'invent an api' }, resolver, 'manim'),
+      () => assertSearchCatalogResolvable({ 'manimgx.NoSuchApiAtAll': 'invent an api' }, resolver, 'manim'),
       /unresolvable keys/
     )
-    assert.throws(() => validateSearchCatalog({ 'manim.MathTex': '   ' }, 'manim'), /empty sentence/)
+    assert.throws(() => validateSearchCatalog({ 'manimgx.MathTex': '   ' }, 'manim'), /empty sentence/)
   })
 
   await run('Search Catalog registration is driven by the committed data', async () => {
@@ -189,20 +189,20 @@ export async function runApiRagTests(): Promise<void> {
       symbols: ['Axes.add_coordinates', 'NoSuchApiAtAll']
     })
 
-    assert.equal(result.packageName, 'manim')
+    assert.equal(result.packageName, 'manimgx')
     assert.equal(result.verification[0].verdict, 'FOUND')
     assert.equal(result.verification[1].verdict, 'NOT_FOUND')
     assert.equal(result.candidates.length, API_RAG_TOP_K)
     assert.deepEqual(result.candidates.map((candidate) => candidate.rank).slice(0, 3), [1, 2, 3])
     for (const candidate of result.candidates) {
-      assert.ok(candidate.symbol.startsWith('manim.'), `candidate symbol must be canonical: ${candidate.symbol}`)
+      assert.ok(candidate.symbol.startsWith('manimgx.'), `candidate symbol must be canonical: ${candidate.symbol}`)
       // The retriever's recall text is an implementation detail and never reaches the Builder.
       assert.equal('searchDoc' in candidate, false)
       assert.equal(typeof candidate.score, 'number')
       assert.notEqual(candidate.kind, 'unknown')
       if (candidate.owner) {
         // An owner field is an alias: it must resolve in `owners` to the real dotted path.
-        assert.ok(result.owners?.[candidate.owner]?.startsWith('manim.'), `owner alias must resolve: ${candidate.owner}`)
+        assert.ok(result.owners?.[candidate.owner]?.startsWith('manimgx.'), `owner alias must resolve: ${candidate.owner}`)
       }
     }
 
@@ -287,7 +287,7 @@ export async function runApiRagTests(): Promise<void> {
     // A class still beats the module that shares its lowercase name, so Manim stays unambiguous.
     const manim = createBaselineResolver(await loadBaselineCatalog('manim'))
     assert.equal(manim.verify('axes').verdict, 'FOUND')
-    assert.equal(manim.verify('axes').canonicalSymbol, 'manim.Axes')
+    assert.equal(manim.verify('axes').canonicalSymbol, 'manimgx.Axes')
   })
 
   await run('the committed SearchDoc matrix matches its catalog, width and model', async () => {
@@ -378,7 +378,7 @@ export async function runApiRagTests(): Promise<void> {
 
     const bare = resolver.verify('set_color')
     assert.equal(bare.verdict, 'NOT_FOUND')
-    assert.ok(bare.suggestions?.includes('manim.Mobject.set_color'), `expected Mobject.set_color in ${bare.suggestions?.join(', ')}`)
+    assert.ok(bare.suggestions?.includes('manimgx.Mobject.set_color'), `expected Mobject.set_color in ${bare.suggestions?.join(', ')}`)
 
     const member = resolver.verify('Mobject.set_color')
     assert.equal(member.verdict, 'FOUND')
@@ -410,7 +410,7 @@ export async function runApiRagTests(): Promise<void> {
     assert.equal(result.metadata?.ambiguous, 0)
     assert.equal(result.metadata?.notFound, 0)
 
-    const ambiguous = await tool.execute({ query: 'draw', symbols: ['SALMON'] }, {} as never)
+    const ambiguous = await tool.execute({ query: 'draw', symbols: ['Voice'] }, {} as never)
     const ambiguousPayload = JSON.parse(ambiguous.output) as { verification: Array<{ verdict: string }> }
     assert.equal(ambiguousPayload.verification[0].verdict, 'AMBIGUOUS')
     assert.equal(ambiguous.metadata?.mode, 'hybrid')

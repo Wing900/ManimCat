@@ -2,6 +2,11 @@
 
 Everything the API RAG answers from. One directory per package, four files each:
 
+`manim/` is the animation mode's stable storage key. Its Baseline now describes
+**ManimGX**, with real `manimgx.*` paths and the installed package's version.
+`matplotlib/` continues to describe matplotlib. Package identity comes from the
+Baseline metadata, independently of the mode's directory name.
+
 | file | what it is | who decides |
 |---|---|---|
 | `baseline.json` | every symbol, member, signature, doc and alias, straight out of the installed package | what **exists** |
@@ -15,8 +20,18 @@ its keys are proven resolvable against the Baseline at startup.
 ## Regenerating
 
 ```sh
+# Use the Python environment containing the pinned rendering requirements.
+.venv/Scripts/python.exe scripts/build-manimgx-catalog.py   # Windows
+# .venv/bin/python scripts/build-manimgx-catalog.py         # Linux/macOS
 npm run build:search-vectors     # after any search.json change
 ```
+
+The GX extractor reads public exports, constructor signatures, declared instance
+fields, inheritance and referenced keyword schemas without constructing scenes.
+Search descriptions remain curated: unsupported CE keys are removed during
+reconciliation, and native `MathTypst`, `Typst` and labelled selection are indexed.
+The generator validates alias targets and search references before writing.
+Rebuild vectors after extraction, then restart the backend to load the new data.
 
 `search.json` is hand-reviewed; `baseline.json`, `search-vectors.f32` and the index are generated
 and never edited by hand. A generated file that disagrees with its input is a startup failure, not

@@ -235,10 +235,11 @@ export interface StudioSceneSnapshot {
 }
 
 /**
- * Scene public projection, mirroring the backend whitelist exactly: no internal error text, no
- * private source path, no arbitrary Tool metadata and no model-supplied Tool input. The legacy
- * Session snapshot keeps its wider `StudioRun`/`StudioRender`, so this narrows the Scene response
- * only and a Scene consumer must not cast a wider record into these types.
+ * Scene public projection, mirroring the backend whitelist exactly: no private source path, no
+ * arbitrary Tool metadata and no model-supplied Tool input. The Run `error` is published so the
+ * client can show and log the real failure. The legacy Session snapshot keeps its wider
+ * `StudioRun`/`StudioRender`, so this narrows the Scene response only and a Scene consumer must
+ * not cast a wider record into these types.
  */
 export interface StudioSceneAttachment {
   kind: 'file'
@@ -256,6 +257,8 @@ export interface StudioSceneRun {
   activeAgent: StudioAgentType
   createdAt: string
   completedAt?: string
+  /** Failure reason published by the server; logged and shown when the Run fails. */
+  error?: string
   tokenUsage?: StudioTokenUsage
 }
 

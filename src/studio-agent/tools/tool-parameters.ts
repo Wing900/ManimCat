@@ -79,7 +79,8 @@ export const manimRenderToolParameters: StudioToolParameters = {
   type: 'object',
   properties: {
     concept: { type: 'string', description: 'Render task summary.' },
-    code: { type: 'string', description: 'Manim Python code to execute.' },
+    code: { type: 'string', description: 'ManimGX Python source using manimgx imports. Video scene class names are unrestricted; a sole scene or MainScene is selected automatically.' },
+    sceneName: { type: 'string', minLength: 1, description: 'Optional video Scene class to render. Specify when the source defines multiple scenes and has no MainScene.' },
     outputMode: { type: 'string', enum: ['video', 'image'] },
     quality: { type: 'string', enum: ['low', 'medium', 'high'] },
   },

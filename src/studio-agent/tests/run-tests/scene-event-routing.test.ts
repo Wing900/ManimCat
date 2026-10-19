@@ -512,7 +512,8 @@ export async function runSceneEventRoutingTests(): Promise<void> {
 
     const serialized = JSON.stringify(payload)
     assert.equal(serialized.includes('ownerId'), false)
-    assert.equal(serialized.includes('internal failure text'), false)
+    // The Run failure reason is intentionally public so the client can show and log it.
+    assert.equal(serialized.includes('internal failure text'), true)
     assert.equal(serialized.includes('sourcePath'), false)
     assert.equal(serialized.includes('scenes/scene_aaaa.py'), false)
   })
@@ -857,7 +858,7 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     assert.equal(rejectedRun.reason.includes('42'), false)
   })
 
-  await run('the scene public projection keeps private paths, diagnostics and internal errors out', async () => {
+  await run('the scene public projection keeps private paths and diagnostics out while exposing the run failure', async () => {
     const scene = createStudioScene({
       ownerId: OWNER_ID,
       sessionId: SESSION_ID,
@@ -964,7 +965,6 @@ export async function runSceneEventRoutingTests(): Promise<void> {
     const serialized = JSON.stringify(projection)
     for (const leak of [
       'D:/private',
-      'internal failure text',
       'ENOENT',
       'raw diagnostic',
       'ownerId',
@@ -977,6 +977,10 @@ export async function runSceneEventRoutingTests(): Promise<void> {
 
     // Public facts survive: status, token usage, user-facing text and playable media.
     assert.equal(projection.runs[0]?.status, 'failed')
+    // The Run failure reason is part of the public contract; the render failure stays internal.
+    assert.equal(projection.runs[0]?.error, 'internal failure text')
+    assert.ok(projection.renders[0])
+    assert.equal('error' in projection.renders[0], false)
     assert.deepEqual(projection.runs[0]?.tokenUsage, {
       promptTokens: 3,
       completionTokens: 4,

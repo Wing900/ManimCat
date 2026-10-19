@@ -70,7 +70,7 @@ test('no-plan generation has no empty Plan block and keeps locale/style safeguar
     assert.ok(prompt.includes('YON_IMAGE'))
     const system = getRoleSystemPrompt('codeGeneration', { locale })
     assert.ok(system.includes('rate_func=linear'))
-    assert.ok(system.includes('MathTex'))
+    assert.ok(system.includes('MathTypst'))
     assert.ok(system.includes('#FFF9F0'))
   }
 })

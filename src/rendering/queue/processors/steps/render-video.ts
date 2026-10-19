@@ -3,7 +3,6 @@ import path from 'path'
 import { createLogger } from '../../../../shared/logging/logger'
 import { cleanManimCode } from '../../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../../utils/manim-executor'
-import { findVideoFile } from '../../../../utils/file-utils'
 import { addBackgroundMusic } from '../../../manim/bgm-mixer'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { isJobCancelled } from '../../../job/job-cancel-store'
@@ -60,7 +59,8 @@ export async function renderVideo(
   clientId?: string,
   workspaceDirectory?: string,
   renderCacheKey?: string,
-  workspaceOutputDirectory?: string
+  workspaceOutputDirectory?: string,
+  sceneName?: string
 ): Promise<RenderResult> {
   const { code, usedAI, generationType, sceneDesign } = codeResult
 
@@ -121,6 +121,7 @@ export async function renderVideo(
 
   let lastRenderedCode = code
   let lastRenderPeakMemoryMB = 0
+  let renderedVideoPath: string | undefined
 
   const renderCode = async (candidateCode: string): Promise<{
     success: boolean
@@ -150,14 +151,15 @@ export async function renderVideo(
       quality,
       frameRate,
       format: 'mp4',
+      sceneName,
       isCancelled: () => isJobCancelled(jobId),
-      sceneName: 'MainScene',
       tempDir,
       mediaDir,
       timeoutMs
     }
 
     const result = await executeManimCommand(codeFile, options)
+    renderedVideoPath = result.success ? result.outputPath : undefined
     lastRenderPeakMemoryMB = result.peakMemoryMB
     return {
       ...result,
@@ -194,7 +196,7 @@ export async function renderVideo(
   const finalCode = usedAI ? retryResult.finalCode : lastRenderedCode
 
   await ensureJobNotCancelled(jobId)
-  const videoPath = findVideoFile(mediaDir, quality, frameRate)
+  const videoPath = renderedVideoPath
   if (!videoPath) {
     throw new Error('Video file not found after render')
   }

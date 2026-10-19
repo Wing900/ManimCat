@@ -5,6 +5,7 @@ export interface ManimRenderSubmissionInput {
   jobId: string
   concept: string
   code: string
+  sceneName?: string
   outputMode: OutputMode
   quality: VideoQuality
   workspaceDirectory: string

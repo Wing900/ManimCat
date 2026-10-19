@@ -206,7 +206,7 @@ export function readStudioRenderResultTransition(
       from: [render.status],
       patch:
         result.status === 'failed' && result.error
-          ? { status: 'failed', error: result.error.slice(0, STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH) }
+          ? { status: 'failed', error: result.error.slice(-STUDIO_RENDER_RESULT_ERROR_MAX_LENGTH) }
           : { status: result.status }
     }
   }

@@ -27,6 +27,7 @@ export function createBullManimRenderPort(): ManimRenderPort {
           outputMode: input.outputMode,
           quality: input.quality,
           preGeneratedCode: input.code,
+          sceneName: input.sceneName,
           timestamp: new Date().toISOString(),
           workspaceDirectory: input.workspaceDirectory,
           workspaceOutputDirectory: input.workspaceOutputDirectory

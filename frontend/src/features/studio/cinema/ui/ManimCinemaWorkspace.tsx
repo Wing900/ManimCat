@@ -10,6 +10,7 @@ import type { StudioCinemaControllerDependencies } from '../cinema-controller'
 import { CatAssistant } from './CatAssistant'
 import { cinemaUnitKey } from './cinema-copy'
 import { CinemaScreen } from './CinemaScreen'
+import { useModelResponseWait } from './use-model-response-wait'
 import { CinemaLoadingStatus } from './CinemaLoadingStatus'
 import {
   readStudioCinemaCatStatus,
@@ -395,6 +396,14 @@ export function ManimCinemaWorkspace({
     [rows],
   )
 
+  const responseWaitExpired = useModelResponseWait(
+    runInFlight && !view?.activeRender && !rows
+      .slice(rows.reduce((last, row, index) => row.kind === 'user' ? index : last, -1) + 1)
+      .some((row) => row.kind === 'tool' && (row.status === 'running' || row.status === 'pending')),
+    `${sessionId}\u0000${selectedSceneId}\u0000${view?.latestRun?.id ?? 'submitting'}`,
+    conversationRevision,
+  )
+
   const catStatus = view
     ? readStudioCinemaCatStatus({
         studioKind,
@@ -406,7 +415,8 @@ export function ManimCinemaWorkspace({
         snapshotStatus: view.snapshotStatus,
         streamState: view.streamState,
         renderRefresh: view.renderRefresh,
-        hasFailedOutcome: view.userStatus.kind === 'failed',
+        hasFailedOutcome: view.latestRun?.status === 'failed',
+        modelUnresponsive: responseWaitExpired,
       })
     : null
 
@@ -450,23 +460,11 @@ export function ManimCinemaWorkspace({
               playableUrl={cardView?.display.playableUrl ?? null}
               fallbackVideoUrl={cardView?.display.fallbackVideoUrl}
               mediaKind={cardView?.display.mediaKind ?? null}
-              refreshPausedReasonKey={
-                cardView?.renderRefresh.pauseReason === 'failures'
-                  ? 'studio.cinema.renderRefreshPausedFailures'
-                  : cardView?.renderRefresh.pauseReason === 'budget'
-                    ? 'studio.cinema.renderRefreshPausedBudget'
-                    : null
+              errorMessage={
+                cardView?.latestRun?.status === 'failed'
+                  ? cardView.latestRun.error ?? null
+                  : null
               }
-              onResumeRefresh={() => {
-                if (cardView && identityReady) {
-                  controller.resumeSceneRenderRefresh(cardView.identity.sceneId)
-                }
-              }}
-              onReconcile={() => {
-                if (cardView && identityReady) {
-                  void controller.reconcileScene(cardView.identity.sceneId)
-                }
-              }}
             />
           </div>
         </div>

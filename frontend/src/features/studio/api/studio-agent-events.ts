@@ -156,7 +156,11 @@ function parseSseBlock(block: string): StudioExternalEvent | null {
 
   try {
     return JSON.parse(dataLines.join('\n')) as StudioExternalEvent
-  } catch {
+  } catch (error) {
+    console.error('[Studio events] Could not parse SSE data', {
+      data: dataLines.join('\n'),
+      error,
+    })
     return null
   }
 }

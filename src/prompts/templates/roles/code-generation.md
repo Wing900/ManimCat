@@ -18,7 +18,7 @@ Output mode: {{outputMode}}
 Output format:
 - Start with `### START ###`
 - End with `### END ###`
-- Use `from manim import *`
+- Use `from manimgx import *`
 - Use `MainScene` as the main class unless true 3D is required
 - On-screen text follows the user locale: all Chinese in Chinese mode, all English in English mode
 {{/if}}
@@ -29,6 +29,6 @@ Output format:
 - Number blocks continuously from `YON_IMAGE_1` upward
 - Map one storyboard shot to one block
 - Each block must contain one renderable Scene
-- Use `from manim import *`
+- Use `from manimgx import *`
 - On-screen text follows the user locale: all Chinese in Chinese mode, all English in English mode
 {{/if}}

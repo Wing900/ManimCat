@@ -68,6 +68,7 @@ import {
 } from '../support/fake-studio-run-coordinator'
 import { RecordingEventBus } from '../support/recording-event-bus'
 import { run } from './factories'
+import { createCompletedStudioRenderResultPort } from './factories'
 
 const OWNER_ID = 'owner-1'
 // Sources are read from the repository root, exactly as the other source-inspection specs do.
@@ -1070,7 +1071,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a scoped Manim render copies run.sceneId', async () => {
     const context = createToolContext('manim', 'scene-a')
-    const tool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: { async submit() { return { jobId: 'job-1' } } }, resultPort: createUnavailableStudioRenderResultPort() }))
+    const tool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: { async submit() { return { jobId: 'job-1' } } }, resultPort: createCompletedStudioRenderResultPort() }))
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1083,7 +1084,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
   // 31.
   await run('scene admission: a Legacy Manim render leaves sceneId absent', async () => {
     const context = createToolContext('manim')
-    const tool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: { async submit() { return { jobId: 'job-2' } } }, resultPort: createUnavailableStudioRenderResultPort() }))
+    const tool = createManimStudioRenderTool(createManimRenderDriver({ renderPort: { async submit() { return { jobId: 'job-2' } } }, resultPort: createCompletedStudioRenderResultPort() }))
 
     await tool.execute({ concept: 'circle', code: 'class Scene: pass' }, context)
 
@@ -1100,7 +1101,7 @@ export async function runSceneRunAdmissionTests(): Promise<void> {
         manimRequests.push({ ...input })
         return { jobId: input.jobId }
       }
-    }, resultPort: createUnavailableStudioRenderResultPort() }))
+    }, resultPort: createCompletedStudioRenderResultPort() }))
     const manimContext = createToolContext('manim', 'scene-a')
     await manimTool.execute({ concept: 'circle', code: 'class Scene: pass', outputMode: 'image', quality: 'high' }, manimContext)
     assert.deepEqual(Object.keys(manimRequests[0] ?? {}).sort(), [

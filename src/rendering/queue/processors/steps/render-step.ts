@@ -62,7 +62,8 @@ export async function handlePreGeneratedCode(
           jobData.clientId,
           jobData.workspaceDirectory,
           jobData.renderCacheKey,
-          jobData.workspaceOutputDirectory
+          jobData.workspaceOutputDirectory,
+          jobData.sceneName
         )
 
   timings.render = Date.now() - renderStart

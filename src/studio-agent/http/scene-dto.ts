@@ -42,6 +42,8 @@ export interface PublicStudioSceneRun {
   activeAgent: StudioRun['activeAgent']
   createdAt: string
   completedAt?: string
+  /** Failure reason shown to the user and logged by the client; absent on a successful Run. */
+  error?: string
   tokenUsage?: StudioTokenUsage
 }
 
@@ -310,7 +312,8 @@ export function toPublicStudioSceneAttachments(
   return projected.length ? projected : undefined
 }
 
-/** Scene-level Run: an explicit whitelist. No `ownerId`, no `error`, no free-form metadata. */
+/** Scene-level Run: an explicit whitelist. No `ownerId`, no free-form metadata; the failure
+ * reason is published so the client can show and log the real cause. */
 export function toPublicStudioSceneRun(run: StudioRun): PublicStudioSceneRun {
   return {
     id: run.id,
@@ -321,6 +324,7 @@ export function toPublicStudioSceneRun(run: StudioRun): PublicStudioSceneRun {
     activeAgent: run.activeAgent,
     createdAt: run.createdAt,
     ...(run.completedAt ? { completedAt: run.completedAt } : {}),
+    ...(run.error ? { error: run.error } : {}),
     ...(run.tokenUsage ? { tokenUsage: run.tokenUsage } : {}),
   }
 }

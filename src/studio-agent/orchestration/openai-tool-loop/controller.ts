@@ -92,7 +92,6 @@ export async function* createStudioOpenAIToolLoop(
       const failedAutonomy = await checkpoints.markFailure(toolExecution.value.failureMessage)
       if (failedAutonomy.consecutiveFailures >= failedAutonomy.maxConsecutiveFailures) {
         const stopMessage = `Stopped after ${failedAutonomy.consecutiveFailures} consecutive failures: ${toolExecution.value.failureMessage}`
-        yield* emitStudioAssistantText(stopMessage)
         await checkpoints.markStopped(stopMessage)
         getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'run.failed', detail: toolExecution.value.failureMessage })
         yield createStudioLoopFinishStepEvent(result.completion)

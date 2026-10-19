@@ -40,6 +40,15 @@ import {
 } from '../../render/studio-render-driver'
 import type { StudioRenderResult } from '../../render/render-result-types'
 
+/** Render result port for tests whose Tool call must return immediately with a terminal result. */
+export function createCompletedStudioRenderResultPort(
+  status: 'completed' | 'failed' = 'completed'
+): StudioRenderResultPort {
+  return {
+    getRenderResult: async () => ({ status, error: status === 'failed' ? 'fixture failure' : undefined })
+  }
+}
+
 /** A RAG service that registers no package: no catalog file, no model, no tools. */
 export function createDetachedApiRagService(): ApiRagService {
   return new ApiRagService({

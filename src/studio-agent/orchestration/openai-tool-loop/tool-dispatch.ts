@@ -19,7 +19,7 @@ export async function* executeStudioToolCallsForStep(
 ): AsyncGenerator<StudioProcessorStreamEvent, { failureMessage: string | null }> {
   const hasAssistantText = Boolean(result.assistantText)
 
-  for (const toolCall of result.toolCalls) {
+  for (const [toolIndex, toolCall] of result.toolCalls.entries()) {
     throwIfStudioRunCancelled(input.abortSignal)
     const execution = executeStudioSingleToolCall(input, runtime, toolCall, autonomy, hasAssistantText)
     let toolResult: IteratorResult<StudioProcessorStreamEvent, StudioSingleToolCallOutcome>
@@ -38,6 +38,15 @@ export async function* executeStudioToolCallsForStep(
     })
 
     if (toolResult.value.failureMessage) {
+      // Every declared call needs a result before the provider can accept the next
+      // message. Preserve that protocol when stopping a batch after a render error.
+      for (const skipped of result.toolCalls.slice(toolIndex + 1)) {
+        runtime.conversation.push({
+          role: 'tool',
+          tool_call_id: skipped.id,
+          content: 'Not executed because the preceding tool failed. Address its error before retrying this call.',
+        })
+      }
       return { failureMessage: toolResult.value.failureMessage }
     }
   }

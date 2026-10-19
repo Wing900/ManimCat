@@ -39,13 +39,13 @@ You modify existing code according to the user's editing instruction and return 
 - Do not output explanations.
 {{#if isVideo}}
 - Start with `### START ###` and end with `### END ###`.
-- Use `from manim import *`.
+- Use `from manimgx import *`.
 - Keep `MainScene` unless true 3D is required.
 {{/if}}
 {{#if isImage}}
 - Output only `YON_IMAGE` anchor blocks.
 - Each block must contain one renderable Scene.
-- Use `from manim import *`.
+- Use `from manimgx import *`.
 {{/if}}
 
 ### Editing Style

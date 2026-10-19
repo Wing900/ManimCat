@@ -543,6 +543,11 @@ export class StudioCinemaController {
       if (this.isStaleGeneration(generation)) {
         return { status: 'stale' }
       }
+      console.error('[Studio cinema] Run submit failed', {
+        sessionId: identity.sessionId,
+        sceneId: identity.sceneId,
+        error,
+      })
       const mapped = readStudioCinemaRequestError('run_submit', error)
       this.dispatch({
         type: 'submit/failed',
@@ -612,6 +617,12 @@ export class StudioCinemaController {
       if (this.isStaleGeneration(generation)) {
         return { status: 'stale' }
       }
+      console.error('[Studio cinema] Run cancel failed', {
+        sessionId: identity.sessionId,
+        sceneId: identity.sceneId,
+        runId,
+        error,
+      })
       const mapped = readStudioCinemaRequestError('run_cancel', error)
       this.dispatch({ type: 'cancel/settled', identity, code: mapped.code })
       return { status: 'failed', code: mapped.code }

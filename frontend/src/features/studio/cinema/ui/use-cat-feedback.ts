@@ -126,7 +126,7 @@ export function useStudioCinemaCatFeedback({
     //    this Run has already said instead of dropping it the moment it lands. `reply` is already
     //    restricted by the caller to this Run's own text, so the previous Run's reply is never
     //    repeated here. Repeating it would be the stale "instant answer".
-    if (pendingReply) {
+    if (pendingReply && reportKey !== 'studio.cinema.catUnresponsive') {
       const typingKey = `${identity}\u0000typing\u0000${replyId ?? ''}`
       if (typingKey !== lastEmittedRef.current) {
         lastEmittedRef.current = typingKey

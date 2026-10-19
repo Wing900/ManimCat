@@ -471,9 +471,14 @@ export async function runSceneRecordTests(): Promise<void> {
 
     assert.equal('ownerId' in publicSnapshot.scene, false)
     assert.equal('sourcePath' in publicSnapshot.scene, false)
-    for (const entry of [...publicSnapshot.runs, ...publicSnapshot.renders]) {
+    for (const entry of publicSnapshot.runs) {
       assert.equal('ownerId' in entry, false)
-      // Internal error text is private to the Scene-scoped public response.
+    }
+    // A Run failure reason is public: the client shows and logs the real cause.
+    assert.equal(publicSnapshot.runs.find((entry) => entry.id === failingRun.id)?.error, runErrorSentinel)
+    for (const entry of publicSnapshot.renders) {
+      assert.equal('ownerId' in entry, false)
+      // Render error text stays private to the Scene-scoped public response.
       assert.equal('error' in entry, false)
     }
     assert.deepEqual(publicSnapshot.scene, {
@@ -488,7 +493,8 @@ export async function runSceneRecordTests(): Promise<void> {
     const publicRender = publicSnapshot.renders.find((entry) => entry.id === failingRender.id)
     assert.ok(publicRun)
     assert.ok(publicRender)
-    assert.equal('error' in publicRun, false)
+    assert.equal('error' in publicRun, true)
+    assert.equal(publicRun.error, runErrorSentinel)
     assert.equal('error' in publicRender, false)
     // Ordinary public fields survive the narrowing.
     assert.equal(publicRun.status, failingRun.status)
@@ -500,7 +506,7 @@ export async function runSceneRecordTests(): Promise<void> {
     assert.equal(serialized.includes(session.ownerId), false)
     assert.equal(serialized.includes(session.directory), false)
     assert.equal(serialized.includes(sceneA.sourcePath), false)
-    assert.equal(serialized.includes(runErrorSentinel), false)
+    assert.equal(serialized.includes(runErrorSentinel), true)
     assert.equal(serialized.includes(renderErrorSentinel), false)
 
     // Pure conversion: the internal records still carry their own error text.

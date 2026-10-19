@@ -53,7 +53,7 @@ import { configureStudioToolRegistry } from '../../runtime/studio-tool-registry'
 import { createManimMode, createMatplotlibMode } from '../../modes/studio-mode-module'
 import { buildStudioAgentSystemPrompt } from '../../orchestration/studio-agent-prompt'
 import { ScriptedStudioModel } from '../support/scripted-studio-model'
-import { createDetachedApiRagService, run } from './factories'
+import { createDetachedApiRagService, createCompletedStudioRenderResultPort, run } from './factories'
 
 /**
  * Task 11B2B — Scene context assembly and Tool write boundary.
@@ -1294,7 +1294,7 @@ export async function runSceneExecutionBoundaryTests(): Promise<void> {
     const rendered = await createManimStudioRenderTool(
       createManimRenderDriver({
         renderPort: renderPort,
-        resultPort: createUnavailableStudioRenderResultPort()
+        resultPort: createCompletedStudioRenderResultPort()
       })
     ).execute(
       { concept: 'fixture manim', code: 'print("manim")\n' },

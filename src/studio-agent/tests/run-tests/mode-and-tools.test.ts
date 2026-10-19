@@ -24,7 +24,7 @@ import {
   type StudioRuntimeBackedToolContext
 } from '../../index'
 import { createWorkspace, run } from './factories'
-import { createTestStudioRuntime } from './factories'
+import { createCompletedStudioRenderResultPort, createTestStudioRuntime } from './factories'
 import { RecordingEventBus } from '../support/recording-event-bus'
 import { adaptStudioEvent } from '../../infrastructure/events/studio-event-adapter'
 import { getStudioModeDefinition } from '../../modes/studio-mode'
@@ -190,7 +190,7 @@ export async function runModeAndToolTests(): Promise<void> {
             return { jobId: input.jobId }
           }
         },
-        resultPort: createUnavailableStudioRenderResultPort()
+        resultPort: createCompletedStudioRenderResultPort()
       })
     )
     const context = await createToolContext('manim')

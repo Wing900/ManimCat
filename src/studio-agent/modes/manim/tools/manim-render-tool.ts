@@ -12,10 +12,14 @@ import {
   studioRenderFailureStatus
 } from '../../../render/render-lifecycle'
 import { STUDIO_RENDER_ACTIVE_STATUSES } from '../../../render/render-status-transitions'
+import { waitForStudioRenderResult } from '../../../render/wait-for-render-result'
+import { resolveJobTimeoutMs } from '../../../../utils/job-timeout'
+import { StudioRunCancelledError } from '../../../runtime/execution/run-cancellation'
 
 interface ManimRenderToolInput {
   concept: string
   code: string
+  sceneName?: string
   outputMode?: OutputMode
   quality?: VideoQuality
 }
@@ -26,7 +30,7 @@ export function createManimStudioRenderTool(
   return {
     name: 'render',
     parameters: manimRenderToolParameters,
-    description: 'Render the Scene source and persist the video or images.',
+    description: 'Render the Scene source and wait for the actual video or images. A render failure returns its error so you can fix the source and render again.',
     allowedAgents: ['builder'],
     allowedStudioKinds: ['manim'],
     execute: async (input, context) =>
@@ -45,6 +49,10 @@ async function executeRenderTool(
 
   const outputMode = input.outputMode ?? 'video'
   const quality = input.quality ?? 'medium'
+  const sceneName = input.sceneName?.trim() || undefined
+  if (sceneName && outputMode !== 'video') {
+    throw new Error('sceneName selects a video scene; each image block selects its own scene automatically')
+  }
   const jobId = createManimRenderJobId()
 
   return executeStudioRenderLifecycle({
@@ -63,8 +71,9 @@ async function executeRenderTool(
         quality,
         status: 'queued',
         jobId,
+        metadata: sceneName ? { sceneName } : undefined,
       }),
-    execute: async (render) => {
+    execute: async (render, renderStore) => {
       await driver.execute({
         render,
         workspaceDirectory: context.session.directory,
@@ -76,9 +85,21 @@ async function executeRenderTool(
         title: render.title,
         metadata: { renderId: render.id, jobId, outputMode, quality, phase: 'render' },
       })
+      const outcome = await waitForStudioRenderResult({
+        render, driver, renderStore, eventBus: context.eventBus,
+        signal: context.abortSignal,
+        timeoutMs: resolveJobTimeoutMs() + 60_000,
+      })
+      if (outcome.render.status === 'cancelled') {
+        throw new StudioRunCancelledError('Render cancelled')
+      }
+      if (outcome.render.status === 'failed') {
+        throw new Error(`Render failed. Fix the source using this error, then call render again:\n${outcome.error || 'No renderer error was recorded'}`)
+      }
       return {
-        title: `Render ${render.metadata?.label ?? ''} queued`,
-        output: `version: ${render.metadata?.label}\noutput_directory: ${render.metadata?.workspaceOutputDirectory}\nrender_id: ${render.id}\nrender_job_id: ${jobId}`,
+        title: `Render ${render.metadata?.label ?? ''} completed`,
+        output: `status: completed\nversion: ${render.metadata?.label}\noutput_directory: ${render.metadata?.workspaceOutputDirectory}\nrender_id: ${render.id}\nrender_job_id: ${jobId}`,
+        attachments: outcome.render.attachments,
         metadata: { renderId: render.id, jobId, outputMode, quality, phase: 'render' },
       }
     },

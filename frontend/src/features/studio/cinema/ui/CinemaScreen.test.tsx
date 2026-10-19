@@ -10,9 +10,6 @@ function renderScreen(overrides: Partial<CinemaScreenProps> = {}) {
     sceneIndex: 0,
     playableUrl: 'scene-result.mp4',
     mediaKind: 'video',
-    refreshPausedReasonKey: null,
-    onResumeRefresh: () => {},
-    onReconcile: () => {},
     ...overrides,
   }
   return render(
@@ -45,5 +42,30 @@ describe('cinema screen media', () => {
     fireEvent.load(image!)
     expect(image).not.toHaveClass('invisible')
     expect(image).toHaveClass('studio-media-in')
+  })
+
+  it('shows the real Run failure text instead of an empty stage', () => {
+    const { getByRole, getByText } = renderScreen({
+      state: 'failed',
+      playableUrl: null,
+      mediaKind: null,
+      errorMessage: '429 status code (no body)',
+    })
+
+    expect(getByRole('alert').textContent).toContain('429 status code (no body)')
+    expect(getByText('This attempt did not succeed')).toBeTruthy()
+  })
+
+  it('shows a pre-render failure on the empty stage', () => {
+    const { getByRole, queryByText } = renderScreen({
+      state: 'empty',
+      playableUrl: null,
+      mediaKind: null,
+      errorMessage: '429 status code (no body)',
+    })
+
+    expect(getByRole('alert').textContent).toContain('429 status code (no body)')
+    // The empty-stage placeholder must not compete with the failure report.
+    expect(queryByText('Nothing to play here yet')).toBeNull()
   })
 })
