@@ -14,6 +14,20 @@ function trimPatchBoundary(text: string): string {
     .replace(/\r\n/g, '\n')
 }
 
+const PATCH_START = '[[PATCH]]'
+const SEARCH_START = '[[SEARCH]]'
+const REPLACE_START = '[[REPLACE]]'
+const PATCH_END = '[[END]]'
+const CONTROL_MARKERS = [PATCH_START, SEARCH_START, REPLACE_START, PATCH_END]
+
+function assertNoControlMarkers(text: string, label: string): void {
+  for (const marker of CONTROL_MARKERS) {
+    if (text.includes(marker)) {
+      throw new Error(`Code retry patch ${label} contains nested ${marker} marker`)
+    }
+  }
+}
+
 export function parsePatchResponse(text: string): CodePatchSet {
   const normalized = stripCodeFence(text)
   if (!normalized) {
@@ -24,13 +38,7 @@ export function parsePatchResponse(text: string): CodePatchSet {
     throw new Error('Code retry patch response was HTML, not patch text')
   }
 
-  const hasPatchMarkers =
-    normalized.includes('[[PATCH]]') ||
-    normalized.includes('[[SEARCH]]') ||
-    normalized.includes('[[REPLACE]]') ||
-    normalized.includes('[[END]]')
-
-  if (!hasPatchMarkers) {
+  if (!normalized.includes(PATCH_START)) {
     throw new Error('Code retry patch response did not contain any [[PATCH]] blocks')
   }
 
@@ -38,43 +46,74 @@ export function parsePatchResponse(text: string): CodePatchSet {
   let cursor = 0
 
   while (true) {
-    const patchStart = normalized.indexOf('[[PATCH]]', cursor)
+    const patchStart = normalized.indexOf(PATCH_START, cursor)
     if (patchStart < 0) {
       break
     }
 
-    const searchStart = normalized.indexOf('[[SEARCH]]', patchStart + '[[PATCH]]'.length)
-    if (searchStart < 0) {
-      throw new Error('Code retry patch block missing [[SEARCH]] marker')
+    let hunkCursor = patchStart + PATCH_START.length
+    let hunkCount = 0
+
+    while (true) {
+      const searchStart = normalized.indexOf(SEARCH_START, hunkCursor)
+      const blockEnd = normalized.indexOf(PATCH_END, hunkCursor)
+
+      if (blockEnd >= 0 && (searchStart < 0 || blockEnd < searchStart)) {
+        if (hunkCount === 0) {
+          throw new Error('Code retry patch block missing [[SEARCH]] marker')
+        }
+        cursor = blockEnd + PATCH_END.length
+        break
+      }
+
+      if (searchStart < 0) {
+        throw new Error('Code retry patch block missing [[END]] marker')
+      }
+
+      const replaceStart = normalized.indexOf(REPLACE_START, searchStart + SEARCH_START.length)
+      if (replaceStart < 0 || (blockEnd >= 0 && blockEnd < replaceStart)) {
+        throw new Error('Code retry patch block missing [[REPLACE]] marker')
+      }
+
+      const afterReplace = replaceStart + REPLACE_START.length
+      const nextSearch = normalized.indexOf(SEARCH_START, afterReplace)
+      const nextEnd = normalized.indexOf(PATCH_END, afterReplace)
+      const nextPatch = normalized.indexOf(PATCH_START, afterReplace)
+
+      if (nextPatch >= 0 && (nextEnd < 0 || nextPatch < nextEnd) && (nextSearch < 0 || nextPatch < nextSearch)) {
+        throw new Error('Code retry patch block missing [[END]] marker')
+      }
+
+      const replacementEnd = nextEnd >= 0 && (nextSearch < 0 || nextEnd < nextSearch)
+        ? nextEnd
+        : nextSearch
+
+      if (replacementEnd < 0) {
+        throw new Error('Code retry patch block missing [[END]] marker')
+      }
+
+      const originalSnippet = trimPatchBoundary(
+        normalized.slice(searchStart + SEARCH_START.length, replaceStart)
+      )
+      const replacementSnippet = trimPatchBoundary(
+        normalized.slice(afterReplace, replacementEnd)
+      )
+
+      if (!originalSnippet) {
+        throw new Error('Code retry patch block missing SEARCH content')
+      }
+
+      assertNoControlMarkers(originalSnippet, 'SEARCH content')
+      assertNoControlMarkers(replacementSnippet, 'REPLACE content')
+
+      if (originalSnippet === replacementSnippet) {
+        throw new Error('Code retry patch produced no change')
+      }
+
+      patches.push({ originalSnippet, replacementSnippet })
+      hunkCount += 1
+      hunkCursor = replacementEnd
     }
-
-    const replaceStart = normalized.indexOf('[[REPLACE]]', searchStart + '[[SEARCH]]'.length)
-    if (replaceStart < 0) {
-      throw new Error('Code retry patch block missing [[REPLACE]] marker')
-    }
-
-    const endStart = normalized.indexOf('[[END]]', replaceStart + '[[REPLACE]]'.length)
-    if (endStart < 0) {
-      throw new Error('Code retry patch block missing [[END]] marker')
-    }
-
-    const originalSnippet = trimPatchBoundary(
-      normalized.slice(searchStart + '[[SEARCH]]'.length, replaceStart)
-    )
-    const replacementSnippet = trimPatchBoundary(
-      normalized.slice(replaceStart + '[[REPLACE]]'.length, endStart)
-    )
-
-    if (!originalSnippet) {
-      throw new Error('Code retry patch block missing SEARCH content')
-    }
-
-    if (originalSnippet === replacementSnippet) {
-      throw new Error('Code retry patch produced no change')
-    }
-
-    patches.push({ originalSnippet, replacementSnippet })
-    cursor = endStart + '[[END]]'.length
   }
 
   if (patches.length === 0) {

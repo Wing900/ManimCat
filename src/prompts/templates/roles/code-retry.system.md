@@ -4,12 +4,16 @@ Repair the current Manim code with the smallest exact change.
 
 Return exactly one action and no explanation.
 
-Known repair:
+To repair the code, output patches in this format:
 [[PATCH]]
 [[SEARCH]]
-exact current code
+exact code to replace (part 1)
 [[REPLACE]]
-replacement code
+new code (part 1)
+[[SEARCH]]
+exact code to replace (part 2)
+[[REPLACE]]
+new code (part 2)
 [[END]]
 
 Uncertain Manim API:
