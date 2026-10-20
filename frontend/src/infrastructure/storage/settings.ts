@@ -5,12 +5,12 @@ const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
 // v4: connection credentials moved out of this blob into the versioned `manimcat_connection`
 // object; only product settings (video, and future appearance) live here.
 // v5: background music became opt-in; videos are silent unless the user enables it.
-const SETTINGS_VERSION = '5';
+const SETTINGS_VERSION = '6';
 
 export const DEFAULT_SETTINGS: SettingsConfig = {
   video: {
-    quality: 'low',
-    frameRate: 15,
+    quality: 'high',
+    frameRate: 60,
     timeout: 1200,
     bgm: false
   }
@@ -64,6 +64,18 @@ function migrateSettings(raw: unknown, fromVersion: string | null): SettingsConf
       video: {
         ...sanitized.video,
         bgm: false
+      }
+    };
+  }
+
+  // v5 -> v6: 旧默认 480p/15fps 升级为 1080p/60fps；用户手动选择的其他组合保留。
+  if (fromVersion !== '6' && sanitized.video.quality === 'low' && sanitized.video.frameRate === 15) {
+    sanitized = {
+      ...sanitized,
+      video: {
+        ...sanitized.video,
+        quality: 'high',
+        frameRate: 60
       }
     };
   }

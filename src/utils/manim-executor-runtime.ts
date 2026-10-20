@@ -44,7 +44,7 @@ export function normalizeExecuteOptions(options: ManimExecuteOptions): Normalize
   return {
     jobId: options.jobId,
     quality: options.quality,
-    frameRate: options.frameRate ?? 15,
+    frameRate: options.frameRate ?? 60,
     format: options.format ?? 'mp4',
     sceneName: options.sceneName,
     tempDir: options.tempDir,

@@ -12,7 +12,7 @@ export const generateBodySchema = z.object({
   concept: z.string().min(1, '概念必填'),
   problemPlan: problemPlanSchema.optional(),
   outputMode: z.enum(['video', 'image']),
-  quality: qualitySchema.optional().default('low'),
+  quality: qualitySchema.optional().default('high'),
   referenceImages: referenceImagesSchema,
   code: z.string().optional(),
   customApiConfig: customApiConfigSchema.optional(),

@@ -64,7 +64,7 @@ export async function renderVideo(
 ): Promise<RenderResult> {
   const { code, usedAI, generationType, sceneDesign } = codeResult
 
-  const frameRate = videoConfig?.frameRate || 15
+  const frameRate = videoConfig?.frameRate || 60
   const timeoutMs = resolveJobTimeoutMs(videoConfig)
 
   logger.info('Rendering video', { jobId, quality, usedAI, frameRate, timeoutMs })

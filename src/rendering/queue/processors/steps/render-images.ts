@@ -228,7 +228,7 @@ export async function renderImages(
   workspaceOutputDirectory?: string
 ): Promise<RenderResult> {
   const { code, usedAI, generationType, sceneDesign } = codeResult
-  const frameRate = videoConfig?.frameRate || 15
+  const frameRate = videoConfig?.frameRate || 60
   const timeoutMs = resolveJobTimeoutMs(videoConfig)
 
   const stableRenderCacheKey = renderCacheKey || workspaceDirectory || `job-${jobId}`

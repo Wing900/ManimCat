@@ -34,7 +34,7 @@ const logger = createLogger('ModifyRoute')
 const bodySchema = z.object({
   concept: z.string().min(1, '概念不能为空'),
   outputMode: z.enum(['video', 'image']),
-  quality: qualitySchema.optional().default('low'),
+  quality: qualitySchema.optional().default('high'),
   instructions: z.string().min(1, '修改意见不能为空'),
   code: z.string().min(1, '原始代码不能为空'),
   customApiConfig: customApiConfigSchema.optional(),
