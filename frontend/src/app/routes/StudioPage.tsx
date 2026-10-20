@@ -23,6 +23,7 @@ interface StudioPageProps {
   jobId: string | null;
   stage: ProcessingStage;
   submittedAt: string | null;
+  returningHome?: boolean;
   concept: string;
   currentCode: string;
   isBusy: boolean;
@@ -60,6 +61,7 @@ export function StudioPage({
   jobId,
   stage,
   submittedAt,
+  returningHome,
   concept,
   currentCode,
   isBusy,
@@ -98,7 +100,7 @@ export function StudioPage({
       <TopRightActions onOpenPromptSettings={onOpenPromptSettings} onOpenSettings={onOpenSettings} />
 
       <div
-        className={`mx-auto px-4 min-h-screen flex flex-col justify-center ${isCompleted ? 'max-w-5xl' : 'max-w-4xl'}`}
+        className={`mx-auto px-4 min-h-screen flex flex-col justify-center ${isCompleted ? 'max-w-5xl' : 'max-w-4xl'} ${returningHome ? 'page-slide-in' : ''}`}
         style={isCompleted ? { paddingTop: '4vh', paddingBottom: '4vh' } : { paddingTop: '18vh', paddingBottom: '12vh' }}
       >
         {!isCompleted && (

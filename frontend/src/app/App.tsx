@@ -10,7 +10,7 @@ import { DonationModal } from '../features/donation/DonationModal';
 import { ConnectionGuide } from '../features/connection/ConnectionGuide';
 import { hasConnection } from '../features/connection/connection-types';
 import { loadStudioDataMode } from '../infrastructure/api/runtime-config';
-import { saveConnection, useConnection } from '../features/connection/connection-storage';
+import { loadConnection, saveConnection, useConnection } from '../features/connection/connection-storage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { PromptSettings } from '../features/prompts/PromptSettings';
 import { StudioPage } from './routes/StudioPage';
@@ -51,7 +51,9 @@ function App() {
   const [exitSliding, setExitSliding] = useState(false);
   const [activeStudioKind, setActiveStudioKind] = useState<StudioKind>('manim');
   const [entering, setEntering] = useState(false);
+  const [classicReturning, setClassicReturning] = useState(false);
   const transitionTimerRef = useRef<number | null>(null);
+  const classicReturnTimerRef = useRef<number | null>(null);
   const [problemAdjustment, setProblemAdjustment] = useState('');
   const [lastRequest, setLastRequest] = useState<{
     concept: string;
@@ -72,6 +74,9 @@ function App() {
       if (transitionTimerRef.current) {
         window.clearTimeout(transitionTimerRef.current);
       }
+      if (classicReturnTimerRef.current) {
+        window.clearTimeout(classicReturnTimerRef.current);
+      }
     };
   }, []);
 
@@ -80,6 +85,27 @@ function App() {
       setLastCompletedResult(result);
     }
   }, [result, status]);
+
+  const clearClassicReturn = () => {
+    if (classicReturnTimerRef.current) {
+      window.clearTimeout(classicReturnTimerRef.current);
+      classicReturnTimerRef.current = null;
+    }
+    setClassicReturning(false);
+  };
+
+  const triggerClassicReturn = () => {
+    if (readPrefersReducedMotion()) {
+      setClassicReturning(false);
+      return;
+    }
+    clearClassicReturn();
+    setClassicReturning(true);
+    classicReturnTimerRef.current = window.setTimeout(() => {
+      setClassicReturning(false);
+      classicReturnTimerRef.current = null;
+    }, PAGE_SLIDE_MS);
+  };
 
   const resetAll = () => {
     reset();
@@ -96,6 +122,7 @@ function App() {
       window.clearTimeout(transitionTimerRef.current);
       transitionTimerRef.current = null;
     }
+    triggerClassicReturn();
     problemFraming.reset();
   };
 
@@ -103,6 +130,7 @@ function App() {
     if (entering || exitSliding || screen === 'manim-studio' || screen === 'plot-studio') {
       return;
     }
+    clearClassicReturn();
 
     setActiveStudioKind(studioKind);
     const target = studioKind === 'matplotlib' ? 'plot-studio' : 'manim-studio';
@@ -181,6 +209,7 @@ function App() {
     }
     setLastCompletedResult(null);
     reset();
+    triggerClassicReturn();
   };
 
   const handleProblemRetry = () => {
@@ -255,7 +284,7 @@ function App() {
 
   // 引导页只在「没有连接、没被叉掉过、也没有别的页浮在上面」时出现。最后一条就是「先回主界面才弹」。
   const showGuide = !hasConnection(connection) && !connection.dismissed && overlay === null;
-  const dismissGuide = () => saveConnection({ ...connection, dismissed: true });
+  const dismissGuide = () => saveConnection({ ...loadConnection(), dismissed: true });
 
   const renderScreen = (name: Screen) => {
     if (name === 'classic') {
@@ -268,6 +297,7 @@ function App() {
             jobId={jobId}
             stage={stage}
             submittedAt={submittedAt}
+            returningHome={classicReturning}
             concept={concept}
             currentCode={currentCode || result?.code || ''}
             isBusy={isBusy}
@@ -372,7 +402,12 @@ function App() {
         onSubmit={handleAiModifySubmit}
       />
 
-      {showGuide && <ConnectionGuide onDismiss={dismissGuide} />}
+      {showGuide && (
+        <ConnectionGuide
+          onDismiss={dismissGuide}
+          onSaved={(next) => saveConnection({ ...next, dismissed: true })}
+        />
+      )}
     </div>
   );
 }
