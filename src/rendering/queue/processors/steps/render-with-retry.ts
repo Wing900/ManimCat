@@ -71,7 +71,8 @@ export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): 
       async (event) => {
         await logRenderFailure({ ...event, promptRole: 'codeRetry' })
       },
-      ensureJobNotCancelled
+      ensureJobNotCancelled,
+      timings
     )
 
     if (typeof retryManagerResult.generationTimeMs === 'number' && timings) {

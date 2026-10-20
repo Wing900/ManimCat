@@ -158,7 +158,9 @@ export async function renderVideo(
       timeoutMs
     }
 
+    const renderStart = Date.now()
     const result = await executeManimCommand(codeFile, options)
+    timings.render = (timings.render || 0) + (Date.now() - renderStart)
     renderedVideoPath = result.success ? result.outputPath : undefined
     lastRenderPeakMemoryMB = result.peakMemoryMB
     return {

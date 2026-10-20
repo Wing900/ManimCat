@@ -50,7 +50,8 @@ export async function executeCodeRetry(
     peakMemoryMB: number
     exitCode?: number
   }) => Promise<void> | void,
-  onCheckpoint?: RetryCheckpoint
+  onCheckpoint?: RetryCheckpoint,
+  timings?: Record<string, number>
 ): Promise<RetryManagerResult> {
   logger.info('Starting code retry manager', {
     concept: context.concept,
@@ -119,12 +120,13 @@ export async function executeCodeRetry(
       error: errorMessage
     })
 
+    const generationStart = Date.now()
+    let generationRecorded = false
     try {
       if (onCheckpoint) {
         await onCheckpoint()
       }
 
-      const generationStart = Date.now()
       currentCode = await retryCodeGeneration(
         context,
         errorMessage,
@@ -135,6 +137,8 @@ export async function executeCodeRetry(
         onCheckpoint
       )
       generationTimeMs += Date.now() - generationStart
+      generationRecorded = true
+      if (timings) timings.retry = generationTimeMs
 
       if (onCheckpoint) {
         await onCheckpoint()
@@ -168,6 +172,11 @@ export async function executeCodeRetry(
       errorType = getErrorType(renderResult.stderr)
       logger.warn('Retry render failed', { attempt: attempt + 1, errorType, error: errorMessage })
     } catch (error) {
+      if (!generationRecorded) {
+        generationTimeMs += Date.now() - generationStart
+        if (timings) timings.retry = generationTimeMs
+      }
+
       if (error instanceof JobCancelledError) {
         logger.warn('Code retry aborted because job was cancelled', {
           attempt: attempt + 1,

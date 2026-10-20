@@ -15,6 +15,7 @@ import { runEditFlow, runGenerationFlow, runPreGeneratedFlow } from './video-pro
 import { getRetryMeta, shouldDisableQueueRetry, storeProcessingStage } from './video-processor-utils'
 import { getCurrentJobLogSummary, getCurrentJobTokenUsage, runWithJobLogContext } from '../../job/job-log-context'
 import { recordTokenUsage, type TokenUsageTotals } from '../../../access'
+import { normalizeTimings, totalTimings } from '../../../shared/time/timings'
 
 const logger = createLogger('VideoProcessor')
 const activeExecutions = new Map<string, Promise<unknown>>()
@@ -123,6 +124,11 @@ async function executeVideoJob(job: any): Promise<unknown> {
   })
 
   const timings: Record<string, number> = {}
+  const submittedAtMs = Date.parse(data.timestamp)
+  if (Number.isFinite(submittedAtMs)) {
+    const startedAtMs = typeof job.processedOn === 'number' ? job.processedOn : Date.now()
+    timings.queue = Math.max(0, startedAtMs - submittedAtMs)
+  }
   const retryMeta = getRetryMeta(job)
   const initialStage = preGeneratedCode ? 'rendering' : 'generating'
 
@@ -202,12 +208,15 @@ async function executeVideoJob(job: any): Promise<unknown> {
       maxAttempts: currentRetryMeta.maxAttempts
     })
 
+    timings.total = totalTimings(timings)
+
     const storeOutcome = await storeJobResult(jobId, {
       status: 'failed',
       data: {
         error: errorMessage,
         cancelReason,
         outputMode,
+        timings: normalizeTimings(timings),
         tokenUsage: getCurrentJobTokenUsage()
       }
     })

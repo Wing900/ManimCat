@@ -25,7 +25,6 @@ export async function handlePreGeneratedCode(
     hasCustomApi: !!jobData.customApiConfig
   })
 
-  const renderStart = Date.now()
   const codeResult: GenerationResult = {
     code: preGeneratedCode,
     usedAI: false,
@@ -65,8 +64,6 @@ export async function handlePreGeneratedCode(
           jobData.workspaceOutputDirectory,
           jobData.sceneName
         )
-
-  timings.render = Date.now() - renderStart
 
   logger.info('Job completed (pre-generated code)', { jobId, outputMode, timings })
   return renderResult

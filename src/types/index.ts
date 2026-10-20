@@ -23,7 +23,9 @@ export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'renderi
  * Per-stage timing stats in milliseconds.
  */
 export interface JobTimings {
+  queue?: number
   analyze?: number
+  generate?: number
   edit?: number
   retry?: number
   render?: number
@@ -148,6 +150,7 @@ export interface FailedJobResult {
     details?: string
     cancelReason?: string
     outputMode?: OutputMode
+    timings?: JobTimings
     tokenUsage?: JobTokenUsageSummary
   }
   timestamp: number
@@ -273,6 +276,7 @@ export interface JobStatusFailedResponse {
   error: string
   details?: string
   cancel_reason?: string
+  timings?: JobTimings
   token_usage?: JobTokenUsageSummary
 }
 

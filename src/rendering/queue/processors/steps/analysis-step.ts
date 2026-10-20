@@ -111,22 +111,30 @@ export async function analyzeAndGenerate(
   concept: string,
   quality: string,
   outputMode: OutputMode,
-  _timings: Record<string, number>,
+  timings: Record<string, number>,
   customApiConfig?: CustomApiConfig,
   promptOverrides?: PromptOverrides,
   referenceImages?: ReferenceImage[],
   problemPlan?: ProblemFramingPlan
 ): Promise<GenerationResult> {
+  const analyzeStart = Date.now()
   const analysisResult = await analyzeConcept(jobId, concept, quality, outputMode)
-  return generateCode(
-    jobId,
-    concept,
-    quality,
-    outputMode,
-    analysisResult,
-    customApiConfig,
-    promptOverrides,
-    referenceImages,
-    problemPlan
-  )
+  timings.analyze = Date.now() - analyzeStart
+
+  const generateStart = Date.now()
+  try {
+    return await generateCode(
+      jobId,
+      concept,
+      quality,
+      outputMode,
+      analysisResult,
+      customApiConfig,
+      promptOverrides,
+      referenceImages,
+      problemPlan
+    )
+  } finally {
+    timings.generate = Date.now() - generateStart
+  }
 }

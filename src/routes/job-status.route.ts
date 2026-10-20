@@ -102,6 +102,7 @@ router.get(
         error: result.data.error,
         details: result.data.details,
         cancel_reason: result.data.cancelReason,
+        timings: result.data.timings,
         token_usage: result.data.tokenUsage,
       })
     }

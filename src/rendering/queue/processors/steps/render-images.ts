@@ -292,7 +292,9 @@ export async function renderImages(
     exitCode?: number
     codeSnippet?: string
   }> => {
+    const renderStart = Date.now()
     const attempt = await renderImageBlocks(jobId, quality, candidateCode, frameRate, timeoutMs, stableRenderCacheKey, outputDir)
+    if (timings) timings.render = (timings.render || 0) + (Date.now() - renderStart)
     peakMemoryMB = Math.max(peakMemoryMB, attempt.peakMemoryMB)
     if (attempt.success) {
       finalImageUrls = attempt.imageUrls

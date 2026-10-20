@@ -64,7 +64,9 @@ export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed';
 export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
 
 export interface JobTimings {
+  queue?: number;
   analyze?: number;
+  generate?: number;
   edit?: number;
   retry?: number;
   render?: number;

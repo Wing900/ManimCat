@@ -4,6 +4,7 @@ import { analyzeAndGenerate } from './steps/analysis-step'
 import { handlePreGeneratedCode, renderImages, renderVideo } from './steps/render-step'
 import { storeResult } from './steps/storage-step'
 import { storeProcessingStage } from './video-processor-utils'
+import { totalTimings } from '../../../shared/time/timings'
 import type { PromptOverrides, VideoJobData } from '../../../types'
 
 interface FlowResult {
@@ -42,7 +43,7 @@ export async function runPreGeneratedFlow(args: BaseFlowArgs): Promise<FlowResul
   const storeStart = Date.now()
   await storeResult(renderResult, timings, data.clientId)
   timings.store = Date.now() - storeStart
-  timings.total = (timings.render || 0) + (timings.store || 0)
+  timings.total = totalTimings(timings)
 
   return {
     success: true,
@@ -79,7 +80,6 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
   }
 
   await ensureJobNotCancelled(jobId, job)
-  const renderStart = Date.now()
   const generationResult = {
     code: editedCode,
     usedAI: true,
@@ -118,12 +118,11 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
           data.renderCacheKey,
           data.workspaceOutputDirectory
         )
-  timings.render = Date.now() - renderStart
 
   const storeStart = Date.now()
   await storeResult(renderResult, timings, data.clientId)
   timings.store = Date.now() - storeStart
-  timings.total = (timings.edit || 0) + (timings.render || 0) + (timings.store || 0)
+  timings.total = totalTimings(timings)
 
   return {
     success: true,
@@ -140,7 +139,6 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
   await ensureJobNotCancelled(jobId, job)
   await storeProcessingStage(jobId, 'generating')
 
-  const analyzeStart = Date.now()
   const codeResult = await analyzeAndGenerate(
     jobId,
     concept,
@@ -152,10 +150,8 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
     referenceImages,
     data.problemPlan
   )
-  timings.analyze = Date.now() - analyzeStart
 
   await ensureJobNotCancelled(jobId, job)
-  const renderStart = Date.now()
   const renderResult =
     outputMode === 'image'
       ? await renderImages(
@@ -188,13 +184,12 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
           data.renderCacheKey,
           data.workspaceOutputDirectory
         )
-  timings.render = Date.now() - renderStart
 
   await ensureJobNotCancelled(jobId, job)
   const storeStart = Date.now()
   await storeResult(renderResult, timings, data.clientId)
   timings.store = Date.now() - storeStart
-  timings.total = (timings.analyze || 0) + (timings.render || 0) + (timings.store || 0)
+  timings.total = totalTimings(timings)
 
   return {
     success: true,

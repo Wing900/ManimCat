@@ -28,7 +28,9 @@ export function TimingPanel({ timings, submittedAt, finishedAt, tokenUsage }: Ti
 
   const { total, items } = useMemo(() => {
     const timingLabels: Array<{ key: keyof JobTimings; label: string }> = [
+      { key: 'queue', label: t('timing.queue') },
       { key: 'analyze', label: t('timing.analyze') },
+      { key: 'generate', label: t('timing.generate') },
       { key: 'edit', label: t('timing.edit') },
       { key: 'retry', label: t('timing.retry') },
       { key: 'render', label: t('timing.render') },
@@ -44,10 +46,10 @@ export function TimingPanel({ timings, submittedAt, finishedAt, tokenUsage }: Ti
     const endToEndTotal = Number.isFinite(submittedMs) && Number.isFinite(finishedMs)
       ? Math.max(0, finishedMs - submittedMs)
       : undefined;
-    const total = typeof endToEndTotal === 'number'
-      ? endToEndTotal
-      : typeof timings?.total === 'number'
-        ? timings.total
+    const total = typeof timings?.total === 'number'
+      ? timings.total
+      : typeof endToEndTotal === 'number'
+        ? endToEndTotal
         : items.reduce((sum, item) => sum + (item.value || 0), 0);
 
     return { total, items };
