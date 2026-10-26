@@ -215,7 +215,7 @@ export function applySceneEvent(
     case 'render-updated':
       return upsertSceneRender(scene, event.render)
     case 'assistant-text':
-      return appendAssistantText(scene, event.messageId, event.text, receivedAt)
+      return appendAssistantText(scene, event.messageId, event.text, receivedAt, event.partId)
     case 'tool-input-start':
       return upsertToolPart(scene, event, receivedAt)
     case 'tool-call':
@@ -228,26 +228,48 @@ export function applySceneEvent(
 }
 
 /**
- * Deltas are appended in arrival order and are never deduplicated by content: two identical chunks
- * are two chunks, and only the server snapshot replaces the accumulated text.
+ * A part-scoped event carries the complete text of one stable part, so the part is upserted by id and
+ * its text replaced: replaying the same event is idempotent and a snapshot keeps the first position.
+ * A Legacy event has no part id and keeps append semantics, but only onto a trailing synthetic text
+ * part for this message; text after a Tool starts a new synthetic part, so segments never merge
+ * across an intervening Tool call.
  */
 function appendAssistantText(
   scene: StudioCinemaSceneState,
   messageId: string,
   text: string,
   receivedAt: number,
+  partId?: string,
 ): StudioCinemaSceneState {
   const ensured = ensureAssistantMessage(scene, messageId, receivedAt)
-  const partId = `stream:text:${messageId}`
-  const partIndex = ensured.message.parts.findIndex((part) => part.type === 'text' && part.id === partId)
   const parts: StudioScenePart[] = [...ensured.message.parts]
-  const existing = partIndex < 0 ? null : parts[partIndex]
-  parts[partIndex < 0 ? parts.length : partIndex] = {
-    id: partId,
-    messageId,
-    sessionId: ensured.message.sessionId,
-    type: 'text',
-    text: `${existing && existing.type === 'text' ? existing.text : ''}${text}`,
+
+  if (partId !== undefined) {
+    const partIndex = parts.findIndex((part) => part.type === 'text' && part.id === partId)
+    parts[partIndex < 0 ? parts.length : partIndex] = {
+      id: partId,
+      messageId,
+      sessionId: ensured.message.sessionId,
+      type: 'text',
+      text,
+    }
+  } else {
+    const legacyPartId = `stream:text:${messageId}`
+    const trailing = parts[parts.length - 1]
+    const trailingIsSyntheticText = trailing?.type === 'text' && (
+      trailing.id === legacyPartId || trailing.id.startsWith(`${legacyPartId}:`)
+    )
+    if (trailingIsSyntheticText) {
+      parts[parts.length - 1] = { ...trailing, text: trailing.text + text }
+    } else {
+      parts.push({
+        id: `${legacyPartId}:${parts.length}`,
+        messageId,
+        sessionId: ensured.message.sessionId,
+        type: 'text',
+        text,
+      })
+    }
   }
 
   const messages = [...ensured.messages]

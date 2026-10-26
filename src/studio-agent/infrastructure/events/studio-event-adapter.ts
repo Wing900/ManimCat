@@ -87,6 +87,7 @@ export function adaptStudioEvent(event: StudioAgentEvent): StudioExternalEvent |
           ...sceneScopeProperties(event.sceneId),
           runId: event.runId,
           messageId: event.messageId,
+          ...(event.partId === undefined ? {} : { partId: event.partId }),
           text: event.text
         }
       }

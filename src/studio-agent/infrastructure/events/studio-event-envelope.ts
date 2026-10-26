@@ -164,13 +164,18 @@ function readStudioAgentEvent(value: unknown, envelopeSessionId: string): Studio
       if (sceneId === null) {
         return undefined
       }
+      const partId = value.partId === undefined ? undefined : readIdentifier(value.partId)
+      if (partId === undefined && value.partId !== undefined) {
+        return undefined
+      }
       return {
         type: 'assistant_text',
         sessionId,
         runId,
         messageId,
         text: value.text,
-        ...(sceneId === undefined ? {} : { sceneId })
+        ...(sceneId === undefined ? {} : { sceneId }),
+        ...(partId === undefined ? {} : { partId })
       }
     }
 

@@ -81,7 +81,17 @@ export function decodeStudioCinemaSceneEvent(event: unknown): StudioCinemaScoped
     if (typeof properties.text !== 'string') {
       return null
     }
-    return { identity, event: { kind: 'assistant-text', runId, messageId, text: properties.text } }
+    const partId = readIdentifier(properties.partId)
+    return {
+      identity,
+      event: {
+        kind: 'assistant-text',
+        runId,
+        messageId,
+        text: properties.text,
+        ...(partId === undefined ? {} : { partId }),
+      },
+    }
   }
 
   const toolName = readIdentifier(properties.toolName)

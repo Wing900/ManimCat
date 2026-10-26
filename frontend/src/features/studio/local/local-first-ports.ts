@@ -22,6 +22,7 @@ import type {
   StudioRun,
 } from '../protocol/studio-agent-types'
 import { createLocalStudioStore, type LocalScene, type LocalSession, type LocalStudioStore } from './local-studio-store'
+import { createLocalConversationJournal } from './local-conversation-journal'
 
 /**
  * The two ports the Cinema depends on, as `STUDIO_DATA_MODE=client` serves them: **the browser holds
@@ -64,7 +65,7 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
   const { store, server } = input
   const rebuilds = new Map<string, Promise<string>>()
   const pendingUsers = new Map<string, StudioSceneMessage>()
-  const localSaves = new Map<string, Promise<void>>()
+  const journal = createLocalConversationJournal(store)
   /** Server Runs this browser has seen, and the local identity each one projects to. */
   const runIdentities = new Map<string, RunIdentity>()
 
@@ -183,8 +184,13 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
 
   /** The transcript this browser owns, in order, as the server's seed shape. */
   async function localConversation(sessionId: string): Promise<Array<{ role: 'user' | 'assistant'; text: string }>> {
-    const messages = [...await store.listSessionMessages(sessionId), ...[...pendingUsers.values()].filter(message => message.sessionId === sessionId)]
-    return messages
+    const stored = await store.listSessionMessages(sessionId)
+    const byId = new Map(stored.map(message => [message.id, message]))
+    for (const pending of pendingUsers.values()) {
+      if (pending.sessionId === sessionId && !byId.has(pending.id)) byId.set(pending.id, pending)
+    }
+    return [...byId.values()]
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
       .map((message) => ({
         role: message.role,
         text: message.role === 'user' ? message.text : readTextParts(message.parts),
@@ -193,9 +199,8 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
   }
 
   /**
-   * Absorbs the assistant replies the server already knows into the local transcript, once each.
-   * There is no stream here, so a read is where the browser learns what the server said; a repeat read
-   * that finds the same text adds nothing.
+   * Absorbs the records the server already knows into the local transcript, by stable message id.
+   * A reply is never recognised by its text: two equal replies with different ids are two replies.
    */
   function absorbAssistantReplies(
     sessionId: string,
@@ -203,11 +208,7 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
     runs: StudioRun[],
     scope?: { serverSceneId: string; localSceneId: string },
   ): Promise<void> {
-    const previous = localSaves.get(sessionId) ?? Promise.resolve()
-    const saving = previous.catch(() => {}).then(() => saveCompletedReplies(sessionId, serverMessages, runs, scope))
-    localSaves.set(sessionId, saving)
-    void saving.finally(() => { if (localSaves.get(sessionId) === saving) localSaves.delete(sessionId) }).catch(() => {})
-    return saving
+    return saveCompletedReplies(sessionId, serverMessages, runs, scope)
   }
 
   async function saveCompletedReplies(
@@ -217,57 +218,29 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
     scope?: { serverSceneId: string; localSceneId: string },
   ): Promise<void> {
     const existing = await store.listSessionMessages(sessionId)
-    const seen = new Set(existing.map(messageKey))
-    let lastStamp = existing.at(-1)?.createdAt
-    const writes: StudioSceneMessage[] = []
+    const known = new Set(existing.map(message => message.id))
     const finishedUsers: string[] = []
-    const activeScenes = new Set(runs.filter(run => run.status === 'pending' || run.status === 'running').map(run => run.sceneId))
     const { scenes } = await readLocal(sessionId)
     for (const [runId, pending] of pendingUsers) {
       if (pending.sessionId !== sessionId || (scope && pending.sceneId !== scope.localSceneId)) continue
-      const serverSceneId = scenes.find(scene => scene.id === pending.sceneId)?.serverSceneId
-      if (activeScenes.has(serverSceneId)) continue
       if (!runs.some(run => run.id === runId && ['completed', 'failed', 'cancelled'].includes(run.status))) continue
       finishedUsers.push(runId)
-      if (!existing.some(message => message.id === pending.id)) writes.push(pending)
-      seen.add(messageKey(pending))
-      lastStamp = pending.createdAt
+      if (!known.has(pending.id)) {
+        await journal.append(pending)
+        known.add(pending.id)
+      }
     }
 
     for (const message of serverMessages) {
-      if (activeScenes.has(message.sceneId)) continue
-      if (message.role === 'user') {
-        if (!seen.has(messageKey(message))) {
-          const sceneId = message.sceneId ? localSceneIdOf(scenes, message.sceneId) : undefined
-          writes.push({ ...message, sessionId, ...(sceneId ? { sceneId } : {}) })
-          seen.add(messageKey(message))
-          lastStamp = message.createdAt
-        }
-        continue
-      }
-
-      const text = readAssistantText(message).trim()
-      const key = `assistant:${text}`
-      if (!text || seen.has(key)) {
-        continue
-      }
-      seen.add(key)
-
-      const serverScope = message.sceneId
-      const localSceneId = scope && serverScope === scope.serverSceneId ? scope.localSceneId : serverScope ? localSceneIdOf(scenes, serverScope) : undefined
-
-      const recorded = buildAssistantMessage({
-        sessionId,
-        text,
-        ...(localSceneId ? { sceneId: localSceneId } : {}),
-        notBefore: lastStamp,
-      })
-      writes.push(recorded)
-      lastStamp = recorded.createdAt
-    }
-    if (writes.length) {
-      if (store.appendMessages) await store.appendMessages(writes)
-      else for (const message of writes) await store.appendMessage(message)
+      const localSceneId = scope && message.sceneId === scope.serverSceneId
+        ? scope.localSceneId
+        : message.sceneId ? localSceneIdOf(scenes, message.sceneId) : undefined
+      const recorded = message.role === 'user'
+        ? { ...message, sessionId, ...(localSceneId ? { sceneId: localSceneId } : {}) } as StudioSceneMessage
+        : toLocalScopedAssistantMessage(sessionId, localSceneId ?? undefined, message)
+      // The snapshot is not authoritative by itself: re-read and merge at execution time so a newer
+      // streamed row queued in between is never overwritten by this older projection.
+      await journal.update(recorded, (next, current) => preferMessage(next, current))
     }
     for (const runId of finishedUsers) pendingUsers.delete(runId)
   }
@@ -476,6 +449,8 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
           { sessionId: serverSessionId, ...(response.run.sceneId ? { sceneId: serverSceneId } : {}) },
         )
         pendingUsers.set(response.run.id, recorded)
+        // The accepted user message is durable before the caller can see the accepted Run.
+        await journal.append(recorded)
 
         return {
           ...response,
@@ -548,7 +523,18 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
           return { scope, onEvent: (event) => {
             const projected = projectLocalStudioEvent(event, scope, localScope.sessionId, sceneIds)
             if (projected) {
-              options.onEvent(projected)
+              const sceneId = projected.properties && 'sceneId' in projected.properties
+                ? projected.properties.sceneId
+                : undefined
+              const messageEvent = ['assistant.text', 'tool.input-start', 'tool.call', 'tool.result'].includes(projected.type)
+              if (messageEvent && sceneId) {
+                // The event reaches the UI only after its full structured message is in IndexedDB.
+                void journal.applyEvent(localScope.sessionId, sceneId, projected)
+                  .catch(error => console.error('Local conversation event save failed', error))
+                  .then(() => options.onEvent(projected))
+              } else {
+                options.onEvent(projected)
+              }
               if (projected.type === 'run.updated') {
                 const run = projected.properties.run
                 const scene = run?.sceneId ? context.scenes.find(candidate => candidate.id === run.sceneId) : undefined
@@ -563,8 +549,10 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
                   )
                 }
                 if (run && ['completed', 'failed', 'cancelled'].includes(run.status)) {
-                  // Finish local persistence even when the UI no longer has this scene selected.
-                  void sessionSnapshot(localScope.sessionId).catch(error => console.error('Local conversation save failed', error))
+                  // After the journal queue drains, reconcile the terminal snapshot in the background.
+                  void journal.drain(localScope.sessionId)
+                    .then(() => sessionSnapshot(localScope.sessionId))
+                    .catch(error => console.error('Local conversation save failed', error))
                 }
               }
             }
@@ -664,6 +652,27 @@ function toLocalScopedSessionMessage(
   }
 }
 
+function toLocalScopedAssistantMessage(
+  sessionId: string,
+  sceneId: string | undefined,
+  message: StudioMessage | StudioSceneMessage,
+): StudioSceneMessage {
+  if (message.role === 'user') {
+    return { ...message, sessionId, ...(sceneId ? { sceneId } : {}) } as StudioSceneMessage
+  }
+  return {
+    id: message.id,
+    sessionId,
+    ...(sceneId ? { sceneId } : {}),
+    role: 'assistant',
+    agent: message.agent,
+    parts: message.parts.map(part => ({ ...part, messageId: message.id, sessionId })) as StudioScenePart[],
+    ...(message.summary ? { summary: message.summary } : {}),
+    createdAt: message.createdAt,
+    updatedAt: message.updatedAt,
+  }
+}
+
 function toLocalScopedSceneMessage(
   scenes: LocalScene[],
   sessionId: string,
@@ -686,7 +695,7 @@ function toLocalScopedSceneMessage(
   }
 }
 
-/** A local Scene message as a Session-level one; its parts are rebuilt because only text is stored. */
+/** A local Scene message as a Session-level one, keeping every structured part and stable id. */
 function toSessionMessage(message: StudioSceneMessage): StudioMessage {
   if (message.role === 'user') {
     return message
@@ -698,15 +707,10 @@ function toSessionMessage(message: StudioSceneMessage): StudioMessage {
     ...(message.sceneId ? { sceneId: message.sceneId } : {}),
     role: 'assistant',
     agent: message.agent,
-    parts: [
-      {
-        id: `${message.id}_text`,
-        messageId: message.id,
-        sessionId: message.sessionId,
-        type: 'text',
-        text: readTextParts(message.parts),
-      },
-    ],
+    // Scene parts are the persisted public projection of the same parts. The narrower Scene Tool
+    // state is widened without rebuilding or flattening anything.
+    parts: message.parts.map(part => ({ ...part, sessionId: message.sessionId })) as StudioMessagePart[],
+    ...(message.summary ? { summary: message.summary } : {}),
     createdAt: message.createdAt,
     updatedAt: message.updatedAt,
   }
@@ -726,27 +730,6 @@ function buildUserMessage(input: {
     ...(input.sceneId ? { sceneId: input.sceneId } : {}),
     role: 'user',
     text: input.text,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }
-}
-
-function buildAssistantMessage(input: {
-  sessionId: string
-  sceneId?: string
-  text: string
-  notBefore?: string
-}): StudioSceneMessage {
-  const id = `msg_${crypto.randomUUID()}`
-  const timestamp = strictlyAfter(input.notBefore)
-
-  return {
-    id,
-    sessionId: input.sessionId,
-    ...(input.sceneId ? { sceneId: input.sceneId } : {}),
-    role: 'assistant',
-    agent: DEFAULT_AGENT,
-    parts: [{ id: `${id}_text`, messageId: id, sessionId: input.sessionId, type: 'text', text: input.text }],
     createdAt: timestamp,
     updatedAt: timestamp,
   }
@@ -772,24 +755,138 @@ function readTextParts(parts: Array<StudioMessagePart | StudioScenePart>): strin
     .trim()
 }
 
-function readAssistantText(message: StudioMessage | StudioSceneMessage): string {
-  return message.role === 'assistant' ? readTextParts(message.parts) : ''
-}
-
-/** Deduplication key: the same reply may exist on both sides, and it must still appear once. */
-function messageKey(message: StudioMessage | StudioSceneMessage): string {
-  return message.role === 'user' ? `user:${message.text}` : `assistant:${readTextParts(message.parts)}`
-}
-
 function mergeMessages(serverMessages: StudioMessage[], localMessages: StudioMessage[]): StudioMessage[] {
-  const seen = new Set(serverMessages.map(messageKey))
-  return [...serverMessages, ...localMessages.filter((message) => !seen.has(messageKey(message)))]
+  return mergeById(serverMessages, localMessages)
 }
 
 function mergeSceneMessages(
   serverMessages: StudioSceneMessage[],
   localMessages: StudioSceneMessage[],
 ): StudioSceneMessage[] {
-  const seen = new Set(serverMessages.map(messageKey))
-  return [...serverMessages, ...localMessages.filter((message) => !seen.has(messageKey(message)))]
+  return mergeById(serverMessages, localMessages)
+}
+
+/** Union by stable message id; local records missing from a thinner server snapshot survive. */
+function mergeById<T extends StudioMessage | StudioSceneMessage>(serverMessages: T[], localMessages: T[]): T[] {
+  const localById = new Map(localMessages.map(message => [message.id, message]))
+  const ids = new Set(serverMessages.map(message => message.id))
+  const merged = serverMessages.map(message => {
+    const local = localById.get(message.id)
+    return local ? preferMessage(message, local) : message
+  })
+  for (const message of localMessages) {
+    if (!ids.has(message.id)) merged.push(message)
+  }
+  return merged.sort((left, right) =>
+    left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
+}
+
+/**
+ * Same id: merge the two records instead of choosing one wholesale. A later but thinner server
+ * snapshot must not erase locally streamed parts, and a synthetic live Tool part must collapse into
+ * the snapshot's real one without losing its terminal state.
+ */
+function preferMessage<T extends StudioMessage | StudioSceneMessage>(server: T, local: T): T {
+  const localIsNewer = local.updatedAt > server.updatedAt
+  if (server.role !== 'assistant' || local.role !== 'assistant') {
+    if (local.updatedAt !== server.updatedAt) {
+      return localIsNewer ? local : server
+    }
+    return messageCompleteness(local) >= messageCompleteness(server) ? local : server
+  }
+
+  const base = localIsNewer ? local : server
+  const parts = mergeAssistantParts(server.parts, local.parts, localIsNewer, {
+    id: server.id,
+    sessionId: server.sessionId,
+  })
+  return { ...base, parts } as unknown as T
+}
+
+type AnyStudioPart = StudioMessagePart | StudioScenePart
+
+/**
+ * Server parts define the canonical order when it has them; local-only parts are appended in their
+ * own order. Overlap is identity, not content: a stable part id, or a Tool callId.
+ */
+function mergeAssistantParts(
+  serverParts: AnyStudioPart[],
+  localParts: AnyStudioPart[],
+  localIsNewer: boolean,
+  scope: { id: string; sessionId: string },
+): AnyStudioPart[] {
+  const usedLocal = new Set<string>()
+  const merged: AnyStudioPart[] = []
+  for (const serverPart of serverParts) {
+    const localPart = findMatchingPart(serverPart, localParts, usedLocal)
+    if (!localPart) {
+      merged.push({ ...serverPart, messageId: scope.id, sessionId: scope.sessionId })
+      continue
+    }
+    usedLocal.add(localPart.id)
+    merged.push(mergePart(serverPart, localPart, localIsNewer, scope))
+  }
+  for (const localPart of localParts) {
+    if (!usedLocal.has(localPart.id)) {
+      merged.push({ ...localPart, messageId: scope.id, sessionId: scope.sessionId })
+    }
+  }
+  return merged
+}
+
+function findMatchingPart(
+  serverPart: AnyStudioPart,
+  localParts: AnyStudioPart[],
+  usedLocal: Set<string>,
+): AnyStudioPart | undefined {
+  const byId = localParts.find(part => !usedLocal.has(part.id) && part.id === serverPart.id)
+  if (byId) return byId
+  if (serverPart.type !== 'tool') return undefined
+  return localParts.find(part =>
+    !usedLocal.has(part.id) && part.type === 'tool' && part.callId === serverPart.callId)
+}
+
+function mergePart(
+  serverPart: AnyStudioPart,
+  localPart: AnyStudioPart,
+  localIsNewer: boolean,
+  scope: { id: string; sessionId: string },
+): AnyStudioPart {
+  const id = preferRealIdentifier(serverPart.id, localPart.id)
+  if (serverPart.type === 'tool' && localPart.type === 'tool') {
+    const serverTerminal = isTerminalToolStatus(serverPart.state.status)
+    const localTerminal = isTerminalToolStatus(localPart.state.status)
+    const state = serverTerminal !== localTerminal
+      ? (serverTerminal ? serverPart.state : localPart.state)
+      : (localIsNewer ? localPart.state : serverPart.state)
+    return {
+      ...(localIsNewer ? localPart : serverPart),
+      id,
+      callId: preferRealIdentifier(serverPart.callId, localPart.callId),
+      messageId: scope.id,
+      sessionId: scope.sessionId,
+      state,
+    }
+  }
+
+  // Text/reasoning with the same stable id is one part: use the newer full text. Distinct ids are
+  // kept as distinct parts even when their content is equal.
+  const chosen = localIsNewer ? localPart : serverPart
+  return { ...chosen, id, messageId: scope.id, sessionId: scope.sessionId }
+}
+
+function isTerminalToolStatus(status: string): boolean {
+  return status === 'completed' || status === 'error'
+}
+
+/** A live stream part is named `stream:...`; the snapshot's real id wins over that synthetic one. */
+function preferRealIdentifier(server: string, local: string): string {
+  if (server.startsWith('stream:') && !local.startsWith('stream:')) return local
+  return server
+}
+
+function messageCompleteness(message: StudioMessage | StudioSceneMessage): number {
+  if (message.role !== 'assistant') return message.text.length
+  return message.parts.reduce((total, part) =>
+    total + (part.type === 'text' || part.type === 'reasoning' ? part.text.length : Object.keys(part.state).length), 0)
 }

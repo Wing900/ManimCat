@@ -11,6 +11,8 @@ export interface StudioAssistantTextEvent {
   sceneId?: string
   runId: string
   messageId: string
+  /** Stable text part id; absent only on Legacy events. */
+  partId?: string
   text: string
 }
 

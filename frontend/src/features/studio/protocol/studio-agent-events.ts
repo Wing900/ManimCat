@@ -29,6 +29,8 @@ export interface StudioAssistantTextExternalEvent {
     sceneId?: string
     runId: string
     messageId: string
+    /** Stable text part id; absent on Legacy Session stream events. */
+    partId?: string
     text: string
   }
 }

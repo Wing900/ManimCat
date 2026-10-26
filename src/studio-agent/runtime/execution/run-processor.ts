@@ -240,12 +240,14 @@ export class StudioRunProcessor {
               runElapsedMs: readRunElapsedMs(input.run),
             } })
             getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'assistant.text', detail: `${text.length} chars` })
+            const partId = activeTextPartId
             input.eventBus?.publish({
               type: 'assistant_text',
               sessionId: input.session.id,
               ...runSceneScope(input.run),
               runId: input.run.id,
               messageId: currentAssistantMessage.id,
+              ...(partId === null ? {} : { partId }),
               text
             })
           }

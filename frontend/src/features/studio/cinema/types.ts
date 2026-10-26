@@ -179,7 +179,7 @@ export type StudioCinemaSceneEvent =
   | { kind: 'connection'; state: 'connected' | 'heartbeat'; timestamp: number }
   | { kind: 'run-updated'; run: StudioSceneRun }
   | { kind: 'render-updated'; render: StudioSceneRender }
-  | { kind: 'assistant-text'; runId: string; messageId: string; text: string }
+  | { kind: 'assistant-text'; runId: string; messageId: string; partId?: string; text: string }
   | { kind: 'tool-input-start'; runId: string; messageId: string; toolName: string; callId: string }
   | { kind: 'tool-call'; runId: string; messageId: string; toolName: string; callId: string }
   | {
