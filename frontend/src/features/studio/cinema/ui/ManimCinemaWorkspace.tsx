@@ -479,7 +479,11 @@ export function ManimCinemaWorkspace({
     ? { key: `${view.identity.sessionId}\u0000${view.identity.sceneId}`, view, sceneIndex }
     : null
   const loadingKey: TranslationKey | null = session.status === 'loading'
-    ? 'studio.cinema.loadingHistory'
+    ? session.loadingOperation === 'create'
+      ? 'studio.cinema.loadingCreate'
+      : session.loadingOperation === 'select'
+        ? 'studio.cinema.loadingConversation'
+        : 'studio.cinema.loadingHistory'
     : state.initialization.status === 'creating' && !view
       ? 'studio.cinema.loadingWorkspace'
       : view?.snapshotStatus === 'loading'

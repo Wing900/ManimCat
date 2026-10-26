@@ -31,6 +31,7 @@ import {
  */
 
 export type StudioCinemaSessionStatus = 'loading' | 'ready' | 'unavailable'
+export type StudioCinemaSessionLoadingOperation = 'restore' | 'create' | 'select'
 
 /**
  * The order the sidebar reads downwards: oldest first, the newest Session at the bottom, where the
@@ -51,6 +52,7 @@ export type StudioCinemaSessionFailure =
 
 export interface UseStudioCinemaSessionResult {
   status: StudioCinemaSessionStatus
+  loadingOperation: StudioCinemaSessionLoadingOperation | null
   session: StudioSession | null
   snapshot: StudioSessionSnapshot | null
   /** How this Session got here: only a `created` one triggers Scene initialization. */
@@ -76,6 +78,7 @@ export interface UseStudioCinemaSessionInput {
 
 interface StudioCinemaSessionBindingState {
   status: StudioCinemaSessionStatus
+  loadingOperation: StudioCinemaSessionLoadingOperation | null
   session: StudioSession | null
   snapshot: StudioSessionSnapshot | null
   origin: 'created' | 'restored' | null
@@ -163,6 +166,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
 
   const [state, setState] = useState<StudioCinemaSessionBindingState>(() => ({
     status: 'loading',
+    loadingOperation: 'restore',
     session: null,
     snapshot: null,
     origin: null,
@@ -194,6 +198,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
       if (outcome.status === 'ready') {
         setState({
           status: 'ready',
+          loadingOperation: null,
           session: outcome.session,
           snapshot: outcome.snapshot ?? null,
           origin: outcome.origin,
@@ -205,6 +210,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
       // The Session could not be decided: the history stays intact and the user gets a safe action.
       setState({
         status: 'unavailable',
+        loadingOperation: null,
         session: null,
         snapshot: null,
         origin: null,
@@ -216,10 +222,10 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
   )
 
   const run = useCallback(
-    (mode: 'restore' | 'create' | 'select', sessionId?: string) => {
+    (mode: StudioCinemaSessionLoadingOperation, sessionId?: string) => {
       const generation = generationRef.current + 1
       generationRef.current = generation
-      setState((previous) => ({ ...previous, status: 'loading', failure: null }))
+      setState((previous) => ({ ...previous, status: 'loading', loadingOperation: mode, failure: null }))
 
       const workflow =
         mode === 'create'
@@ -240,6 +246,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
           }
           setState({
             status: 'unavailable',
+            loadingOperation: null,
             session: null,
             snapshot: null,
             origin: null,
@@ -265,6 +272,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
 
   return {
     status: state.status,
+    loadingOperation: state.loadingOperation,
     session: state.session,
     snapshot: state.snapshot,
     origin: state.origin,
