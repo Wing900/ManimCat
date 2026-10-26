@@ -82,10 +82,23 @@ export function mergeSceneSnapshot(
   scene: StudioCinemaSceneState,
   snapshot: StudioSceneSnapshot,
 ): StudioCinemaSceneState {
+  // A snapshot may have been started while a newer admission was in flight. Preserve only that
+  // admission's optimistic user row (and its id, so failure rollback can remove the right row),
+  // leaving every other row authoritative from the snapshot and never reordering real history.
+  const pending = scene.submitting && scene.pendingUserMessageId
+    ? scene.messages.find(
+        (message) => message.id === scene.pendingUserMessageId && message.role === 'user',
+      )
+    : undefined
+  const messages = [...snapshot.messages]
+  if (pending && !messages.some((message) => message.id === pending.id)) {
+    messages.push(pending)
+  }
+
   let next: StudioCinemaSceneState = {
     ...scene,
-    messages: [...snapshot.messages],
-    pendingUserMessageId: null,
+    messages,
+    pendingUserMessageId: pending ? pending.id : null,
     snapshotStatus: 'ready',
     feedback: null,
     convergencePending: false,
@@ -116,7 +129,14 @@ export function mergeAcceptedRun(
       .map(message => [message.id, message])).values()]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
     : response.messages
-  const snapshot = mergeSceneSnapshot(scene, { ...response, messages })
+  // The accepted server row replaces the optimistic row exactly once. Clear the admission markers
+  // before the snapshot merge so its preservation rule cannot reinject the optimistic row.
+  const admitted = {
+    ...scene,
+    submitting: false,
+    pendingUserMessageId: null,
+  }
+  const snapshot = mergeSceneSnapshot(admitted, { ...response, messages })
   // P3: the response's top-level `run` is the accepted Run. Without this the Scene has no active
   // Run until the next SSE or snapshot whenever `runs` does not already carry it. `upsertSceneRun`
   // remains the single authoritative merge rule (one entry per id, no terminal downgrade).

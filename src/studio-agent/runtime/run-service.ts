@@ -125,6 +125,23 @@ export interface CreateStudioRunServiceInput {
 
 export function createStudioRunService(input: CreateStudioRunServiceInput): StudioRunService {
   const { coordination } = input
+  // Local execution handle cleanup, keyed by Run. Registered before attachment so a cancellation
+  // on this replica can wait for generation to drain and for the lease release to complete.
+  const localCleanup = new Map<string, Promise<void>>()
+
+  async function awaitLocalCleanup(runId: string): Promise<boolean> {
+    const pending = localCleanup.get(runId)
+    if (!pending) {
+      // Remote Run: no local execution exists on this replica.
+      return true
+    }
+    try {
+      await pending
+      return true
+    } catch {
+      return false
+    }
+  }
 
   async function startAdmittedRun(
     runInput: StudioStartRunInput & { runMetadata?: Record<string, unknown> }
@@ -193,19 +210,35 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       throw error
     }
 
+    const runId = handle.run.id
+    const cleanup = (async () => {
+      try {
+        await handle.completion
+      } catch {
+        // Run-specific failure is already logged by the session runner.
+      }
+      // Release only after execution has actually stopped. A failure here is reported to the
+      // cancellation caller; lease TTL remains the fallback.
+      await coordination.finishRun({ reservation, runId })
+    })()
+    localCleanup.set(runId, cleanup)
+    // Observe rejection immediately; callers that wait for cleanup still see the failure.
+    void cleanup.then(
+      () => {
+        if (localCleanup.get(runId) === cleanup) {
+          localCleanup.delete(runId)
+        }
+      },
+      () => {
+        if (localCleanup.get(runId) === cleanup) {
+          localCleanup.delete(runId)
+        }
+      }
+    )
+
     // Attachment registers the local handle and recovers a cancellation that arrived before
     // this point; the coordination service issues the abort itself when that happens.
-    await coordination.attachRun({ reservation, runId: handle.run.id, abort: handle.abort })
-
-    void handle.completion
-      .catch(() => {
-        // Run-specific failure is already logged by the session runner.
-      })
-      .finally(() => {
-        void coordination.finishRun({ reservation, runId: handle.run.id }).catch(() => {
-          // Release failures are logged by the coordination service; lease TTL is the fallback.
-        })
-      })
+    await coordination.attachRun({ reservation, runId, abort: handle.abort })
 
     return {
       status: 'started',
@@ -292,6 +325,15 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       } catch {
         return { status: 'coordination_unavailable', message: 'Unable to cancel render tasks; please retry.', run }
       }
+      // A terminal Run may still be draining locally: let its lease release finish before a
+      // resend is allowed to contend for the same scope.
+      if (!(await awaitLocalCleanup(cancelInput.runId))) {
+        return {
+          status: 'coordination_unavailable' as const,
+          message: STUDIO_RUN_FINALIZATION_UNAVAILABLE_MESSAGE,
+          run
+        }
+      }
       return { status: 'already_finished' as const, run }
     }
 
@@ -328,6 +370,15 @@ export function createStudioRunService(input: CreateStudioRunServiceInput): Stud
       }
     }
     const cancelledRun = transitioned.run
+    // Cancel is acknowledged only once local execution has drained and the lease cleanup ran;
+    // otherwise an immediate resend on this replica races the still-held lease.
+    if (!(await awaitLocalCleanup(cancelInput.runId))) {
+      return {
+        status: 'coordination_unavailable' as const,
+        message: STUDIO_RUN_FINALIZATION_UNAVAILABLE_MESSAGE,
+        run: cancelledRun
+      }
+    }
     input.eventBus.publish({
       type: 'run_updated',
       sessionId: run.sessionId,

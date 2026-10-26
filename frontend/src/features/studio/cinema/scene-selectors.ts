@@ -148,6 +148,7 @@ export type StudioCinemaSubmitBlockReason =
   | 'loading'
   | 'snapshot_failed'
   | 'empty_draft'
+  | 'cancelling'
   | 'submitting'
   | 'active_run'
 
@@ -242,6 +243,10 @@ export function readStudioCinemaSceneEligibility(
     submitBlockReason = 'loading'
   } else if (scene.snapshotStatus === 'error') {
     submitBlockReason = 'snapshot_failed'
+  } else if (scene.cancelRequested) {
+    // The cancellation request is still pending: an SSE update may already show the Run as
+    // cancelled, but the release of the local Run/lease has not been acknowledged yet.
+    submitBlockReason = 'cancelling'
   } else if (scene.submitting) {
     submitBlockReason = 'submitting'
   } else if (activeRun) {

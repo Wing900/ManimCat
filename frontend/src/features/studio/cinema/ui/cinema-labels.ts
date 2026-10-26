@@ -163,6 +163,8 @@ export function readStudioCinemaSubmitBlockedKey(
       return cinemaUnitKey(studioKind, 'submitBlockedSnapshotFailed')
     case 'empty_draft':
       return 'studio.cinema.submitBlockedEmptyDraft'
+    case 'cancelling':
+      return 'studio.cinema.submitBlockedCancelling'
     case 'submitting':
       return 'studio.cinema.submitBlockedSubmitting'
     case 'active_run':
