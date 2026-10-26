@@ -77,7 +77,7 @@ export type StudioCinemaSessionFailureReason =
   | 'create_unknown'
 
 export type StudioCinemaSessionOutcome =
-  | { status: 'ready'; origin: 'restored' | 'created'; session: StudioSession }
+  | { status: 'ready'; origin: 'restored' | 'created'; session: StudioSession; snapshot?: StudioSessionSnapshot }
   | { status: 'unavailable'; reason: StudioCinemaSessionFailureReason; sessionId: string | null }
   | { status: 'stale' }
 
@@ -87,7 +87,7 @@ interface StudioCinemaSessionWorkflow {
 }
 
 type StudioCinemaSessionRead =
-  | { status: 'ready'; session: StudioSession }
+  | { status: 'ready'; session: StudioSession; snapshot?: StudioSessionSnapshot }
   | { status: 'missing' }
   | { status: 'unavailable' }
   | { status: 'stale' }
@@ -133,6 +133,7 @@ export function readStudioCinemaSessionCandidates(
 
 export class StudioCinemaSessionGateway {
   private readonly deps: StudioCinemaSessionGatewayDependencies
+  private readonly sessions = new Map<string, StudioSession>()
   private generation = 0
   private abort: AbortController
   private workflow: StudioCinemaSessionWorkflow | null = null
@@ -194,6 +195,7 @@ export class StudioCinemaSessionGateway {
     } catch {
       return false
     }
+    this.sessions.delete(sessionId)
     return this.forget(studioKind, sessionId)
   }
 
@@ -261,7 +263,7 @@ export class StudioCinemaSessionGateway {
         // The explicit pick moves the last-used pointer only: the recent list keeps its order, so the
         // entry the user just clicked stays exactly where they clicked it.
         this.deps.storage.markLastSessionId(studioKind, explicitSessionId)
-        return { status: 'ready', origin: 'restored', session: read.session }
+        return { status: 'ready', origin: 'restored', session: read.session, snapshot: read.snapshot }
       }
       if (read.status === 'missing') {
         // A definite 404 for an explicitly picked entry: forget it, and do not quietly create another
@@ -289,7 +291,7 @@ export class StudioCinemaSessionGateway {
       }
       if (read.status === 'ready') {
         this.deps.storage.rememberSessionId(studioKind, sessionId)
-        return { status: 'ready', origin: 'restored', session: read.session }
+        return { status: 'ready', origin: 'restored', session: read.session, snapshot: read.snapshot }
       }
       if (read.status === 'missing') {
         // Definite answer: this Session is not reachable for this owner any more. Forget the entry and
@@ -306,12 +308,15 @@ export class StudioCinemaSessionGateway {
   }
 
   private async readSession(sessionId: string, generation: number): Promise<StudioCinemaSessionRead> {
+    const cached = this.sessions.get(sessionId)
+    if (cached) return { status: 'ready', session: cached }
     try {
       const snapshot = await this.deps.api.getSessionSnapshot(sessionId, { signal: this.abort.signal })
       if (generation !== this.generation || !this.isOwned()) {
         return { status: 'stale' }
       }
-      return { status: 'ready', session: snapshot.session }
+      this.sessions.set(sessionId, snapshot.session)
+      return { status: 'ready', session: snapshot.session, snapshot }
     } catch (error) {
       if (generation !== this.generation || !this.isOwned()) {
         return { status: 'stale' }
@@ -340,7 +345,8 @@ export class StudioCinemaSessionGateway {
         return { status: 'stale' }
       }
       this.deps.storage.rememberSessionId(studioKind, session.id)
-      return { status: 'ready', origin: 'created', session }
+      this.sessions.set(session.id, session)
+      return { status: 'ready', origin: 'created', session, snapshot: { session, scenes: [], messages: [], runs: [], renders: [] } }
     } catch (error) {
       // The same ownership + intent gate as the success path: a detached caller learns nothing about
       // a create it can no longer apply (correction F2).

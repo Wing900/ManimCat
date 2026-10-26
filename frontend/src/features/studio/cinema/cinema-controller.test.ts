@@ -371,7 +371,7 @@ describe('cached scene navigation', () => {
     harness.controller.dispose()
   })
 
-  it('keeps a previously loaded Scene visible while its authoritative snapshot refreshes', async () => {
+  it('keeps a previously loaded Scene ready while its authoritative snapshot refreshes', async () => {
     const refresh = createDeferred<StudioSceneSnapshot>()
     let visits = 0
     const harness = createHarness({ getSceneSnapshot: (sessionId, sceneId) => {
@@ -384,10 +384,10 @@ describe('cached scene navigation', () => {
     await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_A)
     await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_B)
     harness.controller.selectScene(CINEMA_TEST_SCENE_A)
-    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('refreshing')
+    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('ready')
     expect(readAssistantText(harness, CINEMA_TEST_SCENE_A)).toBe('cached content')
     harness.controller.setDraft(CINEMA_TEST_SCENE_A, 'next request')
-    expect(readStudioCinemaSceneEligibility(sceneRecord(harness, CINEMA_TEST_SCENE_A)).canSubmit).toBe(false)
+    expect(readStudioCinemaSceneEligibility(sceneRecord(harness, CINEMA_TEST_SCENE_A)).canSubmit).toBe(true)
     lastSubscription(harness).emitStatus({ state: 'connected', attempt: 0 })
     refresh.resolve(createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A))
     await flush()
@@ -531,8 +531,9 @@ describe('studio cinema controller', () => {
     expect(record.cancelRequested).toBe(false)
     expect(record.runs.some((run) => run.id === 'run_other')).toBe(false)
     expect(record.runs.find((run) => run.id === 'run_1')?.status).toBe('running')
-    expect(record.feedback).toEqual({ code: 'run_cancel_failed', needsReconciliation: true })
-    expect(record.needsReconciliation).toBe(true)
+    // A cancel failure is reported but never latched as a reconciliation gate.
+    expect(record.feedback).toEqual({ code: 'run_cancel_failed', needsReconciliation: false })
+    expect('needsReconciliation' in record).toBe(false)
   })
 
   it('refuses a cancel response whose Run belongs to a sibling Scene or another Session', async () => {
@@ -661,7 +662,8 @@ describe('studio cinema controller', () => {
     expect(record.draft).toBe('')
     expect(record.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual(['draw'])
     expect(record.runs).toHaveLength(0)
-    expect(record.feedback?.needsReconciliation).toBe(true)
+    expect(record.feedback?.needsReconciliation).toBe(false)
+    expect('needsReconciliation' in record).toBe(false)
   })
 
   it('refuses a read whose payload belongs to another Session and still ends the pending read', async () => {
@@ -1057,7 +1059,7 @@ describe('studio cinema controller', () => {
     expect(record.draft).toBe('')
     expect(record.submitting).toBe(false)
     expect(readStudioCinemaActiveRun(record)?.id).toBe('run_2')
-    expect(record.needsReconciliation).toBe(false)
+    expect('needsReconciliation' in record).toBe(false)
   })
 
   it('refuses a submit until the Scene snapshot is authoritative', async () => {
@@ -1273,7 +1275,7 @@ describe('studio cinema controller', () => {
     expect(harness.calls.createSceneRun).toHaveLength(0)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).draft).toBe('draw')
 
-    // A failed reconciliation keeps the flag and changes nothing about the refusal.
+    // A failed reconciliation changes nothing about the refusal itself.
     await expect(harness.controller.reconcileScene(CINEMA_TEST_SCENE_A)).resolves.toBe('failed')
     await expect(harness.controller.submitSceneRun(CINEMA_TEST_SCENE_A)).resolves.toEqual({
       status: 'ignored_not_ready',
@@ -1285,14 +1287,20 @@ describe('studio cinema controller', () => {
     // own outcome, not the refusal, is what needs reconciling.
     reconcile = 'ok'
     await expect(harness.controller.reconcileScene(CINEMA_TEST_SCENE_A)).resolves.toBe('ok')
-    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).needsReconciliation).toBe(false)
+    expect('needsReconciliation' in sceneRecord(harness, CINEMA_TEST_SCENE_A)).toBe(false)
     expect(readStudioCinemaSceneEligibility(sceneRecord(harness, CINEMA_TEST_SCENE_A)).canSubmit).toBe(true)
 
     await expect(harness.controller.submitSceneRun(CINEMA_TEST_SCENE_A)).resolves.toEqual({
       status: 'unknown',
       code: 'run_submit_unknown',
     })
-    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).needsReconciliation).toBe(true)
+    const unknownRecord = sceneRecord(harness, CINEMA_TEST_SCENE_A)
+    expect(unknownRecord.feedback).toEqual({ code: 'run_submit_unknown', needsReconciliation: false })
+    expect('needsReconciliation' in unknownRecord).toBe(false)
+
+    // The unknown outcome is not a gate: a new draft can be submitted without a manual reconcile.
+    harness.controller.setDraft(CINEMA_TEST_SCENE_A, 'draw again')
+    expect(readStudioCinemaSceneEligibility(sceneRecord(harness, CINEMA_TEST_SCENE_A)).canSubmit).toBe(true)
     expect(harness.calls.createSceneRun).toHaveLength(1)
   })
 
@@ -1340,19 +1348,19 @@ describe('studio cinema controller', () => {
     expect(cancelled && 'ownerId' in cancelled).toBe(false)
   })
 
-  it('waits for a real connection before reading the Scene snapshot', async () => {
+  it('reads the Scene snapshot immediately on selection, in parallel with the subscription', async () => {
     const harness = createHarness()
     await seedScenes(harness, [CINEMA_TEST_SCENE_A])
 
     harness.controller.selectScene(CINEMA_TEST_SCENE_A)
     await flush()
-    // Selected, subscribing, but not connected: no authoritative read has been made.
-    expect(harness.calls.getSceneSnapshot).toHaveLength(0)
-    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('loading')
+    // The immediate read makes a first Scene usable before the SSE connection is established.
+    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A])
+    expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('ready')
 
     lastSubscription(harness).emitStatus({ state: 'connected', attempt: 0 })
     await flush()
-    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A])
+    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A, CINEMA_TEST_SCENE_A])
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('ready')
   })
 
@@ -1569,7 +1577,7 @@ describe('studio cinema controller', () => {
     // A read that failed is a fact about the snapshot, not an unknown submit outcome: the two are
     // reported apart because the remedies differ — read the Scene again, versus find out whether a
     // Run was started. A failed read never claims the snapshot is ready.
-    expect(record.needsReconciliation).toBe(false)
+    expect('needsReconciliation' in record).toBe(false)
     expect(selectStudioCinemaSceneView(harness.controller.getState(), CINEMA_TEST_SCENE_A)?.userStatus).toEqual({
       code: 'snapshot_failed',
       kind: 'recoverable',

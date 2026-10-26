@@ -53,9 +53,6 @@ export function readStudioCinemaSceneStatusKey(input: {
   needsReconciliation: boolean
   streamState: StudioCinemaStreamState
 }): TranslationKey {
-  if (input.needsReconciliation) {
-    return 'studio.cinema.sceneStatusNeedsCheck'
-  }
   if (input.hasFailedOutcome) {
     return 'studio.cinema.sceneStatusFailed'
   }
@@ -68,7 +65,7 @@ export function readStudioCinemaSceneStatusKey(input: {
   if (input.snapshotStatus === 'refreshing') {
     return 'studio.cinema.sceneStatusSyncing'
   }
-  if (input.snapshotStatus === 'loading' || input.streamState === 'connecting') {
+  if (input.snapshotStatus === 'loading' || input.snapshotStatus === 'idle') {
     return 'studio.cinema.sceneStatusLoading'
   }
   return 'studio.cinema.sceneStatusReady'
@@ -95,9 +92,6 @@ export function readStudioCinemaCatStatus(input: {
 
   if (input.snapshotStatus === 'error') {
     return { key: 'studio.cinema.catUnreachable', params, tone: 'warning' }
-  }
-  if (input.needsReconciliation) {
-    return { key: 'studio.cinema.catNeedsCheck', params, tone: 'warning' }
   }
   if (input.submitting) {
     return { key: 'studio.cinema.catSubmitting', params, tone: 'busy' }
@@ -173,8 +167,6 @@ export function readStudioCinemaSubmitBlockedKey(
       return 'studio.cinema.submitBlockedSubmitting'
     case 'active_run':
       return cinemaUnitKey(studioKind, 'submitBlockedActiveRun')
-    case 'reconciliation':
-      return 'studio.cinema.submitBlockedReconciliation'
   }
 }
 

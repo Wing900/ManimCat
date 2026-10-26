@@ -66,7 +66,9 @@ export type StudioCinemaErrorCode = StudioCinemaFeedbackCode | 'invalid_request'
 
 export interface StudioCinemaFeedback {
   code: StudioCinemaFeedbackCode
-  /** True when the outcome of the request is unknown and needs reconciliation, never a blind retry. */
+  /**
+   * Diagnostic for an unknown creation result. Scene submission never depends on this field.
+   */
   needsReconciliation: boolean
 }
 
@@ -136,8 +138,6 @@ export interface StudioCinemaSceneState {
   /** Original composer text, retained only until admission resolves for safe failure recovery. */
   submittedDraftText?: string | null
   cancelRequested: boolean
-  /** A submit whose outcome is unknown: reconciliation is offered instead of an automatic retry. */
-  needsReconciliation: boolean
   snapshotStatus: StudioCinemaSnapshotStatus
   streamState: StudioCinemaStreamState
   streamAttempt: number

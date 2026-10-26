@@ -65,6 +65,21 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
   const rebuilds = new Map<string, Promise<string>>()
   const pendingUsers = new Map<string, StudioSceneMessage>()
   const localSaves = new Map<string, Promise<void>>()
+  /** Server Runs this browser has seen, and the local identity each one projects to. */
+  const runIdentities = new Map<string, RunIdentity>()
+
+  function rememberRun(
+    run: { id: string; sessionId: string; sceneId?: string },
+    local: { sessionId: string; sceneId?: string },
+    remote: { sessionId: string; sceneId?: string },
+  ): void {
+    runIdentities.set(run.id, {
+      sessionId: local.sessionId,
+      ...(local.sceneId ? { sceneId: local.sceneId } : {}),
+      serverSessionId: remote.sessionId,
+      ...(remote.sceneId ? { serverSceneId: remote.sceneId } : {}),
+    })
+  }
 
   /** The browser's own record of a Session, plus a refusal when this browser has never held one. */
   async function readLocal(sessionId: string): Promise<{ session: LocalSession; scenes: LocalScene[] }> {
@@ -262,6 +277,16 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       const snapshot = await server.getSessionSnapshot(serverSessionId, options)
       const { session, scenes } = await readLocal(sessionId)
 
+      for (const run of snapshot.runs ?? []) {
+        const localSceneId = run.sceneId ? localSceneIdOf(scenes, run.sceneId) : null
+        if (run.sceneId && !localSceneId) continue
+        rememberRun(
+          run,
+          { sessionId, ...(localSceneId ? { sceneId: localSceneId } : {}) },
+          { sessionId: serverSessionId, ...(run.sceneId ? { sceneId: run.sceneId } : {}) },
+        )
+      }
+
       await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs)
 
       return {
@@ -295,10 +320,15 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         title: createInput.title || input.defaultTitle || DEFAULT_TITLE,
       })
 
-      const serverSessionId = await rebuildOnServer(session.id)
-      const snapshot = await server.getSessionSnapshot(serverSessionId)
+      const created = await server.createSession({
+        projectId: createInput.projectId || input.projectId || DEFAULT_PROJECT_ID,
+        title: session.title || input.defaultTitle || DEFAULT_TITLE,
+        studioKind: session.studioKind ?? input.studioKind ?? DEFAULT_KIND,
+        agentType: createInput.agentType ?? DEFAULT_AGENT,
+      })
+      await store.bindServerSession(session.id, created.id)
 
-      return toLocalSession(session, snapshot.session)
+      return toLocalSession(session, created)
     },
 
     getSessionSnapshot: (sessionId, options) => sessionSnapshot(sessionId, options),
@@ -372,6 +402,14 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         const serverSceneId = scene.serverSceneId
         const snapshot = await server.getSceneSnapshot(serverSessionId, serverSceneId, options)
 
+        for (const run of snapshot.runs) {
+          rememberRun(
+            run,
+            { sessionId, sceneId },
+            { sessionId: serverSessionId, ...(run.sceneId ? { sceneId: serverSceneId } : {}) },
+          )
+        }
+
         await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs, { serverSceneId, localSceneId: sceneId })
 
         return {
@@ -432,6 +470,11 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
           text: runInput.inputText,
           notBefore: (await store.listSessionMessages(sessionId)).at(-1)?.createdAt,
         })
+        rememberRun(
+          response.run,
+          { sessionId, sceneId },
+          { sessionId: serverSessionId, ...(response.run.sceneId ? { sceneId: serverSceneId } : {}) },
+        )
         pendingUsers.set(response.run.id, recorded)
 
         return {
@@ -445,7 +488,30 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         }
       }),
 
-    cancelRun: (runId): Promise<StudioCinemaCancelResponse> => server.cancelRun(runId),
+    cancelRun: async (runId): Promise<StudioCinemaCancelResponse> => {
+      const response = await server.cancelRun(runId)
+      const remoteRun = asRunRecord(response.run)
+      const identity = remoteRun ? runIdentities.get(remoteRun.id) : undefined
+      if (
+        !remoteRun
+        || remoteRun.id !== runId
+        || !identity
+        || identity.serverSessionId !== remoteRun.sessionId
+        || identity.serverSceneId !== remoteRun.sceneId
+      ) {
+        // Unknown or mismatched: hand back exactly what the server said, so identity validation
+        // rejects genuinely foreign data instead of this layer blessing it.
+        return response
+      }
+      return {
+        ...response,
+        run: {
+          ...(response.run as Record<string, unknown>),
+          sessionId: identity.sessionId,
+          ...(identity.sceneId ? { sceneId: identity.sceneId } : {}),
+        },
+      }
+    },
   }
 
   const events: LocalFirstStudioPorts['events'] = {
@@ -483,9 +549,23 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
             const projected = projectLocalStudioEvent(event, scope, localScope.sessionId, sceneIds)
             if (projected) {
               options.onEvent(projected)
-              if (projected.type === 'run.updated' && ['completed', 'failed', 'cancelled'].includes(projected.properties.run.status)) {
-                // Finish local persistence even when the UI no longer has this scene selected.
-                void sessionSnapshot(localScope.sessionId).catch(error => console.error('Local conversation save failed', error))
+              if (projected.type === 'run.updated') {
+                const run = projected.properties.run
+                const scene = run?.sceneId ? context.scenes.find(candidate => candidate.id === run.sceneId) : undefined
+                if (run) {
+                  rememberRun(
+                    run,
+                    { sessionId: localScope.sessionId, ...(run.sceneId ? { sceneId: run.sceneId } : {}) },
+                    {
+                      sessionId: serverSessionId,
+                      ...(scene?.serverSceneId ? { sceneId: scene.serverSceneId } : {}),
+                    },
+                  )
+                }
+                if (run && ['completed', 'failed', 'cancelled'].includes(run.status)) {
+                  // Finish local persistence even when the UI no longer has this scene selected.
+                  void sessionSnapshot(localScope.sessionId).catch(error => console.error('Local conversation save failed', error))
+                }
               }
             }
           } }
@@ -511,6 +591,26 @@ let sharedPorts: LocalFirstStudioPorts | null = null
 export function localFirstStudioPorts(): LocalFirstStudioPorts {
   sharedPorts ??= createLocalFirstStudioPorts({ store: createLocalStudioStore(), server: studioServerPort })
   return sharedPorts
+}
+
+interface RunIdentity {
+  sessionId: string
+  sceneId?: string
+  serverSessionId: string
+  serverSceneId?: string
+}
+
+/** A server Run shape, or null when the payload is not one; malformed data is never coerced. */
+function asRunRecord(value: unknown): { id: string; sessionId: string; sceneId?: string } | null {
+  if (typeof value !== 'object' || value === null) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.id !== 'string' || typeof record.sessionId !== 'string') return null
+  if (record.sceneId !== undefined && typeof record.sceneId !== 'string') return null
+  return {
+    id: record.id,
+    sessionId: record.sessionId,
+    ...(typeof record.sceneId === 'string' ? { sceneId: record.sceneId } : {}),
+  }
 }
 
 /** The server id of a local Scene, or null when this browser has never bound that server Scene. */

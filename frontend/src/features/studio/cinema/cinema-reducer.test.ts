@@ -114,7 +114,7 @@ describe('studio cinema scene reducer', () => {
 
     // The state now belongs to generation 5: an action of the old workflow cannot touch it.
     const stale = dispatchMany(reopened, [
-      { type: 'session/feedback', generation: 4, feedback: { code: 'scene_create_unknown', needsReconciliation: true } },
+      { type: 'session/feedback', generation: 4, feedback: { code: 'scene_create_unknown', needsReconciliation: false } },
       { type: 'session/mutation-pending', generation: 4, pending: true },
       { type: 'initialization/patch', generation: 4, patch: { status: 'ready', createdCount: 99 } },
       { type: 'session/index', generation: 4, scenes: [] },
@@ -564,15 +564,14 @@ describe('studio cinema scene reducer', () => {
       identity: IDENTITY_A,
       targetRunId: 'run_1',
       code: 'run_cancel_failed',
-      needsReconciliation: true,
     })
     expect(sceneStateOf(rejected, CINEMA_TEST_SCENE_A).feedback).toEqual({
       code: 'run_cancel_failed',
-      needsReconciliation: true,
+      needsReconciliation: false,
     })
   })
 
-  it('moves the submitted text into the transcript and flags an unknown outcome for reconciliation', () => {
+  it('moves the submitted text into the transcript and reports an unknown outcome without latching a gate', () => {
     const base = withScenes(openState(), [createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0)])
     const optimistic: StudioSceneMessage = {
       id: 'msg_pending_1',
@@ -591,13 +590,13 @@ describe('studio cinema scene reducer', () => {
 
     const record = sceneStateOf(state, CINEMA_TEST_SCENE_A)
     // The composer was cleared at submission; an unknown outcome keeps the optimistic message, so the
-    // text stays visible while reconciliation is offered instead of being handed back to the composer.
+    // text stays visible while the outcome is reported, instead of being handed back to the composer.
     expect(record.draft).toBe('')
     expect(record.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual(['draw'])
     expect(record.pendingUserMessageId).toBe('msg_pending_1')
     expect(record.submitting).toBe(false)
-    expect(record.needsReconciliation).toBe(true)
-    expect(record.feedback).toEqual({ code: 'run_submit_unknown', needsReconciliation: true })
+    expect('needsReconciliation' in record).toBe(false)
+    expect(record.feedback).toEqual({ code: 'run_submit_unknown', needsReconciliation: false })
 
     // A later successful snapshot is the convergence checkpoint and resolves the flag.
     const resolved = studioCinemaReducer(state, {
@@ -605,7 +604,7 @@ describe('studio cinema scene reducer', () => {
       identity: IDENTITY_A,
       snapshot: createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A),
     })
-    expect(sceneStateOf(resolved, CINEMA_TEST_SCENE_A).needsReconciliation).toBe(false)
+    expect('needsReconciliation' in sceneStateOf(resolved, CINEMA_TEST_SCENE_A)).toBe(false)
     expect(sceneStateOf(resolved, CINEMA_TEST_SCENE_A).feedback).toBeNull()
   })
 

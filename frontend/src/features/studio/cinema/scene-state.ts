@@ -62,7 +62,6 @@ export function createSceneState(
     submittedDraftVersion: null,
     submittedDraftText: null,
     cancelRequested: false,
-    needsReconciliation: false,
     snapshotStatus: 'idle',
     streamState: 'idle',
     streamAttempt: 0,
@@ -76,9 +75,8 @@ export function createSceneState(
 /**
  * Snapshot merge. The conversation is replaced by the authoritative list, a Run/Render that already
  * reached a terminal status is not downgraded by an older active record in the snapshot, and an
- * authoritative read resolves both the unknown-outcome flag and a pending convergence: the read is
- * the convergence checkpoint, so those two states are cleared here and re-armed by the controller
- * only when the window that produced this snapshot could not be proven complete.
+ * authoritative read resolves a pending convergence: the read is the convergence checkpoint, re-armed
+ * by the controller only when the window that produced this snapshot could not be proven complete.
  */
 export function mergeSceneSnapshot(
   scene: StudioCinemaSceneState,
@@ -90,7 +88,6 @@ export function mergeSceneSnapshot(
     pendingUserMessageId: null,
     snapshotStatus: 'ready',
     feedback: null,
-    needsReconciliation: false,
     convergencePending: false,
     scene: snapshot.scene,
   }

@@ -117,6 +117,7 @@ export function ManimCinemaWorkspace({
   })
   const { state, controller } = useStudioCinema({
     session: session.session,
+    snapshot: session.snapshot,
     ...(controllerOverrides ? { overrides: controllerOverrides } : {}),
   })
 
@@ -292,9 +293,10 @@ export function ManimCinemaWorkspace({
       ) {
         return Promise.resolve('stale')
       }
+      if (session.snapshot?.session.id === expectedSessionId || controller.getState().sceneOrder.length > 0) return Promise.resolve('ok')
       return controller.loadSceneIndex()
     },
-    [controller],
+    [controller, session.snapshot],
   )
 
   // Where a Session's Scene choice lives. Deleting a Session clears its entry too, so the two must write
@@ -478,9 +480,9 @@ export function ManimCinemaWorkspace({
     : null
   const loadingKey: TranslationKey | null = session.status === 'loading'
     ? 'studio.cinema.loadingHistory'
-    : state.initialization.status === 'creating'
+    : state.initialization.status === 'creating' && !view
       ? 'studio.cinema.loadingWorkspace'
-      : view?.snapshotStatus === 'loading' || view?.snapshotStatus === 'refreshing'
+      : view?.snapshotStatus === 'loading'
         || (session.status === 'ready' && !selection.indexReadable && !selection.indexFailed)
         ? 'studio.cinema.loadingScene'
         : null

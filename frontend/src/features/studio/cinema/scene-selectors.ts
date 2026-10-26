@@ -150,7 +150,6 @@ export type StudioCinemaSubmitBlockReason =
   | 'empty_draft'
   | 'submitting'
   | 'active_run'
-  | 'reconciliation'
 
 export interface StudioCinemaSceneEligibility {
   canSubmit: boolean
@@ -171,7 +170,7 @@ export function selectStudioCinemaSceneIndex(state: StudioCinemaState): StudioCi
       snapshotStatus: record?.snapshotStatus ?? 'idle',
       streamState: record?.streamState ?? 'idle',
       hasFailedOutcome: record ? hasSceneFailedOutcome(record) : false,
-      needsReconciliation: record?.needsReconciliation ?? false,
+      needsReconciliation: false,
     }
   })
 }
@@ -209,7 +208,7 @@ export function selectStudioCinemaSceneView(
     submitBlockReason: eligibility.submitBlockReason,
     canCancel: eligibility.canCancel,
     canReconcile: eligibility.canReconcile,
-    needsReconciliation: record.needsReconciliation,
+    needsReconciliation: false,
     latestRun,
     activeRun,
     tokenUsage: selectStudioCinemaSceneCumulativeTokenUsage(record),
@@ -227,15 +226,16 @@ export function selectStudioCinemaSceneView(
 }
 
 /**
- * One submit/cancel/reconcile rule, used by both the controller and the view. A submit requires an
+ * One submit/cancel rule, used by both the controller and the view. A submit requires an
  * authoritative snapshot of the Scene (so the absence of an active Run is proven rather than
- * assumed), an empty-free draft, no run in flight and no outcome still waiting for reconciliation.
+ * assumed), an empty-free draft, and no run or admission in flight. An unknown earlier outcome is
+ * reported but never latched, so it cannot block a later send.
  */
 export function readStudioCinemaSceneEligibility(
   scene: StudioCinemaSceneState,
 ): StudioCinemaSceneEligibility {
   const activeRun = readStudioCinemaActiveRun(scene)
-  const canReconcile = scene.needsReconciliation || scene.snapshotStatus === 'error' || scene.convergencePending
+  const canReconcile = scene.snapshotStatus === 'error' || scene.convergencePending
 
   let submitBlockReason: StudioCinemaSubmitBlockReason | null = null
   if (scene.snapshotStatus === 'loading' || scene.snapshotStatus === 'refreshing' || scene.snapshotStatus === 'idle') {
@@ -246,8 +246,6 @@ export function readStudioCinemaSceneEligibility(
     submitBlockReason = 'submitting'
   } else if (activeRun) {
     submitBlockReason = 'active_run'
-  } else if (scene.needsReconciliation) {
-    submitBlockReason = 'reconciliation'
   } else if (!scene.draft.trim()) {
     submitBlockReason = 'empty_draft'
   }
@@ -399,10 +397,6 @@ export function selectStudioCinemaDisplayRender(scene: StudioCinemaSceneState): 
  * disconnected stream into a failed Run, and never surfaces an internal error message.
  */
 export function selectStudioCinemaUserStatus(scene: StudioCinemaSceneState): StudioCinemaUserStatus {
-  if (scene.needsReconciliation) {
-    return { code: 'run_submit_unknown', kind: 'recoverable' }
-  }
-
   if (scene.snapshotStatus === 'error') {
     return { code: 'snapshot_failed', kind: 'recoverable' }
   }

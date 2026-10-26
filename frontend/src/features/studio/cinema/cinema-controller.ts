@@ -61,8 +61,8 @@ import {
  * - Scene creation and the index read share one Session mutation lane, the read is joined instead of
  *   duplicated, and the lane counts what is queued, so a late index read cannot clobber a Scene the
  *   lane just created and a finishing task cannot mark another queued task idle;
- * - recovery is connect-then-snapshot: no authoritative read happens before the stream reported a
- *   real connection, a reconnection starts a fresh window, the newest read of a Scene wins, and the
+ * - Scene reads start immediately; stream recovery takes another snapshot after connection. A
+ *   reconnection starts a fresh window, the newest read of a Scene wins, and the
  *   protocol has no event cursor, so a window that cannot be proven complete is reported as a
  *   pending convergence instead of as an exactly-once delivery;
  * - a connection problem never rewrites a Run or Render outcome.
@@ -163,10 +163,11 @@ export class StudioCinemaController {
   private readonly deps: StudioCinemaControllerDependencies
   private readonly listeners = new Set<() => void>()
   private state: StudioCinemaState = createInitialStudioCinemaState()
+  private readonly sessionStates = new Map<string, StudioCinemaState>()
   private generation = 0
   private sceneStream: SceneStream
   private recoverySlot = new RecoveryWindowSlot()
-  private lane = new MutationLane((pending) => this.publishMutationPending(pending))
+  private lane = this.createMutationLane()
   private readonly convergenceReads = new Set<string>()
   /**
    * The authoritative Scene snapshot reader. Owns the snapshot revision counter and the per-Scene
@@ -313,6 +314,7 @@ export class StudioCinemaController {
     this.abortSessionRequests()
     this.sceneStream.stop()
     this.initWorkflow.clear()
+    this.lane = this.createMutationLane()
   }
 
   /** Terminal teardown: detach and drop every listener. Nothing may write afterwards. */
@@ -320,15 +322,20 @@ export class StudioCinemaController {
     this.disposed = true
     this.detach()
     this.listeners.clear()
+    this.sessionStates.clear()
   }
 
   /** Opens a Session without touching the server: recovery never creates a Scene. */
-  openSession(input: { sessionId: string; title?: string | null; projectId?: string | null }): void {
+  openSession(input: { sessionId: string; title?: string | null; projectId?: string | null; snapshot?: StudioSessionSnapshot }): void {
     if (this.isInactive()) {
       return
     }
 
     const sameSession = this.state.session.id === input.sessionId
+    if (!sameSession) {
+      this.rememberSessionState()
+      this.state = this.sessionStates.get(input.sessionId) ?? createInitialStudioCinemaState()
+    }
     this.generation += 1
     this.sceneStream.stop()
     this.resetSessionRequests()
@@ -337,8 +344,8 @@ export class StudioCinemaController {
       this.snapshotReader.clearRevisions()
       this.convergenceReads.clear()
       this.appliedLiveTextDeltas.clear()
-      // A new Session starts a fresh ordering; a still queued task is allowed to drain first.
-      this.lane.resetWhenIdle()
+      // Mutations are ordered within a Session; an old request cannot hold up another Session.
+      this.lane = this.createMutationLane()
     }
 
     this.dispatch({
@@ -348,10 +355,25 @@ export class StudioCinemaController {
       title: input.title ?? null,
       projectId: input.projectId ?? null,
     })
+    if (input.snapshot?.session.id === input.sessionId) {
+      this.dispatch({ type: 'session/index', generation: this.generation, scenes: input.snapshot.scenes ?? [] })
+    }
     this.publishMutationPending(this.lane.pending)
   }
 
+  private rememberSessionState(): void {
+    const sessionId = this.state.session.id
+    if (!sessionId) return
+    const scenes = Object.fromEntries(Object.entries(this.state.scenes).map(([key, scene]) => [
+      key, { ...scene, submitting: false, cancelRequested: false, localVideoUrls: {} },
+    ]))
+    this.sessionStates.delete(sessionId)
+    this.sessionStates.set(sessionId, { ...this.state, scenes, sceneMutationPending: false })
+    if (this.sessionStates.size > 20) this.sessionStates.delete(this.sessionStates.keys().next().value!)
+  }
+
   closeSession(): void {
+    this.rememberSessionState()
     this.generation += 1
     this.abortSessionRequests()
     this.sceneStream.stop()
@@ -385,6 +407,12 @@ export class StudioCinemaController {
     this.sceneStream.stop()
     this.dispatch({ type: 'scene/selected', generation: this.generation, sceneId })
     this.sceneStream.start(identity)
+    // A Scene without an authoritative read must not wait for the SSE connection: read it now, in
+    // parallel with the subscription. A cached ready Scene keeps its view and only refreshes through
+    // the stream recovery.
+    if (record?.snapshotStatus !== 'ready') {
+      void this.snapshotReader.requestSceneSnapshot(identity, 'refresh').catch(() => undefined)
+    }
     this.renderRefresh.schedule()
   }
 
@@ -404,6 +432,10 @@ export class StudioCinemaController {
     const identity = this.resolveIdentity(sceneId)
     if (identity) {
       this.sceneStream.start(identity)
+      const record = selectSceneState(this.state, identity)
+      if (record?.snapshotStatus !== 'ready') {
+        void this.snapshotReader.requestSceneSnapshot(identity, 'refresh').catch(() => undefined)
+      }
     }
   }
 
@@ -451,7 +483,7 @@ export class StudioCinemaController {
    * Submit one Scene Run. Identity, draft version, text and the Provider config are captured before
    * the request leaves, so the answer can only land on the Scene it belongs to, and only the draft
    * version it captured may be cleared. Admission is the shared eligibility rule: the Scene must
-   * have an authoritative snapshot, no active Run and no outcome still waiting for reconciliation.
+   * have an authoritative snapshot and no active Run or admission in flight.
    */
   async submitSceneRun(sceneId: string, inputTextOverride?: string): Promise<StudioCinemaSubmitOutcome> {
     const identity = this.resolveIdentity(sceneId)
@@ -508,6 +540,9 @@ export class StudioCinemaController {
       ...(provider.customApiConfig ? { customApiConfig: provider.customApiConfig } : {}),
     }
 
+    // An admission is newer than any background read already in flight; bumping the revision keeps
+    // that read from replacing the conversation with a pre-submit view when it returns.
+    this.snapshotReader.bumpSnapshotRevision(identity)
     const submittedAt = new Date().toISOString()
     this.dispatch({ type: 'submit/started', identity, message: {
       id: `pending_${crypto.randomUUID()}`,
@@ -527,8 +562,8 @@ export class StudioCinemaController {
         return { status: 'stale' }
       }
       if (!isStudioCinemaAcceptedRunResponseForIdentity(identity, response)) {
-        // 11C7-A: an accepted response for another Scene ends the submit as an unknown outcome; the
-        // draft is kept and the user is told to reconcile.
+        // 11C7-A: an accepted response for another Scene ends the submit as an unknown outcome. The
+        // outcome is reported once; it never latches a reconciliation gate.
         this.dispatch({
           type: 'submit/failed',
           identity,
@@ -596,22 +631,22 @@ export class StudioCinemaController {
       }
       const verdict = readStudioCinemaCancelRunVerdict(identity, runId, response)
       if (verdict.kind === 'rejected') {
-        // 11C7 Review Correction: a present-but-foreign payload is a failure with an existing code and
-        // a reconcile prompt, never a quiet success. `cancelRequested` ends either way, the draft and
-        // the Run/Render records stay, and nothing is re-sent automatically.
+        // A present-but-foreign payload is a failure with an existing code, never a quiet success.
+        // `cancelRequested` ends either way, the draft and the Run/Render records stay, and nothing
+        // is re-sent automatically.
         this.dispatch({
           type: 'cancel/settled',
           identity,
           targetRunId: runId,
           code: 'run_cancel_failed',
-          needsReconciliation: true,
         })
         return { status: 'failed', code: 'run_cancel_failed' }
       }
       const run = verdict.kind === 'run' ? verdict.run : this.readStatusOnlyCancelRun(response.status, identity, scene, runId)
       this.dispatch({ type: 'cancel/settled', identity, targetRunId: runId, ...(run ? { run } : {}) })
-      // Queue cancellation changes Render records even when the Run was already completed.
-      await this.reconcileScene(sceneId)
+      // Queue cancellation changes Render records even when the Run was already completed. This
+      // refresh runs in the background: cancellation completion never waits for a snapshot.
+      void this.snapshotReader.requestSceneSnapshot(identity, 'manual-reconcile').catch(() => undefined)
       return { status: 'requested' }
     } catch (error) {
       if (this.isStaleGeneration(generation)) {
@@ -630,9 +665,9 @@ export class StudioCinemaController {
   }
 
   /**
-   * Reconciliation action: re-reads the Scene snapshot, never a blind re-submit. The read is the
-   * convergence checkpoint, so a successful one also clears an unknown outcome and a pending
-   * convergence, while a failed one keeps both.
+   * Explicit snapshot refresh: re-reads the Scene, never a blind re-submit. The read is the
+   * convergence checkpoint, so a successful one clears a pending convergence; it is not a gate that
+   * an unknown outcome must pass before the user may send again.
    */
   async reconcileScene(sceneId: string): Promise<StudioCinemaSnapshotOutcome> {
     const identity = this.resolveIdentity(sceneId)
@@ -699,6 +734,13 @@ export class StudioCinemaController {
    * The pending flag is a fact about the lane, not about a Session generation, so it is published
    * against the generation the state currently holds (a detach bumps the counter without a state).
    */
+  private createMutationLane(): MutationLane {
+    const lane = new MutationLane((pending) => {
+      if (this.lane === lane) this.publishMutationPending(pending)
+    })
+    return lane
+  }
+
   private publishMutationPending(pending: boolean): void {
     this.dispatch({
       type: 'session/mutation-pending',
@@ -894,6 +936,8 @@ export class StudioCinemaController {
   }
 
   private resetSessionRequests(): void {
+    this.sessionAbort.abort()
+    this.snapshotReader.clearRevisions()
     this.sessionAbort = new AbortController()
   }
 

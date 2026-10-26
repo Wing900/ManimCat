@@ -95,6 +95,7 @@ export class SceneSnapshotReader {
   /** Clears the revision counters; a new Session starts with no proven revision. */
   clearRevisions(): void {
     this.snapshotRevisions.clear()
+    this.sceneReads.clear()
   }
 
   /**

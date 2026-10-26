@@ -323,7 +323,7 @@ describe('studio cinema scene selectors', () => {
     expect(readStudioCinemaPlayableMedia(undefined)).toBeNull()
   })
 
-  it('offers submit only for a ready Scene without an active Run or a pending reconciliation', () => {
+  it('offers submit only for a ready Scene without an active Run or an unproven snapshot', () => {
     const base = openState([
       createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, 0),
       createTestScene(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_B, 1),
@@ -375,8 +375,11 @@ describe('studio cinema scene selectors', () => {
       { type: 'submit/failed', identity: IDENTITY_A, code: 'run_submit_unknown', unknownOutcome: true },
     ])
     const unknownEligibility = readStudioCinemaSceneEligibility(sceneRecordOf(unknown, CINEMA_TEST_SCENE_A))
-    expect(unknownEligibility.submitBlockReason).toBe('reconciliation')
-    expect(unknownEligibility.canReconcile).toBe(true)
+    // An unknown outcome is feedback, not a gate: only the empty composer blocks the next submit.
+    expect(unknownEligibility.submitBlockReason).toBe('empty_draft')
+    expect(unknownEligibility.canReconcile).toBe(false)
+    const redrafted = applyActions(unknown, [{ type: 'draft/changed', identity: IDENTITY_A, text: 'draw again' }])
+    expect(readStudioCinemaSceneEligibility(sceneRecordOf(redrafted, CINEMA_TEST_SCENE_A)).canSubmit).toBe(true)
 
     // The sibling Scene is untouched by everything scene A went through.
     expect(sceneRecordOf(unknown, CINEMA_TEST_SCENE_B).draft).toBe('')

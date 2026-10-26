@@ -101,7 +101,6 @@ export type StudioCinemaAction =
       identity: StudioCinemaSceneIdentity
       /** The Run the cancel was requested for; a settlement for any other Run is never written. */
       targetRunId?: string
-      needsReconciliation?: boolean
       run?: StudioSceneRun
       code?: StudioCinemaFeedbackCode
     }
@@ -134,14 +133,16 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
     case 'scene/loading':
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
-        snapshotStatus: scene.snapshotStatus === 'ready' || scene.snapshotStatus === 'refreshing' ? 'refreshing' : 'loading',
+        // A cached ready Scene stays readable while the stream reconnects; only a Scene without an
+        // authoritative read falls back to loading.
+        snapshotStatus: scene.snapshotStatus === 'ready' ? 'ready' : scene.snapshotStatus === 'refreshing' ? 'refreshing' : 'loading',
         streamState: 'connecting',
         feedback: null,
       }))
     case 'scene/recovery-started':
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
-        snapshotStatus: scene.snapshotStatus === 'ready' || scene.snapshotStatus === 'refreshing' ? 'refreshing' : 'loading',
+        snapshotStatus: scene.snapshotStatus === 'ready' ? 'ready' : scene.snapshotStatus === 'refreshing' ? 'refreshing' : 'loading',
         feedback: null,
       }))
     case 'scene/created':
@@ -155,8 +156,9 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
     case 'scene/snapshot-failed':
       return updateScene(state, action.identity, (scene) => ({
         ...scene,
-        snapshotStatus: 'error',
-        feedback: { code: action.code, needsReconciliation: true },
+        // A failed background refresh never invalidates the last authoritative read.
+        snapshotStatus: scene.snapshotStatus === 'ready' ? 'ready' : 'error',
+        feedback: { code: action.code, needsReconciliation: false },
       }))
     case 'scene/event':
       return updateScene(state, action.identity, (scene) =>
@@ -207,7 +209,6 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
           pendingUserMessageId: action.message.id,
         } : {}),
         submittedDraftVersion: scene.draftVersion,
-        needsReconciliation: false,
         feedback: null,
       }))
     case 'submit/accepted':
@@ -229,14 +230,19 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
         pendingUserMessageId: action.unknownOutcome ? scene.pendingUserMessageId : null,
         submittedDraftVersion: null,
         submittedDraftText: null,
-        needsReconciliation: action.unknownOutcome,
-        feedback: { code: action.code, needsReconciliation: action.unknownOutcome },
+        feedback: { code: action.code, needsReconciliation: false },
       }))
     case 'cancel/started':
       return updateScene(state, action.identity, (scene) => ({ ...scene, cancelRequested: true }))
     case 'cancel/settled':
       return updateScene(state, action.identity, (scene) => {
-        const next: StudioCinemaSceneState = { ...scene, cancelRequested: false }
+        // A successful cancel ends both the cancel and submit flags; an accepted admission and the
+        // terminal Run are the only facts that can arrive afterwards.
+        const next: StudioCinemaSceneState = {
+          ...scene,
+          cancelRequested: false,
+          submitting: action.code ? scene.submitting : false,
+        }
         // 11C7-A: a Run of another Scene or Session is never merged into this Scene.
         const usableRun =
           action.run &&
@@ -245,13 +251,12 @@ export function studioCinemaReducer(state: StudioCinemaState, action: StudioCine
             ? action.run
             : null
         const applied = usableRun ? upsertSceneRun(next, usableRun) : next
-        return action.code
-          ? {
-              ...applied,
-              needsReconciliation: applied.needsReconciliation || action.needsReconciliation === true,
-              feedback: { code: action.code, needsReconciliation: action.needsReconciliation === true },
-            }
-          : applied
+        if (action.code) {
+          return { ...applied, feedback: { code: action.code, needsReconciliation: false } }
+        }
+        const staleUnknown = applied.feedback?.code === 'run_submit_unknown'
+          || applied.feedback?.code === 'run_cancel_failed'
+        return staleUnknown ? { ...applied, feedback: null } : applied
       })
     default:
       return state
@@ -345,7 +350,7 @@ function withCreatedScene(state: StudioCinemaState, scene: StudioScene): StudioC
     sceneOrder,
     scenes: {
       ...state.scenes,
-      [key]: existing ? { ...existing, scene } : createSceneState(identity, scene),
+      [key]: existing ? { ...existing, scene } : { ...createSceneState(identity, scene), snapshotStatus: 'ready' },
     },
   }
 }

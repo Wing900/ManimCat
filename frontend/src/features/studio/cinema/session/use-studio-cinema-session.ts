@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { StudioKind, StudioSession } from '../../protocol/studio-agent-types'
+import type { StudioKind, StudioSession, StudioSessionSnapshot } from '../../protocol/studio-agent-types'
 import { studioServerPort } from '../../api/studio-server-port'
 import { localFirstStudioPorts } from '../../local/local-first-ports'
 import { isStudioClientDataMode } from '../../../../infrastructure/api/runtime-config'
@@ -52,6 +52,7 @@ export type StudioCinemaSessionFailure =
 export interface UseStudioCinemaSessionResult {
   status: StudioCinemaSessionStatus
   session: StudioSession | null
+  snapshot: StudioSessionSnapshot | null
   /** How this Session got here: only a `created` one triggers Scene initialization. */
   origin: 'created' | 'restored' | null
   historyIds: string[]
@@ -76,6 +77,7 @@ export interface UseStudioCinemaSessionInput {
 interface StudioCinemaSessionBindingState {
   status: StudioCinemaSessionStatus
   session: StudioSession | null
+  snapshot: StudioSessionSnapshot | null
   origin: 'created' | 'restored' | null
   historyIds: string[]
   failure: StudioCinemaSessionFailure | null
@@ -162,6 +164,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
   const [state, setState] = useState<StudioCinemaSessionBindingState>(() => ({
     status: 'loading',
     session: null,
+    snapshot: null,
     origin: null,
     historyIds: readDisplayHistoryIds(storage, studioKind),
     failure: null,
@@ -192,6 +195,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
         setState({
           status: 'ready',
           session: outcome.session,
+          snapshot: outcome.snapshot ?? null,
           origin: outcome.origin,
           historyIds: readHistory(),
           failure: null,
@@ -202,6 +206,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
       setState({
         status: 'unavailable',
         session: null,
+        snapshot: null,
         origin: null,
         historyIds: readHistory(),
         failure: outcome.reason,
@@ -236,6 +241,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
           setState({
             status: 'unavailable',
             session: null,
+            snapshot: null,
             origin: null,
             historyIds: readHistory(),
             failure: 'unexpected',
@@ -260,6 +266,7 @@ export function useStudioCinemaSession(input: UseStudioCinemaSessionInput): UseS
   return {
     status: state.status,
     session: state.session,
+    snapshot: state.snapshot,
     origin: state.origin,
     historyIds: state.historyIds,
     failure: state.failure,

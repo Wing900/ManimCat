@@ -63,7 +63,7 @@ describe('cinema display rules', () => {
     expect(readStudioCinemaSceneStatusKey({ ...base, isBusy: true })).toBe('studio.cinema.sceneStatusBusy')
     expect(readStudioCinemaSceneStatusKey({ ...base, hasFailedOutcome: true })).toBe('studio.cinema.sceneStatusFailed')
     expect(readStudioCinemaSceneStatusKey({ ...base, needsReconciliation: true })).toBe(
-      'studio.cinema.sceneStatusNeedsCheck',
+      'studio.cinema.sceneStatusReady',
     )
     expect(readStudioCinemaSceneStatusKey({ ...base, snapshotStatus: 'error' })).toBe(
       'studio.cinema.sceneStatusUnreachable',
@@ -78,7 +78,7 @@ describe('cinema display rules', () => {
       'studio.cinema.catUnresponsive',
     )
     expect(readStudioCinemaCatStatus(catInput({ needsReconciliation: true })).key).toBe(
-      'studio.cinema.catNeedsCheck',
+      'studio.cinema.catIdle',
     )
     expect(readStudioCinemaCatStatus(catInput({ snapshotStatus: 'error' })).key).toBe(
       'studio.cinema.catUnreachable',
@@ -156,9 +156,6 @@ describe('cinema display rules', () => {
     expect(readStudioCinemaFeedbackTone('stream_resync')).toBe('warning')
     expect(readStudioCinemaSubmitBlockedKey('manim', 'active_run')).toBe('studio.cinema.submitBlockedActiveRun')
     expect(readStudioCinemaSubmitBlockedKey('matplotlib', 'active_run')).toBe('studio.cinema.plot.submitBlockedActiveRun')
-    expect(readStudioCinemaSubmitBlockedKey('manim', 'reconciliation')).toBe(
-      'studio.cinema.submitBlockedReconciliation',
-    )
     expect(readStudioCinemaSubmitBlockedKey('manim', 'loading')).toBe('studio.cinema.submitBlockedLoading')
     expect(readStudioCinemaSubmitBlockedKey('manim', 'snapshot_failed')).toBe(
       'studio.cinema.submitBlockedSnapshotFailed',

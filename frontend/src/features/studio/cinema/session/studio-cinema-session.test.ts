@@ -169,7 +169,7 @@ describe('cinema session gateway', () => {
     expect(createCalls).toBe(1)
 
     deferred.resolve(createSession('session_new'))
-    await expect(first).resolves.toEqual({
+    await expect(first).resolves.toMatchObject({
       status: 'ready',
       origin: 'created',
       session: expect.objectContaining({ id: 'session_new' }),
@@ -185,7 +185,7 @@ describe('cinema session gateway', () => {
 
     const outcome = await harness.gateway.open('manim')
 
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       status: 'ready',
       origin: 'restored',
       session: expect.objectContaining({ id: 'session_old' }),
@@ -205,7 +205,7 @@ describe('cinema session gateway', () => {
 
     const outcome = await harness.gateway.open('manim')
 
-    expect(outcome).toEqual({
+    expect(outcome).toMatchObject({
       status: 'ready',
       origin: 'restored',
       session: expect.objectContaining({ id: 'session_alive' }),

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { StudioSession } from '../protocol/studio-agent-types'
+import type { StudioSession, StudioSessionSnapshot } from '../protocol/studio-agent-types'
 import { getStudioApiBase, getStudioAuthHeaders } from '../api/client'
 import { createRenderMediaSession } from '../local/render-media-session'
 import { createLocalStudioStore } from '../local/local-studio-store'
@@ -39,6 +39,7 @@ function readVisibleCapture(state: StudioCinemaState, sessionId: string | null) 
 
 export interface UseStudioCinemaInput {
   session: StudioSession | null
+  snapshot?: StudioSessionSnapshot | null
   /** Test seam: partial overrides of the real API, Provider, event source and clock. */
   overrides?: Partial<StudioCinemaControllerDependencies>
 }
@@ -70,8 +71,8 @@ export function useStudioCinema(input: UseStudioCinemaInput): UseStudioCinemaRes
 
   const controller = readController()
 
-  const sessionRef = useRef(input.session)
-  sessionRef.current = input.session
+  const sessionRef = useRef(input)
+  sessionRef.current = input
 
   const subscribe = useMemo(() => (listener: () => void) => controller.subscribe(listener), [controller])
   const getSnapshot = useMemo(() => () => controller.getState(), [controller])
@@ -120,7 +121,7 @@ export function useStudioCinema(input: UseStudioCinemaInput): UseStudioCinemaRes
     }
 
     live.attach()
-    const session = sessionRef.current
+    const { session, snapshot } = sessionRef.current
     if (!session) {
       live.closeSession()
       return () => {
@@ -132,9 +133,11 @@ export function useStudioCinema(input: UseStudioCinemaInput): UseStudioCinemaRes
       sessionId: session.id,
       title: session.title,
       projectId: session.projectId,
+      snapshot: snapshot ?? undefined,
     })
-    // Recovery read: the index comes from the Session snapshot and never fills a missing Scene in.
-    void live.loadSceneIndex()
+    // A cached workspace is shown immediately; refresh its index without holding the selection.
+    if (!snapshot && live.getState().sceneOrder.length > 0) void live.loadSceneIndex()
+    // The selection binding owns cold index reads; the gateway snapshot is reused on the first open.
     // A replay keeps the Session and the selection but lost the subscription with the cleanup.
     live.resumeSelectedScene()
 
