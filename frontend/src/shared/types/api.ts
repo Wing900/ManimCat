@@ -61,7 +61,22 @@ export interface SettingsConfig {
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
 /** 处理阶段 */
-export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
+export type ProcessingStage =
+  | 'queued'
+  | 'analyzing'
+  | 'designing'
+  | 'generating'
+  | 'refining'
+  | 'rendering'
+  | 'retrying'
+  | 'still-rendering';
+
+export interface JobStageHistoryEntry {
+  stage: ProcessingStage;
+  started_at: string;
+  ended_at: string;
+  duration_ms: number;
+}
 
 export interface JobTimings {
   queue?: number;
@@ -179,6 +194,8 @@ export interface JobResult {
   jobId: string;
   status: JobStatus;
   stage?: ProcessingStage;
+  stage_started_at?: string | null;
+  stage_history?: JobStageHistoryEntry[];
   message?: string;
   success?: boolean;
   submitted_at?: string;

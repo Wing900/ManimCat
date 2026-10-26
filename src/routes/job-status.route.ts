@@ -16,7 +16,7 @@ import { requireAccessContext } from '../http/access-context'
 import { assertJobAccess, getJobAccessCreatedAt } from '../rendering/job/job-access-store'
 import { createLogger } from '../shared/logging/logger'
 import { getJobResult, getBullJobStatus } from '../infrastructure/redis/job/redis-job-result-store'
-import { getJobStage } from '../infrastructure/redis/job/redis-job-state-store'
+import { getJobStage, getJobStageHistory } from '../infrastructure/redis/job/redis-job-state-store'
 import { getJobTrackingState } from '../infrastructure/redis/job/redis-job-tracking-store'
 import { getRequestClientId } from '../utils/request-client-id'
 
@@ -53,6 +53,8 @@ router.get(
       clientId: getRequestClientId(req),
     })
     const tracking = await getJobTrackingState(jobId)
+    const stageHistory = await getJobStageHistory(jobId)
+    const stageStartedAt = tracking?.stageStartedAt ?? null
     const accessCreatedAt = await getJobAccessCreatedAt(jobId)
     const submittedAt = tracking?.submittedAt
       ?? (typeof accessCreatedAt === 'number' ? new Date(accessCreatedAt).toISOString() : undefined)
@@ -74,6 +76,8 @@ router.get(
         updated_at: updatedAt,
         revision,
         attempt,
+        stage_history: stageHistory,
+        stage_started_at: stageStartedAt,
         output_mode: result.data.outputMode || 'video',
         video_url: result.data.videoUrl ?? null,
         image_urls: result.data.imageUrls,
@@ -99,6 +103,8 @@ router.get(
         updated_at: updatedAt,
         revision,
         attempt,
+        stage_history: stageHistory,
+        stage_started_at: stageStartedAt,
         error: result.data.error,
         details: result.data.details,
         cancel_reason: result.data.cancelReason,
@@ -115,11 +121,14 @@ router.get(
 
       // 获取当前处理阶段
       const stage = await getJobStage(jobId)
+      const fallbackStage = bullJobStatus === 'waiting' || bullJobStatus === 'delayed' ? 'queued' : 'analyzing'
 
       return res.status(200).json({
         jobId,
         status: bullJobStatus === 'waiting' || bullJobStatus === 'delayed' ? 'queued' : 'processing',
-        stage: stage || 'analyzing',
+        stage: stage || fallbackStage,
+        stage_started_at: stageStartedAt,
+        stage_history: stageHistory,
         message: '正在生成内容...',
         submitted_at: submittedAt,
         updated_at: updatedAt,
@@ -142,7 +151,9 @@ router.get(
       return res.status(200).json({
         jobId,
         status: tracking?.status === 'queued' ? 'queued' as const : 'processing' as const,
-        stage: stage || 'analyzing',
+        stage: stage || (tracking?.status === 'queued' ? 'queued' : 'analyzing'),
+        stage_started_at: stageStartedAt,
+        stage_history: stageHistory,
         message: '正在生成内容...',
         submitted_at: submittedAt,
         updated_at: updatedAt,
@@ -158,6 +169,8 @@ router.get(
       success: false as const,
       error: '任务已失效或不存在',
       message: '任务执行记录与 Worker 心跳均已失效，请重新提交生成请求',
+      stage_history: stageHistory,
+      stage_started_at: stageStartedAt,
       submitted_at: submittedAt,
       finished_at: new Date().toISOString(),
       updated_at: updatedAt,

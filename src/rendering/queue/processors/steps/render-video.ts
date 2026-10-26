@@ -171,7 +171,6 @@ export async function renderVideo(
 
   if (usedAI) {
     logger.info('Using local code-retry for video render', { jobId, hasSceneDesign: !!sceneDesign })
-    await storeJobStage(jobId, 'generating')
   } else {
     logger.info('Using single render attempt for video', {
       jobId,
@@ -193,7 +192,10 @@ export async function renderVideo(
     timings,
     renderCode,
     logRenderFailure,
-    ensureJobNotCancelled: async () => ensureJobNotCancelled(jobId)
+    ensureJobNotCancelled: async () => ensureJobNotCancelled(jobId),
+    onRetryStart: async () => {
+      await storeJobStage(jobId, 'retrying', { status: 'processing' })
+    }
   })
   const finalCode = usedAI ? retryResult.finalCode : lastRenderedCode
 

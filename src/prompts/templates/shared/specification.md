@@ -11,7 +11,7 @@
 
 - **No chatter**: do not add filler before or after code
 - **No Markdown wrapping**: do not wrap code in Markdown fences
-- **Text and Typesetting Rule**: use `Text()` for plain prose, `MathTypst()` for formulas, and `Typst()` for mixed prose and mathematics. Typst supports Chinese alongside mathematical notation, including within one `Typst()` object. Do not animate raw strings directly; wrap visible content in an Mobject.
+- Text and Typesetting Rule: follow the Text and Math (Typst) rules in the API index. Wrap visible content in a Mobject; never animate raw strings.
 - **No legacy syntax**: do not use `ShowCreation`, `TextMobject`, `TexMobject`, or `number_scale_val`
 
 ### Error Correction

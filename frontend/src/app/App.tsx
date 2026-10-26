@@ -34,7 +34,7 @@ function createClassicRenderCacheKey(): string {
 }
 
 function App() {
-  const { status, result, error, jobId, stage, submittedAt, generate, renderWithCode, modifyWithAI, reset, cancel, cancelAndReset } = useGeneration();
+  const { status, result, error, jobId, stage, stageHistory, submittedAt, generate, renderWithCode, modifyWithAI, reset, cancel, cancelAndReset } = useGeneration();
   const problemFraming = useProblemFraming();
   const game = useGame2048();
   const connection = useConnection();
@@ -296,6 +296,7 @@ function App() {
             error={error}
             jobId={jobId}
             stage={stage}
+            stageHistory={stageHistory}
             submittedAt={submittedAt}
             returningHome={classicReturning}
             concept={concept}

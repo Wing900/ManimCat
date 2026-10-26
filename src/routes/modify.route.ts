@@ -80,7 +80,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     renderCacheKey: stableRenderCacheKey
   })
 
-  await storeJobStage(jobId, 'generating', {
+  await storeJobStage(jobId, 'queued', {
     status: 'queued',
     attempt: 1,
     submittedAt

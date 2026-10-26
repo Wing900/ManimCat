@@ -4,6 +4,7 @@
  */
 
 import { generateTwoStageAIManimCode } from '../../../../workflow/concept-design/concept-designer'
+import { storeProcessingStage } from '../video-processor-utils'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { createLogger } from '../../../../shared/logging/logger'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../../../types'
@@ -76,7 +77,10 @@ export async function generateCode(
         promptOverrides,
         referenceImages,
         () => ensureJobNotCancelled(jobId),
-        problemPlan
+        problemPlan,
+        async (stage) => {
+          await storeProcessingStage(jobId, stage, { status: 'processing' })
+        }
       )
       if (result.code && result.code.length > 0) {
         logger.info('Two-stage AI code generation succeeded', { jobId, length: result.code.length, hasSceneDesign: !!result.sceneDesign })

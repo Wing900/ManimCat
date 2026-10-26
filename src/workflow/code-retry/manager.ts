@@ -51,7 +51,8 @@ export async function executeCodeRetry(
     exitCode?: number
   }) => Promise<void> | void,
   onCheckpoint?: RetryCheckpoint,
-  timings?: Record<string, number>
+  timings?: Record<string, number>,
+  onRetryStart?: () => Promise<void> | void
 ): Promise<RetryManagerResult> {
   logger.info('Starting code retry manager', {
     concept: context.concept,
@@ -111,6 +112,11 @@ export async function executeCodeRetry(
       failureCategory: failureDecision.category,
       retrySkipped: true
     }
+  }
+
+  if (onRetryStart) {
+    await onRetryStart()
+    if (timings) timings.retry = generationTimeMs
   }
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {

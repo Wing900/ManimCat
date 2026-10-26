@@ -36,7 +36,8 @@ export async function generateTwoStageAIManimCode(
   promptOverrides?: PromptOverrides,
   referenceImages?: ReferenceImage[],
   onCheckpoint?: () => Promise<void>,
-  problemPlan?: ProblemFramingPlan
+  problemPlan?: ProblemFramingPlan,
+  onStage?: (stage: 'designing' | 'generating') => Promise<void>
 ): Promise<{ code: string; sceneDesign: string }> {
   logger.info('开始两阶段 AI 生成流程', {
     concept,
@@ -54,6 +55,8 @@ export async function generateTwoStageAIManimCode(
 
   const client = createCustomClient(customApiConfig)
   if (onCheckpoint) await onCheckpoint()
+
+  if (onStage) await onStage('designing')
 
   const sceneDesign = await generateSceneDesignStage({
     problemPlan,
@@ -74,6 +77,8 @@ export async function generateTwoStageAIManimCode(
     throw new Error('Scene design stage returned empty result')
   }
   if (onCheckpoint) await onCheckpoint()
+
+  if (onStage) await onStage('generating')
 
   const code = await generateCodeFromDesignStage({
     problemPlan,

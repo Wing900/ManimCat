@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { generateAnimation, getJobStatus, cancelJob, modifyAnimation } from '../../../infrastructure/api/api';
 import { loadPrompts } from '../../prompts/hooks/usePrompts';
-import type { GenerateRequest, GenerateResponse, JobResult, ProcessingStage, ModifyRequest } from '../../../shared/types/api';
+import type { GenerateRequest, GenerateResponse, JobResult, JobStageHistoryEntry, ProcessingStage, ModifyRequest } from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n/index';
 import { localizeApiMessage } from '../../../shared/i18n/runtime';
 
@@ -13,6 +13,7 @@ interface UseGenerationReturn {
   error: string | null;
   jobId: string | null;
   stage: ProcessingStage;
+  stageHistory: JobStageHistoryEntry[];
   submittedAt: string | null;
   generate: (request: GenerateRequest) => Promise<void>;
   renderWithCode: (request: GenerateRequest & { code: string }) => Promise<void>;
@@ -55,7 +56,8 @@ export function useGeneration(): UseGenerationReturn {
   const [result, setResult] = useState<JobResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [stage, setStage] = useState<ProcessingStage>('analyzing');
+  const [stage, setStage] = useState<ProcessingStage>('queued');
+  const [stageHistory, setStageHistory] = useState<JobStageHistoryEntry[]>([]);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
 
   const pollCountRef = useRef(0);
@@ -100,6 +102,7 @@ export function useGeneration(): UseGenerationReturn {
     setStatus('processing');
     setError(null);
     setResult(null);
+    setStageHistory([]);
     syncTransientStage(nextJobId, initialStage, initialSubmittedAt);
 
     pollIntervalRef.current = window.setInterval(async () => {
@@ -122,6 +125,7 @@ export function useGeneration(): UseGenerationReturn {
           clearActiveJob();
           setStatus('completed');
           setResult(data);
+          setStageHistory(data.stage_history ?? []);
           setSubmittedAt(data.submitted_at ?? initialSubmittedAt);
           return;
         }
@@ -130,6 +134,7 @@ export function useGeneration(): UseGenerationReturn {
           clearPolling();
           clearActiveJob();
           setStatus('error');
+          setStageHistory(data.stage_history ?? []);
           setSubmittedAt(data.submitted_at ?? initialSubmittedAt);
           if (data.cancel_reason) {
             setError(t('generation.cancelled', { reason: data.cancel_reason }));
@@ -147,6 +152,9 @@ export function useGeneration(): UseGenerationReturn {
         }
 
         const nextSubmittedAt = data.submitted_at ?? initialSubmittedAt;
+        if (Array.isArray(data.stage_history)) {
+          setStageHistory(data.stage_history);
+        }
         if (data.stage) {
           syncTransientStage(nextJobId, data.stage, nextSubmittedAt);
         } else {
@@ -207,7 +215,7 @@ export function useGeneration(): UseGenerationReturn {
     abortControllerRef.current = new AbortController();
     const persisted = readPersistedActiveJob();
     if (persisted) {
-      startPolling(persisted.jobId, 'analyzing', null);
+      startPolling(persisted.jobId, 'queued', null);
     }
 
     return () => {
@@ -229,6 +237,7 @@ export function useGeneration(): UseGenerationReturn {
     setError(null);
     setResult(null);
     setStage(initialStage);
+    setStageHistory([]);
     pollCountRef.current = 0;
     latestRevisionRef.current = 0;
     abortControllerRef.current?.abort();
@@ -257,7 +266,7 @@ export function useGeneration(): UseGenerationReturn {
     await submitGeneration(
       request,
       (payload, signal) => generateAnimation(payload as GenerateRequest, signal),
-      'analyzing',
+      'queued',
       t('generation.requestFailed'),
     );
   }, [submitGeneration, t]);
@@ -290,7 +299,8 @@ export function useGeneration(): UseGenerationReturn {
     setError(null);
     setResult(null);
     setJobId(null);
-    setStage('analyzing');
+    setStage('queued');
+    setStageHistory([]);
     setSubmittedAt(null);
     latestRevisionRef.current = 0;
   }, [clearActiveJob, clearPolling]);
@@ -317,7 +327,8 @@ export function useGeneration(): UseGenerationReturn {
         clearActiveJob();
         setResult(null);
         setJobId(null);
-        setStage('analyzing');
+        setStage('queued');
+        setStageHistory([]);
         setSubmittedAt(null);
         if (resetAfterCancel) {
           setStatus('idle');
@@ -347,6 +358,7 @@ export function useGeneration(): UseGenerationReturn {
     error,
     jobId,
     stage,
+    stageHistory,
     submittedAt,
     generate,
     renderWithCode,

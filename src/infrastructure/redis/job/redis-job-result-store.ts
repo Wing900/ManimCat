@@ -14,7 +14,6 @@ const RESULT_TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days
 
 const STORE_SCRIPT = `
 local resultKey = KEYS[1]
-local trackingKey = KEYS[2]
 local status = ARGV[1]
 local payload = ARGV[2]
 local ttl = tonumber(ARGV[3])
@@ -31,7 +30,6 @@ if status == 'failed' and redis.call('EXISTS', resultKey) == 1 then
   end
 end
 redis.call('SET', resultKey, payload, 'EX', ttl)
-redis.call('DEL', trackingKey)
 return 'stored'
 `
 
@@ -40,7 +38,8 @@ export async function storeJobResult(
   result: Omit<JobResult, 'timestamp'> & { timestamp?: number }
 ): Promise<StoreJobResultOutcome> {
   const resultKey = generateRedisKey(REDIS_KEYS.JOB_RESULT, jobId)
-  const trackingKey = `job:tracking:${jobId}`
+  // Tracking is finalized by deleteJobStage after the result is written. Deleting it
+  // here would drop the live stage's final duration and its stage_started_at.
   const resultWithTimestamp: JobResult = {
     ...result,
     timestamp: result.timestamp ?? Date.now(),
@@ -48,9 +47,8 @@ export async function storeJobResult(
   const payload = JSON.stringify(resultWithTimestamp)
   const outcome = (await redisClient.eval(
     STORE_SCRIPT,
-    2,
+    1,
     resultKey,
-    trackingKey,
     result.status,
     payload,
     String(RESULT_TTL_SECONDS)

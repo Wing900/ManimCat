@@ -6,8 +6,12 @@ type GenerationStatus = 'idle' | 'processing' | 'cancelling' | 'completed' | 'er
 
 function getStageTitle(stage: ProcessingStage, t: ReturnType<typeof useI18n>['t']): string {
   switch (stage) {
+    case 'queued':
+      return t('tab.stage.queued');
     case 'analyzing':
       return t('tab.stage.analyzing');
+    case 'designing':
+      return t('tab.stage.designing');
     case 'generating':
       return t('tab.stage.generating');
     case 'refining':
@@ -15,6 +19,8 @@ function getStageTitle(stage: ProcessingStage, t: ReturnType<typeof useI18n>['t'
     case 'rendering':
     case 'still-rendering':
       return t('tab.stage.rendering');
+    case 'retrying':
+      return t('tab.stage.retrying');
     default:
       return t('tab.stage.default');
   }

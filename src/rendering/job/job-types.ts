@@ -13,6 +13,7 @@ export interface JobTrackingState {
   attempt: number
   status: 'queued' | 'processing' | 'completed' | 'failed'
   stage: ProcessingStage | null
+  stageStartedAt: string | null
 }
 
 export interface StoreJobStageOptions {

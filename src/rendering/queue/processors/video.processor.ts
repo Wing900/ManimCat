@@ -130,10 +130,17 @@ async function executeVideoJob(job: any): Promise<unknown> {
     timings.queue = Math.max(0, startedAtMs - submittedAtMs)
   }
   const retryMeta = getRetryMeta(job)
-  const initialStage = preGeneratedCode ? 'rendering' : 'generating'
+  const initialStage = preGeneratedCode
+    ? 'rendering'
+    : editCode && editInstructions
+      ? 'generating'
+      : 'analyzing'
 
   try {
-    await storeProcessingStage(jobId, initialStage, { attempt: retryMeta.currentAttempt })
+    await storeProcessingStage(jobId, initialStage, {
+      attempt: retryMeta.currentAttempt,
+      status: 'processing',
+    })
 
     let taskType: 'pre-generated' | 'ai-edit' | 'generation'
     let result

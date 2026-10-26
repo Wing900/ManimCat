@@ -34,6 +34,7 @@ interface ExecuteRenderWithRetryArgs {
   renderCode: (code: string) => Promise<RenderAttemptResult>
   logRenderFailure: (args: RenderFailureLogArgs) => Promise<void>
   ensureJobNotCancelled?: () => Promise<void>
+  onRetryStart?: () => Promise<void> | void
 }
 
 export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): Promise<{
@@ -51,7 +52,8 @@ export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): 
     timings,
     renderCode,
     logRenderFailure,
-    ensureJobNotCancelled
+    ensureJobNotCancelled,
+    onRetryStart
   } = args
 
   if (usedAI) {
@@ -72,7 +74,8 @@ export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): 
         await logRenderFailure({ ...event, promptRole: 'codeRetry' })
       },
       ensureJobNotCancelled,
-      timings
+      timings,
+      onRetryStart
     )
 
     if (typeof retryManagerResult.generationTimeMs === 'number' && timings) {

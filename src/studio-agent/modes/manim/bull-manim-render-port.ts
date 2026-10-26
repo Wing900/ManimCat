@@ -18,7 +18,7 @@ export function createBullManimRenderPort(): ManimRenderPort {
     },
     async submit(input) {
       throwIfStudioRunCancelled(input.signal)
-      await storeJobStage(input.jobId, 'rendering')
+      await storeJobStage(input.jobId, 'queued', { status: 'queued' })
       throwIfStudioRunCancelled(input.signal)
       await videoQueue.add(
         {

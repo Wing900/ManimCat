@@ -1,5 +1,5 @@
 import type { StudioKind } from '../../features/studio/protocol/studio-agent-types';
-import type { OutputMode, ProcessingStage, Quality, ReferenceImage, JobResult } from '../../shared/types/api';
+import type { OutputMode, ProcessingStage, Quality, ReferenceImage, JobResult, JobStageHistoryEntry } from '../../shared/types/api';
 import ManimCatLogo from '../../shared/components/ManimCatLogo';
 import { TopLeftActions } from '../../shared/components/app/top-left-actions';
 import { TopRightActions } from '../../shared/components/app/top-right-actions';
@@ -22,6 +22,7 @@ interface StudioPageProps {
   error: string | null;
   jobId: string | null;
   stage: ProcessingStage;
+  stageHistory: JobStageHistoryEntry[];
   submittedAt: string | null;
   returningHome?: boolean;
   concept: string;
@@ -60,6 +61,7 @@ export function StudioPage({
   error,
   jobId,
   stage,
+  stageHistory,
   submittedAt,
   returningHome,
   concept,
@@ -120,6 +122,7 @@ export function StudioPage({
             error={error}
             jobId={jobId}
             stage={stage}
+            stageHistory={stageHistory}
             submittedAt={submittedAt}
             concept={concept}
             onConceptChange={onConceptChange}

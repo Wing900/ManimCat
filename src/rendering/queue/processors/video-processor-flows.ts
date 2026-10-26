@@ -137,7 +137,6 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
   const { jobId, concept, quality, outputMode = 'video', referenceImages } = data
 
   await ensureJobNotCancelled(jobId, job)
-  await storeProcessingStage(jobId, 'generating')
 
   const codeResult = await analyzeAndGenerate(
     jobId,

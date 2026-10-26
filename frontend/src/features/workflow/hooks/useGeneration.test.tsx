@@ -103,6 +103,43 @@ describe('useGeneration', () => {
     expect(result.current.submittedAt).toBe('2026-03-22T00:00:00.000Z')
   })
 
+  it('keeps the settled stage history returned by the status endpoint', async () => {
+    mockedGetJobStatus.mockResolvedValueOnce({
+      jobId: 'job-1',
+      status: 'processing',
+      stage: 'generating',
+      stage_history: [
+        {
+          stage: 'designing',
+          started_at: '2026-03-22T00:00:00.000Z',
+          ended_at: '2026-03-22T00:00:25.200Z',
+          duration_ms: 25_200,
+        },
+      ],
+      submitted_at: '2026-03-22T00:00:00.000Z',
+      revision: 2,
+      attempt: 1,
+    })
+
+    const { result } = renderHook(() => useGeneration(), { wrapper })
+    await act(async () => {
+      await result.current.generate({ concept: 'test', outputMode: 'video' })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+
+    expect(result.current.stage).toBe('generating')
+    expect(result.current.stageHistory).toEqual([
+      {
+        stage: 'designing',
+        started_at: '2026-03-22T00:00:00.000Z',
+        ended_at: '2026-03-22T00:00:25.200Z',
+        duration_ms: 25_200,
+      },
+    ])
+  })
+
   it('resumes polling if cancel request fails', async () => {
     mockedCancelJob.mockRejectedValueOnce(new Error('cancel failed'))
 

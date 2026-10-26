@@ -91,8 +91,8 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     renderCacheKey: stableRenderCacheKey
   })
 
-  // 设置初始阶段
-  await storeJobStage(jobId, code ? 'rendering' : 'analyzing', {
+  // 设置初始阶段：进入队列，真正的阶段由 worker 接管
+  await storeJobStage(jobId, 'queued', {
     status: 'queued',
     attempt: 1,
     submittedAt

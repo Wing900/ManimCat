@@ -2,7 +2,7 @@ import type { StudioKind } from '../../../features/studio/protocol/studio-agent-
 import { InputForm } from '../../../features/workflow/components/InputForm';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { ResultSection } from '../../../features/workflow/components/ResultSection';
-import type { JobResult, OutputMode, ProcessingStage, Quality, ReferenceImage } from '../../types/api';
+import type { JobResult, JobStageHistoryEntry, OutputMode, ProcessingStage, Quality, ReferenceImage } from '../../types/api';
 import { useI18n } from '../../i18n/index';
 
 interface LastRequest {
@@ -18,6 +18,7 @@ interface StatusContentProps {
   error: string | null;
   jobId: string | null;
   stage: ProcessingStage;
+  stageHistory: JobStageHistoryEntry[];
   submittedAt: string | null;
   concept: string;
   onConceptChange: (value: string) => void;
@@ -56,6 +57,7 @@ export function StatusContent({
   error,
   jobId,
   stage,
+  stageHistory,
   submittedAt,
   concept,
   onConceptChange,
@@ -92,6 +94,7 @@ export function StatusContent({
       <div className="animate-fade-in-soft bg-bg-secondary/20 rounded-2xl p-8">
         <LoadingSpinner
           stage={stage}
+          stageHistory={stageHistory}
           jobId={jobId || undefined}
           submittedAt={submittedAt || undefined}
           onCancel={onCancel}

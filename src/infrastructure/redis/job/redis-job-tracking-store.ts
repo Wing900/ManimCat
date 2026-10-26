@@ -40,6 +40,7 @@ export async function getJobTrackingState(jobId: string): Promise<JobTrackingSta
       attempt: parseInt(raw.attempt ?? '1', 10),
       status: (raw.status ?? 'queued') as JobTrackingState['status'],
       stage: (raw.stage ?? null) as JobTrackingState['stage'],
+      stageStartedAt: raw.stageStartedAt ?? null,
     }
   } catch {
     return null

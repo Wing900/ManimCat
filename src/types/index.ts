@@ -17,7 +17,22 @@ export interface VideoConfig {
 }
 
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
-export type ProcessingStage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering'
+export type ProcessingStage =
+  | 'queued'
+  | 'analyzing'
+  | 'designing'
+  | 'generating'
+  | 'refining'
+  | 'rendering'
+  | 'retrying'
+  | 'still-rendering'
+
+export interface JobStageHistoryEntry {
+  stage: ProcessingStage
+  started_at: string
+  ended_at: string
+  duration_ms: number
+}
 
 /**
  * Per-stage timing stats in milliseconds.

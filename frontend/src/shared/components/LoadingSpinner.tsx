@@ -2,24 +2,30 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useI18n } from '../i18n/index';
+import type { TranslationKey } from '../i18n/index';
+import type { JobStageHistoryEntry, ProcessingStage } from '../types/api';
 
-type Stage = 'analyzing' | 'generating' | 'refining' | 'rendering' | 'still-rendering';
+type Stage = ProcessingStage;
 
 interface LoadingSpinnerProps {
   stage: Stage;
+  stageHistory?: JobStageHistoryEntry[];
   jobId?: string;
   submittedAt?: string;
   onCancel?: () => void;
   onOpenGame?: () => void;
 }
 
-const STAGE_CONFIG = {
-  analyzing:         { key: 'loading.analyzing', start: 0, target: 20 },
-  generating:        { key: 'loading.generating', start: 20, target: 66 },
-  refining:          { key: 'loading.refining', start: 66, target: 85 },
-  rendering:         { key: 'loading.rendering', start: 85, target: 97 },
-  'still-rendering': { key: 'loading.stillRendering', start: 85, target: 97 },
-} as const;
+const STAGE_CONFIG: Record<Stage, { key: TranslationKey; start: number; target: number }> = {
+  queued:            { key: 'loading.queued', start: 0, target: 4 },
+  analyzing:         { key: 'loading.analyzing', start: 4, target: 8 },
+  designing:         { key: 'loading.designing', start: 8, target: 35 },
+  generating:        { key: 'loading.generating', start: 35, target: 72 },
+  refining:          { key: 'loading.refining', start: 72, target: 82 },
+  rendering:         { key: 'loading.rendering', start: 82, target: 96 },
+  retrying:          { key: 'loading.retrying', start: 92, target: 97 },
+  'still-rendering': { key: 'loading.stillRendering', start: 96, target: 97 },
+};
 
 function usePerceivedProgress(stage: Stage): number {
   const [progress, setProgress] = useState(0);
@@ -160,10 +166,23 @@ function WavingPaw({ index, total }: { index: number; total: number }) {
   );
 }
 
-export function LoadingSpinner({ stage, jobId, submittedAt, onCancel, onOpenGame }: LoadingSpinnerProps) {
+function stageLabelKey(stage: ProcessingStage): TranslationKey {
+  if (stage === 'still-rendering') return 'tab.stage.rendering';
+  return `tab.stage.${stage}` as TranslationKey;
+}
+
+function formatStageDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '—';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+export function LoadingSpinner({ stage, stageHistory = [], jobId, submittedAt, onCancel, onOpenGame }: LoadingSpinnerProps) {
   const { t } = useI18n();
   const progress = usePerceivedProgress(stage);
   const { key } = STAGE_CONFIG[stage];
+  const visibleHistory = stageHistory.filter((entry) => entry.duration_ms >= 100);
+  const hasHistory = visibleHistory.length > 0;
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -212,7 +231,34 @@ export function LoadingSpinner({ stage, jobId, submittedAt, onCancel, onOpenGame
       </div>
 
       <div className="mt-4 text-center">
-        <p className="text-base text-text-primary/80">{t(key)}</p>
+        <div
+          className="group relative inline-flex flex-col items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-text-secondary/20"
+          tabIndex={hasHistory ? 0 : undefined}
+          aria-describedby={hasHistory ? 'stage-history-tooltip' : undefined}
+        >
+          <p className={`text-base text-text-primary/80 ${hasHistory ? 'cursor-help border-b border-dotted border-text-secondary/25 pb-0.5' : ''}`} aria-live="polite">
+            {t(key)}
+          </p>
+          {hasHistory && (
+            <div
+              id="stage-history-tooltip"
+              role="tooltip"
+              className="pointer-events-none invisible absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 rounded-2xl border border-bg-secondary/60 bg-bg-secondary/90 px-3 py-2 text-left text-[11px] text-text-secondary opacity-0 shadow-lg shadow-black/10 backdrop-blur transition-all duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+            >
+              <div className="mb-1 text-[10px] tracking-[0.12em] text-text-secondary/50">
+                {t('loading.stageHistory')}
+              </div>
+              <div className="space-y-1">
+                {visibleHistory.map((entry, index) => (
+                  <div key={`${entry.stage}-${entry.started_at}-${index}`} className="flex items-center justify-between gap-4">
+                    <span>{t(stageLabelKey(entry.stage))}</span>
+                    <span className="font-medium tabular-nums text-text-primary">{formatStageDuration(entry.duration_ms)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <p className="text-sm text-text-secondary/60 tabular-nums mt-1">{Math.round(progress)}%</p>
         {elapsedMs > 0 && (
           <p className="text-xs text-text-secondary/50 tabular-nums mt-1">
