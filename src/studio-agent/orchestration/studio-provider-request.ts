@@ -2,9 +2,10 @@ import type OpenAI from 'openai'
 import type { StudioKind } from '../domain/core-types'
 import { getStudioTelemetry, readElapsedMs } from '../infrastructure/telemetry/studio-telemetry'
 
+// 单次上游请求上限 5 分钟；自动重试时总等待可能更长
 const DEFAULT_PROVIDER_TIMEOUT_MS = parsePositiveInteger(
   process.env.STUDIO_PROVIDER_REQUEST_TIMEOUT_MS,
-  120000,
+  5 * 60 * 1000,
 )
 
 /**
