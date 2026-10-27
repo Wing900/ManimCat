@@ -1,5 +1,5 @@
 import type { StudioKind } from '../../features/studio/protocol/studio-agent-types';
-import type { OutputMode, ProcessingStage, Quality, ReferenceImage, JobResult, JobStageHistoryEntry } from '../../shared/types/api';
+import type { OutputMode, ProcessingStage, Quality, ReferenceImage, JobResult, JobStageHistoryEntry, VideoConfig } from '../../shared/types/api';
 import ManimCatLogo from '../../shared/components/ManimCatLogo';
 import { TopLeftActions } from '../../shared/components/app/top-left-actions';
 import { TopRightActions } from '../../shared/components/app/top-right-actions';
@@ -14,6 +14,7 @@ interface LastRequest {
   quality: Quality;
   outputMode: OutputMode;
   referenceImages?: ReferenceImage[];
+  videoConfig?: VideoConfig;
 }
 
 interface StudioPageProps {
@@ -33,7 +34,7 @@ interface StudioPageProps {
   onSecretStudioOpen?: (studioKind: StudioKind) => void;
   onSubmit: (data: LastRequest) => void;
   onCodeChange: (code: string) => void;
-  onRerender: () => void;
+  onRerender: (quality?: Quality, frameRate?: number) => void;
   onAiModifyOpen: () => void;
   onResetAll: () => void;
   onBackToHome: () => void;
@@ -102,8 +103,8 @@ export function StudioPage({
       <TopRightActions onOpenPromptSettings={onOpenPromptSettings} onOpenSettings={onOpenSettings} />
 
       <div
-        className={`mx-auto px-4 min-h-screen flex flex-col justify-center ${isCompleted ? 'max-w-5xl' : 'max-w-4xl'} ${returningHome ? 'page-slide-in' : ''}`}
-        style={isCompleted ? { paddingTop: '4vh', paddingBottom: '4vh' } : { paddingTop: '18vh', paddingBottom: '12vh' }}
+        className={`mx-auto px-4 min-h-screen flex flex-col ${isCompleted ? 'max-w-3xl justify-start' : 'max-w-4xl justify-center'} ${returningHome ? 'page-slide-in' : ''}`}
+        style={isCompleted ? { paddingTop: '4rem', paddingBottom: '4rem' } : { paddingTop: '18vh', paddingBottom: '12vh' }}
       >
         {!isCompleted && (
           <div className="text-center mb-12">

@@ -10,9 +10,18 @@ interface CodeViewProps {
   editable?: boolean;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  showTitle?: boolean;
+  codeFontSizePx?: number;
 }
 
-export const CodeView = memo(function CodeView({ code, editable = false, onChange, disabled = false }: CodeViewProps) {
+export const CodeView = memo(function CodeView({
+  code,
+  editable = false,
+  onChange,
+  disabled = false,
+  showTitle = true,
+  codeFontSizePx = 12
+}: CodeViewProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,7 +56,7 @@ export const CodeView = memo(function CodeView({ code, editable = false, onChang
   };
 
   const textareaClassName = [
-    'w-full h-full resize-none bg-transparent p-4 text-[0.75rem] leading-relaxed overflow-auto',
+    'w-full h-full resize-none bg-transparent p-4 leading-relaxed overflow-auto',
     'font-mono text-text-primary/90 focus:outline-none',
     disabled ? 'opacity-60 cursor-not-allowed' : ''
   ]
@@ -57,21 +66,23 @@ export const CodeView = memo(function CodeView({ code, editable = false, onChang
   return (
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
       {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between px-4 py-2.5">
-        <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('codeView.title')}</h3>
+      <div className={`flex items-center px-4 py-2.5 ${showTitle ? 'justify-between' : 'justify-end'}`}>
+        {showTitle && (
+          <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('codeView.title')}</h3>
+        )}
         <div className="flex items-center gap-3">
           {editable && (
             <button
               onClick={() => setIsEditing((prev) => !prev)}
             disabled={disabled}
-            className="text-xs text-text-secondary/70 hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-sm text-text-secondary/70 hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
               {isEditing ? t('common.preview') : t('common.edit')}
             </button>
           )}
           <button
             onClick={handleCopy}
-            className="text-xs text-text-secondary/70 hover:text-accent transition-colors flex items-center gap-1.5"
+            className="text-sm text-text-secondary/70 hover:text-accent transition-colors flex items-center gap-1.5"
           >
             {copied ? (
               <>
@@ -99,6 +110,7 @@ export const CodeView = memo(function CodeView({ code, editable = false, onChang
             value={code}
             onChange={(event) => onChange?.(event.target.value)}
             className={textareaClassName}
+            style={{ fontSize: `${codeFontSizePx}px` }}
             disabled={disabled}
             spellCheck={false}
           />
@@ -110,7 +122,7 @@ export const CodeView = memo(function CodeView({ code, editable = false, onChang
               customStyle={{
                 margin: 0,
                 padding: '1rem',
-                fontSize: '0.75rem',
+                fontSize: `${codeFontSizePx}px`,
                 lineHeight: '1.6',
                 minHeight: '100%',
                 width: '100%',

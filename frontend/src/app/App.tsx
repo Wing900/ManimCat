@@ -1,6 +1,6 @@
 import type { StudioKind } from '../features/studio/protocol/studio-agent-types';
 import { useEffect, useRef, useState } from 'react';
-import type { JobResult, OutputMode, Quality, ReferenceImage } from '../shared/types/api';
+import type { JobResult, OutputMode, Quality, ReferenceImage, VideoConfig } from '../shared/types/api';
 import { useGeneration } from '../features/workflow/hooks/useGeneration';
 import { useProblemFraming } from '../features/workflow/hooks/useProblemFraming';
 import { useGame2048 } from '../features/workflow/hooks/useGame2048';
@@ -10,6 +10,7 @@ import { DonationModal } from '../features/donation/DonationModal';
 import { ConnectionGuide } from '../features/connection/ConnectionGuide';
 import { hasConnection } from '../features/connection/connection-types';
 import { loadStudioDataMode } from '../infrastructure/api/runtime-config';
+import { loadSettings } from '../infrastructure/storage/settings';
 import { loadConnection, saveConnection, useConnection } from '../features/connection/connection-storage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { PromptSettings } from '../features/prompts/PromptSettings';
@@ -60,6 +61,7 @@ function App() {
     quality: Quality;
     outputMode: OutputMode;
     referenceImages?: ReferenceImage[];
+    videoConfig?: VideoConfig;
     renderCacheKey: string;
   } | null>(null);
 
@@ -230,13 +232,14 @@ function App() {
     const draft = problemFraming.draft;
     const problemPlan = problemFraming.plan;
     const renderCacheKey = createClassicRenderCacheKey();
+    const videoConfig = { ...loadSettings().video };
     setLastCompletedResult(null);
-    setLastRequest({ ...draft, renderCacheKey });
+    setLastRequest({ ...draft, renderCacheKey, videoConfig });
     setConcept(draft.concept);
     setCurrentCode('');
     setProblemAdjustment('');
     problemFraming.reset();
-    generate({ ...draft, problemPlan, renderCacheKey });
+    generate({ ...draft, problemPlan, renderCacheKey, videoConfig });
   };
 
   const handleProblemClose = () => {
@@ -244,14 +247,19 @@ function App() {
     problemFraming.reset();
   };
 
-  const handleRerender = () => {
+  const handleRerender = (quality?: Quality, frameRate?: number) => {
     const code = currentCode.trim() || result?.code?.trim() || lastCompletedResult?.code?.trim() || '';
     if (!lastRequest || !code) {
       return;
     }
 
-    setCurrentCode('');
-    renderWithCode({ ...lastRequest, code });
+    const baseVideoConfig = lastRequest.videoConfig ?? loadSettings().video;
+    const nextQuality = quality ?? lastRequest.quality;
+    const nextFrameRate = frameRate ?? baseVideoConfig.frameRate;
+    const videoConfig = { ...baseVideoConfig, quality: nextQuality, frameRate: nextFrameRate };
+    const nextRequest = { ...lastRequest, quality: nextQuality, videoConfig };
+    setLastRequest(nextRequest);
+    renderWithCode({ ...nextRequest, code });
   };
 
   const handleAiModifySubmit = (instructions: string) => {

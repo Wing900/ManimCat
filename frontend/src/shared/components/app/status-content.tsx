@@ -2,7 +2,7 @@ import type { StudioKind } from '../../../features/studio/protocol/studio-agent-
 import { InputForm } from '../../../features/workflow/components/InputForm';
 import { LoadingSpinner } from '../LoadingSpinner';
 import { ResultSection } from '../../../features/workflow/components/ResultSection';
-import type { JobResult, JobStageHistoryEntry, OutputMode, ProcessingStage, Quality, ReferenceImage } from '../../types/api';
+import type { JobResult, JobStageHistoryEntry, OutputMode, ProcessingStage, Quality, ReferenceImage, VideoConfig } from '../../types/api';
 import { useI18n } from '../../i18n/index';
 
 interface LastRequest {
@@ -10,6 +10,7 @@ interface LastRequest {
   quality: Quality;
   outputMode: OutputMode;
   referenceImages?: ReferenceImage[];
+  videoConfig?: VideoConfig;
 }
 
 interface StatusContentProps {
@@ -28,7 +29,7 @@ interface StatusContentProps {
   lastRequest: LastRequest | null;
   onSubmit: (data: LastRequest) => void;
   onCodeChange: (code: string) => void;
-  onRerender: () => void;
+  onRerender: (quality?: Quality, frameRate?: number) => void;
   onAiModifyOpen: () => void;
   onResetAll: () => void;
   onBackToHome: () => void;
@@ -127,7 +128,7 @@ export function StatusContent({
         : (error || t('result.errorFallback'));
 
       return (
-        <div className="max-w-5xl mx-auto space-y-6 animate-fade-in" style={{ animation: 'fadeInUp 0.4s ease-out forwards' }}>
+        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in" style={{ animation: 'fadeInUp 0.4s ease-out forwards' }}>
           <div className="relative overflow-hidden rounded-[1.75rem] border border-red-200/70 bg-red-50/85 px-6 py-5 shadow-[0_20px_80px_rgba(220,38,38,0.08)]">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 text-red-500">
@@ -200,7 +201,7 @@ interface ResultContentProps {
   lastRequest: LastRequest | null;
   isBusy: boolean;
   onCodeChange: (code: string) => void;
-  onRerender: () => void;
+  onRerender: (quality?: Quality, frameRate?: number) => void;
   onAiModifyOpen: () => void;
   onResetAll: () => void;
 }
@@ -219,7 +220,7 @@ function ResultContent({
 
   return (
     <div
-      className="max-w-5xl mx-auto space-y-6 animate-fade-in"
+      className="max-w-3xl mx-auto space-y-4 animate-fade-in"
       style={{
         animation: 'fadeInUp 0.5s ease-out forwards',
       }}
@@ -232,6 +233,8 @@ function ResultContent({
         usedAI={result.used_ai || false}
         renderQuality={result.render_quality || ''}
         generationType={result.generation_type || ''}
+        quality={lastRequest?.quality}
+        frameRate={lastRequest?.videoConfig?.frameRate}
         onCodeChange={onCodeChange}
         onRerender={onRerender}
         onAiModify={onAiModifyOpen}
@@ -241,7 +244,7 @@ function ResultContent({
       <div className="text-center">
         <button
           onClick={onResetAll}
-          className="px-8 py-2.5 text-sm text-text-secondary/80 hover:text-accent transition-colors bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full"
+          className="px-5 py-2 text-xs text-text-secondary/80 hover:text-accent transition-colors bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full"
         >
           {t('result.newContent')}
         </button>

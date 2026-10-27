@@ -14,6 +14,7 @@ interface CustomSelectProps<T = string> {
   label: string;
   className?: string;
   disabled?: boolean;
+  placement?: 'top' | 'bottom';
 }
 
 export function CustomSelect<T = string>({
@@ -22,7 +23,8 @@ export function CustomSelect<T = string>({
   onChange,
   label,
   className = '',
-  disabled = false
+  disabled = false,
+  placement = 'bottom'
 }: CustomSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -75,7 +77,7 @@ export function CustomSelect<T = string>({
 
       {/* 下拉菜单 */}
       {isOpen && (
-        <div className="menu-in absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl bg-bg-secondary shadow-xl shadow-black/10">
+        <div className={`menu-in absolute left-0 right-0 z-50 overflow-hidden rounded-2xl bg-bg-secondary shadow-xl shadow-black/10 ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
           {options.map((option) => {
             const isSelected = typeof option.value === 'number' && typeof value === 'number'
               ? option.value === value

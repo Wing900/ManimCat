@@ -18,7 +18,7 @@ export const VideoPreview = memo(function VideoPreview({ videoUrl }: VideoPrevie
   };
 
   return (
-    <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
+    <div className="flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
       {/* 顶部工具栏 */}
       <div className="flex items-center justify-between px-4 py-2.5">
         <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('video.title')}</h3>
@@ -34,7 +34,7 @@ export const VideoPreview = memo(function VideoPreview({ videoUrl }: VideoPrevie
       </div>
 
       {/* 视频播放器 */}
-      <div className="flex-1 bg-black flex items-center justify-center">
+      <div className="aspect-video w-full bg-black flex items-center justify-center">
         <video
           src={videoUrl}
           controls
