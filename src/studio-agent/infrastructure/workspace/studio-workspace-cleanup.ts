@@ -3,8 +3,15 @@ import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createLogger } from '../../../shared/logging/logger'
+import {
+  readStudioWorkspaceLastActivity,
+  removeStudioWorkspaceActivity,
+} from './studio-workspace-activity'
 
 const logger = createLogger('StudioWorkspaceCleanup')
+
+/** Kept as a re-export so existing callers and fixtures migrate without changing imports. */
+export { readStudioWorkspaceLastActivity, STUDIO_WORKSPACE_ACTIVITY_FILE } from './studio-workspace-activity'
 
 /**
  * A Session workspace is scratch space: it holds the Scene sources of one Run plus whatever the
@@ -15,12 +22,6 @@ const logger = createLogger('StudioWorkspaceCleanup')
 /** Hours without a Run before a Session workspace is removed. Matches the product decision (5h). */
 export const DEFAULT_STUDIO_WORKSPACE_TTL_HOURS = 5
 export const DEFAULT_STUDIO_WORKSPACE_CLEANUP_INTERVAL_MINUTES = 30
-
-/**
- * Written by every Run that materializes sources, so "used recently" does not depend on directory
- * mtimes, which a background write can move for reasons unrelated to user activity.
- */
-export const STUDIO_WORKSPACE_ACTIVITY_FILE = '.last-active'
 
 export function readStudioWorkspaceTtlHours(): number {
   return readPositiveNumber(process.env.STUDIO_WORKSPACE_TTL_HOURS, DEFAULT_STUDIO_WORKSPACE_TTL_HOURS)
@@ -36,23 +37,6 @@ export function readStudioWorkspaceCleanupIntervalMinutes(): number {
 function readPositiveNumber(raw: string | undefined, fallback: number): number {
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
-}
-
-/**
- * Last activity of one Session workspace, in epoch milliseconds.
- *
- * The activity marker wins when it exists; its absence falls back to the directory's own mtime, which
- * keeps a workspace created before the marker existed from living forever.
- */
-export async function readStudioWorkspaceLastActivity(directory: string): Promise<number> {
-  const marker = path.join(directory, STUDIO_WORKSPACE_ACTIVITY_FILE)
-  try {
-    const stats = await fsp.stat(marker)
-    return stats.mtimeMs
-  } catch {
-    const stats = await fsp.stat(directory).catch(() => null)
-    return stats ? stats.mtimeMs : 0
-  }
 }
 
 /**
@@ -91,6 +75,7 @@ export async function cleanupExpiredStudioWorkspaces(input: {
 
       try {
         await fsp.rm(sessionDirectory, { recursive: true, force: true })
+        await removeStudioWorkspaceActivity(sessionDirectory)
         removed.push(sessionDirectory)
       } catch (error) {
         // A workspace that cannot be removed is retried on the next pass; it must not stop the sweep.

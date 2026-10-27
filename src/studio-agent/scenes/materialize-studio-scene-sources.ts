@@ -1,7 +1,7 @@
 import { lstat, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { STUDIO_SCENE_DIRECTORY } from './studio-scene-service'
-import { STUDIO_WORKSPACE_ACTIVITY_FILE } from '../infrastructure/workspace/studio-workspace-cleanup'
+import { recordStudioWorkspaceActivity } from '../infrastructure/workspace/studio-workspace-activity'
 
 /**
  * Writes a Session's Scene sources into its workspace before a Run starts.
@@ -87,13 +87,10 @@ export async function materializeStudioSceneSources(input: {
     await writeFile(targetPath, source, 'utf8')
   }
 
-  // The sweep reads this marker instead of directory mtimes: a background write must not look like
-  // user activity, and a materialization must.
-  await writeFile(
-    path.join(input.rootDirectory, STUDIO_WORKSPACE_ACTIVITY_FILE),
-    new Date().toISOString(),
-    'utf8'
-  )
+  // Activity metadata lives outside the workspace so the model's file tools cannot see it. The
+  // sweep reads this marker instead of directory mtimes: a background write must not look like user
+  // activity, and a materialization must.
+  await recordStudioWorkspaceActivity(input.rootDirectory)
 
   return { sceneIds }
 }

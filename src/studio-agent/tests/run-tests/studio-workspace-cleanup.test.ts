@@ -7,6 +7,7 @@ import {
   readStudioWorkspaceLastActivity,
   STUDIO_WORKSPACE_ACTIVITY_FILE,
 } from '../../infrastructure/workspace/studio-workspace-cleanup'
+import { removeStudioWorkspaceActivity } from '../../infrastructure/workspace/studio-workspace-activity'
 import { run } from './factories'
 
 async function createRoot(): Promise<string> {
@@ -48,7 +49,11 @@ export async function runStudioWorkspaceCleanupTests(): Promise<void> {
     assert.deepEqual(removed, [expired])
     assert.equal(await exists(expired), false)
     assert.equal(await exists(fresh), true)
-    assert.equal(await fsp.readFile(path.join(fresh, marker), 'utf8'), 'x')
+    // The legacy marker was migrated out of the workspace and the original mtime survived.
+    assert.equal(await exists(path.join(fresh, marker)), false)
+    const freshActivity = await readStudioWorkspaceLastActivity(fresh)
+    assert.equal(Math.abs(freshActivity - (now - 1 * HOUR)) < 5_000, true)
+    await removeStudioWorkspaceActivity(fresh)
   })
 
   await run('a workspace written before the marker existed falls back to its directory mtime', async () => {
