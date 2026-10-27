@@ -118,21 +118,22 @@ export function CodeModal({
             onChange={onCodeChange}
             disabled={disabled}
             showTitle={false}
-            headerLabel="MainScene.py"
+            toolbarPosition="bottom"
             codeFontSizePx={13}
           />
         </div>
 
-        <div className="mt-5 flex shrink-0 flex-col gap-3 pb-1 pt-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mt-4 flex shrink-0 flex-col gap-3 pt-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <CustomSelect
               options={options}
               value={quality}
               onChange={setQuality}
-              label={t('settings.video.quality')}
+              label={t('settings.video.resolution')}
               disabled={disabled}
               placement="top"
-              className="w-full text-sm [&_label]:text-sm [&_button]:text-sm sm:w-52"
+              labelLayout="stacked"
+              className="w-full text-sm [&_button]:text-sm sm:w-52"
             />
             <CustomSelect
               options={frameRateOptions}
@@ -141,7 +142,8 @@ export function CodeModal({
               label={t('settings.video.frameRate')}
               disabled={disabled}
               placement="top"
-              className="w-full text-sm [&_label]:text-sm [&_button]:text-sm sm:w-40"
+              labelLayout="stacked"
+              className="w-full text-sm [&_button]:text-sm sm:w-40"
             />
           </div>
           <button

@@ -218,7 +218,7 @@ function ResultContent({
 }: ResultContentProps) {
   return (
     <div
-      className="max-w-3xl mx-auto space-y-4 animate-fade-in"
+      className="w-full max-w-3xl mx-auto min-w-0 space-y-4 animate-fade-in"
       style={{
         animation: 'fadeInUp 0.5s ease-out forwards',
       }}

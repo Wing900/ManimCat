@@ -46,8 +46,13 @@ export const ResultSection = memo(function ResultSection({
       : (quality ?? 'medium')
   );
 
+  const heightBoundMaxWidth = 'min(48rem, max(0px, calc((100dvh - 12rem) * 16 / 9)))';
+
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div
+      className="w-full max-w-3xl mx-auto"
+      style={outputMode === 'video' ? { maxWidth: heightBoundMaxWidth } : undefined}
+    >
       {/* 结果预览 */}
       <div className="w-full">
         {outputMode === 'image' ? (

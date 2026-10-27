@@ -104,7 +104,7 @@ export function StudioPage({
 
       <div
         className={`mx-auto px-4 min-h-screen min-h-dvh flex flex-col ${isCompleted ? 'max-w-3xl justify-center' : 'max-w-4xl justify-center'} ${returningHome ? 'page-slide-in' : ''}`}
-        style={isCompleted ? { paddingTop: '4rem', paddingBottom: '4rem' } : { paddingTop: '18vh', paddingBottom: '12vh' }}
+        style={isCompleted ? { paddingTop: '3rem', paddingBottom: '3rem' } : { paddingTop: '18vh', paddingBottom: '12vh' }}
       >
         {!isCompleted && (
           <div className="text-center mb-12">
@@ -116,7 +116,7 @@ export function StudioPage({
           </div>
         )}
 
-        <div className="mb-6">
+        <div className={isCompleted ? undefined : 'mb-6'}>
           <StatusContent
             status={status}
             result={result}

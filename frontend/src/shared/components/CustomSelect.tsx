@@ -15,6 +15,7 @@ interface CustomSelectProps<T = string> {
   className?: string;
   disabled?: boolean;
   placement?: 'top' | 'bottom';
+  labelLayout?: 'floating' | 'stacked';
 }
 
 export function CustomSelect<T = string>({
@@ -24,7 +25,8 @@ export function CustomSelect<T = string>({
   label,
   className = '',
   disabled = false,
-  placement = 'bottom'
+  placement = 'bottom',
+  labelLayout = 'floating'
 }: CustomSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -47,60 +49,73 @@ export function CustomSelect<T = string>({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const isStacked = labelLayout === 'stacked';
+
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      <label className="absolute left-3 -top-2 px-1.5 bg-bg-primary text-xs font-medium text-text-secondary">
+    <div
+      className={`relative ${isStacked ? 'flex flex-col gap-1.5' : ''} ${className}`}
+      ref={dropdownRef}
+    >
+      <label
+        className={
+          isStacked
+            ? 'text-xs font-medium text-text-secondary/80'
+            : 'absolute left-3 -top-2 px-1.5 bg-bg-primary text-xs font-medium text-text-secondary'
+        }
+      >
         {label}
       </label>
 
-      {/* 触发按钮 */}
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        className="w-full px-4 py-3.5 pr-10 bg-bg-secondary/50 rounded-2xl text-left text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-colors duration-200 ease-ui cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary/60"
-      >
-        <span>{selectedOption?.label}</span>
-      </button>
+      <div className="relative">
+        {/* 触发按钮 */}
+        <button
+          type="button"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className="w-full px-4 py-3.5 pr-10 bg-bg-secondary/50 rounded-2xl text-left text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/20 focus:bg-bg-secondary/70 transition-colors duration-200 ease-ui cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-secondary/60"
+        >
+          <span>{selectedOption?.label}</span>
+        </button>
 
-      {/* 下拉箭头 */}
-      <svg
-        className={`absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary pointer-events-none transition-transform duration-200 ease-move ${
-          isOpen ? 'rotate-180' : ''
-        }`}
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
+        {/* 下拉箭头：相对按钮行定位，stacked 标签不参与偏移 */}
+        <svg
+          className={`absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary pointer-events-none transition-transform duration-200 ease-move ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
 
-      {/* 下拉菜单 */}
-      {isOpen && (
-        <div className={`menu-in absolute left-0 right-0 z-50 overflow-hidden rounded-2xl bg-bg-secondary shadow-xl shadow-black/10 ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
-          {options.map((option) => {
-            const isSelected = typeof option.value === 'number' && typeof value === 'number'
-              ? option.value === value
-              : option.value === value;
+        {/* 下拉菜单 */}
+        {isOpen && (
+          <div className={`menu-in absolute left-0 right-0 z-50 overflow-hidden rounded-2xl bg-bg-secondary shadow-xl shadow-black/10 ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+            {options.map((option) => {
+              const isSelected = typeof option.value === 'number' && typeof value === 'number'
+                ? option.value === value
+                : option.value === value;
 
-            return (
-              <button
-                key={String(option.value)}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-4 py-3.5 text-left transition-colors duration-150 ease-ui hover:bg-bg-secondary/70 ${
-                  isSelected ? 'bg-bg-secondary/50' : ''
-                }`}
-              >
-                <span className="text-text-primary">{option.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+              return (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full px-4 py-3.5 text-left transition-colors duration-150 ease-ui hover:bg-bg-secondary/70 ${
+                    isSelected ? 'bg-bg-secondary/50' : ''
+                  }`}
+                >
+                  <span className="text-text-primary">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

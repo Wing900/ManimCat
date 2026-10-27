@@ -11,7 +11,7 @@ interface CodeViewProps {
   onChange?: (value: string) => void;
   disabled?: boolean;
   showTitle?: boolean;
-  headerLabel?: string;
+  toolbarPosition?: 'top' | 'bottom';
   codeFontSizePx?: number;
 }
 
@@ -21,7 +21,7 @@ export const CodeView = memo(function CodeView({
   onChange,
   disabled = false,
   showTitle = true,
-  headerLabel,
+  toolbarPosition = 'top',
   codeFontSizePx = 12
 }: CodeViewProps) {
   const { t } = useI18n();
@@ -67,12 +67,14 @@ export const CodeView = memo(function CodeView({
 
   return (
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
-      {/* 顶部工具栏 */}
-      <div className={`flex items-center px-4 py-2.5 ${showTitle || headerLabel ? 'justify-between' : 'justify-end'}`}>
+      {/* 工具栏：可置于代码区域上方或下方 */}
+      <div
+        className={`flex items-center gap-3 px-4 py-2.5 ${
+          toolbarPosition === 'bottom' ? 'order-2 justify-end' : 'order-1 justify-between'
+        }`}
+      >
         {showTitle ? (
           <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('codeView.title')}</h3>
-        ) : headerLabel ? (
-          <span className="text-xs text-text-secondary">{headerLabel}</span>
         ) : null}
         <div className="flex items-center gap-3">
           {editable && (
@@ -108,7 +110,7 @@ export const CodeView = memo(function CodeView({
       </div>
 
       {/* 代码区域 */}
-      <div className="flex-1 overflow-hidden">
+      <div className={`min-h-0 flex-1 overflow-hidden ${toolbarPosition === 'bottom' ? 'order-1' : 'order-2'}`}>
         {editable && isEditing ? (
           <textarea
             value={code}
