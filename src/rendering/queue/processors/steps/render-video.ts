@@ -3,12 +3,13 @@ import path from 'path'
 import { createLogger } from '../../../../shared/logging/logger'
 import { cleanManimCode } from '../../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../../utils/manim-executor'
-import { addBackgroundMusic } from '../../../manim/bgm-mixer'
 import {
   cleanupNarrationWorkspace,
   muxNarrationIntoVideo,
+  resolveNarrationConfig,
   resolveNarrationWorkspace
 } from '../../../manim/narration-mixer'
+import { publishNarrationForReuse } from '../../../manim/narration-reuse'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { isJobCancelled } from '../../../job/job-cancel-store'
 import { storeJobStage } from '../../../../infrastructure/redis/job/redis-job-state-store'
@@ -237,21 +238,25 @@ export async function renderVideo(
     const muxStart = Date.now()
     await muxNarrationIntoVideo({
       videoPath,
-      narration: codeResult.narration,
-      bgm: videoConfig?.bgm === true
+      narration: codeResult.narration
     })
     timings.mux = (timings.mux || 0) + (Date.now() - muxStart)
     logNarrationSyncReport(jobId, narrationSyncReportPath)
+
+    const narrationConfig = resolveNarrationConfig(videoConfig, 'video')
+    if (narrationConfig) {
+      publishNarrationForReuse({
+        renderCacheKey: stableRenderCacheKey,
+        jobId,
+        config: narrationConfig,
+        assets: codeResult.narration
+      })
+    }
   }
 
   const outputFilename = `${jobId}.mp4`
   const outputPath = path.join(outputDir, outputFilename)
   fs.copyFileSync(videoPath, outputPath)
-
-  // Narration mux already folded BGM under the voice; only the silent path uses the legacy mixer.
-  if (videoConfig?.bgm === true && !codeResult.narration) {
-    await addBackgroundMusic(outputPath)
-  }
 
   const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath, workspaceOutputDirectory)
 

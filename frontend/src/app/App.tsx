@@ -276,6 +276,7 @@ function App() {
       quality: lastRequest.quality,
       instructions,
       code,
+      videoConfig: lastRequest.videoConfig,
       renderCacheKey: lastRequest.renderCacheKey,
     });
   };

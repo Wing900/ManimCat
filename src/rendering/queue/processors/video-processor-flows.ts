@@ -1,6 +1,7 @@
 import { generateEditedManimCode } from '../../../workflow/code-edit/code-edit'
 import { ensureJobNotCancelled } from '../../job/job-cancel'
 import { resolveNarrationConfig, resolveNarrationWorkspace } from '../../manim/narration-mixer'
+import { resolveReusedNarrationForJob } from '../../manim/narration-reuse'
 import { analyzeAndGenerate } from './steps/analysis-step'
 import { handlePreGeneratedCode, renderImages, renderVideo } from './steps/render-step'
 import { storeResult } from './steps/storage-step'
@@ -81,10 +82,18 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
   }
 
   await ensureJobNotCancelled(jobId, job)
+  const reusedNarration = resolveReusedNarrationForJob({
+    renderCacheKey: data.renderCacheKey,
+    workspaceDirectory: data.workspaceDirectory,
+    jobId,
+    videoConfig: data.videoConfig,
+    outputMode
+  })
   const generationResult = {
     code: editedCode,
     usedAI: true,
-    generationType: 'ai-edit' as const
+    generationType: 'ai-edit' as const,
+    narration: reusedNarration
   }
 
   const renderResult =

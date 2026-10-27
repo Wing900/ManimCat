@@ -3,6 +3,7 @@ import type { GenerationResult } from './analysis-step'
 import type { OutputMode, VideoJobData } from '../../../../types'
 import { renderVideo } from './render-video'
 import { renderImages } from './render-images'
+import { resolveReusedNarrationForJob } from '../../../manim/narration-reuse'
 import type { RenderResult } from './render-step-types'
 
 const logger = createLogger('RenderStep')
@@ -25,10 +26,21 @@ export async function handlePreGeneratedCode(
     hasCustomApi: !!jobData.customApiConfig
   })
 
+  // A code-modal edit or quality change arrives as a new job id with the same renderCacheKey.
+  // Reuse the server-published voice track instead of silently rendering a silent video.
+  const reusedNarration = resolveReusedNarrationForJob({
+    renderCacheKey: jobData.renderCacheKey,
+    workspaceDirectory: jobData.workspaceDirectory,
+    jobId,
+    videoConfig: jobData.videoConfig,
+    outputMode
+  })
+
   const codeResult: GenerationResult = {
     code: preGeneratedCode,
     usedAI: false,
-    generationType: 'custom-api'
+    generationType: 'custom-api',
+    narration: reusedNarration
   }
 
   const renderResult =
