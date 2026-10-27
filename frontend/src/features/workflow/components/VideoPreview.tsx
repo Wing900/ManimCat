@@ -11,7 +11,7 @@ export const VideoPreview = memo(function VideoPreview({ videoUrl }: VideoPrevie
   const { t } = useI18n();
 
   return (
-    <div className="w-full bg-bg-secondary/30 rounded-2xl overflow-hidden">
+    <div className="w-full bg-bg-secondary/30 rounded-md overflow-hidden">
       {/* 视频播放器 */}
       <div className="aspect-video w-full bg-black flex items-center justify-center">
         <video
