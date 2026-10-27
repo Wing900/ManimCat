@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { clearTemplateCache, getVisualStylePrompt } from '../../prompts/loader'
 import type { StudioAgentType } from '../domain/types'
 
 const TEMPLATE_ROOT = path.join(process.cwd(), 'src', 'studio-agent', 'prompts', 'templates')
@@ -18,6 +19,7 @@ function readTemplate(filePath: string): string {
 
 export function clearStudioAgentPromptCache(): void {
   templateCache.clear()
+  clearTemplateCache()
 }
 
 /**
@@ -26,5 +28,9 @@ export function clearStudioAgentPromptCache(): void {
  * orchestration/studio-agent-prompt.ts.
  */
 export function getStudioAgentSystemPrompt(agentType: StudioAgentType): string {
-  return readTemplate(path.join(TEMPLATE_ROOT, 'roles', `${agentType}.system.md`)).trim()
+  const template = readTemplate(path.join(TEMPLATE_ROOT, 'roles', `${agentType}.system.md`)).trim()
+  if (agentType !== 'builder' || !template.includes('{{visualStyle}}')) {
+    return template
+  }
+  return template.split('{{visualStyle}}').join(getVisualStylePrompt('en-US'))
 }

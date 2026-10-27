@@ -118,6 +118,13 @@ export function clearTemplateCache(): void {
   templateCache.clear()
 }
 
+/**
+ * 获取共享视觉风格（与角色模板同一文件源）。
+ */
+export function getVisualStylePrompt(locale: PromptLocale = 'zh-CN'): string {
+  return readTemplate(resolveTemplateFile(path.join('shared', 'visual-style.md'), locale)).trim()
+}
+
 // ============================================================================
 // 模板处理
 // ============================================================================
@@ -180,8 +187,8 @@ function assembleTemplate(
 
   // Visual policy is shared by planning and coding, independently of code-only constraints.
   if (result.includes('{{visualStyle}}')) {
-    const visualStyle = readTemplate(resolveTemplateFile(path.join('shared', 'visual-style.md'), resolveLocale(overrides)))
-    result = replaceLiteral(result, '{{visualStyle}}', visualStyle.trim())
+    const visualStyle = getVisualStylePrompt(resolveLocale(overrides))
+    result = replaceLiteral(result, '{{visualStyle}}', visualStyle)
   }
 
   // 3. 处理条件块
