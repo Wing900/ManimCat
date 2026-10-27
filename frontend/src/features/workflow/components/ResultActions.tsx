@@ -25,6 +25,28 @@ const RESOLUTION_LABELS: Record<Quality, string> = {
   high: '1080p'
 };
 
+/**
+ * AI modify: a rounded frame with its top-right corner left open, and one diagonal
+ * stroke entering through that opening — editing the picture inside the frame.
+ */
+function AiModifyMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="w-[18px] h-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 24 24"
+    >
+      <path d="M14.4 4.6H7.6a3 3 0 0 0-3 3v8.8a3 3 0 0 0 3 3h8.8a3 3 0 0 0 3-3V9.6" />
+      <path d="M20.8 3.2 13.4 10.6" />
+    </svg>
+  );
+}
+
 export function ResultActions({
   videoUrl,
   quality,
@@ -167,7 +189,7 @@ export function ResultActions({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="flex-1 min-w-[9rem] inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-white bg-[#2f3033] hover:bg-[#1f2022] rounded-xl transition-all active:scale-95"
+                className="flex-1 min-w-[9rem] inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all active:scale-95"
               >
                 {t('result.downloadCurrent')}
               </button>
@@ -211,9 +233,9 @@ export function ResultActions({
             type="button"
             onClick={openDownload}
             disabled={isBusy || !videoUrl}
-            className="inline-flex items-center justify-center gap-2 h-10 px-5 text-sm font-medium text-white bg-[#2f3033] hover:bg-[#1f2022] rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-2 h-10 px-5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" />
             </svg>
             {t('result.downloadVideo')}
@@ -224,11 +246,9 @@ export function ResultActions({
             type="button"
             onClick={onAiModify}
             disabled={isBusy}
-            className="inline-flex items-center justify-center gap-2 h-10 px-3 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-2 h-10 px-3 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-full transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 19L15 9M14 5l.8 1.7L16.5 7.5 14.8 8.3 14 10l-.8-1.7L11.5 7.5l1.7-.8L14 5zM19 12l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5.5-1z" />
-            </svg>
+            <AiModifyMark />
             {t('result.aiModify')}
           </button>
         )}
@@ -237,9 +257,9 @@ export function ResultActions({
             type="button"
             onClick={() => setDialog('new')}
             disabled={isBusy}
-            className="inline-flex items-center justify-center gap-2 h-10 px-3 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-2 h-10 px-3 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-full transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
             </svg>
             {t('result.newContent')}

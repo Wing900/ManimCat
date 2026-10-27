@@ -14,6 +14,8 @@ interface CodeViewProps {
   showTitle?: boolean;
   toolbarPosition?: 'top' | 'bottom';
   codeFontSizePx?: number;
+  /** 是否在滚动内容底部显示毛玻璃渐隐遮罩（默认 false，不影响其他使用方） */
+  fadeBottom?: boolean;
   /**
    * 外部动作宿主：提供时编辑/复制按钮 portal 到该容器，本组件不再渲染工具栏行。
    * undefined = 未提供（默认内部渲染）；null = 宿主尚未挂载（暂不渲染）。
@@ -29,6 +31,7 @@ export const CodeView = memo(function CodeView({
   showTitle = true,
   toolbarPosition = 'top',
   codeFontSizePx = 12,
+  fadeBottom = false,
   actionsContainer
 }: CodeViewProps) {
   const { t } = useI18n();
@@ -129,15 +132,15 @@ export const CodeView = memo(function CodeView({
       {/* 代码区域 */}
       <div
         className={`min-h-0 flex-1 overflow-hidden ${
-          !hasExternalActions && toolbarPosition === 'bottom' ? 'order-1' : 'order-2'
-        }`}
+          fadeBottom ? 'relative' : ''
+        } ${!hasExternalActions && toolbarPosition === 'bottom' ? 'order-1' : 'order-2'}`}
       >
         {editable && isEditing ? (
           <textarea
             value={code}
             onChange={(event) => onChange?.(event.target.value)}
             className={textareaClassName}
-            style={{ fontSize: `${codeFontSizePx}px` }}
+            style={{ fontSize: `${codeFontSizePx}px`, paddingBottom: fadeBottom ? '3rem' : undefined }}
             disabled={disabled}
             spellCheck={false}
           />
@@ -148,7 +151,7 @@ export const CodeView = memo(function CodeView({
               style={isDark ? vscDarkPlus : oneLight}
               customStyle={{
                 margin: 0,
-                padding: '1rem',
+                padding: fadeBottom ? '1rem 1rem 3rem' : '1rem',
                 fontSize: `${codeFontSizePx}px`,
                 lineHeight: '1.6',
                 minHeight: '100%',
@@ -172,6 +175,21 @@ export const CodeView = memo(function CodeView({
               {code}
             </SyntaxHighlighter>
           </div>
+        )}
+
+        {fadeBottom && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-10 backdrop-blur-[2px]"
+            style={{
+              background:
+                'linear-gradient(to bottom, rgba(var(--bg-secondary-rgb), 0) 0%, rgba(var(--bg-secondary-rgb), 0.75) 60%, rgba(var(--bg-secondary-rgb), 1) 100%)',
+              maskImage:
+                'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.6) 55%, black 100%)',
+              WebkitMaskImage:
+                'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.6) 55%, black 100%)'
+            }}
+          />
         )}
       </div>
     </div>

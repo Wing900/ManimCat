@@ -119,6 +119,7 @@ export function CodeModal({
             onChange={onCodeChange}
             disabled={disabled}
             showTitle={false}
+            fadeBottom
             actionsContainer={actionsHost}
             codeFontSizePx={13}
           />
