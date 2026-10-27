@@ -21,8 +21,10 @@ const STAGE_CONFIG: Record<Stage, { key: TranslationKey; start: number; target: 
   analyzing:         { key: 'loading.analyzing', start: 4, target: 8 },
   designing:         { key: 'loading.designing', start: 8, target: 35 },
   generating:        { key: 'loading.generating', start: 35, target: 72 },
+  narrating:         { key: 'loading.narrating', start: 35, target: 72 },
   refining:          { key: 'loading.refining', start: 72, target: 82 },
   rendering:         { key: 'loading.rendering', start: 82, target: 96 },
+  muxing:            { key: 'loading.muxing', start: 96, target: 99 },
   retrying:          { key: 'loading.retrying', start: 92, target: 97 },
   'still-rendering': { key: 'loading.stillRendering', start: 96, target: 97 },
 };

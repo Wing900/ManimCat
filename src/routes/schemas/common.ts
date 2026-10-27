@@ -1,6 +1,14 @@
 import { z } from 'zod'
+import { DEFAULT_NARRATION_CONFIG } from '../../workflow/narration/types'
 
 export const qualitySchema = z.enum(['low', 'medium', 'high'])
+
+export const narrationConfigSchema = z.object({
+  enabled: z.boolean().default(DEFAULT_NARRATION_CONFIG.enabled),
+  voice: z.string().min(1).max(100).default(DEFAULT_NARRATION_CONFIG.voice),
+  // Same signed percent form Edge TTS consumes (e.g. +0%, -10%).
+  rate: z.string().min(1).max(20).regex(/^[+-]\d{1,3}%$/).default(DEFAULT_NARRATION_CONFIG.rate)
+})
 
 export const customApiConfigSchema = z.object({
   apiUrl: z.string(),
@@ -56,5 +64,6 @@ export const videoConfigSchema = z.object({
   quality: qualitySchema.optional(),
   frameRate: z.number().int().min(1).max(120).optional(),
   timeout: z.number().optional(),
-  bgm: z.boolean().optional()
+  bgm: z.boolean().optional(),
+  narration: narrationConfigSchema.optional()
 })

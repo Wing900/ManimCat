@@ -4,6 +4,11 @@ import { createLogger } from '../../../../shared/logging/logger'
 import { cleanManimCode } from '../../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../../utils/manim-executor'
 import { addBackgroundMusic } from '../../../manim/bgm-mixer'
+import {
+  cleanupNarrationWorkspace,
+  muxNarrationIntoVideo,
+  resolveNarrationWorkspace
+} from '../../../manim/narration-mixer'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { isJobCancelled } from '../../../job/job-cancel-store'
 import { storeJobStage } from '../../../../infrastructure/redis/job/redis-job-state-store'
@@ -27,6 +32,18 @@ import { executeRenderWithRetry } from './render-with-retry'
 import { extractCodeContext } from '../../../../workflow/code-retry/utils'
 
 const logger = createLogger('RenderVideoStep')
+
+function logNarrationSyncReport(jobId: string, syncReportPath: string | undefined): void {
+  if (!syncReportPath) {
+    return
+  }
+  try {
+    const report = JSON.parse(fs.readFileSync(syncReportPath, 'utf-8')) as unknown
+    logger.info('Narration sync report', { jobId, syncReportPath, report })
+  } catch (error) {
+    logger.warn('Narration sync report was not written', { jobId, syncReportPath, error: String(error) })
+  }
+}
 
 function writeVideoIntoWorkspace(workspaceDirectory: string | undefined, jobId: string, sourceVideoPath: string, versionDirectory?: string): string | undefined {
   if (!workspaceDirectory) {
@@ -75,6 +92,10 @@ export async function renderVideo(
   const mediaDir = cacheWorkspace.mediaDir
   const codeFile = cacheWorkspace.codeFile
   const outputDir = path.join(process.cwd(), 'public', 'videos')
+  const narrationWorkspace = codeResult.narration
+    ? resolveNarrationWorkspace(stableRenderCacheKey, jobId)
+    : undefined
+  const narrationSyncReportPath = narrationWorkspace?.syncReportPath
 
   const logRenderFailure = async (args: {
     attempt: number
@@ -155,7 +176,9 @@ export async function renderVideo(
       isCancelled: () => isJobCancelled(jobId),
       tempDir,
       mediaDir,
-      timeoutMs
+      timeoutMs,
+      narrationManifestPath: codeResult.narration?.manifestPath,
+      narrationSyncReportPath
     }
 
     const renderStart = Date.now()
@@ -196,6 +219,10 @@ export async function renderVideo(
     onRetryStart: async () => {
       await storeJobStage(jobId, 'retrying', { status: 'processing' })
     }
+  }).catch((error: unknown) => {
+    // A cancelled or failed render must not leave this run's narration sidecar behind.
+    cleanupNarrationWorkspace(narrationWorkspace?.outputDirectory)
+    throw error
   })
   const finalCode = usedAI ? retryResult.finalCode : lastRenderedCode
 
@@ -205,11 +232,24 @@ export async function renderVideo(
     throw new Error('Video file not found after render')
   }
 
+  if (codeResult.narration) {
+    await storeJobStage(jobId, 'muxing', { status: 'processing' })
+    const muxStart = Date.now()
+    await muxNarrationIntoVideo({
+      videoPath,
+      narration: codeResult.narration,
+      bgm: videoConfig?.bgm === true
+    })
+    timings.mux = (timings.mux || 0) + (Date.now() - muxStart)
+    logNarrationSyncReport(jobId, narrationSyncReportPath)
+  }
+
   const outputFilename = `${jobId}.mp4`
   const outputPath = path.join(outputDir, outputFilename)
   fs.copyFileSync(videoPath, outputPath)
 
-  if (videoConfig?.bgm === true) {
+  // Narration mux already folded BGM under the voice; only the silent path uses the legacy mixer.
+  if (videoConfig?.bgm === true && !codeResult.narration) {
     await addBackgroundMusic(outputPath)
   }
 

@@ -36,6 +36,8 @@ export interface TemplateVariables {
   outputMode?: 'video' | 'image'
   isImage?: boolean
   isVideo?: boolean
+  narrationEnabled?: boolean
+  narrationCuePlan?: string
 }
 
 /** 提示词覆盖配置 */
@@ -75,6 +77,12 @@ const ROLE_FILE_RELATIVE_PATHS: Record<RoleType, { system: string; user: string 
 const SHARED_FILE_RELATIVE_PATHS: Record<SharedModuleType, string> = {
   apiIndex: path.join('shared', 'api-index.md'),
   specification: path.join('shared', 'specification.md')
+}
+
+// Narration is a dedicated one-turn role, not a prompt-overridable workflow role.
+const NARRATION_FILE_RELATIVE_PATHS = {
+  system: path.join('narration', 'system.md'),
+  user: path.join('narration', 'user.md')
 }
 
 // ============================================================================
@@ -217,6 +225,11 @@ export function getRoleSystemPrompt(
   return assembleTemplate(basePrompt, {}, overrides)
 }
 
+export interface NarrationPromptVariables {
+  sceneDesign: string
+  cuePlan: string
+}
+
 /**
  * 获取角色的 user prompt（带变量替换）
  */
@@ -237,6 +250,25 @@ export function getRoleUserPrompt(
   return variables.plan && !/\{\{\s*plan\s*\}\}/.test(template)
     ? `${result}\n\nPlan:\n${variables.plan}`
     : result
+}
+
+/**
+ * Load the dedicated narration prompt pair. The templates are locale-specific and
+ * intentionally not exposed through PromptOverrides (the user never edits them).
+ */
+export function getNarrationPrompt(
+  locale: PromptLocale,
+  variables: NarrationPromptVariables
+): { system: string; user: string } {
+  const system = readTemplate(
+    resolveTemplateFile(NARRATION_FILE_RELATIVE_PATHS.system, locale)
+  ).trim()
+  let user = readTemplate(
+    resolveTemplateFile(NARRATION_FILE_RELATIVE_PATHS.user, locale)
+  )
+  user = replaceLiteral(user, '{{sceneDesign}}', variables.sceneDesign)
+  user = replaceLiteral(user, '{{cuePlan}}', variables.cuePlan)
+  return { system, user: user.trim() }
 }
 
 /**

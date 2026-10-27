@@ -2,6 +2,9 @@
  * 概念设计者服务 - 两阶段 AI 生成架构
  * 第一阶段：设计者/思考者 -> 场景设计
  * 第二阶段：代码生成者 -> Manim 代码
+ *
+ * 旁白开启时，场景设计阶段额外产出 cue plan；随后代码生成与旁白/TTS 两条 Promise 并行，
+ * 代码只引用 cue id，真实秒数由渲染 runtime 从后端 manifest 读取。
  */
 
 import OpenAI from 'openai'
@@ -10,6 +13,10 @@ import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage, Prob
 import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 import { generateSceneDesignStage } from './scene-design-stage'
 import { generateCodeFromDesignStage } from './code-from-design-stage'
+import type { CuePlan, NarrationAssets, NarrationConfig } from '../narration/types'
+import { parseCuePlan } from '../narration/cue-plan'
+import { generateNarrationStage } from '../narration/narration-stage'
+import { prepareNarration } from '../narration/prepare-narration'
 
 const logger = createLogger('ConceptDesigner')
 
@@ -20,14 +27,33 @@ const THINKING_TOKENS = parseInt(process.env.AI_THINKING_TOKENS || '20000', 10)
 const DESIGNER_MAX_TOKENS = parseInt(process.env.DESIGNER_MAX_TOKENS || '12000', 10)
 const DESIGNER_THINKING_TOKENS = parseInt(process.env.DESIGNER_THINKING_TOKENS || '20000', 10)
 
+/** Backend-resolved narration inputs. The frontend never supplies any of these paths. */
+export interface TwoStageNarrationOptions {
+  config: NarrationConfig
+  outputDirectory: string
+  signal?: AbortSignal
+  /** Called as soon as either parallel branch fails, so the other branch stops early. */
+  abort?: () => void
+}
+
+export interface TwoStageGenerationResult {
+  code: string
+  sceneDesign: string
+  narration?: NarrationAssets
+}
+
 function createCustomClient(config: CustomApiConfig): OpenAI {
   return createCustomOpenAIClient(config)
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 /**
  * 两阶段 AI 生成
- * 1. 设计者生成场景设计方案
- * 2. 代码生成者根据设计方案生成代码
+ * 1. 设计者生成场景设计方案（旁白开启时含 cue plan）
+ * 2. 代码生成者与旁白/TTS 并行
  */
 export async function generateTwoStageAIManimCode(
   concept: string,
@@ -37,12 +63,15 @@ export async function generateTwoStageAIManimCode(
   referenceImages?: ReferenceImage[],
   onCheckpoint?: () => Promise<void>,
   problemPlan?: ProblemFramingPlan,
-  onStage?: (stage: 'designing' | 'generating') => Promise<void>
-): Promise<{ code: string; sceneDesign: string }> {
+  onStage?: (stage: 'designing' | 'generating' | 'narrating') => Promise<void>,
+  narration?: TwoStageNarrationOptions
+): Promise<TwoStageGenerationResult> {
+  const narrationEnabled = Boolean(narration?.config.enabled)
   logger.info('开始两阶段 AI 生成流程', {
     concept,
     outputMode,
-    hasImages: !!referenceImages?.length
+    hasImages: !!referenceImages?.length,
+    narration: narrationEnabled
   })
 
   if (!customApiConfig) {
@@ -69,7 +98,8 @@ export async function generateTwoStageAIManimCode(
     designerTemperature: DESIGNER_TEMPERATURE,
     designerMaxTokens: DESIGNER_MAX_TOKENS,
     designerThinkingTokens: DESIGNER_THINKING_TOKENS,
-    onCheckpoint
+    onCheckpoint,
+    narrationConfig: narrationEnabled ? narration!.config : undefined
   })
 
   if (!sceneDesign) {
@@ -78,9 +108,18 @@ export async function generateTwoStageAIManimCode(
   }
   if (onCheckpoint) await onCheckpoint()
 
-  if (onStage) await onStage('generating')
+  let cuePlan: CuePlan | undefined
+  if (narrationEnabled) {
+    try {
+      cuePlan = parseCuePlan(sceneDesign)
+    } catch (error) {
+      throw new Error(`Narration cue plan is invalid: ${errorMessage(error)}`)
+    }
+  }
 
-  const code = await generateCodeFromDesignStage({
+  if (onStage) await onStage(narrationEnabled ? 'narrating' : 'generating')
+
+  const codePromise = generateCodeFromDesignStage({
     problemPlan,
     client,
     concept,
@@ -91,20 +130,65 @@ export async function generateTwoStageAIManimCode(
     coderTemperature: CODER_TEMPERATURE,
     maxTokens: MAX_TOKENS,
     thinkingTokens: THINKING_TOKENS,
-    onCheckpoint
+    onCheckpoint,
+    cuePlan
+  }).catch((error: unknown) => {
+    // Code generation has no signal; at least stop TTS so a doomed job stops spending network.
+    narration?.abort?.()
+    throw error
   })
 
+  const narrationPromise: Promise<NarrationAssets | undefined> = narrationEnabled
+    ? (async () => {
+        const plan = await generateNarrationStage({
+          client,
+          model,
+          sceneDesign,
+          cuePlan: cuePlan!,
+          config: narration!.config,
+          onCheckpoint
+        })
+        if (onCheckpoint) await onCheckpoint()
+        return prepareNarration({
+          plan,
+          outputDirectory: narration!.outputDirectory,
+          config: narration!.config,
+          signal: narration!.signal
+        })
+      })()
+    : Promise.resolve(undefined)
+
+  const [codeOutcome, narrationOutcome] = await Promise.allSettled([codePromise, narrationPromise])
+
+  if (codeOutcome.status === 'rejected') {
+    throw codeOutcome.reason
+  }
+
+  let narrationAssets: NarrationAssets | undefined
+  if (narrationEnabled) {
+    if (narrationOutcome.status === 'rejected') {
+      throw new Error(`Narration stage failed: ${errorMessage(narrationOutcome.reason)}`)
+    }
+    narrationAssets = narrationOutcome.value
+    if (!narrationAssets?.manifestPath || !narrationAssets.audioPath || !(narrationAssets.duration > 0)) {
+      throw new Error('Narration stage returned incomplete assets')
+    }
+  }
+
+  const code = codeOutcome.value
   logger.info('两阶段 AI 生成流程完成', {
     concept,
     hasSceneDesign: !!sceneDesign,
-    hasCode: !!code
+    hasCode: !!code,
+    hasNarration: !!narrationAssets,
+    narrationDuration: narrationAssets?.duration
   })
 
   if (!code || !code.trim()) {
     throw new Error('Code generation stage returned empty code')
   }
 
-  return { code, sceneDesign }
+  return { code, sceneDesign, narration: narrationAssets }
 }
 
 export function isOpenAIAvailable(): boolean {

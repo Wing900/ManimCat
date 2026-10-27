@@ -40,6 +40,13 @@ export interface PromptOverrides {
   shared?: Partial<Record<SharedModuleType, string>>;
 }
 
+/** 旁白配音配置。默认关闭；开启后由 Workflow 自动生成旁白并合轨。 */
+export interface NarrationConfig {
+  enabled: boolean;
+  voice: string;
+  rate: string;
+}
+
 /** 视频配置 */
 export interface VideoConfig {
   /** 默认质量 */
@@ -50,6 +57,8 @@ export interface VideoConfig {
   timeout?: number;
   /** 是否添加背景音乐 */
   bgm?: boolean;
+  /** 旁白配音 */
+  narration?: NarrationConfig;
 }
 
 /** 本地产品设置。连接凭据不再放这里，见 features/connection 的 manimcat_connection。 */
@@ -66,8 +75,10 @@ export type ProcessingStage =
   | 'analyzing'
   | 'designing'
   | 'generating'
+  | 'narrating'
   | 'refining'
   | 'rendering'
+  | 'muxing'
   | 'retrying'
   | 'still-rendering';
 

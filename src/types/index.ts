@@ -2,6 +2,10 @@
  * Shared application types.
  */
 
+import type { NarrationConfig } from '../workflow/narration/types'
+
+export type { NarrationConfig } from '../workflow/narration/types'
+
 export type VideoQuality = 'low' | 'medium' | 'high'
 export type OutputMode = 'video' | 'image'
 export type PromptLocale = 'zh-CN' | 'en-US'
@@ -14,6 +18,8 @@ export interface VideoConfig {
   frameRate: number
   timeout?: number
   bgm?: boolean
+  /** Opt-in narration. The workflow generates and muxes it automatically. */
+  narration?: NarrationConfig
 }
 
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
@@ -22,8 +28,10 @@ export type ProcessingStage =
   | 'analyzing'
   | 'designing'
   | 'generating'
+  | 'narrating'
   | 'refining'
   | 'rendering'
+  | 'muxing'
   | 'retrying'
   | 'still-rendering'
 

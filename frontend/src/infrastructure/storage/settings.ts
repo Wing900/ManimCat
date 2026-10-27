@@ -1,4 +1,4 @@
-import type { SettingsConfig, VideoConfig } from '../../shared/types/api';
+import type { NarrationConfig, SettingsConfig, VideoConfig } from '../../shared/types/api';
 
 const SETTINGS_KEY = 'manimcat_settings';
 const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
@@ -6,20 +6,60 @@ const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
 // object; only product settings (video, and future appearance) live here.
 // v5: background music became opt-in; videos are silent unless the user enables it.
 // v7: the default quality moved from 1080p (high) to 720p (medium); frame rate stays 60.
-const SETTINGS_VERSION = '7';
+// v8: narration is opt-in and defaults to off; existing quality/frame rate/BGM are preserved.
+const SETTINGS_VERSION = '8';
+
+/** Voice options offered by the settings UI. */
+export const NARRATION_VOICES = [
+  'zh-CN-XiaoxiaoNeural',
+  'zh-CN-YunxiNeural',
+  'en-US-JennyNeural',
+  'en-US-GuyNeural'
+] as const;
+
+/** Rate options offered by the settings UI. */
+export const NARRATION_RATES = ['-10%', '+0%', '+20%'] as const;
+
+export const DEFAULT_NARRATION: NarrationConfig = {
+  enabled: false,
+  voice: 'zh-CN-XiaoxiaoNeural',
+  rate: '+0%'
+};
 
 export const DEFAULT_SETTINGS: SettingsConfig = {
   video: {
     quality: 'medium',
     frameRate: 60,
     timeout: 1200,
-    bgm: false
+    bgm: false,
+    narration: { ...DEFAULT_NARRATION }
   }
 };
 
 function createDefaultSettings(): SettingsConfig {
   return {
-    video: { ...DEFAULT_SETTINGS.video }
+    video: { ...DEFAULT_SETTINGS.video, narration: { ...DEFAULT_NARRATION } }
+  };
+}
+
+function isNarrationVoice(value: unknown): value is (typeof NARRATION_VOICES)[number] {
+  return typeof value === 'string' && (NARRATION_VOICES as readonly string[]).includes(value);
+}
+
+function isNarrationRate(value: unknown): value is (typeof NARRATION_RATES)[number] {
+  return typeof value === 'string' && (NARRATION_RATES as readonly string[]).includes(value);
+}
+
+function sanitizeNarration(raw: unknown): NarrationConfig {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_NARRATION };
+  }
+
+  const parsed = raw as Partial<NarrationConfig>;
+  return {
+    enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : DEFAULT_NARRATION.enabled,
+    voice: isNarrationVoice(parsed.voice) ? parsed.voice : DEFAULT_NARRATION.voice,
+    rate: isNarrationRate(parsed.rate) ? parsed.rate : DEFAULT_NARRATION.rate
   };
 }
 
@@ -39,7 +79,8 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
       quality: quality === 'low' || quality === 'medium' || quality === 'high' ? quality : DEFAULT_SETTINGS.video.quality,
       frameRate: typeof frameRate === 'number' ? frameRate : DEFAULT_SETTINGS.video.frameRate,
       timeout: typeof timeout === 'number' ? timeout : DEFAULT_SETTINGS.video.timeout,
-      bgm: typeof bgm === 'boolean' ? bgm : DEFAULT_SETTINGS.video.bgm
+      bgm: typeof bgm === 'boolean' ? bgm : DEFAULT_SETTINGS.video.bgm,
+      narration: sanitizeNarration(parsed.video?.narration)
     }
   };
 }

@@ -59,4 +59,22 @@ describe('LoadingSpinner stage history', () => {
     expect(screen.queryByText('Queued')).not.toBeInTheDocument()
     expect(screen.getByText('Designing')).toBeInTheDocument()
   })
+
+  it('renders narration and muxing progress labels', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <LoadingSpinner stage="narrating" />
+      </I18nProvider>,
+    )
+
+    expect(screen.getByText('Preparing narration...')).toBeInTheDocument()
+
+    rerender(
+      <I18nProvider>
+        <LoadingSpinner stage="muxing" />
+      </I18nProvider>,
+    )
+
+    expect(screen.getByText('Muxing audio...')).toBeInTheDocument()
+  })
 })

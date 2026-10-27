@@ -32,6 +32,8 @@ export function buildManimGxCommand(codeFile: string, options: NormalizedExecute
       '--width', String(resolution.width),
       '--height', String(resolution.height),
       '--fps', String(options.frameRate),
+      ...(options.narrationManifestPath ? [`--narration=${path.resolve(options.narrationManifestPath)}`] : []),
+      ...(options.narrationSyncReportPath ? [`--sync-report=${path.resolve(options.narrationSyncReportPath)}`] : []),
     ],
   }
 }

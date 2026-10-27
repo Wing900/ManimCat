@@ -76,6 +76,8 @@ COPY --from=node_builder /app/data ./data
 COPY --from=node_builder /app/src/prompts/templates ./src/prompts/templates
 COPY --from=node_builder /app/src/studio-agent/prompts/templates ./src/studio-agent/prompts/templates
 COPY --from=node_builder /app/src/rendering/manim/manimgx-runner.py ./src/rendering/manim/manimgx-runner.py
+COPY --from=node_builder /app/src/rendering/manim/narration_runtime.py ./src/rendering/manim/narration_runtime.py
+COPY --from=node_builder /app/src/rendering/manim/edge_tts_worker.py ./src/rendering/manim/edge_tts_worker.py
 COPY --from=audio_assets /tracks ./src/audio/tracks
 COPY start-with-redis-hf.cjs ./
 

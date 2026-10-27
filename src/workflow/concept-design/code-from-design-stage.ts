@@ -13,6 +13,8 @@ import { createChatCompletionText } from '../openai-stream'
 import { buildTokenParams } from '../../utils/reasoning-model'
 import { JobCancelledError } from '../../shared/errors/errors'
 import { executeAiStageWithTransportRetry } from '../ai-stage-transport-retry'
+import { parseCuePlan, stripCuePlan } from '../narration/cue-plan'
+import type { CuePlan } from '../narration/types'
 
 const logger = createLogger('CodeFromDesignStage')
 const TRANSPORT_MAX_ATTEMPTS = parseInt(process.env.CODE_GENERATION_TRANSPORT_ATTEMPTS || '2', 10)
@@ -28,6 +30,8 @@ interface CodeFromDesignStageParams {
   coderTemperature: number
   maxTokens: number
   thinkingTokens: number
+  /** Fixed cue IDs for narration sync. Runtime injects the helpers; no seconds here. */
+  cuePlan?: CuePlan
   onCheckpoint?: () => Promise<void>
 }
 
@@ -50,14 +54,27 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
   } = params
 
   try {
+    // The storyboard may carry the narration block; the coder reads it as cue IDs,
+    // never as duplicated raw JSON inside the four storyboard sections.
+    const cuePlan = params.cuePlan
+      ?? (/<cue_plan>/i.test(sceneDesign) ? parseCuePlan(sceneDesign) : undefined)
+    const coderSceneDesign = cuePlan ? stripCuePlan(sceneDesign) : sceneDesign
     const seed = generateUniqueSeed(`${concept}-${sceneDesign.slice(0, 20)}`)
     const systemPrompt = getRoleSystemPrompt('codeGeneration', promptOverrides)
     const userPrompt = getRoleUserPrompt('codeGeneration', {
-      concept, seed, sceneDesign, outputMode, plan: formatProblemFramingPlan(params.problemPlan),
+      concept, seed, sceneDesign: coderSceneDesign, outputMode, plan: formatProblemFramingPlan(params.problemPlan),
       isVideo: outputMode === 'video', isImage: outputMode === 'image',
+      narrationEnabled: !!cuePlan,
+      narrationCuePlan: cuePlan ? JSON.stringify(cuePlan, null, 2) : undefined,
     }, promptOverrides)
 
-    logger.info('开始阶段2：根据设计方案生成代码', { concept, outputMode, seed })
+    logger.info('开始阶段2：根据设计方案生成代码', {
+      concept,
+      outputMode,
+      seed,
+      narrationEnabled: !!cuePlan,
+      cues: cuePlan ? cuePlan.segments.reduce((total, segment) => total + segment.cues.length, 0) : 0
+    })
     const { content, mode, response } = await executeAiStageWithTransportRetry(
       (attempt) => createChatCompletionText(
         client,

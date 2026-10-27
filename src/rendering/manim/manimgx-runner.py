@@ -100,9 +100,23 @@ def main() -> None:
     parser.add_argument("--width", required=True, type=positive_int)
     parser.add_argument("--height", required=True, type=positive_int)
     parser.add_argument("--fps", required=True, type=positive_int)
+    parser.add_argument(
+        "--narration",
+        type=Path,
+        help="narration manifest JSON; enables cue/play_until/narration_end",
+    )
+    parser.add_argument(
+        "--sync-report",
+        type=Path,
+        help="write the narration sync report JSON (required with --narration)",
+    )
     args = parser.parse_args()
     if args.format == "mp4" and (args.width % 2 or args.height % 2):
         parser.error("MP4 dimensions must be even")
+    if (args.narration is None) != (args.sync_report is None):
+        parser.error("--narration and --sync-report must be given together")
+    if args.narration is not None and args.format != "mp4":
+        parser.error("--narration is only meaningful for --format mp4")
     output = args.output.resolve()
     if output.suffix != f".{args.format}":
         parser.error("output extension must match --format")
@@ -116,19 +130,61 @@ def main() -> None:
     m.config.pixel_width, m.config.pixel_height = args.width, args.height
     m.config.frame_rate = args.fps
     scene = kind()
+
+    runtime = None
+    report_path = None
+    narration_path = None
+    if args.narration is not None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from narration_runtime import NarrationRuntime, write_error_report
+
+        narration_path = args.narration.resolve()
+        report_path = args.sync_report.resolve()
+        try:
+            runtime = NarrationRuntime(narration_path, args.fps)
+            runtime.attach(scene)
+        except BaseException as exc:
+            write_error_report(report_path, narration_path, args.fps, exc)
+            raise
+
     try:
         if args.format == "png":
             render_png(scene, output, (args.width, args.height))
         else:
             # Match the upstream speed benchmark's encoder settings. No storyboard
             # is generated as a side effect of a production render.
-            film = scene.render(str(output), preset="ultrafast", crf=23)
+            film = scene.render(
+                str(output),
+                preset="ultrafast",
+                crf=23,
+                plays=runtime.on_play if runtime is not None else None,
+            )
             subtitles = film.subtitles()
             if subtitles:
                 output.with_suffix(".srt").write_text(subtitles, encoding="utf-8")
-    except BaseException:
+            if not output.is_file() or output.stat().st_size == 0:
+                raise RuntimeError(f"ManimGX produced no {args.format.upper()} output")
+            if runtime is not None:
+                runtime.finish(film, output)
+    except BaseException as exc:
+        if runtime is not None:
+            runtime.fail(exc)
         output.unlink(missing_ok=True)
         raise
+    finally:
+        if runtime is not None and report_path is not None:
+            try:
+                runtime.write_report(report_path)
+            except BaseException as report_error:
+                # Never hide a render failure behind a report failure.
+                print(
+                    f"ManimGX: cannot write narration sync report {report_path}: "
+                    f"{type(report_error).__name__}: {report_error}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                if sys.exc_info()[0] is None:
+                    raise
     if not output.is_file() or output.stat().st_size == 0:
         raise RuntimeError(f"ManimGX produced no {args.format.upper()} output")
     print(f"ManimGX: {output} (rendered in {perf_counter() - started:.3f}s)", flush=True)

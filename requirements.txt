@@ -1,2 +1,5 @@
 manimgx==0.1.1
 matplotlib==3.10.8
+# Narration V1: WordBoundary support and current Edge DRM token handling.
+# Verified on Python 3.12.1 and 3.13.11; 7.2.8 received 403 in this environment.
+edge-tts==7.3.1

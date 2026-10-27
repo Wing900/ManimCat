@@ -7,6 +7,7 @@
 export {
   getRoleSystemPrompt,
   getRoleUserPrompt,
+  getNarrationPrompt,
   getSharedModule,
   getAllDefaultTemplates,
   clearTemplateCache,
@@ -14,6 +15,7 @@ export {
   type RoleType,
   type SharedModuleType,
   type TemplateVariables,
+  type NarrationPromptVariables,
   type PromptOverrides
 } from './loader'
 

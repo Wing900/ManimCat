@@ -14,11 +14,15 @@ function getStageTitle(stage: ProcessingStage, t: ReturnType<typeof useI18n>['t'
       return t('tab.stage.designing');
     case 'generating':
       return t('tab.stage.generating');
+    case 'narrating':
+      return t('tab.stage.narrating');
     case 'refining':
       return t('tab.stage.refining');
     case 'rendering':
     case 'still-rendering':
       return t('tab.stage.rendering');
+    case 'muxing':
+      return t('tab.stage.muxing');
     case 'retrying':
       return t('tab.stage.retrying');
     default:

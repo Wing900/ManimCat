@@ -1,5 +1,6 @@
 import { generateEditedManimCode } from '../../../workflow/code-edit/code-edit'
 import { ensureJobNotCancelled } from '../../job/job-cancel'
+import { resolveNarrationConfig, resolveNarrationWorkspace } from '../../manim/narration-mixer'
 import { analyzeAndGenerate } from './steps/analysis-step'
 import { handlePreGeneratedCode, renderImages, renderVideo } from './steps/render-step'
 import { storeResult } from './steps/storage-step'
@@ -138,6 +139,16 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
 
   await ensureJobNotCancelled(jobId, job)
 
+  // Narration is a video-only, opt-in sidecar. Images and disabled configs must not touch TTS.
+  const narrationConfig = resolveNarrationConfig(data.videoConfig, outputMode)
+  const narrationCacheKey = data.renderCacheKey || data.workspaceDirectory || `job-${jobId}`
+  const narration = narrationConfig
+    ? {
+        config: narrationConfig,
+        outputDirectory: resolveNarrationWorkspace(narrationCacheKey, jobId).outputDirectory
+      }
+    : undefined
+
   const codeResult = await analyzeAndGenerate(
     jobId,
     concept,
@@ -147,7 +158,8 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
     data.customApiConfig,
     promptOverrides,
     referenceImages,
-    data.problemPlan
+    data.problemPlan,
+    narration
   )
 
   await ensureJobNotCancelled(jobId, job)

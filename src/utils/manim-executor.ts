@@ -40,6 +40,10 @@ export interface ManimExecuteOptions {
   tempDir: string
   mediaDir: string
   timeoutMs?: number
+  /** Server-generated narration manifest; only set when this video has a narration sidecar. */
+  narrationManifestPath?: string
+  /** Server-generated path where the runtime records measured cue timestamps. */
+  narrationSyncReportPath?: string
   /** Injected queue marker reader, so the executor stays independent of Redis. */
   isCancelled?: () => Promise<boolean>
 }

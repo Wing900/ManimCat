@@ -15,6 +15,8 @@ import {
 import { createChatCompletionText } from '../openai-stream'
 import { buildTokenParams } from '../../utils/reasoning-model'
 import { JobCancelledError } from '../../shared/errors/errors'
+import { NarrationCuePlanError, parseCuePlan } from '../narration/cue-plan'
+import type { NarrationConfig } from '../narration/types'
 
 const logger = createLogger('SceneDesignStage')
 
@@ -29,6 +31,8 @@ interface SceneDesignStageParams {
   designerTemperature: number
   designerMaxTokens: number
   designerThinkingTokens: number
+  /** Enables the extra <cue_plan> block for Workflow video narration. */
+  narrationConfig?: NarrationConfig
   onCheckpoint?: () => Promise<void>
 }
 
@@ -45,6 +49,8 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
     designerThinkingTokens,
     onCheckpoint
   } = params
+  // Narration is a Workflow-video feature; image mode never asks for cues.
+  const narrationEnabled = params.narrationConfig?.enabled === true && outputMode === 'video'
 
   try {
     const seed = generateUniqueSeed(concept)
@@ -52,6 +58,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
     const userPrompt = getRoleUserPrompt('conceptDesigner', {
       concept, seed, outputMode, plan: formatProblemFramingPlan(params.problemPlan),
       isVideo: outputMode === 'video', isImage: outputMode === 'image',
+      narrationEnabled,
     }, promptOverrides)
 
     logger.info('开始阶段1：生成场景设计方案', {
@@ -144,6 +151,17 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
       throw new Error('Scene design stage produced empty design after cleaning')
     }
 
+    if (narrationEnabled) {
+      // Fail here rather than handing a malformed cue contract to TTS or the runtime.
+      const cuePlan = parseCuePlan(cleanedDesign.text)
+      logger.info('分镜 cue 计划解析成功', {
+        concept,
+        seed,
+        segments: cuePlan.segments.length,
+        cues: cuePlan.segments.reduce((total, segment) => total + segment.cues.length, 0)
+      })
+    }
+
     logger.info('阶段1：场景设计方案生成成功', {
       concept,
       seed,
@@ -158,6 +176,11 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
         concept,
         reason: error.details
       })
+      throw error
+    }
+
+    if (error instanceof NarrationCuePlanError) {
+      logger.error('分镜 cue 计划无效', { concept, error: error.message })
       throw error
     }
 

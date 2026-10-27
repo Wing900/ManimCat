@@ -29,6 +29,8 @@ export interface NormalizedExecuteOptions {
   tempDir: string
   mediaDir: string
   timeoutMs: number
+  narrationManifestPath?: string
+  narrationSyncReportPath?: string
 }
 
 export interface ExecutionState {
@@ -49,7 +51,9 @@ export function normalizeExecuteOptions(options: ManimExecuteOptions): Normalize
     sceneName: options.sceneName,
     tempDir: options.tempDir,
     mediaDir: options.mediaDir,
-    timeoutMs: options.timeoutMs ?? 10 * 60 * 1000
+    timeoutMs: options.timeoutMs ?? 10 * 60 * 1000,
+    narrationManifestPath: options.narrationManifestPath,
+    narrationSyncReportPath: options.narrationSyncReportPath
   }
 }
 

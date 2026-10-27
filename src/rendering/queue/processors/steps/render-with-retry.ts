@@ -83,6 +83,11 @@ export async function executeRenderWithRetry(args: ExecuteRenderWithRetryArgs): 
     }
 
     if (!retryManagerResult.success) {
+      // A cancelled render is not a code failure. Re-raise the job's cancellation with its
+      // original JobCancelledError instead of the retry manager's wrapped diagnostic.
+      if (retryManagerResult.failureCategory === 'cancelled') {
+        await ensureJobNotCancelled?.()
+      }
       const failurePrefix = retryManagerResult.retrySkipped
         ? `AI retry skipped for ${retryManagerResult.failureCategory || 'operational'} failure`
         : `Code retry failed after ${retryManagerResult.attempts} attempts`
