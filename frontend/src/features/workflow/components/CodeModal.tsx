@@ -41,6 +41,7 @@ export function CodeModal({
   const { shouldRender, isExiting } = useModalTransition(isOpen);
   const [quality, setQuality] = useState<Quality>(defaultQuality);
   const [frameRate, setFrameRate] = useState<number>(defaultFrameRate);
+  const [actionsHost, setActionsHost] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -118,7 +119,7 @@ export function CodeModal({
             onChange={onCodeChange}
             disabled={disabled}
             showTitle={false}
-            toolbarPosition="bottom"
+            actionsContainer={actionsHost}
             codeFontSizePx={13}
           />
         </div>
@@ -146,14 +147,17 @@ export function CodeModal({
               className="w-full text-sm [&_button]:text-sm sm:w-40"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => onRerender(quality, frameRate)}
-            disabled={disabled || !code.trim()}
-            className="self-end whitespace-nowrap rounded-full bg-accent px-6 py-3.5 text-sm font-medium text-white shadow-sm shadow-accent/20 transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t('result.rerender')}
-          </button>
+          <div className="flex w-full flex-wrap items-center justify-end gap-3 self-stretch sm:w-auto sm:self-end">
+            <div ref={setActionsHost} className="flex items-center gap-3" />
+            <button
+              type="button"
+              onClick={() => onRerender(quality, frameRate)}
+              disabled={disabled || !code.trim()}
+              className="self-center whitespace-nowrap rounded-full bg-accent px-6 h-12 text-sm font-medium text-white shadow-sm shadow-accent/20 transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('result.rerender')}
+            </button>
+          </div>
         </div>
       </div>
     </div>,

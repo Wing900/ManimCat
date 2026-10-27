@@ -61,13 +61,27 @@ export function ResultActions({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dialog]);
 
+  const triggerDownload = () => {
+    if (!videoUrl) return;
+    const a = document.createElement('a');
+    a.href = videoUrl;
+    a.download = `manim-animation-${new Date().toISOString().slice(0, 10)}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   const openDownload = () => {
     if (!videoUrl || isBusy) return;
+    if (quality === 'high') {
+      triggerDownload();
+      return;
+    }
     setDialog('download');
   };
 
   const handleDownload = () => {
-    if (!videoUrl) return;
+    triggerDownload();
     setDialog(null);
   };
 
@@ -150,14 +164,13 @@ export function ResultActions({
                   {t('result.renderHigher')}
                 </button>
               )}
-              <a
-                href={videoUrl}
-                download
+              <button
+                type="button"
                 onClick={handleDownload}
-                className="flex-1 min-w-[9rem] inline-flex items-center justify-center py-3 px-5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all active:scale-95 shadow-sm shadow-accent/20"
+                className="flex-1 min-w-[9rem] inline-flex items-center justify-center h-10 px-5 text-sm font-medium text-white bg-[#2f3033] hover:bg-[#1f2022] rounded-xl transition-all active:scale-95"
               >
                 {t('result.downloadCurrent')}
-              </a>
+              </button>
             </div>
           </>
         ) : (
@@ -192,14 +205,17 @@ export function ResultActions({
 
   return (
     <>
-      <div className="mt-5 mb-3 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-5 mb-3 flex flex-wrap items-center justify-center gap-4">
         {outputMode === 'video' && (
           <button
             type="button"
             onClick={openDownload}
             disabled={isBusy || !videoUrl}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-accent/20"
+            className="inline-flex items-center justify-center gap-2 h-10 px-5 text-sm font-medium text-white bg-[#2f3033] hover:bg-[#1f2022] rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" />
+            </svg>
             {t('result.downloadVideo')}
           </button>
         )}
@@ -208,8 +224,11 @@ export function ResultActions({
             type="button"
             onClick={onAiModify}
             disabled={isBusy}
-            className="px-5 py-2.5 text-sm font-medium text-text-primary bg-bg-secondary hover:bg-bg-tertiary border border-border/10 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-2 h-10 px-3 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 19L15 9M14 5l.8 1.7L16.5 7.5 14.8 8.3 14 10l-.8-1.7L11.5 7.5l1.7-.8L14 5zM19 12l.5 1 1 .5-1 .5-.5 1-.5-1-1-.5 1-.5.5-1z" />
+            </svg>
             {t('result.aiModify')}
           </button>
         )}
@@ -218,8 +237,11 @@ export function ResultActions({
             type="button"
             onClick={() => setDialog('new')}
             disabled={isBusy}
-            className="px-5 py-2.5 text-sm text-text-secondary hover:text-text-primary border border-border/10 hover:bg-bg-secondary/50 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center gap-2 h-10 px-3 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+            </svg>
             {t('result.newContent')}
           </button>
         )}
