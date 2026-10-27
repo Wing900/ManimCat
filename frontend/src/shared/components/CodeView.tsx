@@ -11,6 +11,7 @@ interface CodeViewProps {
   onChange?: (value: string) => void;
   disabled?: boolean;
   showTitle?: boolean;
+  headerLabel?: string;
   codeFontSizePx?: number;
 }
 
@@ -20,6 +21,7 @@ export const CodeView = memo(function CodeView({
   onChange,
   disabled = false,
   showTitle = true,
+  headerLabel,
   codeFontSizePx = 12
 }: CodeViewProps) {
   const { t } = useI18n();
@@ -66,17 +68,19 @@ export const CodeView = memo(function CodeView({
   return (
     <div className="h-full flex flex-col bg-bg-secondary/30 rounded-2xl overflow-hidden">
       {/* 顶部工具栏 */}
-      <div className={`flex items-center px-4 py-2.5 ${showTitle ? 'justify-between' : 'justify-end'}`}>
-        {showTitle && (
+      <div className={`flex items-center px-4 py-2.5 ${showTitle || headerLabel ? 'justify-between' : 'justify-end'}`}>
+        {showTitle ? (
           <h3 className="text-xs font-medium text-text-secondary/80 uppercase tracking-wide">{t('codeView.title')}</h3>
-        )}
+        ) : headerLabel ? (
+          <span className="text-xs text-text-secondary">{headerLabel}</span>
+        ) : null}
         <div className="flex items-center gap-3">
           {editable && (
             <button
               onClick={() => setIsEditing((prev) => !prev)}
-            disabled={disabled}
-            className="text-sm text-text-secondary/70 hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+              disabled={disabled}
+              className="text-sm text-text-secondary/70 hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {isEditing ? t('common.preview') : t('common.edit')}
             </button>
           )}

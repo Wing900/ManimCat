@@ -90,14 +90,14 @@ export function CodeModal({
         role="dialog"
         aria-modal="true"
         aria-label={t('codeView.title')}
-        className={`relative flex h-[80dvh] w-full max-w-5xl flex-col rounded-[2.5rem] border border-border/5 bg-bg-secondary p-5 shadow-2xl sm:p-8 ${
+        className={`relative flex h-[80dvh] w-full max-w-5xl flex-col rounded-[2.5rem] border border-border/5 bg-bg-secondary p-5 shadow-2xl sm:p-7 ${
           isExiting ? 'animate-modal-pop-out' : 'animate-modal-pop-in'
         }`}
       >
         <div className="flex shrink-0 items-center justify-between pb-4">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-accent-rgb/40 animate-pulse" />
-            <h2 className="text-lg font-medium text-text-primary tracking-tight">{t('codeView.title')}</h2>
+            <h2 className="text-lg font-medium text-text-primary">{t('codeView.title')}</h2>
           </div>
           <button
             type="button"
@@ -118,11 +118,12 @@ export function CodeModal({
             onChange={onCodeChange}
             disabled={disabled}
             showTitle={false}
+            headerLabel="MainScene.py"
             codeFontSizePx={13}
           />
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3 pt-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mt-5 flex shrink-0 flex-col gap-3 pb-1 pt-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <CustomSelect
               options={options}
@@ -147,7 +148,7 @@ export function CodeModal({
             type="button"
             onClick={() => onRerender(quality, frameRate)}
             disabled={disabled || !code.trim()}
-            className="self-end px-6 py-3 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-accent/20"
+            className="self-end whitespace-nowrap rounded-full bg-accent px-6 py-3.5 text-sm font-medium text-white shadow-sm shadow-accent/20 transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t('result.rerender')}
           </button>

@@ -216,8 +216,6 @@ function ResultContent({
   onAiModifyOpen,
   onResetAll,
 }: ResultContentProps) {
-  const { t } = useI18n();
-
   return (
     <div
       className="max-w-3xl mx-auto space-y-4 animate-fade-in"
@@ -230,25 +228,15 @@ function ResultContent({
         outputMode={result.output_mode || lastRequest?.outputMode || 'video'}
         videoUrl={result.video_url || ''}
         imageUrls={result.image_urls || []}
-        usedAI={result.used_ai || false}
         renderQuality={result.render_quality || ''}
-        generationType={result.generation_type || ''}
         quality={lastRequest?.quality}
         frameRate={lastRequest?.videoConfig?.frameRate}
         onCodeChange={onCodeChange}
         onRerender={onRerender}
         onAiModify={onAiModifyOpen}
+        onNewContent={onResetAll}
         isBusy={isBusy}
       />
-
-      <div className="text-center">
-        <button
-          onClick={onResetAll}
-          className="px-5 py-2 text-xs text-text-secondary/80 hover:text-accent transition-colors bg-bg-secondary/30 hover:bg-bg-secondary/50 rounded-full"
-        >
-          {t('result.newContent')}
-        </button>
-      </div>
     </div>
   );
 }

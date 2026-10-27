@@ -103,7 +103,7 @@ export function StudioPage({
       <TopRightActions onOpenPromptSettings={onOpenPromptSettings} onOpenSettings={onOpenSettings} />
 
       <div
-        className={`mx-auto px-4 min-h-screen flex flex-col ${isCompleted ? 'max-w-3xl justify-start' : 'max-w-4xl justify-center'} ${returningHome ? 'page-slide-in' : ''}`}
+        className={`mx-auto px-4 min-h-screen min-h-dvh flex flex-col ${isCompleted ? 'max-w-3xl justify-center' : 'max-w-4xl justify-center'} ${returningHome ? 'page-slide-in' : ''}`}
         style={isCompleted ? { paddingTop: '4rem', paddingBottom: '4rem' } : { paddingTop: '18vh', paddingBottom: '12vh' }}
       >
         {!isCompleted && (

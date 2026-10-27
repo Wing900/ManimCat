@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { ImagePreview } from './ImagePreview';
 import { VideoPreview } from './VideoPreview';
 import { CodeModal } from './CodeModal';
+import { ResultActions } from './ResultActions';
 import type { OutputMode, Quality } from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n/index';
 
@@ -13,14 +14,13 @@ interface ResultSectionProps {
   outputMode: OutputMode;
   videoUrl: string;
   imageUrls: string[];
-  usedAI: boolean;
   renderQuality: string;
-  generationType: string;
   quality?: Quality;
   frameRate?: number;
   onCodeChange?: (code: string) => void;
   onRerender?: (quality?: Quality, frameRate?: number) => void;
   onAiModify?: () => void;
+  onNewContent?: () => void;
   isBusy?: boolean;
 }
 
@@ -29,22 +29,25 @@ export const ResultSection = memo(function ResultSection({
   outputMode,
   videoUrl,
   imageUrls,
-  usedAI,
   renderQuality,
-  generationType,
   quality,
   frameRate,
   onCodeChange,
   onRerender,
   onAiModify,
+  onNewContent,
   isBusy = false
 }: ResultSectionProps) {
   const { t } = useI18n();
-  const hasActions = Boolean(onAiModify);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const effectiveQuality: Quality = (
+    renderQuality === 'low' || renderQuality === 'medium' || renderQuality === 'high'
+      ? renderQuality
+      : (quality ?? 'medium')
+  );
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4">
+    <div className="w-full max-w-3xl mx-auto">
       {/* 结果预览 */}
       <div className="w-full">
         {outputMode === 'image' ? (
@@ -56,25 +59,17 @@ export const ResultSection = memo(function ResultSection({
         )}
       </div>
 
-      {/* 底部信息栏 + 操作按钮 */}
-      <div className="flex items-center justify-between border-t border-border/40 pt-3 px-1">
-        <p className="text-xs text-text-secondary/60">
-          {outputMode} · {generationType}{usedAI ? ' (AI)' : ''} · {renderQuality}
-        </p>
-        {hasActions && (
-          <div className="flex items-center gap-2.5">
-            {onAiModify && (
-              <button
-                onClick={onAiModify}
-                disabled={isBusy}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-accent/20"
-              >
-                {t('result.aiModify')}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      {/* 主操作区 */}
+      <ResultActions
+        videoUrl={videoUrl}
+        quality={effectiveQuality}
+        frameRate={frameRate}
+        outputMode={outputMode}
+        isBusy={isBusy}
+        onAiModify={onAiModify}
+        onNewContent={onNewContent}
+        onRerender={onRerender}
+      />
 
       {/* 代码悬浮入口 */}
       {!codeModalOpen && createPortal(
@@ -95,7 +90,7 @@ export const ResultSection = memo(function ResultSection({
       <CodeModal
         isOpen={codeModalOpen}
         code={code}
-        defaultQuality={quality ?? 'medium'}
+        defaultQuality={effectiveQuality}
         defaultFrameRate={frameRate ?? 60}
         disabled={isBusy}
         onCodeChange={onCodeChange}
