@@ -60,7 +60,7 @@ export function CustomSelect<T = string>({
         className={
           isStacked
             ? 'text-xs font-medium text-text-secondary/80'
-            : 'absolute left-3 -top-2 px-1.5 bg-bg-primary text-xs font-medium text-text-secondary'
+            : 'absolute z-10 left-3 -top-2 px-1.5 bg-bg-primary text-xs font-medium text-text-secondary'
         }
       >
         {label}
