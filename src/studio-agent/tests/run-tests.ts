@@ -24,6 +24,8 @@ import { runRenderCancellationTests } from './run-tests/render-cancellation.test
 import { runRenderMediaHandoffTests } from './run-tests/render-media-handoff.test'
 import { runSceneSourceMaterializationTests } from './run-tests/scene-source-materialization.test'
 import { runStudioWorkspaceCleanupTests } from './run-tests/studio-workspace-cleanup.test'
+import { runContextCompactionTests } from './run-tests/context-compaction.test'
+import { runSceneConversationReplayTests } from './run-tests/scene-conversation-replay.test'
 
 async function main() {
   await runPromptTests()
@@ -52,6 +54,8 @@ async function main() {
   await runSceneSourceMaterializationTests()
   await runRenderCancellationTests()
   await runStudioWorkspaceCleanupTests()
+  await runSceneConversationReplayTests()
+  await runContextCompactionTests()
   console.log('All studio-agent tests passed')
 }
 

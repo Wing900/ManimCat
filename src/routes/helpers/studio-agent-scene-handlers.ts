@@ -136,6 +136,10 @@ export async function handleStudioSceneRunRequest(input: StudioSceneRunRequestIn
   if (parsed.conversation?.length) {
     await deps.seedConversation({
       sessionId: session.id,
+      // The authorized Scene is the only scope a replay may populate: a Scene Run reads exactly its
+      // own Scene history, so Session-wide seed rows would be invisible to it (and could leak a
+      // sibling's transcript into a Legacy Run).
+      sceneId: scene.id,
       conversation: parsed.conversation,
       agentType: session.agentType
     })

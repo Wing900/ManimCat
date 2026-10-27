@@ -58,6 +58,7 @@ export type StudioCinemaFeedbackCode =
   | 'run_submit_conflict'
   | 'run_submit_unknown'
   | 'run_cancel_failed'
+  | 'run_interrupted'
   | 'snapshot_failed'
   | 'stream_resync'
   | 'stream_disconnected'
@@ -115,9 +116,21 @@ export interface StudioCinemaInitializationState {
   feedback: StudioCinemaFeedback | null
 }
 
+/**
+ * Public reason written onto a Run when the execution binding that admitted it disappeared. The text
+ * is readable on the failed Run itself; it is not an internal server diagnostic.
+ */
+export const STUDIO_CINEMA_INTERRUPTED_RUN_ERROR =
+  'Execution interrupted because the server session was recreated.'
+
 /** Per-Scene state. One entry per `(sessionId, sceneId)`; sibling Scenes never share a field. */
 export interface StudioCinemaSceneState {
   identity: StudioCinemaSceneIdentity
+  /**
+   * Execution binding identity of the server records in this Scene, once a real read (or an accepted
+   * admission) proved it. A change between two known values means the server Session was recreated.
+   */
+  serverBindingId?: string
   scene: StudioScene
   messages: StudioSceneMessage[]
   runs: StudioSceneRun[]

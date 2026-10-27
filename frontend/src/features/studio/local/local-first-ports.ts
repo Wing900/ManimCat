@@ -20,6 +20,7 @@ import type {
   StudioSession,
   StudioSessionSnapshot,
   StudioRun,
+  StudioSceneSnapshot,
 } from '../protocol/studio-agent-types'
 import { createLocalStudioStore, type LocalScene, type LocalSession, type LocalStudioStore } from './local-studio-store'
 import { createLocalConversationJournal } from './local-conversation-journal'
@@ -89,6 +90,42 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       throw new StudioApiRequestError('This browser has no such session', 'NOT_FOUND')
     }
     return { session, scenes }
+  }
+
+  /**
+   * A Session snapshot assembled entirely from IndexedDB. Restoring or listing history must never
+   * depend on the server being reachable: the browser owns the Session, its Scenes, its ids and its
+   * full structured messages, so a restart or an outage cannot make them disappear from the UI.
+   * No Run is claimed here: local rows are not liveness information, and this snapshot is not an
+   * authoritative server read.
+   */
+  async function localSessionSnapshot(sessionId: string): Promise<StudioSessionSnapshot> {
+    const { session, scenes } = await readLocal(sessionId)
+    return {
+      session: toStandaloneLocalSession(session),
+      scenes: scenes.map(toStandaloneLocalScene),
+      messages: (await store.listSessionMessages(sessionId)).map(toSessionMessage),
+      runs: [],
+      renders: [],
+    }
+  }
+
+  /**
+   * A Scene snapshot assembled from IndexedDB after the server read failed. It keeps the selected
+   * Scene's full structured history and local identity, and deliberately carries no binding marker:
+   * only a real successful server read or rebuild can prove which server binding is current.
+   */
+  async function localSceneSnapshot(sessionId: string, sceneId: string): Promise<StudioSceneSnapshot> {
+    const scene = await store.getScene(sessionId, sceneId)
+    if (!scene) {
+      throw new StudioApiRequestError('This browser has no such scene', 'NOT_FOUND')
+    }
+    return {
+      scene: toStandaloneLocalScene(scene),
+      messages: await store.listMessages(sessionId, sceneId),
+      runs: [],
+      renders: [],
+    }
   }
 
   /**
@@ -182,12 +219,19 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
     return sources
   }
 
-  /** The transcript this browser owns, in order, as the server's seed shape. */
-  async function localConversation(sessionId: string): Promise<Array<{ role: 'user' | 'assistant'; text: string }>> {
+  /** The selected Scene's transcript, in order, as the server's context seed shape. */
+  async function localConversation(
+    sessionId: string,
+    sceneId: string,
+  ): Promise<Array<{ role: 'user' | 'assistant'; text: string }>> {
     const stored = await store.listSessionMessages(sessionId)
-    const byId = new Map(stored.map(message => [message.id, message]))
+    const byId = new Map(
+      stored.filter(message => message.sceneId === sceneId).map(message => [message.id, message]),
+    )
     for (const pending of pendingUsers.values()) {
-      if (pending.sessionId === sessionId && !byId.has(pending.id)) byId.set(pending.id, pending)
+      if (pending.sessionId === sessionId && pending.sceneId === sceneId && !byId.has(pending.id)) {
+        byId.set(pending.id, pending)
+      }
     }
     return [...byId.values()]
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
@@ -246,44 +290,60 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
   }
 
   async function sessionSnapshot(sessionId: string, options?: StudioRequestOptions): Promise<StudioSessionSnapshot> {
-    return withServerSession(sessionId, async (serverSessionId) => {
-      const snapshot = await server.getSessionSnapshot(serverSessionId, options)
-      const { session, scenes } = await readLocal(sessionId)
+    try {
+      return await withServerSession(sessionId, async (serverSessionId) => {
+        const snapshot = await server.getSessionSnapshot(serverSessionId, options)
+        const { session, scenes } = await readLocal(sessionId)
 
-      for (const run of snapshot.runs ?? []) {
-        const localSceneId = run.sceneId ? localSceneIdOf(scenes, run.sceneId) : null
-        if (run.sceneId && !localSceneId) continue
-        rememberRun(
-          run,
-          { sessionId, ...(localSceneId ? { sceneId: localSceneId } : {}) },
-          { sessionId: serverSessionId, ...(run.sceneId ? { sceneId: run.sceneId } : {}) },
-        )
-      }
+        for (const run of snapshot.runs ?? []) {
+          const localSceneId = run.sceneId ? localSceneIdOf(scenes, run.sceneId) : null
+          if (run.sceneId && !localSceneId) continue
+          rememberRun(
+            run,
+            { sessionId, ...(localSceneId ? { sceneId: localSceneId } : {}) },
+            { sessionId: serverSessionId, ...(run.sceneId ? { sceneId: run.sceneId } : {}) },
+          )
+        }
 
-      await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs)
+        await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs)
 
-      return {
-        ...snapshot,
-        session: toLocalSession(session, snapshot.session),
-        scenes: (snapshot.scenes ?? []).map((scene) => toLocalScene(scenes, sessionId, scene)),
-        runs: (snapshot.runs ?? []).map((run) => ({
-          ...run,
-          sessionId,
-          ...(run.sceneId ? { sceneId: localSceneIdOf(scenes, run.sceneId) ?? run.sceneId } : {}),
-        })),
-        renders: (snapshot.renders ?? []).map((render) => ({
-          ...render,
-          sessionId,
-          ...(render.sceneId ? { sceneId: localSceneIdOf(scenes, render.sceneId) ?? render.sceneId } : {}),
-        })),
-        // The local transcript is the one that is displayed: it is what survives a server restart,
-        // which is exactly when the server's own copy is thinner than the browser's.
-        messages: mergeMessages(
-          snapshot.messages.map((message) => toLocalScopedSessionMessage(scenes, sessionId, message)),
-          (await store.listSessionMessages(sessionId)).map((message) => toSessionMessage(message)),
-        ),
-      }
-    })
+        const remoteScenes = (snapshot.scenes ?? []).map((scene) => toLocalScene(scenes, sessionId, scene))
+        const presentSceneIds = new Set(remoteScenes.map((scene) => scene.id))
+        // The browser owns its Scenes. A thinner server index (or one that never saw a local Scene)
+        // must not make a Scene the user still holds disappear from the Session list.
+        const mergedScenes = [
+          ...remoteScenes,
+          ...scenes.filter((scene) => !presentSceneIds.has(scene.id)).map(toStandaloneLocalScene),
+        ].sort((left, right) => left.position - right.position || left.id.localeCompare(right.id))
+
+        return {
+          ...snapshot,
+          session: toLocalSession(session, snapshot.session),
+          scenes: mergedScenes,
+          runs: (snapshot.runs ?? []).map((run) => ({
+            ...run,
+            sessionId,
+            ...(run.sceneId ? { sceneId: localSceneIdOf(scenes, run.sceneId) ?? run.sceneId } : {}),
+          })),
+          renders: (snapshot.renders ?? []).map((render) => ({
+            ...render,
+            sessionId,
+            ...(render.sceneId ? { sceneId: localSceneIdOf(scenes, render.sceneId) ?? render.sceneId } : {}),
+          })),
+          // The local transcript is the one that is displayed: it is what survives a server restart,
+          // which is exactly when the server's own copy is thinner than the browser's.
+          messages: mergeMessages(
+            snapshot.messages.map((message) => toLocalScopedSessionMessage(scenes, sessionId, message)),
+            (await store.listSessionMessages(sessionId)).map((message) => toSessionMessage(message)),
+          ),
+        }
+      })
+    } catch (error) {
+      // A refresh is optional; the browser-owned Session is not. Only an abort (the caller no longer
+      // wants an answer) propagates; every other failure falls back to the durable local snapshot.
+      if (isAbortError(error)) throw error
+      return localSessionSnapshot(sessionId)
+    }
   }
 
   const sessionApi: StudioCinemaSessionGatewayApi = {
@@ -304,7 +364,12 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
       return toLocalSession(session, created)
     },
 
-    getSessionSnapshot: (sessionId, options) => sessionSnapshot(sessionId, options),
+    // Restore and history are IndexedDB-first: never wait on the server here. `sessionSnapshot`
+    // stays private to background terminal synchronization.
+    getSessionSnapshot: async (sessionId, options) => {
+      if (options?.signal?.aborted) throw new DOMException('Session snapshot aborted', 'AbortError')
+      return localSessionSnapshot(sessionId)
+    },
 
     deleteSession: async (sessionId) => {
       const { session } = await readLocal(sessionId)
@@ -326,9 +391,12 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
   }
 
   const sceneApi: StudioCinemaApiPort = {
-    // The Scene port also reads a Session snapshot (that is its Session-scoped read), so it shares
-    // this one implementation.
-    getSessionSnapshot: (sessionId, options) => sessionSnapshot(sessionId, options),
+    // The Scene port also reads a Session snapshot (that is its Session-scoped read), and it is
+    // IndexedDB-first for the same reason: a hanging server must not hide local history.
+    getSessionSnapshot: async (sessionId, options) => {
+      if (options?.signal?.aborted) throw new DOMException('Session snapshot aborted', 'AbortError')
+      return localSessionSnapshot(sessionId)
+    },
 
     createScene: (sessionId, options) =>
       withServerSession(sessionId, async (serverSessionId) => {
@@ -366,44 +434,56 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         }))
       }),
 
-    getSceneSnapshot: (sessionId, sceneId, options) =>
-      withServerSession(sessionId, async (serverSessionId, { scenes }) => {
-        const scene = scenes.find(candidate => candidate.id === sceneId)
-        if (!scene?.serverSceneId) {
-          throw new StudioApiRequestError('This browser has no bound server scene', 'NOT_FOUND')
-        }
-        const serverSceneId = scene.serverSceneId
-        const snapshot = await server.getSceneSnapshot(serverSessionId, serverSceneId, options)
+    getSceneSnapshot: async (sessionId, sceneId, options) => {
+      try {
+        return await withServerSession(sessionId, async (serverSessionId, { scenes }) => {
+          const scene = scenes.find(candidate => candidate.id === sceneId)
+          if (!scene?.serverSceneId) {
+            throw new StudioApiRequestError('This browser has no bound server scene', 'NOT_FOUND')
+          }
+          const serverSceneId = scene.serverSceneId
+          const snapshot = await server.getSceneSnapshot(serverSessionId, serverSceneId, options)
 
-        for (const run of snapshot.runs) {
-          rememberRun(
-            run,
-            { sessionId, sceneId },
-            { sessionId: serverSessionId, ...(run.sceneId ? { sceneId: serverSceneId } : {}) },
-          )
-        }
+          for (const run of snapshot.runs) {
+            rememberRun(
+              run,
+              { sessionId, sceneId },
+              { sessionId: serverSessionId, ...(run.sceneId ? { sceneId: serverSceneId } : {}) },
+            )
+          }
 
-        await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs, { serverSceneId, localSceneId: sceneId })
+          await absorbAssistantReplies(sessionId, snapshot.messages, snapshot.runs, { serverSceneId, localSceneId: sceneId })
 
-        return {
-          ...snapshot,
-          scene: { ...snapshot.scene, id: sceneId, sessionId },
-          runs: snapshot.runs.map((run) => ({
-            ...run,
-            sessionId,
-            ...(run.sceneId ? { sceneId } : {}),
-          })),
-          renders: snapshot.renders.map((render) => ({
-            ...render,
-            sessionId,
-            ...(render.sceneId ? { sceneId } : {}),
-          })),
-          messages: mergeSceneMessages(
-            snapshot.messages.map((message) => toLocalScopedSceneMessage(scenes, sessionId, sceneId, message)),
-            await store.listMessages(sessionId, sceneId),
-          ),
-        }
-      }),
+          return {
+            ...snapshot,
+            // Execution binding identity of the read that actually answered. A changed marker tells
+            // the Cinema that Runs from the previous server Session cannot still be alive; an
+            // identical one proves nothing changed. It is not browser identity and never model input.
+            serverBindingId: `${serverSessionId}:${serverSceneId}`,
+            scene: { ...snapshot.scene, id: sceneId, sessionId },
+            runs: snapshot.runs.map((run) => ({
+              ...run,
+              sessionId,
+              ...(run.sceneId ? { sceneId } : {}),
+            })),
+            renders: snapshot.renders.map((render) => ({
+              ...render,
+              sessionId,
+              ...(render.sceneId ? { sceneId } : {}),
+            })),
+            messages: mergeSceneMessages(
+              snapshot.messages.map((message) => toLocalScopedSceneMessage(scenes, sessionId, sceneId, message)),
+              await store.listMessages(sessionId, sceneId),
+            ),
+          }
+        })
+      } catch (error) {
+        // The selected Scene's durable history is local. A failed refresh returns it, without the
+        // binding marker (no successful server read proved one) and without inventing live Runs.
+        if (isAbortError(error)) throw error
+        return localSceneSnapshot(sessionId, sceneId)
+      }
+    },
 
     createSceneRun: (sessionId, sceneId, runInput: StudioCreateSceneRunInput, options) =>
       withServerSession(sessionId, async (serverSessionId) => {
@@ -421,7 +501,7 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
         }
 
         const { scenes } = await readLocal(sessionId)
-        const conversation = await localConversation(sessionId)
+        const conversation = await localConversation(sessionId, sceneId)
 
         const response = await server.createSceneRun(
           serverSessionId,
@@ -454,6 +534,9 @@ export function createLocalFirstStudioPorts(input: LocalFirstStudioPortsInput): 
 
         return {
           ...response,
+          // The accepted Run lives on the binding that actually admitted it; this is the marker a
+          // later snapshot compares against to interrupt Runs the old binding can no longer own.
+          serverBindingId: `${serverSessionId}:${serverSceneId}`,
           scene: { ...response.scene, id: sceneId, sessionId },
           run: { ...response.run, sessionId, ...(response.run.sceneId ? { sceneId } : {}) },
           messages: mergeSceneMessages(
@@ -611,6 +694,14 @@ function isNotFound(error: unknown): boolean {
   return error instanceof StudioApiRequestError && error.code === 'NOT_FOUND'
 }
 
+/** An aborted read belongs to a caller that no longer wants it; it must not look like a transport fallback. */
+function isAbortError(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'name' in error
+    && (error as { name?: unknown }).name === 'AbortError'
+}
+
 function toLocalSession(session: LocalSession, serverSession: StudioSession): StudioSession {
   return {
     ...serverSession,
@@ -619,6 +710,24 @@ function toLocalSession(session: LocalSession, serverSession: StudioSession): St
     id: session.id,
     title: session.title || serverSession.title,
     ...(session.studioKind ? { studioKind: session.studioKind } : {}),
+  }
+}
+
+/** The local Session record in the protocol shape, for snapshots that never reached the server. */
+function toStandaloneLocalSession(session: LocalSession): StudioSession {
+  // `directory` is a server-side concept the browser does not own; the local record has no value for
+  // it, and no frontend consumer reads it.
+  return { ...session, directory: '' }
+}
+
+/** The protocol Scene shape of a local row, without its local-only `code` and server binding extras. */
+function toStandaloneLocalScene(scene: LocalScene): StudioScene {
+  return {
+    id: scene.id,
+    sessionId: scene.sessionId,
+    position: scene.position,
+    createdAt: scene.createdAt,
+    updatedAt: scene.updatedAt,
   }
 }
 

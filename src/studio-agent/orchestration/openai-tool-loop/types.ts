@@ -17,6 +17,7 @@ import type { buildStudioChatTools } from '../studio-tool-schema'
 import type { buildStudioConversationMessages } from '../studio-message-history'
 import type { readStudioRunAutonomyMetadata } from '../../runs/autonomy-policy'
 import type { StudioModelPort, StudioModelResponse } from '../../model/studio-model-port'
+import type { StudioContextConfig } from '../../context/context-budget'
 
 export type StudioLoopAutonomy = ReturnType<typeof readStudioRunAutonomyMetadata>
 export type StudioChatCompletion = StudioModelResponse
@@ -51,6 +52,16 @@ export interface StudioLoopRuntime {
   model: string
   tools: ReturnType<typeof buildStudioChatTools>
   conversation: ReturnType<typeof buildStudioConversationMessages>
+  /** One original message id per conversation entry; undefined for the injected summary. */
+  conversationSourceMessageIds: Array<string | undefined>
+  contextConfig: StudioContextConfig
+  /** Actual/estimated token ratio learned from provider usage; 1 until calibrated. */
+  contextTokenRatio: number
+  contextEstimatedTokens: number
+  /** Latest persisted summary for this Run's conversation, if any. */
+  compactionSummary?: string
+  /** Record written for the current step; a forced retry updates it instead of duplicating it. */
+  compactionRecord?: { messageId: string; assistantMessageId: string }
   systemPrompt: string
   maxSteps: number
   toolChoice: StudioToolChoice
@@ -61,6 +72,8 @@ export interface StudioLoopStepRequest {
   messages: Array<{ role: 'system'; content: string } | ReturnType<typeof buildStudioConversationMessages>[number]>
   requestMessageCharsApprox: number
   requestToolSchemaCharsApprox: number
+  /** Calibrated estimate used for the compaction decision. */
+  estimatedTokens: number
 }
 
 export interface StudioLoopStepResult {

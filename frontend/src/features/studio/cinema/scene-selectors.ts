@@ -11,6 +11,7 @@ import {
   isStudioCinemaActiveRenderStatus,
   isStudioCinemaActiveRunStatus,
   isStudioCinemaTerminalRenderStatus,
+  STUDIO_CINEMA_INTERRUPTED_RUN_ERROR,
   type StudioCinemaFeedback,
   type StudioCinemaRenderRefreshState,
   type StudioCinemaSceneIdentity,
@@ -442,7 +443,9 @@ export function selectStudioCinemaUserStatus(scene: StudioCinemaSceneState): Stu
     return { code: scene.feedback.code, kind: scene.feedback.needsReconciliation ? 'recoverable' : 'failed' }
   }
   if (latestRun && (latestRun.status === 'failed' || latestRun.status === 'cancelled')) {
-    return { code: `run_${latestRun.status}`, kind: 'failed' }
+    const interrupted =
+      latestRun.status === 'failed' && latestRun.error === STUDIO_CINEMA_INTERRUPTED_RUN_ERROR
+    return { code: interrupted ? 'run_interrupted' : `run_${latestRun.status}`, kind: 'failed' }
   }
   if (latestRender && latestRender.status === 'failed') {
     return { code: 'render_failed', kind: 'failed' }

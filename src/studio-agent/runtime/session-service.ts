@@ -29,8 +29,9 @@ export interface StudioSessionService {
   getSessionSnapshot: (ownerId: string, sessionId: string) => Promise<StudioSessionSnapshot | null>
   /**
    * 把一个**浏览器已经持有、服务端从未见过**的会话写进来，让下一次 Run 拿到它被给定的上下文
-   * （`STUDIO_DATA_MODE=client` 形态）。服务端已有的历史**绝不覆盖**：本地已有消息就整段忽略，
-   * 所以重放两次不会被抄成两份。返回实际写入的条数。
+   * （`STUDIO_DATA_MODE=client` 形态）。服务端已有的历史**绝不覆盖**：写入范围内已有消息就整段忽略，
+   * 所以重放两次不会被抄成两份。带 `sceneId` 时检查与写入都只作用于该 Scene；不带时保持原来的
+   * Session 级 Legacy 语义。返回实际写入的条数。
    */
   seedConversation: (seedInput: StudioConversationSeedInput) => Promise<number>
   /**
@@ -43,6 +44,12 @@ export interface StudioSessionService {
 
 export interface StudioConversationSeedInput {
   sessionId: string
+  /**
+   * Optional Scene scope of the replay. A Scene Run sees only messages of its own Scene, so a
+   * browser-owned transcript replayed for one Scene has to land in that scope. Absent keeps the
+   * Legacy Session-wide behaviour.
+   */
+  sceneId?: string
   conversation: StudioConversationSeedMessage[]
   agentType?: StudioSession['agentType']
 }
@@ -115,7 +122,12 @@ export function createStudioSessionService(input: {
    * 严格递增。否则连续几条会落在同一毫秒，平局再由随机 id 拆开——历史就被洗牌了。
    */
   async function seedConversation(seedInput: StudioConversationSeedInput): Promise<number> {
-    const existing = await input.persistence.messageStore.listBySessionId(seedInput.sessionId)
+    // Idempotence follows the scope the replay writes into. A Scene Run must not be considered
+    // already-seeded because a sibling Scene (or a Legacy Session row) has history; and a Legacy
+    // replay keeps its Session-wide check exactly as before.
+    const existing = seedInput.sceneId
+      ? await input.persistence.messageStore.listBySceneId(seedInput.sceneId)
+      : await input.persistence.messageStore.listBySessionId(seedInput.sessionId)
     if (existing.length > 0) {
       return 0
     }
@@ -129,6 +141,7 @@ export function createStudioSessionService(input: {
       if (message.role === 'user') {
         const userMessage = createStudioUserMessage({
           sessionId: seedInput.sessionId,
+          ...(seedInput.sceneId ? { sceneId: seedInput.sceneId } : {}),
           text: message.text,
         })
         userMessage.createdAt = timestamp
@@ -137,6 +150,7 @@ export function createStudioSessionService(input: {
       } else {
         const assistantMessage = createStudioAssistantMessage({
           sessionId: seedInput.sessionId,
+          ...(seedInput.sceneId ? { sceneId: seedInput.sceneId } : {}),
           agent: seedInput.agentType ?? 'builder',
           metadata: { providerMessage: { content: message.text } },
         })

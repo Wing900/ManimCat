@@ -137,6 +137,8 @@ export function readStudioCinemaFeedbackKey(studioKind: StudioKind, code: Studio
       return 'studio.cinema.feedbackRunSubmitUnknown'
     case 'run_cancel_failed':
       return 'studio.cinema.feedbackRunCancelFailed'
+    case 'run_interrupted':
+      return 'studio.cinema.feedbackRunInterrupted'
     case 'snapshot_failed':
       return cinemaUnitKey(studioKind, 'feedbackSnapshotFailed')
     case 'stream_resync':

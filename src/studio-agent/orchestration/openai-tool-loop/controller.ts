@@ -7,13 +7,16 @@ import { createStudioLoopFinishStepEvent, logStudioLoopStepFinished } from './ob
 import { getStudioTelemetry } from '../../infrastructure/telemetry/studio-telemetry'
 import {
   buildStudioLoopStepRequest,
+  compactStudioLoopContext,
   createStudioLoopRuntime,
   persistStudioProviderSnapshot,
   requestStudioLoopStep
 } from './request-builder'
+import { calibrateStudioTokenRatio } from '../../context/context-budget'
+import { isStudioContextOverflowError } from '../../context/context-overflow'
 import { StudioLoopCheckpointManager } from './state'
 import { executeStudioToolCallsForStep } from './tool-dispatch'
-import type { StudioOpenAIToolLoopInput } from './types'
+import type { StudioLoopRuntime, StudioLoopStepResult, StudioOpenAIToolLoopInput } from './types'
 
 export async function* createStudioOpenAIToolLoop(
   input: StudioOpenAIToolLoopInput
@@ -26,6 +29,8 @@ export async function* createStudioOpenAIToolLoop(
     checkpoint: onCheckpoint ? (usage) => onCheckpoint({ tokenUsage: usage }) : undefined
   })
   getStudioTelemetry().timeline({ studioKind: input.session.studioKind, name: 'loop.started', detail: `maxSteps=${runtime.maxSteps}` })
+
+  let forcedCompactionRetry = false
 
   for (let step = 0; step < runtime.maxSteps; step += 1) {
     throwIfStudioRunCancelled(input.abortSignal)
@@ -41,14 +46,45 @@ export async function* createStudioOpenAIToolLoop(
 
     const autonomy = await checkpoints.beginStep()
     throwIfStudioRunCancelled(input.abortSignal)
-    const request = buildStudioLoopStepRequest(runtime)
-    const result = await requestStudioLoopStep({
-      loopInput: input,
-      runtime,
-      request,
-      step,
-      stepStartedAt,
-      usageTracker
+
+    // Actual compaction happens before the model step, inside the same Run and with the same model.
+    let request = buildStudioLoopStepRequest(runtime)
+    if (await compactStudioLoopContext({ loopInput: input, runtime, step, force: false, usageTracker })) {
+      request = buildStudioLoopStepRequest(runtime)
+    }
+
+    let result: StudioLoopStepResult
+    try {
+      result = await requestStudioLoopStep({
+        loopInput: input,
+        runtime,
+        request,
+        step,
+        stepStartedAt,
+        usageTracker
+      })
+    } catch (error) {
+      // Exactly one forced compact-and-retry per Run. Other failures keep their original retry policy.
+      if (forcedCompactionRetry || !isStudioContextOverflowError(error)) {
+        throw error
+      }
+      forcedCompactionRetry = true
+      await compactStudioLoopContext({ loopInput: input, runtime, step, force: true, usageTracker })
+      request = buildStudioLoopStepRequest(runtime)
+      result = await requestStudioLoopStep({
+        loopInput: input,
+        runtime,
+        request,
+        step,
+        stepStartedAt,
+        usageTracker
+      })
+    }
+
+    runtime.contextTokenRatio = calibrateStudioTokenRatio({
+      estimatedTokens: request.estimatedTokens,
+      actualPromptTokens: result.completion.usage?.prompt_tokens,
+      currentRatio: runtime.contextTokenRatio,
     })
 
     await persistStudioProviderSnapshot(input, runtime.currentAssistantMessage, result.message)
@@ -77,6 +113,7 @@ export async function* createStudioOpenAIToolLoop(
     }
 
     appendStudioAssistantConversationTurn(runtime, result)
+    syncStudioConversationSourceIds(runtime)
 
     const toolIterator = executeStudioToolCallsForStep(input, runtime, result, autonomy)
     let toolExecution: IteratorResult<StudioProcessorStreamEvent, { failureMessage: string | null }>
@@ -108,6 +145,18 @@ export async function* createStudioOpenAIToolLoop(
       stepStartedAt
     })
 
+    syncStudioConversationSourceIds(runtime)
     yield createStudioLoopFinishStepEvent(result.completion)
   }
+}
+
+/**
+ * Tool dispatch appends assistant/tool messages directly to the runtime conversation. Every such
+ * message belongs to the current assistant message, which is the id its boundary is persisted by.
+ */
+function syncStudioConversationSourceIds(runtime: StudioLoopRuntime): void {
+  while (runtime.conversationSourceMessageIds.length < runtime.conversation.length) {
+    runtime.conversationSourceMessageIds.push(runtime.currentAssistantMessage.id)
+  }
+  runtime.conversationSourceMessageIds.length = runtime.conversation.length
 }

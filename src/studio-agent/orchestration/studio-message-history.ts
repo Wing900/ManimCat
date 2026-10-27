@@ -1,6 +1,7 @@
 import type OpenAI from 'openai'
 import type { ReferenceImage, VisionImageDetail } from '../../types'
 import type { StudioAssistantMessage, StudioMessage, StudioToolPart } from '../domain/types'
+import { isStudioCompactionMessage } from '../context/compaction'
 import { createLogger } from '../../shared/logging/logger'
 import {
   type StudioStoredAssistantPayload,
@@ -28,11 +29,38 @@ export function buildStudioConversationMessages(input: {
 }
 
 /**
+ * Provider messages plus one source id per entry, so a compaction boundary can be persisted
+ * as an original message id. Compaction control records contribute no provider messages.
+ */
+export function buildStudioConversationMessagesWithSources(input: {
+  messages: StudioMessage[]
+}): {
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+  sourceMessageIds: Array<string | undefined>
+} {
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
+  const sourceMessageIds: Array<string | undefined> = []
+
+  for (const message of input.messages) {
+    for (const providerMessage of toConversationMessages(message)) {
+      messages.push(providerMessage)
+      sourceMessageIds.push(message.id)
+    }
+  }
+
+  return { messages, sourceMessageIds }
+}
+
+/**
  * 将单条 Studio 消息转换为 OpenAI 对话消息格式
  * @param message - Studio 消息对象
  * @returns OpenAI 格式的消息数组
  */
 function toConversationMessages(message: StudioMessage): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+  if (isStudioCompactionMessage(message)) {
+    return []
+  }
+
   if (message.role === 'user') {
     return [{ role: 'user', content: buildUserMessageContent(message.text) }]
   }

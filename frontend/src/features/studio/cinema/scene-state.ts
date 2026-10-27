@@ -12,8 +12,10 @@ import type {
 import {
   buildStudioCinemaSceneKey,
   createInitialStudioCinemaRenderRefreshState,
+  isStudioCinemaActiveRunStatus,
   isStudioCinemaTerminalRenderStatus,
   isStudioCinemaTerminalRunStatus,
+  STUDIO_CINEMA_INTERRUPTED_RUN_ERROR,
   type StudioCinemaSceneEvent,
   type StudioCinemaSceneIdentity,
   type StudioCinemaSceneState,
@@ -82,27 +84,43 @@ export function mergeSceneSnapshot(
   scene: StudioCinemaSceneState,
   snapshot: StudioSceneSnapshot,
 ): StudioCinemaSceneState {
+  const incomingBindingId = snapshot.serverBindingId
+  const bindingChanged =
+    scene.serverBindingId !== undefined &&
+    incomingBindingId !== undefined &&
+    scene.serverBindingId !== incomingBindingId
+  // A changed binding is the only fact that proves previous active Runs can never finish. A missing
+  // binding, or an active Run absent from a same-binding snapshot, is not that fact. A Run the new
+  // binding already names is authoritative: its SSE event may arrive before this snapshot.
+  const incomingRunIds = new Set(snapshot.runs.map((run) => run.id))
+  const base = bindingChanged ? rebaseSceneForBindingChange(scene, incomingRunIds) : scene
+
   // A snapshot may have been started while a newer admission was in flight. Preserve only that
   // admission's optimistic user row (and its id, so failure rollback can remove the right row),
   // leaving every other row authoritative from the snapshot and never reordering real history.
-  const pending = scene.submitting && scene.pendingUserMessageId
-    ? scene.messages.find(
-        (message) => message.id === scene.pendingUserMessageId && message.role === 'user',
+  const pending = base.submitting && base.pendingUserMessageId
+    ? base.messages.find(
+        (message) => message.id === base.pendingUserMessageId && message.role === 'user',
       )
     : undefined
-  const messages = [...snapshot.messages]
+  // A recreated server starts with a thinner conversation. Its snapshot replaces the records it
+  // owns, while the messages the browser already holds stay intact.
+  const messages = bindingChanged
+    ? mergeMessagesForBindingChange(base.messages, snapshot.messages)
+    : [...snapshot.messages]
   if (pending && !messages.some((message) => message.id === pending.id)) {
     messages.push(pending)
   }
 
   let next: StudioCinemaSceneState = {
-    ...scene,
+    ...base,
     messages,
     pendingUserMessageId: pending ? pending.id : null,
     snapshotStatus: 'ready',
-    feedback: null,
+    feedback: bindingChanged ? base.feedback : null,
     convergencePending: false,
     scene: snapshot.scene,
+    ...(incomingBindingId === undefined ? {} : { serverBindingId: incomingBindingId }),
   }
 
   for (const run of snapshot.runs) {
@@ -113,6 +131,60 @@ export function mergeSceneSnapshot(
   }
 
   return next
+}
+
+/**
+ * Rebase a Scene onto a recreated server Session. Active Runs of the old binding become failed with
+ * the public reason; terminal history, messages, renders and drafts are kept. Admission and cancel
+ * metadata can only belong to the old binding here, so it is cleared, and a draft captured by that
+ * admission is restored when the user has not typed since.
+ */
+function rebaseSceneForBindingChange(
+  scene: StudioCinemaSceneState,
+  incomingRunIds: ReadonlySet<string>,
+): StudioCinemaSceneState {
+  let interrupted = false
+  const runs = scene.runs.map((run) => {
+    if (!isStudioCinemaActiveRunStatus(run.status) || incomingRunIds.has(run.id)) {
+      return run
+    }
+    interrupted = true
+    return { ...run, status: 'failed' as const, error: STUDIO_CINEMA_INTERRUPTED_RUN_ERROR }
+  })
+
+  const staleAdmission = scene.submitting || scene.cancelRequested || scene.pendingUserMessageId !== null
+  const restoreCapturedDraft =
+    scene.submittedDraftVersion !== null && scene.draftVersion === scene.submittedDraftVersion
+
+  return {
+    ...scene,
+    runs,
+    submitting: false,
+    cancelRequested: false,
+    pendingUserMessageId: null,
+    submittedDraftVersion: null,
+    submittedDraftText: null,
+    draft: restoreCapturedDraft ? scene.submittedDraftText ?? scene.draft : scene.draft,
+    feedback: interrupted || staleAdmission
+      ? { code: 'run_interrupted', needsReconciliation: false }
+      : null,
+  }
+}
+
+/** Union by id so the new snapshot wins on shared records while older local messages are kept. */
+function mergeMessagesForBindingChange(
+  existing: StudioSceneMessage[],
+  incoming: StudioSceneMessage[],
+): StudioSceneMessage[] {
+  const byId = new Map(incoming.map((message) => [message.id, message]))
+  for (const message of existing) {
+    if (!byId.has(message.id)) {
+      byId.set(message.id, message)
+    }
+  }
+  return [...byId.values()].sort(
+    (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+  )
 }
 
 /**
@@ -136,7 +208,12 @@ export function mergeAcceptedRun(
     submitting: false,
     pendingUserMessageId: null,
   }
-  const snapshot = mergeSceneSnapshot(admitted, { ...response, messages })
+  // The top-level `run` is authoritative even when `runs` omits it. Feed it to the snapshot merge so
+  // a binding rebase does not mark this new Run interrupted.
+  const runs = response.runs.some((candidate) => candidate.id === response.run.id)
+    ? response.runs
+    : [...response.runs, response.run]
+  const snapshot = mergeSceneSnapshot(admitted, { ...response, messages, runs })
   // P3: the response's top-level `run` is the accepted Run. Without this the Scene has no active
   // Run until the next SSE or snapshot whenever `runs` does not already carry it. `upsertSceneRun`
   // remains the single authoritative merge rule (one entry per id, no terminal downgrade).

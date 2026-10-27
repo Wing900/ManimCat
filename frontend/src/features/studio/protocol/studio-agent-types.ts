@@ -232,6 +232,13 @@ export interface StudioSceneSnapshot {
   messages: StudioSceneMessage[]
   runs: StudioSceneRun[]
   renders: StudioSceneRender[]
+  /**
+   * Execution binding identity (`${serverSessionId}:${serverSceneId}`) of the server records in this
+   * snapshot. Absent means the producer cannot prove a binding. Two known, different values prove
+   * the server Session was recreated, so Runs admitted against the previous one cannot still finish.
+   * A missing value is never read as a changed binding.
+   */
+  serverBindingId?: string
 }
 
 /**
