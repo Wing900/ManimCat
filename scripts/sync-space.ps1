@@ -9,8 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $excludePatterns = @(
-  'public/readme-images/*.png',
-  'src/audio/tracks/*.mp3'
+  'public/readme-images/*.png'
 )
 
 $hfReadmeFrontmatterPath = Join-Path $PSScriptRoot 'hf-readme-frontmatter.txt'

@@ -21,7 +21,6 @@ fi
 # Binary files blocked by HF Spaces git server.
 EXCLUDE_PATTERNS=(
   "public/readme-images/*.png"
-  "src/audio/tracks/*.mp3"
 )
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

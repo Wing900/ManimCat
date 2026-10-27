@@ -9,7 +9,6 @@ const baseVideo: VideoConfig = {
   quality: 'medium',
   frameRate: 60,
   timeout: 1200,
-  bgm: false,
 }
 
 function renderSettings(videoConfig: VideoConfig, onUpdate = vi.fn()) {
@@ -28,7 +27,7 @@ describe('VideoSettings narration', () => {
     expect(screen.queryByText('Voice')).not.toBeInTheDocument()
     expect(screen.queryByText('Speech Rate')).not.toBeInTheDocument()
 
-    const [, narrationSwitch] = screen.getAllByRole('switch')
+    const narrationSwitch = screen.getByRole('switch')
     expect(narrationSwitch).toHaveAttribute('aria-checked', 'false')
     fireEvent.click(narrationSwitch)
 
@@ -37,10 +36,9 @@ describe('VideoSettings narration', () => {
     })
   })
 
-  it('shows the preset voice and rate and preserves quality, frame rate and BGM', () => {
+  it('shows the preset voice and rate and preserves quality and frame rate', () => {
     const onUpdate = renderSettings({
       ...baseVideo,
-      bgm: true,
       narration: { ...DEFAULT_NARRATION, enabled: true },
     })
 

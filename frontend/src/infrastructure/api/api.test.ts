@@ -34,7 +34,6 @@ describe('narration request pass-through', () => {
         quality: 'medium',
         frameRate: 60,
         timeout: 1200,
-        bgm: true,
         narration: { enabled: true, voice: 'zh-CN-YunxiNeural', rate: '-10%' },
       },
     }))
@@ -59,7 +58,6 @@ describe('narration request pass-through', () => {
     expect(body.videoConfig).toMatchObject({
       quality: 'medium',
       frameRate: 60,
-      bgm: true,
       narration: { enabled: true, voice: 'zh-CN-YunxiNeural', rate: '-10%' },
     })
   })

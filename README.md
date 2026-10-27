@@ -125,7 +125,7 @@ The project is now organized around three clear axes: `dual-mode`, `dual-engine`
   </video>
 </a>
 
-<sub>▲ Generated with BGM · Geometric Series Proof · ManimCat</sub>
+<sub>▲ Geometric Series Proof · ManimCat</sub>
 
 </div>
 

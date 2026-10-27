@@ -17,7 +17,6 @@ export interface VideoConfig {
   quality: VideoQuality
   frameRate: number
   timeout?: number
-  bgm?: boolean
   /** Opt-in narration. The workflow generates and muxes it automatically. */
   narration?: NarrationConfig
 }

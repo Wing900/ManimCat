@@ -2,9 +2,8 @@
  * Final narration muxing.
  *
  * The rendered video is always the authority for the picture stream. This module only appends the
- * server-generated narration track (and, when the user asked for it, background music mixed *under*
- * the voice). It deliberately never uses `-shortest`: a voice tail that runs past the last visual
- * must survive into the MP4 instead of being clipped.
+ * server-generated narration track. It deliberately never uses `-shortest`: a voice tail that runs
+ * past the last visual must survive into the MP4 instead of being clipped.
  */
 
 import { execFile } from 'child_process'
@@ -16,10 +15,6 @@ import type { NarrationAssets, NarrationConfig } from '../../workflow/narration/
 
 const logger = createLogger('NarrationMixer')
 
-const BGM_TRACKS_DIR = path.join(process.cwd(), 'src', 'audio', 'tracks')
-/** Speech stays fully audible; the bed sits well below a speaking voice. */
-const BGM_VOLUME = '-24dB'
-const BGM_FADE_SECONDS = 2
 const OUTPUT_AUDIO_BITRATE = '192k'
 
 export interface NarrationWorkspace {
@@ -111,27 +106,10 @@ async function probeMedia(filePath: string): Promise<{
   }
 }
 
-function pickBackgroundTrack(): string | undefined {
-  try {
-    const tracks = fs
-      .readdirSync(BGM_TRACKS_DIR)
-      .filter((file) => file.endsWith('.mp3'))
-      .map((file) => path.join(BGM_TRACKS_DIR, file))
-    if (tracks.length === 0) {
-      return undefined
-    }
-    return tracks[Math.floor(Math.random() * tracks.length)]
-  } catch {
-    return undefined
-  }
-}
-
 export interface MuxNarrationOptions {
   /** Rendered MP4, replaced in place only after the mux succeeds. */
   videoPath: string
   narration: NarrationAssets
-  /** Optional background bed; already mixed under the voice in this single FFmpeg pass. */
-  bgm?: boolean
 }
 
 /**
@@ -141,7 +119,7 @@ export interface MuxNarrationOptions {
  * would misrepresent what the user asked for.
  */
 export async function muxNarrationIntoVideo(options: MuxNarrationOptions): Promise<string> {
-  const { videoPath, narration, bgm } = options
+  const { videoPath, narration } = options
 
   if (!narration.audioPath || !fs.existsSync(narration.audioPath)) {
     throw new Error(`Narration audio file is missing: ${narration.audioPath}`)
@@ -157,29 +135,9 @@ export async function muxNarrationIntoVideo(options: MuxNarrationOptions): Promi
   fs.rmSync(tempOutput, { force: true })
 
   const args: string[] = ['-y', '-i', videoPath, '-i', narration.audioPath]
-  const bgmTrack = bgm ? pickBackgroundTrack() : undefined
-  let audioMap = '1:a:0'
-
-  if (bgm && bgmTrack) {
-    const fadeStart = Math.max(0, narration.duration - BGM_FADE_SECONDS)
-    // Loop a short bed so a long narration never runs out of music; atrim keeps it bounded.
-    args.push('-stream_loop', '-1', '-i', bgmTrack)
-    const filters = [
-      '[1:a]volume=1[voice]',
-      `[2:a]atrim=0:${narration.duration.toFixed(3)},volume=${BGM_VOLUME},afade=t=out:st=${fadeStart.toFixed(3)}:d=${BGM_FADE_SECONDS}[bgm]`,
-      // duration=first keeps the voice track's length authoritative; normalize=0 avoids halving
-      // the speaker because a second input exists.
-      '[voice][bgm]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]'
-    ]
-    args.push('-filter_complex', filters.join(';'))
-    audioMap = '[aout]'
-  } else if (bgm) {
-    logger.warn('Background music requested but no tracks are available; muxing narration only', { videoPath })
-  }
-
   args.push(
     '-map', '0:v:0',
-    '-map', audioMap,
+    '-map', '1:a:0',
     '-c:v', 'copy',
     '-c:a', 'aac',
     '-b:a', OUTPUT_AUDIO_BITRATE,
@@ -190,8 +148,7 @@ export async function muxNarrationIntoVideo(options: MuxNarrationOptions): Promi
   logger.info('Muxing narration into rendered video', {
     videoPath,
     audioPath: narration.audioPath,
-    duration: narration.duration,
-    bgm: Boolean(bgmTrack)
+    duration: narration.duration
   })
 
   try {

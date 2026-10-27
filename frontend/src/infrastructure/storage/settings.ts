@@ -4,9 +4,8 @@ const SETTINGS_KEY = 'manimcat_settings';
 const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
 // v4: connection credentials moved out of this blob into the versioned `manimcat_connection`
 // object; only product settings (video, and future appearance) live here.
-// v5: background music became opt-in; videos are silent unless the user enables it.
 // v7: the default quality moved from 1080p (high) to 720p (medium); frame rate stays 60.
-// v8: narration is opt-in and defaults to off; existing quality/frame rate/BGM are preserved.
+// v8: narration is opt-in and defaults to off; existing quality/frame rate are preserved.
 const SETTINGS_VERSION = '8';
 
 /** Voice options offered by the settings UI. */
@@ -31,7 +30,6 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
     quality: 'medium',
     frameRate: 60,
     timeout: 1200,
-    bgm: false,
     narration: { ...DEFAULT_NARRATION }
   }
 };
@@ -72,14 +70,12 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
   const quality = parsed.video?.quality;
   const frameRate = parsed.video?.frameRate;
   const timeout = parsed.video?.timeout;
-  const bgm = parsed.video?.bgm;
 
   return {
     video: {
       quality: quality === 'low' || quality === 'medium' || quality === 'high' ? quality : DEFAULT_SETTINGS.video.quality,
       frameRate: typeof frameRate === 'number' ? frameRate : DEFAULT_SETTINGS.video.frameRate,
       timeout: typeof timeout === 'number' ? timeout : DEFAULT_SETTINGS.video.timeout,
-      bgm: typeof bgm === 'boolean' ? bgm : DEFAULT_SETTINGS.video.bgm,
       narration: sanitizeNarration(parsed.video?.narration)
     }
   };
@@ -101,17 +97,6 @@ function migrateSettings(raw: unknown, fromVersion: string | null): SettingsConf
       video: {
         ...sanitized.video,
         timeout: 1200
-      }
-    };
-  }
-
-  // v4 -> v5: 背景音乐改为显式开启，旧版本保存的默认开启值不再沿用。
-  if (isOlderThan(fromVersion, 5) && sanitized.video.bgm) {
-    sanitized = {
-      ...sanitized,
-      video: {
-        ...sanitized.video,
-        bgm: false
       }
     };
   }

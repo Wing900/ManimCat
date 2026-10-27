@@ -1,19 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# Hugging Face source sync can omit binary tracks. Fetch them in a disposable stage so
-# curl and its package metadata never enter the runtime image.
-FROM alpine:3.22 AS audio_assets
-RUN apk add --no-cache ca-certificates curl \
-    && mkdir -p /tracks \
-    && for file in \
-        clavier-music-soft-piano-music-312509.mp3 \
-        the_mountain-soft-piano-background-444129.mp3 \
-        viacheslavstarostin-relaxing-soft-piano-music-431679.mp3; do \
-        curl -fL --retry 8 --retry-delay 3 --connect-timeout 10 --max-time 120 \
-            -o "/tracks/$file" \
-            "https://raw.githubusercontent.com/Wing900/ManimCat/main/src/audio/tracks/$file"; \
-    done
-
 # Build the rendering venv from pinned wheels; ManimGX bundles its Linux lavapipe renderer.
 FROM python:3.14-slim AS manim_builder
 RUN python -m venv /opt/venv
@@ -78,7 +64,6 @@ COPY --from=node_builder /app/src/studio-agent/prompts/templates ./src/studio-ag
 COPY --from=node_builder /app/src/rendering/manim/manimgx-runner.py ./src/rendering/manim/manimgx-runner.py
 COPY --from=node_builder /app/src/rendering/manim/narration_runtime.py ./src/rendering/manim/narration_runtime.py
 COPY --from=node_builder /app/src/rendering/manim/edge_tts_worker.py ./src/rendering/manim/edge_tts_worker.py
-COPY --from=audio_assets /tracks ./src/audio/tracks
 COPY start-with-redis-hf.cjs ./
 
 RUN mkdir -p \

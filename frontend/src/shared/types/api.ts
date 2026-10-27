@@ -55,8 +55,6 @@ export interface VideoConfig {
   frameRate: number;
   /** 超时时间（秒），默认 1200 秒（20 分钟） */
   timeout?: number;
-  /** 是否添加背景音乐 */
-  bgm?: boolean;
   /** 旁白配音 */
   narration?: NarrationConfig;
 }

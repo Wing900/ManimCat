@@ -17,7 +17,6 @@ interface VideoSettingsProps {
 
 export function VideoSettings({ videoConfig, onUpdate }: VideoSettingsProps) {
   const { t } = useI18n();
-  const bgmEnabled = videoConfig.bgm ?? DEFAULT_SETTINGS.video.bgm;
   const narration = videoConfig.narration ?? DEFAULT_NARRATION;
 
   const updateNarration = (updates: Partial<typeof narration>) => {
@@ -59,25 +58,6 @@ export function VideoSettings({ videoConfig, onUpdate }: VideoSettingsProps) {
         onChange={(value) => onUpdate({ timeout: value })}
         label={t('settings.video.timeout')}
       />
-
-      <div className="flex items-center justify-between rounded-xl bg-bg-secondary/40 px-4 py-3">
-        <span className="text-sm text-text-primary">{t('settings.video.bgm')}</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={bgmEnabled}
-          onClick={() => onUpdate({ bgm: !bgmEnabled })}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 ease-ui ${
-            bgmEnabled ? 'bg-ink/70' : 'bg-text-secondary/25'
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-300 ease-spring ${
-              bgmEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
-      </div>
 
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between rounded-xl bg-bg-secondary/40 px-4 py-3">

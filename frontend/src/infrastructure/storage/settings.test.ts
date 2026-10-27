@@ -21,7 +21,7 @@ describe('video defaults', () => {
 
   it('migrates the old low/15 default to medium/60', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      video: { quality: 'low', frameRate: 15, timeout: 1200, bgm: false },
+      video: { quality: 'low', frameRate: 15, timeout: 1200 },
     }));
     localStorage.setItem(SETTINGS_VERSION_KEY, '5');
 
@@ -30,18 +30,18 @@ describe('video defaults', () => {
 
   it('keeps an explicit non-default combination', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      video: { quality: 'low', frameRate: 30, timeout: 1200, bgm: true },
+      video: { quality: 'low', frameRate: 30, timeout: 1200 },
     }));
     localStorage.setItem(SETTINGS_VERSION_KEY, '5');
 
-    expect(loadSettings().video).toMatchObject({ quality: 'low', frameRate: 30, bgm: true });
+    expect(loadSettings().video).toMatchObject({ quality: 'low', frameRate: 30 });
   });
 });
 
 describe('narration settings', () => {
-  it('adds narration off without resetting existing quality, frame rate or BGM', () => {
+  it('adds narration off without resetting existing quality and frame rate', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      video: { quality: 'high', frameRate: 30, timeout: 1800, bgm: true },
+      video: { quality: 'high', frameRate: 30, timeout: 1800 },
     }));
     localStorage.setItem(SETTINGS_VERSION_KEY, '7');
 
@@ -49,7 +49,6 @@ describe('narration settings', () => {
       quality: 'high',
       frameRate: 30,
       timeout: 1800,
-      bgm: true,
       narration: { enabled: false, voice: 'zh-CN-XiaoxiaoNeural', rate: '+0%' },
     });
   });
@@ -75,7 +74,6 @@ describe('narration settings', () => {
         quality: 'medium',
         frameRate: 60,
         timeout: 1200,
-        bgm: false,
         narration: { enabled: true, voice: 'unknown-voice', rate: '999%' },
       },
     }));
