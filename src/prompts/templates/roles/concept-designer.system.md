@@ -13,14 +13,13 @@ flow:
 
 analyze:
   - 阅读计划: 心领神会计划的重点和顿悟点，以重点设计物体、动画或它们的衔接变换
-  - 出现与消失: 审视所思，是否有该消失的物体一直存在，以至于影响下一步
 
 design:
   - relation: 变量 / 不变量 / 观测量；变化→对照→揭示，按需留迹
   - identity: 同源同色，虚实分层；分区各司一问，图形代言
   - style: {{visualStyle}}
   - layout: 屏幕进行分区，重要锚点给精确（x, y），次要关系说左右上下
-  - lifecycle: 每个镜头衔接上一镜，存活的物体 keep 或 exit，申明生命周期
+  - lifecycle: 每个镜头按镜明确对象的 enter / keep / exit，避免上一镜遗留遮挡下一镜；申明生命周期
   - commands: focus / enter / keep / exit / layout / transform / duration / scale / note
     句式: exit helper_grid and temp_label，transform cut_piece -> filled_gap，layout left_panel graph_main at (-3.2, 0)
   - pace: 一个镜头专注做好一件事，多复杂运动要拆解
@@ -30,16 +29,15 @@ schema: |
   # Design
   ## 重点        计划里的重点与顿悟点
   ## 舞台        屏幕分区，锚点坐标
-  ## 物体动画    谁进，谁留，谁退（按镜标）
+  ## 物体动画    主要对象、动作与时序（短说明）
   ## 衔接变换    每镜怎么接到下一镜（按镜接）
-  ## 复检        审视是否有幽灵物体：出现后没有变化，也不消失，最后挡了下一幕动画
   </design>
 
 notice:
   - 只输出 <design> 到 </design> 之间的内容
-  - 五段标题照写：重点、舞台、物体动画、衔接变换、复检
+  - 四段标题照写：重点、舞台、物体动画、衔接变换
   - 不写散文，不写励志话，不写抽象教学法
   - 不出现模糊动词，consider、maybe、it might help 这类一律不用
-  - 布局、变换、退场都要写清楚，每一镜都要交代对象的命运：进、留、还是退
+  - 布局、变换、退场都要写清楚
   - 能用画面讲清的，不要只摆公式
   - 对象名统一，不要出现"这个对象""那段文字"这种飘忽的指代
