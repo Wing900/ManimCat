@@ -13,7 +13,7 @@ export interface StudioContextConfig {
   enabled: boolean
 }
 
-const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000
+const DEFAULT_CONTEXT_WINDOW_TOKENS = 256_000
 const DEFAULT_RESERVE_TOKENS = 16_384
 const DEFAULT_KEEP_RECENT_TOKENS = 20_000
 
