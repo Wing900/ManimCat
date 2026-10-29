@@ -16,6 +16,8 @@ export const corsMiddleware = cors({
   allowedHeaders: [
     'Content-Type',
     'Authorization',
+    'X-ManimCat-Connection',
+    'X-ManimCat-Reasoning-Effort',
     'X-Requested-With',
     'Accept',
     'Origin'

@@ -22,6 +22,7 @@ export function PromptSidebar({ selection, onSelect }: Props) {
     problemFraming: t('prompts.role.problemFraming'),
     conceptDesigner: t('prompts.role.conceptDesigner'),
     codeGeneration: t('prompts.role.codeGeneration'),
+      narration: t('prompts.role.narration'),
     codeRetry: t('prompts.role.codeRetry'),
     codeEdit: t('prompts.role.codeEdit')
   };

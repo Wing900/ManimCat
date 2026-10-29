@@ -10,7 +10,7 @@ import {
   normalizeMessageContent
 } from './concept-designer-utils'
 import { createChatCompletionText } from '../openai-stream'
-import { buildTokenParams } from '../../utils/reasoning-model'
+import { buildCompletionParams } from '../../infrastructure/ai-provider/completion-policy'
 import { JobCancelledError } from '../../shared/errors/errors'
 import { executeAiStageWithTransportRetry } from '../ai-stage-transport-retry'
 import { parseCuePlan, stripCuePlan } from '../narration/cue-plan'
@@ -29,7 +29,6 @@ interface CodeFromDesignStageParams {
   promptOverrides?: PromptOverrides
   coderTemperature: number
   maxTokens: number
-  thinkingTokens: number
   /** Fixed cue IDs for narration sync. Runtime injects the helpers; no seconds here. */
   cuePlan?: CuePlan
   onCheckpoint?: () => Promise<void>
@@ -49,7 +48,6 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
     promptOverrides,
     coderTemperature,
     maxTokens,
-    thinkingTokens,
     onCheckpoint
   } = params
 
@@ -85,7 +83,7 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
             { role: 'user', content: userPrompt }
           ],
           temperature: coderTemperature,
-          ...buildTokenParams(thinkingTokens, maxTokens)
+          ...buildCompletionParams(maxTokens, undefined, client)
         },
         { fallbackToNonStream: true, usageLabel: `code-generation-${attempt}` }
       ),

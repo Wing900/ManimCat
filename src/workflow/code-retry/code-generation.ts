@@ -6,7 +6,7 @@ import type { ChatMessage, CodeRetryContext, RetryCheckpoint } from './types'
 import { buildRetryPrompt, getCodeRetrySystemPrompt } from './prompt-builder'
 import { dedupeSharedBlocksInMessages } from '../prompt-dedup'
 import { createChatCompletionText } from '../openai-stream'
-import { buildTokenParams } from '../../utils/reasoning-model'
+import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
 import { applyPatchSetToCode, extractTargetLine } from './utils'
 import { getApiRagService } from '../../knowledge/api-rag'
 import { runRepairSession } from './repair-session'
@@ -15,8 +15,7 @@ import { inferAutomaticApiRequests } from './api-hints'
 const logger = createLogger('CodeRetryCodeGen')
 
 const AI_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
-const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '12000', 10)
-const THINKING_TOKENS = parseInt(process.env.AI_THINKING_TOKENS || '20000', 10)
+const MAX_TOKENS = readMaxCompletionTokens()
 
 function getModel(customApiConfig?: unknown): string {
   const model = (customApiConfig as { model?: string } | undefined)?.model
@@ -82,7 +81,7 @@ export async function retryCodeGeneration(
           model: getModel(customApiConfig),
           messages,
           temperature: AI_TEMPERATURE,
-          ...buildTokenParams(THINKING_TOKENS, MAX_TOKENS)
+          ...buildCompletionParams(MAX_TOKENS, undefined, client)
         },
         { fallbackToNonStream: true, usageLabel: `retry-${attempt}-turn-${turn}` }
       )

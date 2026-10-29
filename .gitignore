@@ -24,6 +24,7 @@ static/videos/
 static/gifs/
 
 # Logs
+artifacts/
 *.log
 dump.rdb
 

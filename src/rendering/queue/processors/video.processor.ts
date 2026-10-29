@@ -3,8 +3,9 @@
  * 任务处理器 - 主编排器
  */
 
+import { performance } from 'node:perf_hooks'
 import { videoQueue } from '../bull-config'
-import { storeJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
+import { finalizeJobTimings, storeJobResult } from '../../../infrastructure/redis/job/redis-job-result-store'
 import { deleteJobStage } from '../../../infrastructure/redis/job/redis-job-state-store'
 import { touchJobTracking } from '../../../infrastructure/redis/job/redis-job-tracking-store'
 import { clearJobCancelled } from '../../job/job-cancel-store'
@@ -15,7 +16,7 @@ import { runEditFlow, runGenerationFlow, runPreGeneratedFlow } from './video-pro
 import { getRetryMeta, shouldDisableQueueRetry, storeProcessingStage } from './video-processor-utils'
 import { getCurrentJobLogSummary, getCurrentJobTokenUsage, runWithJobLogContext } from '../../job/job-log-context'
 import { recordTokenUsage, type TokenUsageTotals } from '../../../access'
-import { normalizeTimings, totalTimings } from '../../../shared/time/timings'
+import { normalizeTimings } from '../../../shared/time/timings'
 
 const logger = createLogger('VideoProcessor')
 const activeExecutions = new Map<string, Promise<unknown>>()
@@ -91,6 +92,7 @@ function emitJobSummary(args: {
 }
 
 async function executeVideoJob(job: any): Promise<unknown> {
+  const executionStartMono = performance.now()
   const data = job.data as VideoJobData
   const contextAttempt = typeof job.attemptsMade === 'number' ? job.attemptsMade + 1 : 1
 
@@ -158,6 +160,23 @@ async function executeVideoJob(job: any): Promise<unknown> {
       logger.info('Job completed', { jobId, source: 'generation', timings })
     }
 
+    // Persist the spans that can only be known after the result write: store itself and the
+    // monotonic, end-to-end total. `storeOutcome` is checked so a duplicate execution that
+    // preserved an earlier completed result cannot rewrite that result's timing.
+    timings.total = Math.max(0, (timings.queue || 0) + (performance.now() - executionStartMono))
+    const finalizedAt = Date.now()
+    if (result.storeOutcome === 'stored') {
+      const finalized = await finalizeJobTimings(
+        jobId,
+        'completed',
+        normalizeTimings(timings) ?? {},
+        finalizedAt
+      )
+      if (!finalized) {
+        logger.warn('Failed to persist final job timings', { jobId, status: 'completed' })
+      }
+    }
+
     // Terminal success: the authoritative `job:result:*` is now in place, so the intermediate
     // `job:stage:*` / `job:tracking:*` markers are no longer needed. Removing them keeps Redis
     // from showing a stale "rendering"/"generating" state after completion and prevents any future
@@ -215,8 +234,7 @@ async function executeVideoJob(job: any): Promise<unknown> {
       maxAttempts: currentRetryMeta.maxAttempts
     })
 
-    timings.total = totalTimings(timings)
-
+    const failureStoreStart = performance.now()
     const storeOutcome = await storeJobResult(jobId, {
       status: 'failed',
       data: {
@@ -227,6 +245,19 @@ async function executeVideoJob(job: any): Promise<unknown> {
         tokenUsage: getCurrentJobTokenUsage()
       }
     })
+    timings.store = performance.now() - failureStoreStart
+    timings.total = Math.max(0, (timings.queue || 0) + (performance.now() - executionStartMono))
+    if (storeOutcome === 'stored') {
+      const finalized = await finalizeJobTimings(
+        jobId,
+        'failed',
+        normalizeTimings(timings) ?? {},
+        Date.now()
+      )
+      if (!finalized) {
+        logger.warn('Failed to persist final job timings', { jobId, status: 'failed' })
+      }
+    }
     if (!cancelReason) {
       await clearJobCancelled(jobId)
     }
@@ -235,7 +266,9 @@ async function executeVideoJob(job: any): Promise<unknown> {
     // branch above threw before reaching here, so this only runs when the job is truly done.
     await deleteJobStage(jobId)
 
-    if (storeOutcome === 'preserved-completed') {
+    // `preserved-completed` is the success-path guard; `preserved-failed` is the failure-path
+    // guard used when an earlier execution already stored a completed result.
+    if (storeOutcome === 'preserved-completed' || storeOutcome === 'preserved-failed') {
       logger.warn('Duplicate execution failed after a completed result; preserving success', {
         jobId,
         error: errorMessage,

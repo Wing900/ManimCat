@@ -11,7 +11,6 @@
 import express, { type Request, type Response } from 'express'
 import { redisClient } from '../infrastructure/redis/config'
 import { checkQueueHealth, getQueueStats } from '../rendering/queue/bull-config'
-import { appConfig } from '../config/app'
 import { asyncHandler } from '../http/middleware/async-route'
 import { createLogger } from '../shared/logging/logger'
 import type { HealthCheckResponse } from '../types'
@@ -26,7 +25,7 @@ const logger = createLogger('HealthRoute')
  */
 router.get(
   '/health',
-  asyncHandler(async (req: Request, res: Response) => {
+  asyncHandler(async (_req: Request, res: Response) => {
     // 检查 Redis 连接
     let redisHealthy = false
     try {

@@ -17,7 +17,7 @@ const logger = createLogger('AiModelsRoute')
 router.post(
   '/ai/models',
   accessMiddleware,
-  asyncHandler(async (req: Request, res: Response) => {
+  asyncHandler(async (_req: Request, res: Response) => {
     const start = Date.now()
     const accessContext = requireAccessContext(res)
 

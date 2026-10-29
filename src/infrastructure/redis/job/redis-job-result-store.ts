@@ -8,7 +8,7 @@ import { redisClient, REDIS_KEYS, generateRedisKey } from '../config'
 import { videoQueue } from '../../../rendering/queue/bull-config'
 import type { JobResult } from '../../../rendering/job/job-types'
 import type { StoreJobResultOutcome } from '../../../rendering/job/job-types'
-import type { JobResultStore } from '../../../rendering/job/job-result-store'
+import type { JobTimings } from '../../../types'
 
 const RESULT_TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days
 
@@ -33,6 +33,24 @@ redis.call('SET', resultKey, payload, 'EX', ttl)
 return 'stored'
 `
 
+const FINALIZE_TIMINGS_SCRIPT = `
+local resultKey = KEYS[1]
+local expectedStatus = ARGV[1]
+local timestamp = tonumber(ARGV[2])
+local timings = ARGV[3]
+local ttl = tonumber(ARGV[4])
+local raw = redis.call('GET', resultKey)
+if not raw then return 0 end
+local ok, decoded = pcall(cjson.decode, raw)
+if not ok or not decoded then return 0 end
+if decoded.status ~= expectedStatus then return 0 end
+decoded.timestamp = timestamp
+decoded.data = decoded.data or {}
+decoded.data.timings = cjson.decode(timings)
+redis.call('SET', resultKey, cjson.encode(decoded), 'EX', ttl)
+return 1
+`
+
 export async function storeJobResult(
   jobId: string,
   result: Omit<JobResult, 'timestamp'> & { timestamp?: number }
@@ -54,6 +72,30 @@ export async function storeJobResult(
     String(RESULT_TTL_SECONDS)
   )) as string
   return outcome as StoreJobResultOutcome
+}
+
+/**
+ * Add the spans that can only be known after the result write (store + total) and move the
+ * completion timestamp to the real end of the job. The write is atomic and status-checked so a
+ * duplicate execution cannot overwrite a newer terminal result.
+ */
+export async function finalizeJobTimings(
+  jobId: string,
+  status: 'completed' | 'failed',
+  timings: JobTimings,
+  timestamp: number
+): Promise<boolean> {
+  const resultKey = generateRedisKey(REDIS_KEYS.JOB_RESULT, jobId)
+  const updated = await redisClient.eval(
+    FINALIZE_TIMINGS_SCRIPT,
+    1,
+    resultKey,
+    status,
+    String(timestamp),
+    JSON.stringify(timings),
+    String(RESULT_TTL_SECONDS)
+  )
+  return updated === 1
 }
 
 export async function getJobResult(jobId: string): Promise<JobResult | null> {

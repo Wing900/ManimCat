@@ -3,13 +3,13 @@
  * 分析用户输入，决定生成策略
  */
 
+import { performance } from 'node:perf_hooks'
 import { generateTwoStageAIManimCode } from '../../../../workflow/concept-design/concept-designer'
 import { storeProcessingStage } from '../video-processor-utils'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { isJobCancelled } from '../../../job/job-cancel-store'
 import { cleanupNarrationWorkspace } from '../../../manim/narration-mixer'
 import { createLogger } from '../../../../shared/logging/logger'
-import { JobCancelledError } from '../../../../shared/errors/errors'
 import type { NarrationAssets, NarrationConfig } from '../../../../workflow/narration/types'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../../../types'
 
@@ -178,11 +178,11 @@ export async function analyzeAndGenerate(
   problemPlan?: ProblemFramingPlan,
   narration?: NarrationStageRequest
 ): Promise<GenerationResult> {
-  const analyzeStart = Date.now()
+  const analyzeStart = performance.now()
   const analysisResult = await analyzeConcept(jobId, concept, quality, outputMode)
-  timings.analyze = Date.now() - analyzeStart
+  timings.analyze = performance.now() - analyzeStart
 
-  const generateStart = Date.now()
+  const generateStart = performance.now()
   try {
     return await generateCode(
       jobId,
@@ -197,6 +197,6 @@ export async function analyzeAndGenerate(
       narration
     )
   } finally {
-    timings.generate = Date.now() - generateStart
+    timings.generate = performance.now() - generateStart
   }
 }

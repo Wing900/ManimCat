@@ -37,9 +37,7 @@ import { adaptStudioEvent, type StudioExternalEvent } from '../../infrastructure
 import {
   toPublicStudioEvent,
   toPublicStudioSceneEvent,
-  toPublicStudioSceneRun,
-  toPublicStudioSceneSnapshot,
-  toPublicStudioSceneToolState
+  toPublicStudioSceneSnapshot
 } from '../../http/public-dto'
 import {
   openStudioAgentEventStream,

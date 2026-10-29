@@ -9,12 +9,16 @@
 import OpenAI from 'openai'
 import type { CustomApiConfig } from '../../types'
 import { ValidationError } from '../../shared/errors/errors'
+import { configureClientReasoning, readProviderTimeoutMs } from './completion-policy'
 
 export function createCustomOpenAIClient(config: CustomApiConfig): OpenAI {
-  return new OpenAI({
+  const client = new OpenAI({
     baseURL: config.apiUrl,
     apiKey: config.apiKey,
+    timeout: readProviderTimeoutMs(),
   })
+  configureClientReasoning(client, config.reasoningEffort)
+  return client
 }
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])

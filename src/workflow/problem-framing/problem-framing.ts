@@ -1,6 +1,6 @@
 import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 import { createChatCompletionText } from '../openai-stream'
-import { buildTokenParams } from '../../utils/reasoning-model'
+import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
 import { createLogger } from '../../shared/logging/logger'
 import { getRoleSystemPrompt, getRoleUserPrompt } from '../../prompts'
 import { buildVisionUserMessage, shouldRetryWithoutImages } from '../concept-design/concept-designer-utils'
@@ -13,8 +13,7 @@ import { executeProblemFramingWithImageFallback } from './retry'
 const logger = createLogger('ProblemFraming')
 
 const PLANNER_TEMPERATURE = parseFloat(process.env.PROBLEM_FRAMING_TEMPERATURE || '0.7')
-const PLANNER_MAX_TOKENS = parseInt(process.env.PROBLEM_FRAMING_MAX_TOKENS || '2400', 10)
-const PLANNER_THINKING_TOKENS = parseInt(process.env.PROBLEM_FRAMING_THINKING_TOKENS || '4000', 10)
+const PLANNER_MAX_TOKENS = readMaxCompletionTokens('PROBLEM_FRAMING')
 const PLANNER_FORMAT_RETRIES = parseInt(process.env.PROBLEM_FRAMING_FORMAT_RETRIES || '2', 10)
 const FORMAT_REPAIR_INPUT_LIMIT = 16_000
 
@@ -72,7 +71,7 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
           { role: 'user', content: useImages ? buildVisionUserMessage(userPrompt, params.referenceImages) : userPrompt }
         ],
         temperature: PLANNER_TEMPERATURE,
-        ...buildTokenParams(PLANNER_THINKING_TOKENS, PLANNER_MAX_TOKENS)
+        ...buildCompletionParams(PLANNER_MAX_TOKENS, 'PROBLEM_FRAMING', client)
       },
       {
         fallbackToNonStream: true,
@@ -119,7 +118,7 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
               },
             ],
             temperature: 0,
-            ...buildTokenParams(0, PLANNER_MAX_TOKENS),
+            ...buildCompletionParams(PLANNER_MAX_TOKENS, 'PROBLEM_FRAMING', client),
           },
           {
             fallbackToNonStream: true,

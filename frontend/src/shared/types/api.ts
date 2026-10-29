@@ -22,7 +22,7 @@ export interface CustomApiConfig {
 }
 
 /** 角色类型 */
-export type RoleType = 'problemFraming' | 'conceptDesigner' | 'codeGeneration' | 'codeRetry' | 'codeEdit';
+export type RoleType = 'problemFraming' | 'conceptDesigner' | 'codeGeneration' | 'narration' | 'codeRetry' | 'codeEdit';
 
 /** 共享模块类型 */
 export type SharedModuleType = 'apiIndex' | 'specification';
@@ -94,6 +94,7 @@ export interface JobTimings {
   edit?: number;
   retry?: number;
   render?: number;
+  mux?: number;
   store?: number;
   total?: number;
 }

@@ -5,7 +5,6 @@ import type {
   StudioSession,
   StudioToolDefinition,
 } from '../../domain/types'
-import path from 'node:path'
 import type { StudioToolRegistry } from '../../tools/registry'
 import type { StudioRuntimeBackedToolContext } from './tool-runtime-context'
 import type { StudioRunExecutionScope } from '../../domain/run-execution-scope'

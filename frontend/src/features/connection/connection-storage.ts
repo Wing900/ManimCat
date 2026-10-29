@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { BYOK_PATTERN, CATKEY_PATTERN, createBrowserSecret, createConnectionSettings, hasConnection } from './connection-types'
+import { BYOK_PATTERN, CATKEY_PATTERN, REASONING_EFFORTS, createBrowserSecret, createConnectionSettings, hasConnection } from './connection-types'
 import type { ConnectionSettings } from './connection-types'
 
 export const CONNECTION_STORAGE_KEY = 'manimcat_connection'
@@ -14,6 +14,7 @@ function readConnection(raw: string): ConnectionSettings {
     version: 1,
     activeMode: value.activeMode === 'catkey' || value.activeMode === 'byok' ? value.activeMode : null,
     dismissed: value.dismissed === true,
+    reasoningEffort: REASONING_EFFORTS.includes(value.reasoningEffort!) ? value.reasoningEffort : 'high',
     catkey: { key: text(value.catkey?.key) },
     byok: {
       browserSecret: text(value.byok?.browserSecret),

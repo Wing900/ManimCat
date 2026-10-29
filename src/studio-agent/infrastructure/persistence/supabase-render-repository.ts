@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StudioRender, StudioRenderStore } from '../../domain/types'
 import type { StudioRenderRow, JsonRecord } from './supabase-persistence-shared'
-import { TABLES, compactObject, asOptional, asNullable, asTimeRange, asAttachments, readStudioSceneId } from './supabase-persistence-shared'
+import { TABLES, compactObject, asOptional, asNullable, asAttachments, readStudioSceneId } from './supabase-persistence-shared'
 import { canTransitionStudioRenderStatus } from '../../render/render-status-transitions'
 
 export function createSupabaseStudioRenderStore(client: SupabaseClient): StudioRenderStore {

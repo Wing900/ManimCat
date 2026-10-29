@@ -37,6 +37,7 @@ import {
   copyFileAtomic,
   readWavInfo,
   replaceFileAtomic,
+  writeSilentWav,
   type WavInfo
 } from './wav-track'
 import type {
@@ -52,6 +53,21 @@ const logger = createLogger('NarrationPrepare')
 const CACHE_VERSION = 'narration-prepare-v1'
 const SEGMENT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 const RATE_PATTERN = /^[+-]\d{1,3}%$/
+
+function readSecondsEnv(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim()
+  if (!raw) return fallback
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < 0) {
+    throw new NarrationError('INVALID_CONFIG', `${name} must be a non-negative number`, { raw })
+  }
+  return value
+}
+
+/** Breathing room after each shot's line; 0 disables the gap. */
+const SEGMENT_GAP_SECONDS = readSecondsEnv('NARRATION_SEGMENT_GAP_SECONDS', 2.5)
+/** On-screen duration of a shot that carries no narration at all. */
+const SILENT_SEGMENT_SECONDS = readSecondsEnv('NARRATION_SILENT_SEGMENT_SECONDS', 4)
 
 export interface PrepareNarrationOptions {
   plan: NarrationPlan
@@ -75,9 +91,10 @@ export interface PrepareNarrationOptions {
 
 interface PreparedSegment {
   id: string
-  originalText: string
   parsed: ParsedSegmentText
   cacheKey: string
+  /** True when the shot is deliberately wordless; no TTS is requested for it. */
+  silent: boolean
 }
 
 interface SegmentAudio {
@@ -166,12 +183,25 @@ function preparePlan(plan: NarrationPlan): PreparedSegment[] {
     seenSegments.add(id)
 
     const text = (raw as { text?: unknown }).text
-    if (typeof text !== 'string' || !text.trim()) {
+    if (typeof text !== 'string') {
       throw new NarrationError(
         'INVALID_PLAN',
-        `plan.segments[${index}].text must be a non-empty string`,
+        `plan.segments[${index}].text must be a string`,
         { id }
       )
+    }
+
+    // A wordless shot is a legal segment: the timeline still gives it room, it just
+    // carries silence instead of speech. Nothing is synthesized, so no cue can be
+    // anchored to a spoken word inside it.
+    if (!text.trim()) {
+      prepared.push({
+        id,
+        parsed: { cleanText: '', markers: [] },
+        cacheKey: '',
+        silent: true
+      })
+      continue
     }
 
     const parsed = parseMarkedText(text, id)
@@ -186,7 +216,7 @@ function preparePlan(plan: NarrationPlan): PreparedSegment[] {
       seenCues.add(marker.id)
     }
 
-    prepared.push({ id, originalText: text, parsed, cacheKey: '' })
+    prepared.push({ id, parsed, cacheKey: '', silent: false })
   }
 
   return prepared
@@ -439,6 +469,7 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
   const misses: number[] = []
   for (let index = 0; index < segments.length; index += 1) {
     throwIfCancelled(options.signal)
+    if (segments[index].silent) continue
     const cached = await readCachedSegment(
       cacheRoot,
       segments[index].cacheKey,
@@ -535,11 +566,22 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
   const canonicalPaths: string[] = []
   for (let index = 0; index < segments.length; index += 1) {
     throwIfCancelled(options.signal)
+    const target = path.join(segmentsDirectory, safeSegmentFileName(index, segments[index].id))
+    if (segments[index].silent) {
+      const info = await writeSilentWav(
+        target,
+        SILENT_SEGMENT_SECONDS,
+        NARRATION_SAMPLE_RATE,
+        NARRATION_CHANNELS
+      )
+      audioByIndex[index] = { wavPath: target, info, boundaries: [] }
+      canonicalPaths.push(target)
+      continue
+    }
     const audio = audioByIndex[index]
     if (!audio) {
       throw new NarrationError('TTS_FAILED', `No audio produced for segment ${segments[index].id}`)
     }
-    const target = path.join(segmentsDirectory, safeSegmentFileName(index, segments[index].id))
     const canonical = await ensureSegmentWav(audio.wavPath, target)
     const info = await readWavInfo(canonical)
     if (
@@ -562,6 +604,10 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
   for (let index = 0; index < segments.length; index += 1) {
     throwIfCancelled(options.signal)
     const segment = segments[index]
+    if (segment.silent) {
+      cueTimes.push({})
+      continue
+    }
     const audio = audioByIndex[index]!
     const { aligned, warnings } = alignWordBoundaries(segment.parsed.cleanText, audio.boundaries)
     if (warnings.length > 0) {
@@ -586,11 +632,32 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
 
   throwIfCancelled(options.signal)
   const audioPath = path.join(outputDirectory, 'narration.wav')
+  // Silence is part of the timeline: a breath after every shot's line, and the full
+  // length of a shot that says nothing. Concatenating real silent samples keeps every
+  // later cue offset frame-exact, and hides the gap from the renderer entirely.
+  const gapPath = path.join(outputDirectory, 'silence-gap.wav')
+  const gapInfo =
+    SEGMENT_GAP_SECONDS > 0 && segments.length > 1
+      ? await writeSilentWav(gapPath, SEGMENT_GAP_SECONDS, NARRATION_SAMPLE_RATE, NARRATION_CHANNELS)
+      : undefined
+  const concatInputs: Array<{ path: string; info: WavInfo }> = []
+  const timingIndexBySegment: number[] = []
+  for (let index = 0; index < canonicalPaths.length; index += 1) {
+    timingIndexBySegment.push(concatInputs.length)
+    concatInputs.push({ path: canonicalPaths[index], info: audioByIndex[index]!.info })
+    if (gapInfo && index < canonicalPaths.length - 1) {
+      concatInputs.push({ path: gapPath, info: gapInfo })
+    }
+  }
+
   const concatenated = await concatWavFiles(
-    canonicalPaths.map((wavPath, index) => ({ path: wavPath, info: audioByIndex[index]!.info })),
+    concatInputs,
     audioPath,
     { sampleRate: NARRATION_SAMPLE_RATE, channels: NARRATION_CHANNELS },
     options.signal
+  )
+  const segmentTimings = timingIndexBySegment.map(
+    (timingIndex) => concatenated.segments[timingIndex]!
   )
 
   const manifest = buildManifest({
@@ -598,7 +665,7 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
     audioPath,
     duration: concatenated.duration,
     segments,
-    timings: concatenated.segments,
+    timings: segmentTimings,
     cueTimes
   })
 
@@ -621,6 +688,8 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
     audioPath,
     duration: roundSeconds(concatenated.duration),
     segments: segments.length,
+    silentSegments: segments.filter((segment) => segment.silent).length,
+    segmentGapSeconds: SEGMENT_GAP_SECONDS,
     cues: totalCues,
     cacheHits: cacheHits.length,
     synthesized: misses.length

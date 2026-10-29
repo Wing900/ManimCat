@@ -193,6 +193,52 @@ export async function replaceFileAtomic(temp: string, target: string): Promise<v
   }
 }
 
+/**
+ * Write a canonical PCM16 silence track.
+ *
+ * Deliberate pauses belong to the narration timeline, not to the renderer: a shot
+ * that says nothing, or the beat between two shots, is still a stretch of real
+ * samples. Keeping silence in the WAV makes every later cue offset frame-exact.
+ */
+export async function writeSilentWav(
+  filePath: string,
+  seconds: number,
+  sampleRate: number,
+  channels: number
+): Promise<WavInfo> {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new NarrationError('WAV_INVALID', `Silence length must be positive, got ${seconds}`, {
+      seconds
+    })
+  }
+  const frames = Math.round(seconds * sampleRate)
+  const blockAlign = channels * 2
+  const dataSize = frames * blockAlign
+  if (
+    frames <= 0 ||
+    !Number.isSafeInteger(dataSize) ||
+    dataSize <= 0 ||
+    dataSize > MAX_WAV_DATA_BYTES - 36
+  ) {
+    throw new NarrationError('WAV_INVALID', `Silence track is too large: ${dataSize} bytes`, {
+      seconds,
+      dataSize
+    })
+  }
+
+  await fsp.mkdir(path.dirname(filePath), { recursive: true })
+  const header = buildWavHeader(sampleRate, channels, dataSize)
+  const temp = `${filePath}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`
+  try {
+    await fsp.writeFile(temp, Buffer.concat([header, Buffer.alloc(dataSize)]))
+    await replaceFileAtomic(temp, filePath)
+  } catch (error) {
+    await fsp.rm(temp, { force: true }).catch(() => undefined)
+    throw error
+  }
+  return readWavInfo(filePath)
+}
+
 function buildWavHeader(sampleRate: number, channels: number, dataSize: number): Buffer {
   const bytesPerSample = 2
   const blockAlign = channels * bytesPerSample

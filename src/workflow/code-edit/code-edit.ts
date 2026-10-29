@@ -4,13 +4,12 @@ import { generateCodeEditPrompt, getRoleSystemPrompt, getSharedModule } from '..
 import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
 import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 import { createChatCompletionText } from '../openai-stream'
-import { buildTokenParams } from '../../utils/reasoning-model'
+import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
 
 const logger = createLogger('CodeEditService')
 
 const CODER_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
-const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '12000', 10)
-const THINKING_TOKENS = parseInt(process.env.AI_THINKING_TOKENS || '20000', 10)
+const MAX_TOKENS = readMaxCompletionTokens()
 
 function createCustomClient(config: CustomApiConfig): OpenAI {
   return createCustomOpenAIClient(config)
@@ -88,7 +87,7 @@ export async function generateEditedManimCode(
           { role: 'user', content: userPrompt }
         ],
         temperature: CODER_TEMPERATURE,
-        ...buildTokenParams(THINKING_TOKENS, MAX_TOKENS)
+        ...buildCompletionParams(MAX_TOKENS, undefined, client)
       },
       { fallbackToNonStream: true, usageLabel: 'code-edit' }
     )

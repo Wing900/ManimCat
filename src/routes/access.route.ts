@@ -20,7 +20,7 @@ const logger = createLogger('AccessRoute')
 router.post(
   '/access/verify',
   accessMiddleware,
-  asyncHandler(async (req: Request, res: Response) => {
+  asyncHandler(async (_req: Request, res: Response) => {
     const accessContext = requireAccessContext(res)
 
     try {

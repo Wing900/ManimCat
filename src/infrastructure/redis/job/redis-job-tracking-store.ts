@@ -3,7 +3,7 @@
  */
 
 import { redisClient } from '../config'
-import type { JobTrackingState, StoreJobStageOptions } from '../../../rendering/job/job-types'
+import type { JobTrackingState } from '../../../rendering/job/job-types'
 
 const TRACKING_PREFIX = 'job:tracking:'
 const TTL_SECONDS = 24 * 60 * 60

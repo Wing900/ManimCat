@@ -4,6 +4,7 @@
  */
 
 import * as dotenv from 'dotenv'
+import { readReasoningEffort, readMaxCompletionTokens } from '../infrastructure/ai-provider/completion-policy'
 import { getStudioDataMode } from './studio-data-mode'
 import { readCatKeyCacheTtlMs } from '../access/infrastructure/cached-cat-key-repository'
 
@@ -40,8 +41,8 @@ export const appConfig = {
   // AI 配置（上游地址/密钥/模型来自 AccessContext：CatKey 用服务端固定上游，BYOK 用请求携带的配置）
   ai: {
     temperature: parseFloat(process.env.AI_TEMPERATURE || '0.7'),
-    maxTokens: parseInt(process.env.AI_MAX_TOKENS || '12000', 10),
-    thinkingTokens: parseInt(process.env.AI_THINKING_TOKENS || '20000', 10)
+    maxTokens: readMaxCompletionTokens(),
+    reasoningEffort: readReasoningEffort()
   },
 
   // Manim 配置
@@ -97,6 +98,11 @@ export function printConfig(): void {
   console.log(`  - Host: ${appConfig.host}`)
   console.log(`  - CORS Origin: ${appConfig.cors.origin}`)
   console.log(`  - LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`)
+  console.log(`  - AI_MAX_TOKENS (reasoning + answer): ${appConfig.ai.maxTokens}`)
+  console.log(`  - DESIGNER_MAX_TOKENS (reasoning + answer): ${readMaxCompletionTokens('DESIGNER')}`)
+  console.log(`  - NARRATION_MAX_TOKENS (reasoning + answer): ${readMaxCompletionTokens('NARRATION')}`)
+  console.log(`  - PROBLEM_FRAMING_MAX_TOKENS (reasoning + answer): ${readMaxCompletionTokens('PROBLEM_FRAMING')}`)
+  console.log(`  - STUDIO_MAX_TOKENS (reasoning + answer): ${readMaxCompletionTokens('STUDIO')}`)
   console.log(`  - PROD_SUMMARY_LOG_ONLY: ${process.env.PROD_SUMMARY_LOG_ONLY ?? '(unset, defaults to true in production)'}`)
   console.log(`  - ENABLE_STUDIO_DB: ${process.env.ENABLE_STUDIO_DB || 'false'}`)
   console.log(`  - STUDIO_DATA_MODE: ${getStudioDataMode()}`)

@@ -11,6 +11,7 @@ export function getConnectionHeaders(contentType?: string, connection = loadConn
   if (mode) {
     headers.Authorization = `Bearer ${credential}`
     headers['X-ManimCat-Connection'] = mode
+    headers['X-ManimCat-Reasoning-Effort'] = connection.reasoningEffort ?? 'high'
   }
   return headers
 }

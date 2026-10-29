@@ -9,6 +9,8 @@ import type { Request, Response, NextFunction } from 'express'
 import type { CustomApiConfig } from '../../types'
 import { resolveRequestAccessContext } from '../../access'
 import { extractBearerToken } from '../../utils/auth-utils'
+import { isReasoningEffort } from '../../infrastructure/ai-provider/completion-policy'
+import { ValidationError } from '../../shared/errors/errors'
 
 const CONNECTION_MODE_HEADER = 'x-manimcat-connection'
 
@@ -19,7 +21,14 @@ export function accessMiddleware(req: Request, res: Response, next: NextFunction
     requestProviderConfig: readRequestProviderConfig(req)
   })
     .then((accessContext) => {
-      res.locals.accessContext = accessContext
+      const effort = readHeader(req, 'x-manimcat-reasoning-effort')
+      if (effort && !isReasoningEffort(effort)) {
+        throw new ValidationError('无效的模型思考强度')
+      }
+      // A generation preference can vary per request; upstream credentials and model stay routed.
+      res.locals.accessContext = effort && accessContext.providerConfig
+        ? { ...accessContext, providerConfig: { ...accessContext.providerConfig, reasoningEffort: effort } }
+        : accessContext
       // Studio keeps reading a principal; deriving it from the same owner id keeps the two views
       // of the identity in step without Studio ever touching the credential.
       res.locals.studioPrincipal = { ownerId: accessContext.ownerId }

@@ -1,11 +1,16 @@
 import OpenAI from 'openai'
 import { createLogger } from '../shared/logging/logger'
 import { recordJobTokenUsage } from '../rendering/job/job-log-context'
+import { readProviderTimeoutMs } from '../infrastructure/ai-provider/completion-policy'
+import { isUnsupportedStreamUsageOption } from '../infrastructure/ai-provider/streamed-completion'
+import { CompletionTokenLimitError } from '../infrastructure/ai-provider/completion-errors'
 
 interface ChatCompletionTextOptions {
   fallbackToNonStream?: boolean
   allowPartialOnStreamError?: boolean
   usageLabel?: string
+  /** A recovery turn may not recursively issue another recovery turn. */
+  allowReasoningFollowup?: boolean
 }
 
 type ChatCompletionRequest = Omit<OpenAI.Chat.Completions.ChatCompletionCreateParams, 'stream'>
@@ -14,7 +19,7 @@ export interface ChatCompletionTextResult {
   content: string
   mode: 'stream' | 'stream-partial' | 'non-stream'
   response?: OpenAI.Chat.Completions.ChatCompletion
-  /** True when the stream produced only reasoning_content and no final content, so a non-stream
+  /** True when the stream produced only reasoning_content and no final content, so a streamed
    * follow-up turn was issued to make the model emit its answer. */
   followupApplied?: boolean
 }
@@ -101,18 +106,9 @@ function getErrorMeta(error: unknown): Record<string, unknown> {
   return meta
 }
 
-function shouldRetryWithoutStreamUsageOption(error: unknown): boolean {
-  if (!(error instanceof OpenAI.APIError)) {
-    return false
-  }
-
-  const message = (error.message || '').toLowerCase()
-  return (
-    message.includes('stream_options') ||
-    message.includes('include_usage') ||
-    message.includes('unknown parameter') ||
-    message.includes('unsupported')
-  )
+function isGatewayTimeout(error: unknown): boolean {
+  if (error instanceof OpenAI.APIError && [408, 504, 524].includes(error.status ?? 0)) return true
+  return error instanceof Error && /timeout|timed out|deadline|abort/i.test(`${error.name} ${error.message}`)
 }
 
 export async function createChatCompletionText(
@@ -131,6 +127,7 @@ export async function createChatCompletionText(
     requestType: 'chat.completions',
     stream: true,
     fallbackEnabled: effectiveFallback,
+    reasoningEffort: request.reasoning_effort ?? 'provider-default',
     ...stats,
     maxTokens: (request as { max_completion_tokens?: unknown }).max_completion_tokens ?? (request as { max_tokens?: unknown }).max_tokens
   })
@@ -140,6 +137,7 @@ export async function createChatCompletionText(
   let firstChunkAt: number | null = null
   let content = ''
   let reasoningContent = ''
+  let finishReason: string | null = null
   let streamUsage:
     | {
         prompt_tokens?: unknown
@@ -151,6 +149,10 @@ export async function createChatCompletionText(
   let heartbeatTimer: NodeJS.Timeout | null = null
   let idleTimer: NodeJS.Timeout | null = null
   let contentTimer: NodeJS.Timeout | null = null
+  const requestController = new AbortController()
+  const deadlineTimer = setTimeout(() => {
+    requestController.abort(new Error('AI stream exceeded total request deadline'))
+  }, readProviderTimeoutMs())
 
   try {
     let usageTrackingEnabled = INCLUDE_STREAM_USAGE
@@ -164,14 +166,14 @@ export async function createChatCompletionText(
           include_usage: true
         }
       }
-      return client.chat.completions.create(streamRequest)
+      return client.chat.completions.create(streamRequest, { signal: requestController.signal, maxRetries: 0 })
     }
 
     let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
     try {
       stream = await createStream(usageTrackingEnabled)
     } catch (error) {
-      if (usageTrackingEnabled && shouldRetryWithoutStreamUsageOption(error)) {
+      if (usageTrackingEnabled && isUnsupportedStreamUsageOption(error)) {
         logger.warn('OpenAI stream usage option unsupported, retrying without usage tracking', {
           model,
           ...getErrorMeta(error)
@@ -225,10 +227,12 @@ export async function createChatCompletionText(
       }, checkEveryMs)
     }
 
-    if (Number.isFinite(STREAM_CONTENT_TIMEOUT_MS) && STREAM_CONTENT_TIMEOUT_MS > 0) {
+    // This watchdog measures useful progress. Reasoning tokens are useful progress too.
+    const resetProgressDeadline = () => {
+      if (contentTimer) clearTimeout(contentTimer)
+      if (!Number.isFinite(STREAM_CONTENT_TIMEOUT_MS) || STREAM_CONTENT_TIMEOUT_MS <= 0) return
       contentTimer = setTimeout(() => {
-        if (receivedContent) return
-        logger.warn('OpenAI stream produced no content before deadline, aborting stream', {
+        logger.warn('OpenAI stream produced no reasoning or answer progress before deadline, aborting stream', {
           model,
           contentTimeoutMs: STREAM_CONTENT_TIMEOUT_MS,
           chunkCount,
@@ -241,6 +245,7 @@ export async function createChatCompletionText(
         }
       }, STREAM_CONTENT_TIMEOUT_MS)
     }
+    resetProgressDeadline()
 
     for await (const chunk of stream) {
       chunkCount += 1
@@ -252,6 +257,7 @@ export async function createChatCompletionText(
       }
 
       const deltaChoice = chunk.choices?.[0]
+      if (deltaChoice?.finish_reason) finishReason = deltaChoice.finish_reason
       const delta = deltaChoice?.delta?.content
       if (typeof delta === 'string' && delta.length > 0) {
         if (firstChunkAt === null) {
@@ -263,6 +269,7 @@ export async function createChatCompletionText(
         }
         content += delta
         receivedContent = true
+        resetProgressDeadline()
       }
       // Thinking models (DeepSeek-style) stream the chain-of-thought under `reasoning_content`
       // separately from the final answer. Capture it so we can detect the case where the model
@@ -270,6 +277,7 @@ export async function createChatCompletionText(
       const reasoningDelta = (deltaChoice?.delta as { reasoning_content?: unknown } | undefined)?.reasoning_content
       if (typeof reasoningDelta === 'string' && reasoningDelta.length > 0) {
         reasoningContent += reasoningDelta
+        resetProgressDeadline()
       }
     }
 
@@ -285,6 +293,7 @@ export async function createChatCompletionText(
       clearTimeout(contentTimer)
       contentTimer = null
     }
+    clearTimeout(deadlineTimer)
 
     logger.info('OpenAI chat stream completed', {
       model,
@@ -293,8 +302,18 @@ export async function createChatCompletionText(
       elapsedMs: Date.now() - startedAt,
       firstChunkMs: firstChunkAt === null ? null : firstChunkAt - startedAt,
       chunkCount,
-      contentLength: content.length
+      contentLength: content.length,
+      reasoningLength: reasoningContent.length,
+      finishReason,
+      completionTokens: streamUsage?.completion_tokens ?? null,
     })
+    const maxTokens = request.max_completion_tokens ?? request.max_tokens
+    const usedTokens = streamUsage?.completion_tokens
+    if (!content.trim() && (finishReason === 'length' || (
+      typeof maxTokens === 'number' && typeof usedTokens === 'number' && usedTokens >= maxTokens
+    ))) {
+      throw new CompletionTokenLimitError({ model, maxTokens: maxTokens ?? undefined, reasoningEffort: request.reasoning_effort })
+    }
     recordJobTokenUsage({
       label: options.usageLabel || 'chat-completion',
       model,
@@ -305,8 +324,8 @@ export async function createChatCompletionText(
 
     const trimmedContent = content.trim()
     const trimmedReasoning = reasoningContent.trim()
-    if (trimmedContent.length === 0 && trimmedReasoning.length > 0) {
-      logger.warn('OpenAI stream produced only reasoning content, issuing non-stream follow-up', {
+    if (trimmedContent.length === 0 && trimmedReasoning.length > 0 && options.allowReasoningFollowup !== false) {
+      logger.warn('OpenAI stream produced only reasoning content, issuing streamed follow-up', {
         model,
         reasoningLength: trimmedReasoning.length,
         chunkCount,
@@ -316,7 +335,7 @@ export async function createChatCompletionText(
       if (followupContent) {
         return {
           content: followupContent,
-          mode: 'non-stream',
+          mode: 'stream',
           followupApplied: true
         }
       }
@@ -327,6 +346,7 @@ export async function createChatCompletionText(
       mode: 'stream'
     }
   } catch (error) {
+    clearTimeout(deadlineTimer)
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer)
       heartbeatTimer = null
@@ -373,7 +393,9 @@ export async function createChatCompletionText(
       }
     }
 
-    if (effectiveFallback && !receivedContent) {
+    // A timed-out stream must not restart the same slow inference in non-streaming mode.
+    if (effectiveFallback && !receivedContent && !requestController.signal.aborted
+      && !isGatewayTimeout(error) && !(error instanceof CompletionTokenLimitError)) {
       logger.warn('OpenAI chat falling back to non-stream request', { model })
       const response = await client.chat.completions.create({
         ...request,
@@ -430,7 +452,7 @@ function isUnsupportedReasoningParamError(error: unknown): boolean {
 
 /**
  * When a thinking model spends its whole token budget on `reasoning_content` and emits no final
- * answer, send one non-stream follow-up turn that asks the model to emit the answer directly.
+ * answer, send a streamed follow-up turn that asks the model to emit the answer directly.
  *
  * Strategy B: hand the prior reasoning back to the model as an assistant turn carrying
  * `reasoning_content` (the DeepSeek multi-turn convention), then a user turn asking for the final
@@ -447,31 +469,20 @@ async function issueReasoningFollowup(
   usageLabel?: string
 ): Promise<string | null> {
   const baseMessages = ((request as { messages?: unknown }).messages ?? []) as unknown[]
-  const maxTokens = (request as { max_completion_tokens?: unknown }).max_completion_tokens ??
-    (request as { max_tokens?: unknown }).max_tokens
   const model = String((request as { model?: unknown }).model || '')
-  const label = `${usageLabel || 'chat-completion'}-followup`
-
-  const recordFollowupUsage = (usage: unknown): void => {
-    recordJobTokenUsage({
-      label,
-      model,
-      mode: 'non-stream',
-      maxTokens,
-      usage: usage as { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown } | undefined
-    })
-  }
-
-  const createNonStream = (messages: unknown[]) =>
-    client.chat.completions.create({
-      ...request,
-      messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-      stream: false
-    } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming)
+  const createFollowup = (messages: unknown[]) => createChatCompletionText(client, {
+    ...request,
+    messages: messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+  }, {
+    usageLabel: `${usageLabel || 'chat-completion'}-followup`,
+    allowReasoningFollowup: false,
+    allowPartialOnStreamError: false,
+    fallbackToNonStream: false,
+  })
 
   // Strategy B: replay reasoning_content so the model can continue from its own chain-of-thought.
   try {
-    const response = await createNonStream([
+    const response = await createFollowup([
       ...baseMessages,
       {
         role: 'assistant',
@@ -483,9 +494,7 @@ async function issueReasoningFollowup(
         content: FOLLOWUP_USER_PROMPT
       }
     ])
-    const rawContent = response.choices?.[0]?.message?.content
-    const normalized = typeof rawContent === 'string' ? rawContent.trim() : ''
-    recordFollowupUsage((response as unknown as { usage?: unknown }).usage)
+    const normalized = response.content.trim()
     if (normalized.length > 0) {
       logger.info('OpenAI reasoning follow-up (strategy B) produced final content', {
         model,
@@ -508,16 +517,14 @@ async function issueReasoningFollowup(
   }
 
   // Strategy A: ask for the final result without replaying reasoning (provider-agnostic).
-  const response = await createNonStream([
+  const response = await createFollowup([
     ...baseMessages,
     {
       role: 'user',
       content: FOLLOWUP_USER_PROMPT_FALLBACK
     }
   ])
-  const rawContent = response.choices?.[0]?.message?.content
-  const normalized = typeof rawContent === 'string' ? rawContent.trim() : ''
-  recordFollowupUsage((response as unknown as { usage?: unknown }).usage)
+  const normalized = response.content.trim()
   if (normalized.length > 0) {
     logger.info('OpenAI reasoning follow-up (strategy A) produced final content', {
       model,

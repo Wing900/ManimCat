@@ -1,4 +1,4 @@
-import type { StudioRender, StudioRun, StudioSession } from './core-types'
+import type { StudioRender, StudioRun } from './core-types'
 import type { StudioFileAttachment } from './message-types'
 
 export interface StudioAssistantTextEvent {

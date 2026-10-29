@@ -12,9 +12,8 @@ import {
   type StudioRenderDriverRegistry
 } from '../render/studio-render-driver'
 import type { StudioModeModule } from '../modes/studio-mode-module'
-import {
-  StudioRunCoordinationService,
-  type StudioRunCoordinationServicePort
+import type {
+  StudioRunCoordinationServicePort
 } from '../infrastructure/coordination/studio-run-coordination-service'
 import { configureStudioToolRegistry } from './studio-tool-registry'
 import { createStudioSessionService, type StudioSessionService } from './session-service'

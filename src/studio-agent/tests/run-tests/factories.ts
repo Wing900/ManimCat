@@ -1,7 +1,6 @@
-import { getDefaultStudioWorkspacePath } from '../../infrastructure/workspace/default-studio-workspace'
 import path from 'node:path'
 import os from 'node:os'
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import {
   InMemoryStudioEventBus,
   InMemoryStudioMessageStore,
@@ -10,10 +9,8 @@ import {
   InMemoryStudioSessionStore,
   StudioBuilderRuntime,
   StudioToolRegistry,
-  type StudioAssistantMessage,
-  type StudioRuntimeBackedToolContext
+  type StudioAssistantMessage
 } from '../../index'
-import type { StudioSession, StudioRun, StudioToolPart, StudioAssistantMessage as StudioAssistantMessageType } from '../../index'
 import { createSharedStudioTools } from '../../shared/register-shared-tools'
 import { ApiRagService } from '../../../knowledge/api-rag/api-rag-service'
 import {

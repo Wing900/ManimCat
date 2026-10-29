@@ -194,6 +194,46 @@ test('narration plan validation rejects missing, repeated and reordered markers'
   }
 })
 
+test('opening cue must precede spoken content while later cues retain phrase alignment', () => {
+  const cuePlan: CuePlan = {
+    segments: [{ id: 'seg-1', visuals: '焦点与准线', cues: [
+      { id: 'cue-1', action: '建立基础图形' },
+      { id: 'cue-2', action: '移动点 P' }
+    ] }]
+  }
+  assert.throws(() => validateNarrationPlan({ segments: [{
+    id: 'seg-1', text: '焦点和准线固定。[[cue-1]]比值固定。[[cue-2]]点开始移动。'
+  }] }, cuePlan), /must begin with \[\[cue-1\]\]/)
+  assert.doesNotThrow(() => validateNarrationPlan({ segments: [{
+    id: 'seg-1', text: '[[cue-1]]焦点和准线固定。比值固定。[[cue-2]]点开始移动。'
+  }] }, cuePlan))
+})
+
+test('opening cue validation preserves explicitly wordless leading shots', () => {
+  const cuePlan: CuePlan = { segments: [
+    { id: 'intro', visuals: '无旁白画面', cues: [] },
+    { id: 'explain', visuals: '焦点', cues: [{ id: 'cue-1', action: '建立焦点' }] }
+  ] }
+  assert.doesNotThrow(() => validateNarrationPlan({ segments: [
+    { id: 'intro', text: '' }, { id: 'explain', text: '[[cue-1]]焦点固定。' }
+  ] }, cuePlan))
+})
+
+test('narration prompts expose reveal/hold separately from continuous motion in both locales', () => {
+  for (const locale of ['zh-CN', 'en-US'] as const) {
+    const prompt = getRoleUserPrompt('codeGeneration', {
+      concept: '圆锥曲线', seed: 'pacing', outputMode: 'video', isVideo: true,
+      narrationEnabled: true, narrationCuePlan: '{}'
+    }, { locale })
+    assert.match(prompt, /self\.reveal_until/)
+    assert.match(prompt, /self\.play_until/)
+    const silent = getRoleUserPrompt('codeGeneration', {
+      concept: '圆锥曲线', seed: 'pacing', outputMode: 'video', isVideo: true
+    }, { locale })
+    assert.doesNotMatch(silent, /self\.reveal_until/)
+  }
+})
+
 test('narration off leaves the coder and designer prompts byte-identical to unset', () => {
   const base = {
     concept: '解释圆的面积',
@@ -212,4 +252,44 @@ test('narration off leaves the coder and designer prompts byte-identical to unse
       assert.equal(/cue_plan|self\.cue|旁白同步|Narration sync/i.test(explicitlyOff), false)
     }
   }
+})
+
+test('a wordless shot is legal only when its cue segment is empty', () => {
+  const storyboard = `<design>
+<cue_plan>
+{"segments":[
+  {"id":"seg-1","visuals":"一个圆先出现","cues":[{"id":"cue-1","action":"圆画完"}]},
+  {"id":"seg-2","visuals":"圆自己停住","cues":[]}
+]}
+</cue_plan>
+</design>`
+
+  const cuePlan = parseCuePlan(storyboard)
+  assert.equal(cuePlan.segments[1]!.cues.length, 0)
+
+  assert.doesNotThrow(() =>
+    validateNarrationPlan(
+      {
+        segments: [
+          { id: 'seg-1', text: '[[cue-1]]圆画好了。' },
+          { id: 'seg-2', text: '' }
+        ]
+      },
+      cuePlan
+    )
+  )
+
+  assert.throws(
+    () =>
+      validateNarrationPlan(
+        {
+          segments: [
+            { id: 'seg-1', text: '' },
+            { id: 'seg-2', text: '' }
+          ]
+        },
+        cuePlan
+      ),
+    /wordless/
+  )
 })

@@ -4,7 +4,6 @@ import { redisClient } from '../../../infrastructure/redis/config'
 import { createLogger } from '../../../shared/logging/logger'
 import {
   STUDIO_RUN_ADMISSION_NAMESPACE,
-  canonicalStudioRunScopeKey,
   createStudioRunOwnerInstanceId,
   resolveStudioRunCancellationTtlMs,
   resolveStudioRunControlChannel,

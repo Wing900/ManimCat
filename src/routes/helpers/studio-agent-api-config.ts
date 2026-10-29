@@ -28,9 +28,12 @@ export function resolveStudioEffectiveCustomApiConfig(
   input: ResolveStudioEffectiveCustomApiConfigInput
 ): StudioEffectiveCustomApiConfigResolution {
   const serverManaged = input.mode === 'catkey'
-  const effectiveCustomApiConfig = serverManaged
+  const selectedConfig = serverManaged
     ? input.routedCustomApiConfig
     : input.requestCustomApiConfig ?? input.routedCustomApiConfig
+  const effectiveCustomApiConfig = selectedConfig && input.routedCustomApiConfig?.reasoningEffort
+    ? { ...selectedConfig, reasoningEffort: input.routedCustomApiConfig.reasoningEffort }
+    : selectedConfig
 
   return {
     effectiveCustomApiConfig,

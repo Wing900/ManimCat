@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StudioSession, StudioSessionStore } from '../../domain/types'
-import type { StudioSessionRow, JsonRecord } from './supabase-persistence-shared'
+import type { StudioSessionRow } from './supabase-persistence-shared'
 import { TABLES, compactObject, asOptional, asNullable, readStudioKindFromMetadata } from './supabase-persistence-shared'
 
 export function createSupabaseStudioSessionStore(client: SupabaseClient): StudioSessionStore {

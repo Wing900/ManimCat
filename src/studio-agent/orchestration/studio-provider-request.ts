@@ -1,11 +1,13 @@
 import type OpenAI from 'openai'
 import type { StudioKind } from '../domain/core-types'
 import { getStudioTelemetry, readElapsedMs } from '../infrastructure/telemetry/studio-telemetry'
+import { buildCompletionParams, readMaxCompletionTokens, readProviderTimeoutMs } from '../../infrastructure/ai-provider/completion-policy'
+import { collectStreamedCompletion } from '../../infrastructure/ai-provider/streamed-completion'
 
-// 单次上游请求上限 5 分钟；自动重试时总等待可能更长
+// Total deadline includes thinking, tool-call arguments and final text.
 const DEFAULT_PROVIDER_TIMEOUT_MS = parsePositiveInteger(
   process.env.STUDIO_PROVIDER_REQUEST_TIMEOUT_MS,
-  5 * 60 * 1000,
+  readProviderTimeoutMs(),
 )
 
 /**
@@ -33,13 +35,17 @@ export async function requestStudioChatCompletion(input: {
   const startedAt = Date.now()
 
   try {
-    const completion = await input.client.chat.completions.create({
+    const params = buildCompletionParams(
+      readMaxCompletionTokens('STUDIO'), 'STUDIO', input.client,
+    )
+    const completion = await collectStreamedCompletion(input.client, {
       model: input.model,
       messages: input.messages,
       tools: input.tools,
       tool_choice: input.toolChoice,
+      ...params,
     }, {
-      timeout: DEFAULT_PROVIDER_TIMEOUT_MS,
+      timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
       signal: input.signal,
     })
 
@@ -49,6 +55,8 @@ export async function requestStudioChatCompletion(input: {
       step: input.step,
       durationMs: readElapsedMs(startedAt),
       timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
+      reasoningEffort: params.reasoning_effort ?? 'provider-default',
+      maxCompletionTokens: params.max_completion_tokens,
       finishReason: completion.choices[0]?.finish_reason ?? null,
       toolCallCount: completion.choices[0]?.message?.tool_calls?.length ?? 0,
       hasAssistantText: Boolean(completion.choices[0]?.message?.content),

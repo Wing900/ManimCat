@@ -72,14 +72,3 @@ export function extractLatestAssistantText(parts: StudioMessagePart[]): string {
   const textPart = [...parts].reverse().find((part) => part.type === 'text')
   return textPart?.type === 'text' ? textPart.text : ''
 }
-
-
-
-function readRunStopReason(run: StudioRun): string | undefined {
-  const autonomy = run.metadata?.autonomy
-  if (!autonomy || typeof autonomy !== 'object' || Array.isArray(autonomy)) {
-    return undefined
-  }
-  const stopReason = (autonomy as Record<string, unknown>).stopReason
-  return typeof stopReason === 'string' && stopReason.trim() ? stopReason : undefined
-}

@@ -7,16 +7,16 @@
  *   <cue_plan>{"segments":[...]}</cue_plan>
  *
  * This module is deliberately narrow: extract the block, JSON.parse it, and enforce
- * the ID/field contract the runtime depends on. It never invents cues or reorders
- * them silently.
+ * the shared teaching and visual-anchor contract. It never invents explanations,
+ * fills missing teaching fields from action text, or silently reorders cues.
  */
 
-import type { CuePlan, CuePlanCue, CuePlanSegment } from './types'
+import type { CuePlan, CuePlanCue, CuePlanSegment, SegmentTeachingPlan } from './types'
 
 const CUE_PLAN_BLOCK = /<cue_plan>([\s\S]*?)<\/cue_plan>/gi
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
-const MAX_SEGMENTS = 64
-const MAX_CUES_PER_SEGMENT = 64
+const MAX_SEGMENTS = 16
+const MAX_CUES_PER_SEGMENT = 4
 const MAX_TEXT_LENGTH = 2000
 
 export class NarrationCuePlanError extends Error {
@@ -37,15 +37,36 @@ function stripJsonFence(value: string): string {
   return fenced ? fenced[1].trim() : trimmed
 }
 
-function requireText(value: unknown, label: string): string {
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new NarrationCuePlanError(`${label} must be a non-empty string`)
+function requireText(value: unknown, label: string, allowEmpty = false): string {
+  if (typeof value !== 'string' || (!allowEmpty && !value.trim())) {
+    throw new NarrationCuePlanError(`${label} must be ${allowEmpty ? 'a string' : 'a non-empty string'}`)
   }
   const text = value.trim()
   if (text.length > MAX_TEXT_LENGTH) {
     throw new NarrationCuePlanError(`${label} is longer than ${MAX_TEXT_LENGTH} characters`)
   }
   return text
+}
+
+function readTeachingPlan(raw: unknown, label: string, hasCues: boolean): SegmentTeachingPlan | undefined {
+  // Old generated storyboards remain usable; a supplied teaching plan must be complete.
+  if (raw === undefined) return undefined
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new NarrationCuePlanError(`${label} must be an object`)
+  }
+  const plan = raw as { learningGoal?: unknown; narrationDraft?: unknown; visualEvidence?: unknown }
+  const narrationDraft = requireText(plan.narrationDraft, `${label}.narrationDraft`, !hasCues)
+  if (/\[\[[A-Za-z0-9][A-Za-z0-9_-]*\]\]/.test(narrationDraft)) {
+    throw new NarrationCuePlanError(`${label}.narrationDraft must not contain cue markers; bind them in final narration`)
+  }
+  if (!hasCues && narrationDraft) {
+    throw new NarrationCuePlanError(`${label}.narrationDraft must be empty for a wordless segment without cues`)
+  }
+  return {
+    learningGoal: requireText(plan.learningGoal, `${label}.learningGoal`),
+    narrationDraft,
+    visualEvidence: requireText(plan.visualEvidence, `${label}.visualEvidence`),
+  }
 }
 
 function requireId(value: unknown, label: string, seen: Set<string>): string {
@@ -80,24 +101,30 @@ function validateCuePlan(raw: unknown): CuePlan {
     if (!rawSegment || typeof rawSegment !== 'object' || Array.isArray(rawSegment)) {
       throw new NarrationCuePlanError(`cue_plan.segments[${segmentIndex}] must be an object`)
     }
-    const segment = rawSegment as { id?: unknown; visuals?: unknown; cues?: unknown }
+    const segment = rawSegment as { id?: unknown; visuals?: unknown; cues?: unknown; teaching?: unknown }
     const id = requireId(segment.id, `cue_plan.segments[${segmentIndex}].id`, segmentIds)
     const visuals = requireText(segment.visuals, `cue_plan.segments[${segmentIndex}].visuals`)
-    if (!Array.isArray(segment.cues) || segment.cues.length === 0) {
-      throw new NarrationCuePlanError(`cue_plan.segments[${segmentIndex}].cues must be a non-empty array`)
+    if (!Array.isArray(segment.cues)) {
+      throw new NarrationCuePlanError(`cue_plan.segments[${segmentIndex}].cues must be an array`)
     }
     if (segment.cues.length > MAX_CUES_PER_SEGMENT) {
       throw new NarrationCuePlanError(
         `cue_plan.segments[${segmentIndex}] has more than ${MAX_CUES_PER_SEGMENT} cues`
       )
     }
+    const teaching = readTeachingPlan(
+      segment.teaching, `cue_plan.segments[${segmentIndex}].teaching`, segment.cues.length > 0,
+    )
     const cues: CuePlanCue[] = segment.cues.map((rawCue, cueIndex) => {
       if (!rawCue || typeof rawCue !== 'object' || Array.isArray(rawCue)) {
         throw new NarrationCuePlanError(
           `cue_plan.segments[${segmentIndex}].cues[${cueIndex}] must be an object`
         )
       }
-      const cue = rawCue as { id?: unknown; action?: unknown }
+      const cue = rawCue as { id?: unknown; action?: unknown; meaning?: unknown }
+      const meaning = teaching || cue.meaning !== undefined
+        ? requireText(cue.meaning, `cue_plan.segments[${segmentIndex}].cues[${cueIndex}].meaning`)
+        : undefined
       return {
         id: requireId(
           cue.id,
@@ -107,10 +134,11 @@ function validateCuePlan(raw: unknown): CuePlan {
         action: requireText(
           cue.action,
           `cue_plan.segments[${segmentIndex}].cues[${cueIndex}].action`
-        )
+        ),
+        ...(meaning !== undefined ? { meaning } : {}),
       }
     })
-    return { id, visuals, cues }
+    return { id, visuals, ...(teaching ? { teaching } : {}), cues }
   })
 
   return { segments }

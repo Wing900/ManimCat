@@ -34,25 +34,37 @@ export function TimingPanel({ timings, submittedAt, finishedAt, tokenUsage }: Ti
       { key: 'edit', label: t('timing.edit') },
       { key: 'retry', label: t('timing.retry') },
       { key: 'render', label: t('timing.render') },
+      { key: 'mux', label: t('timing.mux') },
       { key: 'store', label: t('timing.store') },
     ];
 
     const items = timingLabels
       .map(({ key, label }) => ({ key, label, value: timings?.[key] }))
-      .filter((item) => typeof item.value === 'number');
+      .filter((item): item is { key: keyof JobTimings; label: string; value: number } => typeof item.value === 'number');
 
     const submittedMs = submittedAt ? Date.parse(submittedAt) : Number.NaN;
     const finishedMs = finishedAt ? Date.parse(finishedAt) : Number.NaN;
     const endToEndTotal = Number.isFinite(submittedMs) && Number.isFinite(finishedMs)
       ? Math.max(0, finishedMs - submittedMs)
       : undefined;
-    const total = typeof timings?.total === 'number'
-      ? timings.total
+    const measuredTotal = timings?.total;
+    const totalIsMeasured = typeof measuredTotal === 'number';
+    const total = totalIsMeasured
+      ? measuredTotal
       : typeof endToEndTotal === 'number'
         ? endToEndTotal
-        : items.reduce((sum, item) => sum + (item.value || 0), 0);
+        : items.reduce((sum, item) => sum + item.value, 0);
 
-    return { total, items };
+    const rows: Array<{ key: keyof JobTimings | 'overhead'; label: string; value: number }> = [...items];
+    if (totalIsMeasured) {
+      const measured = items.reduce((sum, item) => sum + item.value, 0);
+      const overhead = Math.max(0, total - measured);
+      if (overhead >= 1) {
+        rows.push({ key: 'overhead', label: t('timing.overhead'), value: overhead });
+      }
+    }
+
+    return { total, items: rows };
   }, [finishedAt, submittedAt, t, timings]);
 
   const tokenTotals = tokenUsage?.totals;

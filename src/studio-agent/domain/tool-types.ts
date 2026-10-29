@@ -2,10 +2,7 @@ import type { StudioAgentType, StudioKind, StudioRun, StudioSession } from './co
 import type { StudioAssistantMessage, StudioFileAttachment } from './message-types'
 import type { StudioEventBus } from './event-types'
 import type { StudioRunExecutionScope } from './run-execution-scope'
-import type {
-  StudioSessionStore,
-  StudioRenderStore,
-} from './store-types'
+import type { StudioRenderStore } from './store-types'
 import type { StudioToolParameters } from '../tools/tool-parameters'
 
 export interface StudioToolResult {

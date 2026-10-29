@@ -22,11 +22,9 @@ import {
   InMemoryStudioEventBus,
   InMemoryStudioRenderStore,
   STUDIO_RUN_COORDINATION_UNAVAILABLE_MESSAGE,
-  STUDIO_RUN_LEASE_LOST_REASON,
   StudioBuilderRuntime,
   StudioRunCoordinationService,
   StudioToolRegistry,
-  buildStudioRenderContext,
   canonicalStudioRunScopeKey,
   createInMemoryStudioPersistence,
   createInMemoryStudioRunCoordinator,
@@ -45,7 +43,6 @@ import {
   type StudioModelPort,
   type StudioPersistence,
   type StudioRun,
-  type StudioRunCoordinationScope,
   type StudioRunCoordinatorPort,
   type StudioRunStore,
   type StudioRunTransitionInput,
@@ -253,35 +250,6 @@ async function drainMicrotasks(turns = 25): Promise<void> {
   for (let turn = 0; turn < turns; turn += 1) {
     await Promise.resolve()
   }
-}
-
-/** Fake Redis command surface: records what a real server would have been asked to do. */
-class FakeRedisCommandSurface {
-  readonly evals: Array<{ script: string; keys: string[]; args: string[] }> = []
-  evalReply: unknown = 1
-
-  async eval(script: string, numberOfKeys: number, ...rest: unknown[]): Promise<unknown> {
-    this.evals.push({
-      script,
-      keys: rest.slice(0, numberOfKeys).map(String),
-      args: rest.slice(numberOfKeys).map(String)
-    })
-    return this.evalReply
-  }
-
-  on(): this {
-    return this
-  }
-
-  removeAllListeners(): this {
-    return this
-  }
-
-  async subscribe(): Promise<number> {
-    return 1
-  }
-
-  disconnect(): void {}
 }
 
 function createToolContext(studioKind: StudioKind, sceneId?: string): StudioRuntimeBackedToolContext {

@@ -131,5 +131,5 @@ function readOptionalProviderConfig(config: CustomApiConfig | undefined): Custom
     return undefined
   }
 
-  return { apiUrl, apiKey, model }
+  return { apiUrl, apiKey, model, ...(config.reasoningEffort ? { reasoningEffort: config.reasoningEffort } : {}) }
 }

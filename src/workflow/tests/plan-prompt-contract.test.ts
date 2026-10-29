@@ -29,8 +29,8 @@ test('actual generation stages send all Plan fields without merging them into th
     const content = requests.length === 1 ? '<design>分镜覆盖步骤1至12</design>' : '### START ###\nfrom manim import *\nclass MainScene(Scene):\n    def construct(self):\n        pass\n### END ###'
     return (async function* () { yield { choices: [{ delta: { content }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } } })()
   } } } } as unknown as OpenAI
-  const design = await generateSceneDesignStage({ client, concept: '原始需求', problemPlan: plan, outputMode: 'video', model: 'fixture', designerTemperature: 0, designerMaxTokens: 100, designerThinkingTokens: 0 })
-  await generateCodeFromDesignStage({ client, concept: '原始需求', problemPlan: plan, sceneDesign: design, outputMode: 'video', model: 'fixture', coderTemperature: 0, maxTokens: 100, thinkingTokens: 0 })
+  const design = await generateSceneDesignStage({ client, concept: '原始需求', problemPlan: plan, outputMode: 'video', model: 'fixture', designerTemperature: 0, designerMaxTokens: 100 })
+  await generateCodeFromDesignStage({ client, concept: '原始需求', problemPlan: plan, sceneDesign: design, outputMode: 'video', model: 'fixture', coderTemperature: 0, maxTokens: 100 })
   assert.equal(requests.length, 2)
   for (const request of requests) {
     const user = String(request.messages[1].content)

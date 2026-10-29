@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks'
 import { generateEditedManimCode } from '../../../workflow/code-edit/code-edit'
 import { ensureJobNotCancelled } from '../../job/job-cancel'
 import { resolveNarrationConfig, resolveNarrationWorkspace } from '../../manim/narration-mixer'
@@ -6,7 +7,7 @@ import { analyzeAndGenerate } from './steps/analysis-step'
 import { handlePreGeneratedCode, renderImages, renderVideo } from './steps/render-step'
 import { storeResult } from './steps/storage-step'
 import { storeProcessingStage } from './video-processor-utils'
-import { totalTimings } from '../../../shared/time/timings'
+import type { StoreJobResultOutcome } from '../../job/job-types'
 import type { PromptOverrides, VideoJobData } from '../../../types'
 
 interface FlowResult {
@@ -14,6 +15,7 @@ interface FlowResult {
   source: 'pre-generated' | 'ai-edit' | 'generation'
   timings: Record<string, number>
   renderPeakMemoryMB?: number
+  storeOutcome: StoreJobResultOutcome
 }
 
 interface BaseFlowArgs {
@@ -42,16 +44,16 @@ export async function runPreGeneratedFlow(args: BaseFlowArgs): Promise<FlowResul
     data
   )
 
-  const storeStart = Date.now()
-  await storeResult(renderResult, timings, data.clientId)
-  timings.store = Date.now() - storeStart
-  timings.total = totalTimings(timings)
+  const storeStart = performance.now()
+  const storeOutcome = await storeResult(renderResult, timings, data.clientId)
+  timings.store = performance.now() - storeStart
 
   return {
     success: true,
     source: 'pre-generated',
     timings,
-    renderPeakMemoryMB: renderResult.renderPeakMemoryMB
+    renderPeakMemoryMB: renderResult.renderPeakMemoryMB,
+    storeOutcome
   }
 }
 
@@ -66,7 +68,7 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
   await ensureJobNotCancelled(jobId, job)
   await storeProcessingStage(jobId, 'generating')
 
-  const editStart = Date.now()
+  const editStart = performance.now()
   const editedCode = await generateEditedManimCode(
     concept,
     editInstructions,
@@ -75,7 +77,7 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
     data.customApiConfig,
     promptOverrides
   )
-  timings.edit = Date.now() - editStart
+  timings.edit = performance.now() - editStart
 
   if (!editedCode) {
     throw new Error('AI edit returned empty code')
@@ -129,16 +131,16 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
           data.workspaceOutputDirectory
         )
 
-  const storeStart = Date.now()
-  await storeResult(renderResult, timings, data.clientId)
-  timings.store = Date.now() - storeStart
-  timings.total = totalTimings(timings)
+  const storeStart = performance.now()
+  const storeOutcome = await storeResult(renderResult, timings, data.clientId)
+  timings.store = performance.now() - storeStart
 
   return {
     success: true,
     source: 'ai-edit',
     timings,
-    renderPeakMemoryMB: renderResult.renderPeakMemoryMB
+    renderPeakMemoryMB: renderResult.renderPeakMemoryMB,
+    storeOutcome
   }
 }
 
@@ -206,16 +208,16 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
         )
 
   await ensureJobNotCancelled(jobId, job)
-  const storeStart = Date.now()
-  await storeResult(renderResult, timings, data.clientId)
-  timings.store = Date.now() - storeStart
-  timings.total = totalTimings(timings)
+  const storeStart = performance.now()
+  const storeOutcome = await storeResult(renderResult, timings, data.clientId)
+  timings.store = performance.now() - storeStart
 
   return {
     success: true,
     source: 'generation',
     timings,
-    renderPeakMemoryMB: renderResult.renderPeakMemoryMB
+    renderPeakMemoryMB: renderResult.renderPeakMemoryMB,
+    storeOutcome
   }
 }
 

@@ -1,12 +1,16 @@
 import type { CustomApiConfig } from '../../shared/types/api'
 
 export type ConnectionMode = 'catkey' | 'byok'
+export const REASONING_EFFORTS = ['provider-default', 'none', 'low', 'high', 'max'] as const
+export type ReasoningEffortSetting = typeof REASONING_EFFORTS[number]
 
 export interface ConnectionSettings {
   version: 1
   activeMode: ConnectionMode | null
   /** 「暂时不选」：引导页被叉掉过一次就别再来烦。清空 AI 设置会把它复位。 */
   dismissed: boolean
+  /** Shared generation preference for Workflow and Studio; old saved connections use high. */
+  reasoningEffort?: ReasoningEffortSetting
   catkey: { key: string }
   byok: {
     browserSecret: string
@@ -27,6 +31,7 @@ export function createConnectionSettings(): ConnectionSettings {
     version: 1,
     activeMode: null,
     dismissed: false,
+    reasoningEffort: 'high',
     catkey: { key: '' },
     byok: { browserSecret: '', provider: 'openai-compatible', apiUrl: OPENAI_DEFAULT_URL, apiKey: '', model: '' },
   }

@@ -21,7 +21,6 @@ import {
   createInMemoryStudioPersistence,
   createInMemoryStudioRunCoordinator,
   createLegacyStudioRunScope,
-  createSceneStudioRunScope,
   createStudioAssistantMessage,
   createStudioRun,
   createStudioRunCancellationCommand,

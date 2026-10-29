@@ -15,7 +15,7 @@ const ENGLISH_TEMPLATES_DIR = path.join(TEMPLATES_DIR, 'en-US')
 // ============================================================================
 
 /** 角色类型 */
-export type RoleType = 'problemFraming' | 'conceptDesigner' | 'codeGeneration' | 'codeRetry' | 'codeEdit'
+export type RoleType = 'problemFraming' | 'conceptDesigner' | 'codeGeneration' | 'narration' | 'codeRetry' | 'codeEdit'
 export type PromptLocale = 'zh-CN' | 'en-US'
 
 /** 共享模块类型 */
@@ -38,6 +38,7 @@ export interface TemplateVariables {
   isVideo?: boolean
   narrationEnabled?: boolean
   narrationCuePlan?: string
+  narrationInput?: string
 }
 
 /** 提示词覆盖配置 */
@@ -64,6 +65,10 @@ const ROLE_FILE_RELATIVE_PATHS: Record<RoleType, { system: string; user: string 
     system: path.join('roles', 'code-generation.system.md'),
     user: path.join('roles', 'code-generation.md')
   },
+  narration: {
+    system: path.join('narration', 'system.md'),
+    user: path.join('narration', 'user.md')
+  },
   codeRetry: {
     system: path.join('roles', 'code-retry.system.md'),
     user: path.join('roles', 'code-retry.md')
@@ -77,12 +82,6 @@ const ROLE_FILE_RELATIVE_PATHS: Record<RoleType, { system: string; user: string 
 const SHARED_FILE_RELATIVE_PATHS: Record<SharedModuleType, string> = {
   apiIndex: path.join('shared', 'api-index.md'),
   specification: path.join('shared', 'specification.md')
-}
-
-// Narration is a dedicated one-turn role, not a prompt-overridable workflow role.
-const NARRATION_FILE_RELATIVE_PATHS = {
-  system: path.join('narration', 'system.md'),
-  user: path.join('narration', 'user.md')
 }
 
 // ============================================================================
@@ -226,8 +225,7 @@ export function getRoleSystemPrompt(
 }
 
 export interface NarrationPromptVariables {
-  sceneDesign: string
-  cuePlan: string
+  narrationInput: string
 }
 
 /**
@@ -243,6 +241,9 @@ export function getRoleUserPrompt(
   const template = override ?? readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS[role].user, locale))
 
   let result = assembleTemplate(template, variables, overrides)
+  if (role === 'narration' && variables.narrationInput && !/\{\{\s*narrationInput\s*\}\}/.test(template)) {
+    result += `\n\nTeaching content and semantic anchors:\n${variables.narrationInput}`
+  }
   if (role === 'codeRetry' && variables.sceneDesign && !/\{\{\s*sceneDesign\s*\}\}/.test(template)) {
     result += `\n\nStoryboard:\n${variables.sceneDesign}`
   }
@@ -252,23 +253,17 @@ export function getRoleUserPrompt(
     : result
 }
 
-/**
- * Load the dedicated narration prompt pair. The templates are locale-specific and
- * intentionally not exposed through PromptOverrides (the user never edits them).
- */
+/** Load narration through the same role configuration as the other workflow stages. */
 export function getNarrationPrompt(
   locale: PromptLocale,
-  variables: NarrationPromptVariables
+  variables: NarrationPromptVariables,
+  overrides?: PromptOverrides
 ): { system: string; user: string } {
-  const system = readTemplate(
-    resolveTemplateFile(NARRATION_FILE_RELATIVE_PATHS.system, locale)
-  ).trim()
-  let user = readTemplate(
-    resolveTemplateFile(NARRATION_FILE_RELATIVE_PATHS.user, locale)
-  )
-  user = replaceLiteral(user, '{{sceneDesign}}', variables.sceneDesign)
-  user = replaceLiteral(user, '{{cuePlan}}', variables.cuePlan)
-  return { system, user: user.trim() }
+  const effectiveOverrides = { ...overrides, locale }
+  return {
+    system: getRoleSystemPrompt('narration', effectiveOverrides),
+    user: getRoleUserPrompt('narration', variables, effectiveOverrides)
+  }
 }
 
 /**
@@ -305,6 +300,10 @@ export function getAllDefaultTemplates(locale: PromptLocale = 'zh-CN'): {
       codeGeneration: {
         system: readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS.codeGeneration.system, locale)),
         user: readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS.codeGeneration.user, locale))
+      },
+      narration: {
+        system: readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS.narration.system, locale)),
+        user: readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS.narration.user, locale))
       },
       codeRetry: {
         system: readTemplate(resolveTemplateFile(ROLE_FILE_RELATIVE_PATHS.codeRetry.system, locale)),

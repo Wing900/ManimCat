@@ -13,7 +13,7 @@ import {
   shouldRetryWithoutImages
 } from './concept-designer-utils'
 import { createChatCompletionText } from '../openai-stream'
-import { buildTokenParams } from '../../utils/reasoning-model'
+import { buildCompletionParams } from '../../infrastructure/ai-provider/completion-policy'
 import { JobCancelledError } from '../../shared/errors/errors'
 import { NarrationCuePlanError, parseCuePlan } from '../narration/cue-plan'
 import type { NarrationConfig } from '../narration/types'
@@ -30,7 +30,6 @@ interface SceneDesignStageParams {
   referenceImages?: ReferenceImage[]
   designerTemperature: number
   designerMaxTokens: number
-  designerThinkingTokens: number
   /** Enables the extra <cue_plan> block for Workflow video narration. */
   narrationConfig?: NarrationConfig
   onCheckpoint?: () => Promise<void>
@@ -46,7 +45,6 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
     referenceImages,
     designerTemperature,
     designerMaxTokens,
-    designerThinkingTokens,
     onCheckpoint
   } = params
   // Narration is a Workflow-video feature; image mode never asks for cues.
@@ -83,7 +81,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
             { role: 'user', content: buildVisionUserMessage(userPrompt, referenceImages) }
           ],
           temperature: designerTemperature,
-          ...buildTokenParams(designerThinkingTokens, designerMaxTokens)
+          ...buildCompletionParams(designerMaxTokens, 'DESIGNER', client)
         },
         { fallbackToNonStream: true, usageLabel: 'scene-design' }
       )
@@ -106,7 +104,7 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
               { role: 'user', content: userPrompt }
             ],
             temperature: designerTemperature,
-            ...buildTokenParams(designerThinkingTokens, designerMaxTokens)
+            ...buildCompletionParams(designerMaxTokens, 'DESIGNER', client)
           },
           { fallbackToNonStream: true, usageLabel: 'scene-design-text-fallback' }
         )

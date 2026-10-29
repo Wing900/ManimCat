@@ -1,4 +1,4 @@
-"""Narration sync for ManimGX scenes: cue / play_until / narration_end.
+"""Narration sync: cue / reveal_until / play_until / narration_end.
 
 The runtime is attached to one scene instance by the runner. It never patches the
 ``Scene`` class, so ``Scene`` and ``ThreeDScene`` keep their normal behaviour and a
@@ -42,6 +42,7 @@ except Exception:  # pragma: no cover - the runner imports manimgx before this m
 VERSION = 1
 EPS = Fraction(1, 1_000_000)  # one microsecond; smaller differences are float noise
 SEGMENT_CROSS_CHECK = 0.002  # 2 ms: only catches a real segment/top-level disagreement
+REVEAL_SECONDS = Fraction(3, 5)  # Reveal promptly, then hold the result for reading.
 
 
 class NarrationError(RuntimeError):
@@ -276,13 +277,14 @@ class NarrationRuntime:
         """Attach instance methods; no class or module is patched."""
         if self.scene is not None:
             raise NarrationError("this NarrationRuntime is already attached")
-        for name in ("cue", "play_until", "narration_end"):
+        for name in ("cue", "reveal_until", "play_until", "narration_end"):
             if hasattr(scene, name):
                 raise NarrationError(
                     f"scene already defines {name!r}; refusing to shadow it"
                 )
         self.scene = scene
         scene.cue = self.cue
+        scene.reveal_until = self.reveal_until
         scene.play_until = self.play_until
         scene.narration_end = self.narration_end
 
@@ -337,8 +339,8 @@ class NarrationRuntime:
             "status": "ok",
         }
 
-    def _record_no_budget(self, name: str, target: Fraction, now: Fraction) -> None:
-        entry = self._entry(name, "play_until", target)
+    def _record_no_budget(self, name: str, target: Fraction, now: Fraction, mode: str = "play_until") -> None:
+        entry = self._entry(name, mode, target)
         entry.update(
             {
                 "status": "no_time",
@@ -354,7 +356,7 @@ class NarrationRuntime:
         )
         self.cue_reports.append(entry)
         message = (
-            f"play_until: no time left before cue {name!r}; scene is at "
+            f"{mode}: no time left before cue {name!r}; scene is at "
             f"{float(now):.6f}s, target {float(target):.6f}s"
         )
         self.errors.append(message)
@@ -430,35 +432,64 @@ class NarrationRuntime:
         self._finish_entry(entry, target, {"call": self.used[name]})
 
     def play_until(self, next_cue: str, *animations: Any, **options: Any) -> None:
-        """Play animations with ``run_time`` set to the real budget until ``next_cue``."""
+        """Continue a mathematical motion throughout the budget until the next cue."""
+        self._animate_until(next_cue, animations, options, reveal=False)
+
+    def reveal_until(self, next_cue: str, *animations: Any, **options: Any) -> None:
+        """Reveal at the current cue, then hold until the next one; never stretch a reveal."""
+        self._animate_until(next_cue, animations, options, reveal=True)
+
+    def _animate_until(
+        self, next_cue: str, animations: tuple[Any, ...], options: dict[str, Any], *, reveal: bool
+    ) -> None:
+        mode = "reveal_until" if reveal else "play_until"
         if "run_time" in options:
             message = (
-                "play_until sets run_time from the cue budget; do not pass run_time"
+                f"{mode} sets run_time from the cue budget; do not pass run_time"
             )
             self.errors.append(message)
             raise NarrationSyncError(message)
         if not animations:
-            message = "play_until needs at least one animation"
+            message = f"{mode} needs at least one animation"
             self.errors.append(message)
             raise NarrationSyncError(message)
-        target = self.target(next_cue, "play_until")
+        target = self.target(next_cue, mode)
         started = self.now
         self.used[next_cue] = self.used.get(next_cue, 0) + 1
         if started > target + EPS:
-            self._record_overdue(next_cue, "play_until", target, started)
+            self._record_overdue(next_cue, mode, target, started)
         budget = target - started
         if budget <= EPS:
-            self._record_no_budget(next_cue, target, started)
-        entry = self._entry(next_cue, "play_until", target)
+            self._record_no_budget(next_cue, target, started, mode)
+        if not reveal and budget > REVEAL_SECONDS:
+            # Entrances/exits must be readable promptly, even when mixed with motion.
+            # Check inheritance so custom FadeIn/FadeOut subclasses obey the same rule.
+            fades = [type(animation).__name__ for animation in animations
+                     if any(base.__name__ in {"FadeIn", "FadeOut"}
+                            for base in type(animation).__mro__)]
+            if fades:
+                message = (
+                    f"play_until: {', '.join(fades)} would span {float(budget):.3f}s; "
+                    "use reveal_until for short reveals and holds, or establish labels "
+                    "with self.add before continuous mathematical motion"
+                )
+                self.errors.append(message)
+                raise NarrationSyncError(message)
+        entry = self._entry(next_cue, mode, target)
         entry["playStart"] = float(started)
-        entry["runTime"] = float(budget)
+        duration = min(REVEAL_SECONDS, budget) if reveal else budget
+        entry["runTime"] = float(duration)
         # Scene.play copies options onto every top-level animation. The exact Fraction
         # budget keeps GX's clock on the audio target instead of accumulating floats.
-        self.scene.play(*animations, run_time=budget, **options)
+        self.scene.play(*animations, run_time=duration, **options)
+        play_end = self.now
+        if target > play_end:
+            self.scene.wait(target - play_end)
         self._finish_entry(
             entry,
             target,
-            {"call": self.used[next_cue], "playEnd": float(self.now)},
+            {"call": self.used[next_cue], "playEnd": float(play_end),
+             "holdSeconds": float(max(Fraction(0), target - play_end))},
         )
 
     def narration_end(self) -> None:

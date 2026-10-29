@@ -13,7 +13,8 @@ export const narrationConfigSchema = z.object({
 export const customApiConfigSchema = z.object({
   apiUrl: z.string(),
   apiKey: z.string(),
-  model: z.string()
+  model: z.string(),
+  reasoningEffort: z.enum(['provider-default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']).optional()
 })
 
 export const promptOverridesSchema = z.object({
@@ -33,6 +34,12 @@ export const promptOverridesSchema = z.object({
         })
         .optional(),
       codeGeneration: z
+        .object({
+          system: z.string().max(20000).optional(),
+          user: z.string().max(20000).optional()
+        })
+        .optional(),
+      narration: z
         .object({
           system: z.string().max(20000).optional(),
           user: z.string().max(20000).optional()

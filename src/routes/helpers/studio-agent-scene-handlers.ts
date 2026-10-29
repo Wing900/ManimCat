@@ -5,7 +5,6 @@ import type {
   StudioSceneSnapshot,
   StudioSession
 } from '../../studio-agent/domain/types'
-import type { StudioExternalEvent } from '../../studio-agent/infrastructure/events/studio-event-adapter'
 import type { StudioStartRunInput, StudioStartRunResult } from '../../studio-agent/runtime/run-service'
 import type { StudioConversationSeedInput } from '../../studio-agent/runtime/session-service'
 import type { StudioEventStreamInput } from './studio-agent-sse'

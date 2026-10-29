@@ -12,8 +12,6 @@ import type {
   StudioRun,
   StudioScene,
   StudioSceneSnapshot,
-  StudioSession,
-  StudioSessionSnapshot,
   StudioTokenUsage,
   StudioToolState
 } from '../domain/types'

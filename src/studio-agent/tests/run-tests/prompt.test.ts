@@ -6,6 +6,7 @@ import {
   resolveWorkspacePath
 } from '../../index'
 import { getDefaultStudioWorkspacePath } from '../../infrastructure/workspace/default-studio-workspace'
+import { getVisualStylePrompt } from '../../../prompts/loader'
 import { createWorkspace, run } from './factories'
 import path from 'node:path'
 
@@ -115,8 +116,12 @@ export async function runPromptTests() {
     })
 
     // The budget tracks the current prompts plus a small margin: it is a bloat alarm, not a target.
-    // ManimGX runtime facts are longer than the old one-line Manim summary, so the ceiling grew once.
-    const basePromptBudget = 1100
+    // The shared visual-style template is counted as content, because it is allowed to grow with
+    // the design language; the fixed part covers the builder core and the <studio_scene> facts.
+    // ManimGX runtime facts are longer than the old one-line Manim summary, so the fixed part grew once.
+    const visualStyle = getVisualStylePrompt('en-US')
+    const fixedPromptBudget = 640
+    const basePromptBudget = visualStyle.length + fixedPromptBudget
     assert.ok(
       manimPrompt.length <= basePromptBudget + manimDirectory.length,
       `manim base prompt is ${manimPrompt.length} chars, budget is ${basePromptBudget + manimDirectory.length}`

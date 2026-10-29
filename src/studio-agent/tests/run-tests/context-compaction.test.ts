@@ -43,7 +43,7 @@ function completion(
   } as StudioModelResponse
 }
 
-function providerMessage(id: string, role: 'user' | 'assistant', content: string): OpenAI.Chat.Completions.ChatCompletionMessageParam {
+function providerMessage(_id: string, role: 'user' | 'assistant', content: string): OpenAI.Chat.Completions.ChatCompletionMessageParam {
   return { role, content, ...(role === 'assistant' ? {} : {}) } as OpenAI.Chat.Completions.ChatCompletionMessageParam
 }
 

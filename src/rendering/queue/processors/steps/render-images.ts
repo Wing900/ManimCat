@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { performance } from 'node:perf_hooks'
 import { createLogger } from '../../../../shared/logging/logger'
 import { cleanManimCode } from '../../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../../utils/manim-executor'
@@ -292,9 +293,9 @@ export async function renderImages(
     exitCode?: number
     codeSnippet?: string
   }> => {
-    const renderStart = Date.now()
+    const renderStart = performance.now()
     const attempt = await renderImageBlocks(jobId, quality, candidateCode, frameRate, timeoutMs, stableRenderCacheKey, outputDir)
-    if (timings) timings.render = (timings.render || 0) + (Date.now() - renderStart)
+    if (timings) timings.render = (timings.render || 0) + (performance.now() - renderStart)
     peakMemoryMB = Math.max(peakMemoryMB, attempt.peakMemoryMB)
     if (attempt.success) {
       finalImageUrls = attempt.imageUrls

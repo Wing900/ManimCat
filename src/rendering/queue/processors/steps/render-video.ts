@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { performance } from 'node:perf_hooks'
 import { createLogger } from '../../../../shared/logging/logger'
 import { cleanManimCode } from '../../../../utils/manim-code-cleaner'
 import { executeManimCommand, type ManimExecuteOptions } from '../../../../utils/manim-executor'
@@ -182,9 +183,9 @@ export async function renderVideo(
       narrationSyncReportPath
     }
 
-    const renderStart = Date.now()
+    const renderStart = performance.now()
     const result = await executeManimCommand(codeFile, options)
-    timings.render = (timings.render || 0) + (Date.now() - renderStart)
+    timings.render = (timings.render || 0) + (performance.now() - renderStart)
     renderedVideoPath = result.success ? result.outputPath : undefined
     lastRenderPeakMemoryMB = result.peakMemoryMB
     return {
@@ -235,12 +236,12 @@ export async function renderVideo(
 
   if (codeResult.narration) {
     await storeJobStage(jobId, 'muxing', { status: 'processing' })
-    const muxStart = Date.now()
+    const muxStart = performance.now()
     await muxNarrationIntoVideo({
       videoPath,
       narration: codeResult.narration
     })
-    timings.mux = (timings.mux || 0) + (Date.now() - muxStart)
+    timings.mux = (timings.mux || 0) + (performance.now() - muxStart)
     logNarrationSyncReport(jobId, narrationSyncReportPath)
 
     const narrationConfig = resolveNarrationConfig(videoConfig, 'video')

@@ -8,24 +8,22 @@
 
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
-import { getNarrationPrompt, type PromptLocale } from '../../prompts'
-import { buildTokenParams } from '../../utils/reasoning-model'
+import { getNarrationPrompt, type PromptLocale, type PromptOverrides } from '../../prompts'
+import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
 import { createChatCompletionText } from '../openai-stream'
-import { stripCuePlan } from './cue-plan'
+import { buildNarrationInput } from './narration-input'
 import type { CuePlan, NarrationConfig, NarrationPlan, NarrationPlanSegment } from './types'
 
 const logger = createLogger('NarrationStage')
 
 const NARRATION_TEMPERATURE = parseFloat(process.env.NARRATION_TEMPERATURE || '0.6')
-const NARRATION_MAX_TOKENS = parseInt(process.env.NARRATION_MAX_TOKENS || '4096', 10)
-const NARRATION_THINKING_TOKENS = parseInt(process.env.NARRATION_THINKING_TOKENS || '0', 10)
+const NARRATION_MAX_TOKENS = readMaxCompletionTokens('NARRATION')
 const MAX_ATTEMPTS = 2
 const MARKER_PATTERN = /\[\[([^\[\]]+)\]\]/g
 
 export interface NarrationStageParams {
   client: OpenAI
   model: string
-  sceneDesign: string
   cuePlan: CuePlan
   config: NarrationConfig
   onCheckpoint?: () => Promise<void>
@@ -34,6 +32,7 @@ export interface NarrationStageParams {
    * Edge voice (zh-* -> Chinese, en-* -> English), matching the on-screen language.
    */
   locale?: PromptLocale
+  promptOverrides?: PromptOverrides
 }
 
 export class NarrationPlanError extends Error {
@@ -88,8 +87,8 @@ export function validateNarrationPlan(raw: unknown, cuePlan: CuePlan): Narration
     if (typeof id !== 'string' || !id.trim()) {
       throw new NarrationPlanError(`segments[${index}].id must be a non-empty string`)
     }
-    if (typeof text !== 'string' || !text.trim()) {
-      throw new NarrationPlanError(`segments[${index}].text must be a non-empty string`)
+    if (typeof text !== 'string') {
+      throw new NarrationPlanError(`segments[${index}].text must be a string`)
     }
     const normalizedId = id.trim()
     if (byId.has(normalizedId)) {
@@ -113,6 +112,13 @@ export function validateNarrationPlan(raw: unknown, cuePlan: CuePlan): Narration
   for (const plannedSegment of cuePlan.segments) {
     const narration = byId.get(plannedSegment.id)!
     const cueIds = plannedSegment.cues.map((cue) => cue.id)
+    // A wordless shot is allowed, but only when the shot itself has nothing to point
+    // at. Silence cannot anchor a cue to a spoken word, so the cue plan must agree.
+    if (!narration.text && cueIds.length > 0) {
+      throw new NarrationPlanError(
+        `segment ${JSON.stringify(plannedSegment.id)} is wordless but carries ${cueIds.length} cue(s); leave its text empty only when the cue plan has no cues for that shot`
+      )
+    }
     const order = new Map(cueIds.map((cueId, index) => [cueId, index]))
     const found = markerIds(narration.text)
     const counts = new Map<string, number>()
@@ -151,6 +157,17 @@ export function validateNarrationPlan(raw: unknown, cuePlan: CuePlan): Narration
     }
   }
 
+  const openingSegment = cuePlan.segments.find((segment) => segment.cues.length > 0)
+  if (openingSegment) {
+    const firstCue = openingSegment.cues[0].id
+    const openingText = byId.get(openingSegment.id)!.text
+    if (!openingText.startsWith(`[[${firstCue}]]`)) {
+      throw new NarrationPlanError(
+        `opening segment ${JSON.stringify(openingSegment.id)} must begin with [[${firstCue}]] before any spoken text, so the opening visual starts with the explanation`
+      )
+    }
+  }
+
   return {
     segments: plannedIds.map((id) => ({ id, text: byId.get(id)!.text }))
   }
@@ -158,9 +175,9 @@ export function validateNarrationPlan(raw: unknown, cuePlan: CuePlan): Narration
 
 function repairInstruction(error: string, locale: PromptLocale): string {
   if (locale === 'en-US') {
-    return `Your previous answer violated the narration contract: ${error}\nRewrite the complete JSON. Include every cue-plan segment once, in plan order, and place every [[cue_id]] exactly once inside its own segment in plan order. Output JSON only.`
+    return `Your previous answer violated the narration contract: ${error}\nRewrite the complete JSON. Include every cue-plan segment once, in plan order. A shot with no cues may use an empty text; every other shot must place each [[cue_id]] exactly once, in plan order. Output JSON only.`
   }
-  return `你上一条输出违反了旁白契约：${error}\n请重写完整 JSON。每个 cue 计划 segment 必须出现一次且顺序一致；每个 [[cue_id]] 必须在其所属 segment 内恰好出现一次，顺序与计划一致。只输出 JSON。`
+  return `你上一条输出违反了旁白契约：${error}\n请重写完整 JSON。每个 cue 计划 segment 必须出现一次且顺序一致；没有 cue 的镜头可以把 text 写成空字符串；其余镜头里每个 [[cue_id]] 必须在其所属 segment 内恰好出现一次，顺序与计划一致。只输出 JSON。`
 }
 
 /**
@@ -173,12 +190,11 @@ function repairInstruction(error: string, locale: PromptLocale): string {
 export async function generateNarrationStage(
   params: NarrationStageParams
 ): Promise<NarrationPlan> {
-  const { client, model, sceneDesign, cuePlan, config, onCheckpoint } = params
-  const locale = resolveLocale(config, params.locale)
+  const { client, model, cuePlan, config, onCheckpoint } = params
+  const locale = resolveLocale(config, params.locale ?? params.promptOverrides?.locale)
   const prompt = getNarrationPrompt(locale, {
-    sceneDesign: stripCuePlan(sceneDesign),
-    cuePlan: JSON.stringify(cuePlan, null, 2)
-  })
+    narrationInput: JSON.stringify(buildNarrationInput(cuePlan), null, 2)
+  }, params.promptOverrides)
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: prompt.system },
@@ -203,7 +219,7 @@ export async function generateNarrationStage(
         model,
         messages,
         temperature: NARRATION_TEMPERATURE,
-        ...buildTokenParams(NARRATION_THINKING_TOKENS, NARRATION_MAX_TOKENS)
+        ...buildCompletionParams(NARRATION_MAX_TOKENS, 'NARRATION', client)
       },
       {
         fallbackToNonStream: true,

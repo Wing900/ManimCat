@@ -25,7 +25,7 @@ void stopMemorySampler
  * GET /api/metrics
  * 获取系统资源监控数据
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const [queueStats, redisMemory, diskUsage] = await Promise.all([
       getQueueStats(),
@@ -63,7 +63,7 @@ router.get('/', async (req: Request, res: Response) => {
  * POST /api/metrics/reset
  * Reset memory peak tracking.
  */
-router.post('/reset', (req: Request, res: Response) => {
+router.post('/reset', (_req: Request, res: Response) => {
   resetMemoryPeaks()
   res.json({
     status: 'ok',

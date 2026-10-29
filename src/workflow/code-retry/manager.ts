@@ -1,11 +1,9 @@
+import { performance } from 'node:perf_hooks'
 import { createLogger } from '../../shared/logging/logger'
 import type {
-  CodeRetryOptions,
-  CodeRetryResult,
+  CodeRetryContext,
   RenderResult,
   RetryManagerResult,
-  ChatMessage,
-  CodeRetryContext,
   RetryCheckpoint
 } from './types'
 import type { OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
@@ -126,7 +124,7 @@ export async function executeCodeRetry(
       error: errorMessage
     })
 
-    const generationStart = Date.now()
+    const generationStart = performance.now()
     let generationRecorded = false
     try {
       if (onCheckpoint) {
@@ -142,7 +140,7 @@ export async function executeCodeRetry(
         customApiConfig,
         onCheckpoint
       )
-      generationTimeMs += Date.now() - generationStart
+      generationTimeMs += performance.now() - generationStart
       generationRecorded = true
       if (timings) timings.retry = generationTimeMs
 
@@ -179,7 +177,7 @@ export async function executeCodeRetry(
       logger.warn('Retry render failed', { attempt: attempt + 1, errorType, error: errorMessage })
     } catch (error) {
       if (!generationRecorded) {
-        generationTimeMs += Date.now() - generationStart
+        generationTimeMs += performance.now() - generationStart
         if (timings) timings.retry = generationTimeMs
       }
 

@@ -11,6 +11,7 @@ import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
 import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../types'
 import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
+import { readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
 import { generateSceneDesignStage } from './scene-design-stage'
 import { generateCodeFromDesignStage } from './code-from-design-stage'
 import type { CuePlan, NarrationAssets, NarrationConfig } from '../narration/types'
@@ -22,10 +23,8 @@ const logger = createLogger('ConceptDesigner')
 
 const DESIGNER_TEMPERATURE = parseFloat(process.env.DESIGNER_TEMPERATURE || '0.8')
 const CODER_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
-const MAX_TOKENS = parseInt(process.env.AI_MAX_TOKENS || '12000', 10)
-const THINKING_TOKENS = parseInt(process.env.AI_THINKING_TOKENS || '20000', 10)
-const DESIGNER_MAX_TOKENS = parseInt(process.env.DESIGNER_MAX_TOKENS || '12000', 10)
-const DESIGNER_THINKING_TOKENS = parseInt(process.env.DESIGNER_THINKING_TOKENS || '20000', 10)
+const MAX_TOKENS = readMaxCompletionTokens()
+const DESIGNER_MAX_TOKENS = readMaxCompletionTokens('DESIGNER')
 
 /** Backend-resolved narration inputs. The frontend never supplies any of these paths. */
 export interface TwoStageNarrationOptions {
@@ -97,7 +96,6 @@ export async function generateTwoStageAIManimCode(
     referenceImages,
     designerTemperature: DESIGNER_TEMPERATURE,
     designerMaxTokens: DESIGNER_MAX_TOKENS,
-    designerThinkingTokens: DESIGNER_THINKING_TOKENS,
     onCheckpoint,
     narrationConfig: narrationEnabled ? narration!.config : undefined
   })
@@ -129,7 +127,6 @@ export async function generateTwoStageAIManimCode(
     promptOverrides,
     coderTemperature: CODER_TEMPERATURE,
     maxTokens: MAX_TOKENS,
-    thinkingTokens: THINKING_TOKENS,
     onCheckpoint,
     cuePlan
   }).catch((error: unknown) => {
@@ -143,8 +140,8 @@ export async function generateTwoStageAIManimCode(
         const plan = await generateNarrationStage({
           client,
           model,
-          sceneDesign,
           cuePlan: cuePlan!,
+          promptOverrides,
           config: narration!.config,
           onCheckpoint
         })

@@ -51,6 +51,7 @@ export interface JobTimings {
   edit?: number
   retry?: number
   render?: number
+  mux?: number
   store?: number
   total?: number
 }
@@ -64,6 +65,7 @@ export interface CustomApiConfig {
   apiUrl: string
   apiKey: string
   model: string
+  reasoningEffort?: 'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra'
 }
 
 /**
@@ -71,7 +73,7 @@ export interface CustomApiConfig {
  */
 export interface PromptOverrides {
   locale?: PromptLocale
-  roles?: Partial<Record<'problemFraming' | 'conceptDesigner' | 'codeGeneration' | 'codeRetry' | 'codeEdit', { system?: string; user?: string }>>
+  roles?: Partial<Record<'problemFraming' | 'conceptDesigner' | 'codeGeneration' | 'narration' | 'codeRetry' | 'codeEdit', { system?: string; user?: string }>>
   shared?: Partial<Record<'apiIndex' | 'specification', string>>
 }
 

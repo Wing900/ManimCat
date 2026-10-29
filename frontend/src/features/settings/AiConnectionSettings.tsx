@@ -6,6 +6,7 @@ import { CatKeyForm } from '../connection/CatKeyForm'
 import { ByokForm } from '../connection/ByokForm'
 import { ClearAiSettingsDialog } from './ClearAiSettingsDialog'
 import { TrashMark } from './settings-icons'
+import { ReasoningSettings } from './ReasoningSettings'
 
 interface AiConnectionSettingsProps {
   connection: ConnectionSettings
@@ -89,6 +90,8 @@ export function AiConnectionSettings({ connection, onSaved, onCleared }: AiConne
 
         {mode === 'byok' && <ByokForm connection={connection} onSaved={onSaved} />}
       </div>
+
+      <ReasoningSettings connection={connection} onSaved={onSaved} />
 
       {/* 破坏性动作放在离表单最远的右下角，用文字的重量而不是填充块——它是这页唯一的减法。 */}
       <div className="flex justify-end">

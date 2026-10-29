@@ -17,7 +17,6 @@ import {
   createManimStudioRenderTool,
   createManimRenderDriver,
   createMatplotlibRenderDriver,
-  createStudioRenderDriverRegistry,
   createUnavailableStudioRenderResultPort,
   createStudioRun,
   createStudioScene,
@@ -48,7 +47,6 @@ import {
 } from '../../index'
 import { buildStudioRenderContext } from '../../runtime/execution/render-context'
 import { createStudioLoopRuntime, buildStudioLoopStepRequest } from '../../orchestration/openai-tool-loop/request-builder'
-import { createStudioOpenAIToolLoop } from '../../orchestration/openai-tool-loop/controller'
 import { configureStudioToolRegistry } from '../../runtime/studio-tool-registry'
 import { createManimMode, createMatplotlibMode } from '../../modes/studio-mode-module'
 import { buildStudioAgentSystemPrompt } from '../../orchestration/studio-agent-prompt'
@@ -264,14 +262,6 @@ class RecordingManimRenderPort implements ManimRenderPort {
     })
     return { jobId: input.jobId }
   }
-}
-
-async function collect<T>(generator: AsyncGenerator<T>): Promise<T[]> {
-  const events: T[] = []
-  for await (const event of generator) {
-    events.push(event)
-  }
-  return events
 }
 
 export async function runSceneExecutionBoundaryTests(): Promise<void> {

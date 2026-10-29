@@ -17,18 +17,31 @@ export interface CuePlanCue {
   id: string
   /** Concrete on-screen action or state at this cue. No durations. */
   action: string
+  /** Mathematical meaning supported by this visual anchor; optional for legacy plans. */
+  meaning?: string
+}
+
+/** Shared teaching intent, drafted before final narration or animation code. */
+export interface SegmentTeachingPlan {
+  learningGoal: string
+  /** Student-facing prose without cue markers; empty for a deliberately wordless shot. */
+  narrationDraft: string
+  visualEvidence: string
 }
 
 export interface CuePlanSegment {
   id: string
   /** What this shot shows, in one sentence. */
   visuals: string
+  /** Absent only in legacy plans; populated by new storyboard prompts. */
+  teaching?: SegmentTeachingPlan
   cues: CuePlanCue[]
 }
 
 /**
  * Storyboard timing skeleton produced together with the fixed four-section design.
- * IDs are the only contract between code generation, narration and the runtime.
+ * Teaching intent and visual meaning are shared by narration and code generation.
+ * The renderer consumes the IDs and measured timings, independently of this content.
  */
 export interface CuePlan {
   segments: CuePlanSegment[]
