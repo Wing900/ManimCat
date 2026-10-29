@@ -16,7 +16,7 @@ export function isReasoningEffort(value: string): value is NonNullable<CustomApi
 /** Every stage inherits the global total budget unless its own limit is explicitly configured. */
 export function readMaxCompletionTokens(stage?: string): number {
   const raw = (stage ? process.env[`${stage}_MAX_TOKENS`]?.trim() : undefined)
-    || process.env.AI_MAX_TOKENS?.trim() || '20000'
+    || process.env.AI_MAX_TOKENS?.trim() || '64000'
   const value = Number(raw)
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`${stage ? `${stage}_MAX_TOKENS / ` : ''}AI_MAX_TOKENS must be a positive integer`)

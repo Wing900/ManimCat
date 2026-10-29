@@ -48,7 +48,7 @@ services:
       - PROD_SUMMARY_LOG_ONLY=${PROD_SUMMARY_LOG_ONLY:-true}
       # Reasoning intensity and total generation budgets are independent.
       - AI_REASONING_EFFORT=${AI_REASONING_EFFORT:-high}
-      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-20000}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-64000}
       - AI_PROVIDER_REQUEST_TIMEOUT_MS=${AI_PROVIDER_REQUEST_TIMEOUT_MS:-600000}
       - DESIGNER_REASONING_EFFORT=${DESIGNER_REASONING_EFFORT:-}
       # Blank stage limits inherit AI_MAX_TOKENS through the shared completion policy.
