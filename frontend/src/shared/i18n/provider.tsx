@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Locale } from './messages';
 import { I18nContext, type I18nContextValue } from './context';
 import { setCurrentLocale, translate } from './runtime';
+import { syncNarrationVoiceToLocale } from '../../infrastructure/storage/settings';
 
 const STORAGE_KEY = 'manimcat_locale';
 const DEFAULT_LOCALE: Locale = 'en-US';
@@ -29,6 +30,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setCurrentLocale(locale);
     window.localStorage.setItem(STORAGE_KEY, locale);
     document.documentElement.lang = locale;
+    // Keep the spoken language aligned with the interface language, including on
+    // first load: a stored voice from the other language is replaced by this
+    // language's default. Same-language choices (Yunxi/Guy) survive untouched.
+    syncNarrationVoiceToLocale(locale);
   }, [locale]);
 
   const value = useMemo<I18nContextValue>(() => ({

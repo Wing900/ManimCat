@@ -29,9 +29,16 @@ import {
   alignWordBoundaries,
   mapCueTimes,
   parseMarkedText,
+  type AlignedWordBoundary,
   type EdgeWordBoundary,
   type ParsedSegmentText
 } from './text-alignment'
+import {
+  buildSubtitleCues,
+  formatSrt,
+  formatVtt,
+  subtitleLanguageForVoice
+} from './subtitles'
 import {
   concatWavFiles,
   copyFileAtomic,
@@ -601,6 +608,7 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
 
   // Align words and map cues only after real durations are known.
   const cueTimes: Array<Record<string, number>> = []
+  const alignedByIndex: AlignedWordBoundary[][] = segments.map(() => [])
   for (let index = 0; index < segments.length; index += 1) {
     throwIfCancelled(options.signal)
     const segment = segments[index]
@@ -610,6 +618,7 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
     }
     const audio = audioByIndex[index]!
     const { aligned, warnings } = alignWordBoundaries(segment.parsed.cleanText, audio.boundaries)
+    alignedByIndex[index] = aligned
     if (warnings.length > 0) {
       logger.warn('Edge word boundaries did not align to spoken text', {
         segmentId: segment.id,
@@ -695,9 +704,91 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
     synthesized: misses.length
   })
 
+  let subtitles: Partial<NarrationAssets> = {}
+  try {
+    subtitles = await writeSubtitles({
+      segments,
+      alignedByIndex,
+      timings: segmentTimings,
+      outputDirectory,
+      voice,
+      signal: options.signal
+    })
+  } catch (error) {
+    // Captions are auxiliary: the narration track is already valid, so a sidecar
+    // failure must not turn a finished voice track into a failed render.
+    if (options.signal?.aborted) {
+      throw createCancellationError(options.signal)
+    }
+    logger.warn('Subtitle generation failed; narration stays audio-only', {
+      outputDirectory,
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+
   return {
     manifestPath,
     audioPath,
-    duration: roundSeconds(concatenated.duration)
+    duration: roundSeconds(concatenated.duration),
+    ...subtitles
+  }
+}
+
+interface WriteSubtitlesOptions {
+  segments: readonly PreparedSegment[]
+  alignedByIndex: readonly AlignedWordBoundary[][]
+  timings: readonly { start: number; duration: number }[]
+  outputDirectory: string
+  voice: string
+  signal?: AbortSignal
+}
+
+/**
+ * Writes the two subtitle sidecars next to the narration track. Captions are an
+ * auxiliary product: a plan that produced no readable line writes no file, and the
+ * caller muxes the video without a subtitle stream.
+ */
+async function writeSubtitles(options: WriteSubtitlesOptions): Promise<Partial<NarrationAssets>> {
+  throwIfCancelled(options.signal)
+  const cues = buildSubtitleCues(
+    options.segments.map((segment, index) => ({
+      text: segment.parsed.cleanText,
+      start: options.timings[index]?.start ?? 0,
+      duration: options.timings[index]?.duration ?? 0,
+      words: options.alignedByIndex[index] ?? []
+    }))
+  )
+  if (cues.length === 0) {
+    logger.info('No subtitle cues produced; narration stays audio-only')
+    return {}
+  }
+
+  const srtPath = path.join(options.outputDirectory, 'narration.srt')
+  const vttPath = path.join(options.outputDirectory, 'narration.vtt')
+  await writeTextAtomic(srtPath, formatSrt(cues))
+  await writeTextAtomic(vttPath, formatVtt(cues))
+
+  const language = subtitleLanguageForVoice(options.voice)
+  logger.info('Narration subtitles ready', {
+    srtPath,
+    vttPath,
+    cues: cues.length,
+    language
+  })
+  return {
+    subtitleSrtPath: srtPath,
+    subtitleVttPath: vttPath,
+    subtitleLanguage: language
+  }
+}
+
+async function writeTextAtomic(target: string, content: string): Promise<void> {
+  const temporary = `${target}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`
+  try {
+    await fsp.writeFile(temporary, content, 'utf8')
+    await replaceFileAtomic(temporary, target)
+  } catch (error) {
+    await fsp.rm(temporary, { force: true }).catch(() => undefined)
+    throw error
   }
 }

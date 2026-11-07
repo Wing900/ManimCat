@@ -84,6 +84,7 @@ function execFileAsync(command: string, args: string[]): Promise<{ stdout: strin
 async function probeMedia(filePath: string): Promise<{
   duration: number
   hasAudio: boolean
+  hasSubtitle: boolean
   audioDuration: number
 }> {
   const { stdout } = await execFileAsync('ffprobe', [
@@ -102,6 +103,7 @@ async function probeMedia(filePath: string): Promise<{
   return {
     duration: Number.parseFloat(info.format?.duration ?? '0') || 0,
     hasAudio: Boolean(audioStream),
+    hasSubtitle: streams.some((stream) => stream.codec_type === 'subtitle'),
     audioDuration: Number.parseFloat(audioStream?.duration ?? info.format?.duration ?? '0') || 0
   }
 }
@@ -112,11 +114,58 @@ export interface MuxNarrationOptions {
   narration: NarrationAssets
 }
 
+export interface NarrationMuxArgvOptions {
+  videoPath: string
+  audioPath: string
+  /** Optional SubRip sidecar; when present the film gains a soft subtitle track. */
+  subtitlePath?: string
+  /** ISO 639-2 code recorded on the subtitle stream (`eng` / `chi`). */
+  subtitleLanguage?: string
+  outputPath: string
+}
+
+/**
+ * Build the single ffmpeg invocation that adds narration (and its subtitle track)
+ * to an already-rendered picture. Exported so argument shape stays unit-testable
+ * without spawning ffmpeg.
+ */
+export function buildNarrationMuxArgs(options: NarrationMuxArgvOptions): string[] {
+  const args: string[] = ['-y', '-i', options.videoPath, '-i', options.audioPath]
+  if (options.subtitlePath) {
+    args.push('-i', options.subtitlePath)
+  }
+  args.push('-map', '0:v:0', '-map', '1:a:0')
+  if (options.subtitlePath) {
+    args.push('-map', '2:s:0')
+  }
+  args.push('-c:v', 'copy', '-c:a', 'aac', '-b:a', OUTPUT_AUDIO_BITRATE)
+  if (options.subtitlePath) {
+    args.push('-c:s', 'mov_text')
+    if (options.subtitleLanguage) {
+      args.push('-metadata:s:s:0', `language=${options.subtitleLanguage}`)
+    }
+  }
+  args.push('-movflags', '+faststart', options.outputPath)
+  return args
+}
+
+function existingSubtitle(narration: NarrationAssets): string | undefined {
+  const candidate = narration.subtitleSrtPath
+  if (!candidate) return undefined
+  try {
+    const stat = fs.statSync(candidate)
+    return stat.isFile() && stat.size > 0 ? candidate : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Muxes the narration track into the rendered video and returns the final path.
  *
  * A missing audio file or a mux failure is a real failure — silently shipping an unvoiced video
- * would misrepresent what the user asked for.
+ * would misrepresent what the user asked for. Subtitles are auxiliary: if the subtitle track
+ * cannot be written, the film is still muxed with audio and the failure is logged, never hidden.
  */
 export async function muxNarrationIntoVideo(options: MuxNarrationOptions): Promise<string> {
   const { videoPath, narration } = options
@@ -132,26 +181,30 @@ export async function muxNarrationIntoVideo(options: MuxNarrationOptions): Promi
   const extension = path.extname(videoPath)
   const base = path.basename(videoPath, extension)
   const tempOutput = path.join(directory, `${base}_narration${extension}`)
-  fs.rmSync(tempOutput, { force: true })
+  const subtitlePath = existingSubtitle(narration)
 
-  const args: string[] = ['-y', '-i', videoPath, '-i', narration.audioPath]
-  args.push(
-    '-map', '0:v:0',
-    '-map', '1:a:0',
-    '-c:v', 'copy',
-    '-c:a', 'aac',
-    '-b:a', OUTPUT_AUDIO_BITRATE,
-    '-movflags', '+faststart',
-    tempOutput
-  )
+  const attempt = async (withSubtitles: boolean): Promise<{
+    duration: number
+    audioDuration: number
+  }> => {
+    fs.rmSync(tempOutput, { force: true })
+    const args = buildNarrationMuxArgs({
+      videoPath,
+      audioPath: narration.audioPath,
+      ...(withSubtitles && subtitlePath ? { subtitlePath } : {}),
+      ...(withSubtitles && narration.subtitleLanguage
+        ? { subtitleLanguage: narration.subtitleLanguage }
+        : {}),
+      outputPath: tempOutput
+    })
 
-  logger.info('Muxing narration into rendered video', {
-    videoPath,
-    audioPath: narration.audioPath,
-    duration: narration.duration
-  })
+    logger.info('Muxing narration into rendered video', {
+      videoPath,
+      audioPath: narration.audioPath,
+      duration: narration.duration,
+      subtitles: withSubtitles && Boolean(subtitlePath)
+    })
 
-  try {
     await execFileAsync('ffmpeg', args)
 
     const probe = await probeMedia(tempOutput)
@@ -165,21 +218,46 @@ export async function muxNarrationIntoVideo(options: MuxNarrationOptions): Promi
         `Muxed audio is shorter than the narration (${probe.audioDuration}s < ${narration.duration}s)`
       )
     }
+    if (withSubtitles && subtitlePath && !probe.hasSubtitle) {
+      throw new Error('Muxed video has no subtitle stream')
+    }
+    return { duration: probe.duration, audioDuration: probe.audioDuration }
+  }
 
-    fs.renameSync(tempOutput, videoPath)
-    logger.info('Narration mux complete', {
-      videoPath,
-      duration: probe.duration,
-      audioDuration: probe.audioDuration
-    })
-    return videoPath
-  } catch (error) {
+  const failure = async (error: unknown, withSubtitles: boolean): Promise<never> => {
     fs.rmSync(tempOutput, { force: true })
     const stderr = (error as { stderr?: string }).stderr
     throw new Error(
-      `Narration muxing failed: ${error instanceof Error ? error.message : String(error)}${
-        stderr ? `\n${stderr.slice(-2000)}` : ''
-      }`
+      `Narration muxing failed${withSubtitles ? ' while adding subtitles' : ''}: ${
+        error instanceof Error ? error.message : String(error)
+      }${stderr ? `\n${stderr.slice(-2000)}` : ''}`
     )
   }
+
+  let probe: { duration: number; audioDuration: number }
+  try {
+    probe = await attempt(Boolean(subtitlePath))
+  } catch (error) {
+    if (!subtitlePath) {
+      return failure(error, false)
+    }
+    logger.warn('Subtitle mux failed; retrying with audio only', {
+      videoPath,
+      subtitlePath,
+      error: error instanceof Error ? error.message : String(error)
+    })
+    try {
+      probe = await attempt(false)
+    } catch (retryError) {
+      return failure(retryError, false)
+    }
+  }
+
+  fs.renameSync(tempOutput, videoPath)
+  logger.info('Narration mux complete', {
+    videoPath,
+    duration: probe.duration,
+    audioDuration: probe.audioDuration
+  })
+  return videoPath
 }

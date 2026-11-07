@@ -5,8 +5,9 @@ const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
 // v4: connection credentials moved out of this blob into the versioned `manimcat_connection`
 // object; only product settings (video, and future appearance) live here.
 // v7: the default quality moved from 1080p (high) to 720p (medium); frame rate stays 60.
-// v8: narration is opt-in and defaults to off; existing quality/frame rate are preserved.
-const SETTINGS_VERSION = '8';
+// v8: narration was introduced as opt-in (off by default).
+// v9: narration is on by default; v8 blobs are lifted to enabled, other settings are preserved.
+const SETTINGS_VERSION = '9';
 
 /** Voice options offered by the settings UI. */
 export const NARRATION_VOICES = [
@@ -20,10 +21,43 @@ export const NARRATION_VOICES = [
 export const NARRATION_RATES = ['-10%', '+0%', '+20%'] as const;
 
 export const DEFAULT_NARRATION: NarrationConfig = {
-  enabled: false,
+  enabled: true,
   voice: 'zh-CN-XiaoxiaoNeural',
   rate: '+0%'
 };
+
+const DEFAULT_VOICE_BY_LOCALE = {
+  'zh-CN': 'zh-CN-XiaoxiaoNeural',
+  'en-US': 'en-US-JennyNeural'
+} as const;
+
+export type VoiceLocale = keyof typeof DEFAULT_VOICE_BY_LOCALE;
+
+function voiceLocale(voice: string): VoiceLocale {
+  return /^zh[-_]/i.test(voice) ? 'zh-CN' : 'en-US';
+}
+
+/**
+ * Keep the spoken language aligned with the interface language when the user flips
+ * the UI language: a voice belonging to the other language is replaced by that
+ * language's default voice, while a same-language choice (Yunxi/Guy) is left alone.
+ */
+export function alignNarrationVoiceWithLocale(voice: string, locale: VoiceLocale): string {
+  return voiceLocale(voice) === locale ? voice : DEFAULT_VOICE_BY_LOCALE[locale];
+}
+
+export function syncNarrationVoiceToLocale(locale: VoiceLocale): void {
+  const settings = loadSettings();
+  const narration = settings.video.narration ?? { ...DEFAULT_NARRATION };
+  const voice = alignNarrationVoiceWithLocale(narration.voice, locale);
+  if (voice === narration.voice) {
+    return;
+  }
+  saveSettings({
+    ...settings,
+    video: { ...settings.video, narration: { ...narration, voice } }
+  });
+}
 
 export const DEFAULT_SETTINGS: SettingsConfig = {
   video: {
@@ -120,6 +154,21 @@ function migrateSettings(raw: unknown, fromVersion: string | null): SettingsConf
       video: {
         ...sanitized.video,
         quality: 'medium'
+      }
+    };
+  }
+
+  // v8 -> v9: 旁白由「显式开启」改为默认开启。旧 blob 里的 enabled:false 是 v8 的默认值，
+  // 无法与用户手动关闭区分，因此统一抬为 true；voice/rate 及 video 其余字段保持原值。
+  if (isOlderThan(fromVersion, 9)) {
+    sanitized = {
+      ...sanitized,
+      video: {
+        ...sanitized.video,
+        narration: {
+          ...sanitized.video.narration,
+          enabled: true
+        }
       }
     };
   }

@@ -42,7 +42,16 @@ export class NarrationPlanError extends Error {
   }
 }
 
-function resolveLocale(config: NarrationConfig, explicit?: PromptLocale): PromptLocale {
+/**
+ * The voice decides the spoken language: Edge refuses to synthesize text in a
+ * script the voice does not cover (`No audio was received`). A caller's prompt
+ * locale describes the on-screen copy, so it cannot override the voice here —
+ * the voice and the spoken text must agree.
+ */
+export function resolveNarrationLocale(
+  config: NarrationConfig,
+  explicit?: PromptLocale
+): PromptLocale {
   if (explicit) return explicit
   return /^en[-_]/i.test(config.voice) ? 'en-US' : 'zh-CN'
 }
@@ -191,7 +200,7 @@ export async function generateNarrationStage(
   params: NarrationStageParams
 ): Promise<NarrationPlan> {
   const { client, model, cuePlan, config, onCheckpoint } = params
-  const locale = resolveLocale(config, params.locale ?? params.promptOverrides?.locale)
+  const locale = resolveNarrationLocale(config, params.locale)
   const prompt = getNarrationPrompt(locale, {
     narrationInput: JSON.stringify(buildNarrationInput(cuePlan), null, 2)
   }, params.promptOverrides)

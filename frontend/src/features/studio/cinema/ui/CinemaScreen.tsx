@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { TranslationKey } from '../../../../shared/i18n/messages'
 import { useI18n } from '../../../../shared/i18n/index'
+import { deriveSubtitleUrl } from '../../../../shared/media/subtitle-url'
 import ManimCatLogo from '../../../../shared/components/ManimCatLogo'
 import type { StudioCinemaScreenState } from './cinema-labels'
 import type { StudioKind } from '../../protocol/studio-agent-types'
@@ -119,6 +120,7 @@ export function CinemaScreen({
   const [reloadToken, setReloadToken] = useState(0)
   const [failedLocalUrl, setFailedLocalUrl] = useState<string | null>(null)
   const effectiveUrl = failedLocalUrl === playableUrl && fallbackVideoUrl ? fallbackVideoUrl : playableUrl
+  const subtitleUrl = deriveSubtitleUrl(effectiveUrl)
   const videoRef = useRef<HTMLVideoElement>(null)
   useVideoActivity(videoRef, active && state === 'playable' && mediaKind !== 'image', `${effectiveUrl}-${reloadToken}`)
   // Whether the media element mounted *right now* has painted. Nothing shorter than that is safe: a
@@ -220,7 +222,17 @@ export function CinemaScreen({
                 setPlaybackFailed(true)
               }
             }}
-          />
+          >
+            {subtitleUrl ? (
+              <track
+                key={subtitleUrl}
+                kind="subtitles"
+                label={t('video.subtitles')}
+                src={subtitleUrl}
+                default
+              />
+            ) : null}
+          </video>
         ) : null}
 
         {state === 'empty' && !showFailure

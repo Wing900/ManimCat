@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
+import {
+  DEFAULT_SETTINGS,
+  alignNarrationVoiceWithLocale,
+  loadSettings,
+  saveSettings,
+  syncNarrationVoiceToLocale,
+} from './settings';
 
 const SETTINGS_KEY = 'manimcat_settings';
 const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
@@ -9,13 +15,13 @@ beforeEach(() => {
 });
 
 describe('video defaults', () => {
-  it('defaults to 720p at 60 fps with narration off', () => {
+  it('defaults to 720p at 60 fps with narration on', () => {
     expect(DEFAULT_SETTINGS.video.quality).toBe('medium');
     expect(DEFAULT_SETTINGS.video.frameRate).toBe(60);
     expect(loadSettings().video).toMatchObject({
       quality: 'medium',
       frameRate: 60,
-      narration: { enabled: false, voice: 'zh-CN-XiaoxiaoNeural', rate: '+0%' },
+      narration: { enabled: true, voice: 'zh-CN-XiaoxiaoNeural', rate: '+0%' },
     });
   });
 
@@ -39,7 +45,7 @@ describe('video defaults', () => {
 });
 
 describe('narration settings', () => {
-  it('adds narration off without resetting existing quality and frame rate', () => {
+  it('adds narration on without resetting existing quality and frame rate', () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
       video: { quality: 'high', frameRate: 30, timeout: 1800 },
     }));
@@ -49,7 +55,26 @@ describe('narration settings', () => {
       quality: 'high',
       frameRate: 30,
       timeout: 1800,
-      narration: { enabled: false, voice: 'zh-CN-XiaoxiaoNeural', rate: '+0%' },
+      narration: { enabled: true, voice: 'zh-CN-XiaoxiaoNeural', rate: '+0%' },
+    });
+  });
+
+  it('lifts an existing v8 narration-off blob to enabled without touching other fields', () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      video: {
+        quality: 'high',
+        frameRate: 30,
+        timeout: 1800,
+        narration: { enabled: false, voice: 'en-US-GuyNeural', rate: '+20%' },
+      },
+    }));
+    localStorage.setItem(SETTINGS_VERSION_KEY, '8');
+
+    expect(loadSettings().video).toEqual({
+      quality: 'high',
+      frameRate: 30,
+      timeout: 1800,
+      narration: { enabled: true, voice: 'en-US-GuyNeural', rate: '+20%' },
     });
   });
 
@@ -83,6 +108,35 @@ describe('narration settings', () => {
       enabled: true,
       voice: 'zh-CN-XiaoxiaoNeural',
       rate: '+0%',
+    });
+  });
+});
+
+describe('narration voice follows the interface language', () => {
+  it('replaces a voice from the other language with that language default', () => {
+    expect(alignNarrationVoiceWithLocale('en-US-JennyNeural', 'zh-CN')).toBe('zh-CN-XiaoxiaoNeural');
+    expect(alignNarrationVoiceWithLocale('zh-CN-YunxiNeural', 'en-US')).toBe('en-US-JennyNeural');
+  });
+
+  it('keeps a same-language choice, including male voices', () => {
+    expect(alignNarrationVoiceWithLocale('zh-CN-YunxiNeural', 'zh-CN')).toBe('zh-CN-YunxiNeural');
+    expect(alignNarrationVoiceWithLocale('en-US-GuyNeural', 'en-US')).toBe('en-US-GuyNeural');
+  });
+
+  it('persists the switch while keeping the other narration fields', () => {
+    saveSettings({
+      video: {
+        ...DEFAULT_SETTINGS.video,
+        narration: { enabled: true, voice: 'en-US-JennyNeural', rate: '+20%' },
+      },
+    });
+
+    syncNarrationVoiceToLocale('zh-CN');
+
+    expect(loadSettings().video.narration).toEqual({
+      enabled: true,
+      voice: 'zh-CN-XiaoxiaoNeural',
+      rate: '+20%',
     });
   });
 });

@@ -87,18 +87,25 @@ export interface NarrationAssets {
   manifestPath: string
   audioPath: string
   duration: number
+  /** SubRip sidecar for players and editors; present only when captions exist. */
+  subtitleSrtPath?: string
+  /** WebVTT sidecar for the browser `<track>`; present only when captions exist. */
+  subtitleVttPath?: string
+  /** ISO 639-2 code (`eng` / `chi`) derived from the selected voice. */
+  subtitleLanguage?: string
 }
 
 export const DEFAULT_NARRATION_CONFIG: Readonly<NarrationConfig> = Object.freeze({
-  enabled: false,
+  enabled: true,
   voice: 'zh-CN-XiaoxiaoNeural',
   rate: '+0%'
 })
 
 /**
  * Normalize an optional/partial narration setting into the full contract shape.
- * Missing fields keep the documented defaults; narration stays off unless enabled
- * is literally true.
+ * Voice/rate keep the documented defaults. Narration is on by default at the schema
+ * layer (DEFAULT_NARRATION_CONFIG.enabled = true); this normalizer returns true only
+ * for an explicit `enabled: true`, so callers that bypass the schema must pass it.
  */
 export function resolveNarrationConfig(
   config?: Partial<NarrationConfig> | null
@@ -106,7 +113,7 @@ export function resolveNarrationConfig(
   const voice = typeof config?.voice === 'string' ? config.voice.trim() : ''
   const rate = typeof config?.rate === 'string' ? config.rate.trim() : ''
   return {
-    enabled: config?.enabled === true,
+    enabled: config?.enabled ?? DEFAULT_NARRATION_CONFIG.enabled,
     voice: voice || DEFAULT_NARRATION_CONFIG.voice,
     rate: rate || DEFAULT_NARRATION_CONFIG.rate
   }

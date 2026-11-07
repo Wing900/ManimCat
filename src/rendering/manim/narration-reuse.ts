@@ -27,6 +27,8 @@ const logger = createLogger('NarrationReuse')
 const STATE_FILENAME = 'narration-reuse.json'
 const MANIFEST_FILENAME = 'narration-manifest.json'
 const AUDIO_FILENAME = 'narration.wav'
+const SRT_FILENAME = 'narration.srt'
+const VTT_FILENAME = 'narration.vtt'
 
 interface NarrationReuseState {
   version: 1
@@ -80,6 +82,25 @@ function copyAtomic(source: string, target: string): void {
     fs.rmSync(temporary, { force: true })
     throw error
   }
+}
+
+/** Copies an optional subtitle sidecar into the shared bucket; missing stays missing. */
+function publishSubtitle(
+  source: string | undefined,
+  sharedDirectory: string,
+  targetName: string
+): string | undefined {
+  if (!source || !fs.existsSync(source)) return undefined
+  const target = path.join(sharedDirectory, targetName)
+  copyAtomic(source, target)
+  return target
+}
+
+/** A reused subtitle must still sit inside the bucket that owns it. */
+function resolveSubtitle(value: unknown, sharedDirectory: string): string | undefined {
+  if (typeof value !== 'string' || !value) return undefined
+  if (!isInside(sharedDirectory, value) || !fs.existsSync(value)) return undefined
+  return value
 }
 
 function readManifest(manifestPath: string): NarrationManifest {
@@ -152,6 +173,9 @@ export function publishNarrationForReuse(options: {
     const manifestPath = path.join(sharedDirectory, MANIFEST_FILENAME)
     writeJsonAtomic(manifestPath, rewritten)
 
+    const subtitleSrtPath = publishSubtitle(assets.subtitleSrtPath, sharedDirectory, SRT_FILENAME)
+    const subtitleVttPath = publishSubtitle(assets.subtitleVttPath, sharedDirectory, VTT_FILENAME)
+
     const state: NarrationReuseState = {
       version: 1,
       jobId,
@@ -161,7 +185,10 @@ export function publishNarrationForReuse(options: {
       assets: {
         manifestPath,
         audioPath: rewritten.audioPath,
-        duration: rewritten.duration
+        duration: rewritten.duration,
+        ...(subtitleSrtPath ? { subtitleSrtPath } : {}),
+        ...(subtitleVttPath ? { subtitleVttPath } : {}),
+        ...(assets.subtitleLanguage ? { subtitleLanguage: assets.subtitleLanguage } : {})
       }
     }
     writeJsonAtomic(path.join(sharedDirectory, STATE_FILENAME), state)
@@ -243,16 +270,24 @@ export function resolveReusedNarration(
       logger.warn('Narration reuse manifest points outside its bucket', { renderCacheKey, jobId })
       return undefined
     }
+    const subtitleSrtPath = resolveSubtitle(state.assets.subtitleSrtPath, sharedDirectory)
+    const subtitleVttPath = resolveSubtitle(state.assets.subtitleVttPath, sharedDirectory)
     logger.info('Reusing narration audio for re-render', {
       jobId,
       manifestPath,
       narrationJobId: state.jobId,
-      duration: manifest.duration
+      duration: manifest.duration,
+      subtitles: Boolean(subtitleSrtPath)
     })
     return {
       manifestPath,
       audioPath: manifest.audioPath,
-      duration: manifest.duration
+      duration: manifest.duration,
+      ...(subtitleSrtPath ? { subtitleSrtPath } : {}),
+      ...(subtitleVttPath ? { subtitleVttPath } : {}),
+      ...(typeof state.assets.subtitleLanguage === 'string'
+        ? { subtitleLanguage: state.assets.subtitleLanguage }
+        : {})
     }
   } catch (error) {
     logger.warn('Unable to read narration reuse sidecar', {

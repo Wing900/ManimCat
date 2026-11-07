@@ -19,7 +19,7 @@ dist/
 # Generated files
 public/videos/*
 public/videos/.gitkeep
-media/
+/media/
 static/videos/
 static/gifs/
 
@@ -88,3 +88,8 @@ public/assets/
 public/index.html
 
 dist-workflow-tests/
+
+# Local-only artifacts (do not commit)
+/opencode-model-alias.patch
+/scripts/build_class_meeting_submission.ps1
+/scripts/build_october_reports.ps1

@@ -754,3 +754,14 @@ select option:checked {
   .studio-sheet-in,
   .studio-sheet-out { animation: none !important; transition: none !important; }
 }
+
+/* 原生字幕轨（<video><track>）：
+   位置由 VTT cue setting 固定在底部（line:90%），这里只去掉 UA 默认的黑色字幕框，
+   用黑字 + 白描边保证在深色画面上也看得清。只作用于浏览器原生渲染；
+   MP4 内嵌的 mov_text 轨由 VLC 等播放器按自己的样式渲染，不受此影响。 */
+video::cue {
+  background: transparent;
+  background-color: transparent;
+  color: #000000;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(255, 255, 255, 0.9);
+}

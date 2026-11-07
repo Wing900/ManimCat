@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { useI18n } from '../../../shared/i18n/index';
+import { deriveSubtitleUrl } from '../../../shared/media/subtitle-url';
 
 interface VideoPreviewProps {
   videoUrl: string;
@@ -9,6 +10,7 @@ interface VideoPreviewProps {
 
 export const VideoPreview = memo(function VideoPreview({ videoUrl }: VideoPreviewProps) {
   const { t } = useI18n();
+  const subtitleUrl = deriveSubtitleUrl(videoUrl);
 
   return (
     <div className="w-full bg-bg-secondary/30 rounded-md overflow-hidden">
@@ -19,6 +21,14 @@ export const VideoPreview = memo(function VideoPreview({ videoUrl }: VideoPrevie
           controls
           className="w-full h-full object-contain"
         >
+          {subtitleUrl ? (
+            <track
+              kind="subtitles"
+              label={t('video.subtitles')}
+              src={subtitleUrl}
+              default
+            />
+          ) : null}
           {t('video.unsupported')}
         </video>
       </div>

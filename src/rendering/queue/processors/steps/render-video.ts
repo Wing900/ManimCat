@@ -259,6 +259,14 @@ export async function renderVideo(
   const outputPath = path.join(outputDir, outputFilename)
   fs.copyFileSync(videoPath, outputPath)
 
+  // The web player reads a WebVTT sidecar through `<track>`; the MP4's own mov_text
+  // track is for desktop players. The URL is derived from the video URL, so a film
+  // without narration simply has no sidecar to fetch.
+  const subtitleVttPath = codeResult.narration?.subtitleVttPath
+  if (subtitleVttPath && fs.existsSync(subtitleVttPath)) {
+    fs.copyFileSync(subtitleVttPath, path.join(outputDir, `${jobId}.vtt`))
+  }
+
   const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath, workspaceOutputDirectory)
 
   return {
