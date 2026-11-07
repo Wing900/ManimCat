@@ -18,6 +18,15 @@ import type { CuePlan } from '../narration/types'
 
 const logger = createLogger('CodeFromDesignStage')
 const TRANSPORT_MAX_ATTEMPTS = parseInt(process.env.CODE_GENERATION_TRANSPORT_ATTEMPTS || '2', 10)
+// Content retry: let AI re-emit on malformed output (max 2 attempts)
+const MAX_CONTENT_ATTEMPTS = 2
+
+function repairInstruction(reason: string): string {
+  return [
+    `你上一条输出的代码有问题（${reason}）。请重新输出完整的 Manim 代码，用 ### START ###/### END ### 包裹（图片模式下输出纯代码）。`,
+    `Your previous code output was invalid (${reason}). Re-emit the complete Manim code wrapped in ### START ###/### END ### (plain code in image mode).`
+  ].join('\n\n')
+}
 
 interface CodeFromDesignStageParams {
   client: OpenAI
@@ -73,71 +82,102 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
       narrationEnabled: !!cuePlan,
       cues: cuePlan ? cuePlan.segments.reduce((total, segment) => total + segment.cues.length, 0) : 0
     })
-    const { content, mode, response } = await executeAiStageWithTransportRetry(
-      (attempt) => createChatCompletionText(
-        client,
-        {
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: coderTemperature,
-          ...buildCompletionParams(maxTokens, undefined, client)
-        },
-        { fallbackToNonStream: true, usageLabel: `code-generation-${attempt}` }
-      ),
-      {
-        maxAttempts: TRANSPORT_MAX_ATTEMPTS,
-        onCheckpoint,
-        onRetry: ({ attempt, nextAttempt, maxAttempts: retryLimit, delayMs, error }) => {
-          logger.warn('代码生成连接失败，准备重试完整阶段', {
-            concept,
-            attempt,
-            nextAttempt,
-            maxAttempts: retryLimit,
-            delayMs,
-            error: error instanceof Error ? error.message : String(error)
-          })
-        }
-      }
-    )
-    if (onCheckpoint) await onCheckpoint()
 
-    const normalizedContent = normalizeMessageContent(content)
-    if (!normalizedContent) {
-      logger.warn('代码生成者返回空内容', {
+    // Content retry: let AI re-emit on malformed output (max 2 attempts)
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]
+    let lastError: Error | undefined
+    const queueContentRepair = (contentAttempt: number, content: string, reason: string): boolean => {
+      if (contentAttempt >= MAX_CONTENT_ATTEMPTS) return false
+      if (content.trim()) messages.push({ role: 'assistant', content })
+      messages.push({ role: 'user', content: repairInstruction(reason) })
+      return true
+    }
+
+    for (let contentAttempt = 1; contentAttempt <= MAX_CONTENT_ATTEMPTS; contentAttempt += 1) {
+      const { content, mode, response } = await executeAiStageWithTransportRetry(
+        (attempt) => createChatCompletionText(
+          client,
+          {
+            model,
+            messages,
+            temperature: coderTemperature,
+            ...buildCompletionParams(maxTokens, undefined, client)
+          },
+          { fallbackToNonStream: true, usageLabel: `code-generation-${attempt}` }
+        ),
+        {
+          maxAttempts: TRANSPORT_MAX_ATTEMPTS,
+          onCheckpoint,
+          onRetry: ({ attempt, nextAttempt, maxAttempts: retryLimit, delayMs, error }) => {
+            logger.warn('代码生成连接失败，准备重试完整阶段', {
+              concept,
+              attempt,
+              nextAttempt,
+              maxAttempts: retryLimit,
+              delayMs,
+              error: error instanceof Error ? error.message : String(error)
+            })
+          }
+        }
+      )
+      if (onCheckpoint) await onCheckpoint()
+
+      const normalizedContent = normalizeMessageContent(content)
+      if (!normalizedContent) {
+        logger.warn('代码生成者返回空内容', {
+          concept,
+          seed,
+          mode,
+          contentAttempt,
+          model,
+          systemPromptLength: systemPrompt.length,
+          userPromptLength: userPrompt.length,
+          diagnostics: response ? buildCompletionDiagnostics(response) : { mode: 'stream' }
+        })
+        const reason = 'Code generation stage returned empty content from AI response'
+        lastError = new Error(reason)
+        logger.warn('代码生成输出未通过内容检查', { concept, contentAttempt, reason })
+        if (!queueContentRepair(contentAttempt, content, reason)) break
+        continue
+      }
+
+      logger.info('阶段2：代码生成成功', {
         concept,
         seed,
         mode,
-        model,
-        systemPromptLength: systemPrompt.length,
-        userPromptLength: userPrompt.length,
-        diagnostics: response ? buildCompletionDiagnostics(response) : { mode: 'stream' }
+        contentAttempt,
+        codeLength: normalizedContent.length,
+        codePreview: normalizedContent.slice(0, 500)
       })
-      throw new Error('Code generation stage returned empty content from AI response')
+
+      if (outputMode === 'image') {
+        return normalizedContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+      }
+
+      const extractedCode = extractCodeFromResponse(normalizedContent)
+      logger.info('阶段2：代码提取完成', {
+        concept,
+        seed,
+        contentAttempt,
+        extractedLength: extractedCode.length,
+        extractedPreview: extractedCode.slice(0, 500)
+      })
+      if (!extractedCode.trim()) {
+        const reason = 'Code generation stage produced empty code after extraction'
+        lastError = new Error(reason)
+        logger.warn('代码生成输出未通过内容检查', { concept, contentAttempt, reason })
+        if (!queueContentRepair(contentAttempt, content, reason)) break
+        continue
+      }
+      return extractedCode
     }
 
-    logger.info('阶段2：代码生成成功', {
-      concept,
-      seed,
-      mode,
-      codeLength: normalizedContent.length,
-      codePreview: normalizedContent.slice(0, 500)
-    })
-
-    if (outputMode === 'image') {
-      return normalizedContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
-    }
-
-    const extractedCode = extractCodeFromResponse(normalizedContent)
-    logger.info('阶段2：代码提取完成', {
-      concept,
-      seed,
-      extractedLength: extractedCode.length,
-      extractedPreview: extractedCode.slice(0, 500)
-    })
-    return extractedCode
+    throw new Error(
+      `${lastError?.message ?? 'Code generation stage failed'} (after ${MAX_CONTENT_ATTEMPTS} content attempts)`
+    )
   } catch (error) {
     if (error instanceof JobCancelledError) {
       logger.warn('代码生成阶段已取消', {

@@ -10,6 +10,15 @@ const logger = createLogger('CodeEditService')
 
 const CODER_TEMPERATURE = parseFloat(process.env.AI_TEMPERATURE || '0.7')
 const MAX_TOKENS = readMaxCompletionTokens()
+// Content retry: let AI re-emit on malformed output (max 2 attempts)
+const MAX_CONTENT_ATTEMPTS = 2
+
+function repairInstruction(reason: string): string {
+  return [
+    `你上一条修改后的代码有问题（${reason}）。请重新输出完整的修改后 Manim 代码。`,
+    `Your previous edited code was invalid (${reason}). Re-emit the complete edited Manim code.`
+  ].join('\n\n')
+}
 
 function createCustomClient(config: CustomApiConfig): OpenAI {
   return createCustomOpenAIClient(config)
@@ -67,6 +76,7 @@ export async function generateEditedManimCode(
   }
   const client = createCustomClient(customApiConfig)
 
+  let lastError: Error | undefined
   try {
     const baseSystemPrompt = getRoleSystemPrompt('codeEdit', promptOverrides)
     const userPromptOverride = promptOverrides?.roles?.codeEdit?.user
@@ -78,35 +88,63 @@ export async function generateEditedManimCode(
 
     logger.info('开始 AI 修改代码', { concept, outputMode })
 
-    const { content, mode } = await createChatCompletionText(
-      client,
-      {
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: CODER_TEMPERATURE,
-        ...buildCompletionParams(MAX_TOKENS, undefined, client)
-      },
-      { fallbackToNonStream: true, usageLabel: 'code-edit' }
-    )
-
-    if (!content) {
-      logger.warn('AI 修改返回空内容')
-      return ''
+    // Content retry: let AI re-emit on malformed output (max 2 attempts)
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]
+    const queueContentRepair = (contentAttempt: number, content: string, reason: string): boolean => {
+      if (contentAttempt >= MAX_CONTENT_ATTEMPTS) return false
+      if (content.trim()) messages.push({ role: 'assistant', content })
+      messages.push({ role: 'user', content: repairInstruction(reason) })
+      return true
     }
 
-    const extracted = extractCodeFromResponse(content, outputMode)
-    logger.info('AI 修改完成', {
-      concept,
-      outputMode,
-      mode,
-      length: extracted.length,
-      codePreview: extracted.slice(0, 500)
-    })
-    return extracted
+    for (let contentAttempt = 1; contentAttempt <= MAX_CONTENT_ATTEMPTS; contentAttempt += 1) {
+      const { content, mode } = await createChatCompletionText(
+        client,
+        {
+          model,
+          messages,
+          temperature: CODER_TEMPERATURE,
+          ...buildCompletionParams(MAX_TOKENS, undefined, client)
+        },
+        {
+          fallbackToNonStream: true,
+          usageLabel: contentAttempt === 1 ? 'code-edit' : 'code-edit-repair'
+        }
+      )
+
+      if (!content) {
+        logger.warn('AI 修改返回空内容', { concept, contentAttempt })
+        const reason = 'AI edit returned empty content'
+        lastError = new Error(reason)
+        logger.warn('AI 修改输出未通过内容检查', { concept, contentAttempt, reason })
+        if (!queueContentRepair(contentAttempt, content, reason)) break
+        continue
+      }
+
+      const extracted = extractCodeFromResponse(content, outputMode)
+      if (!extracted.trim()) {
+        const reason = 'AI edit produced empty code after extraction'
+        lastError = new Error(reason)
+        logger.warn('AI 修改输出未通过内容检查', { concept, contentAttempt, reason })
+        if (!queueContentRepair(contentAttempt, content, reason)) break
+        continue
+      }
+
+      logger.info('AI 修改完成', {
+        concept,
+        outputMode,
+        mode,
+        contentAttempt,
+        length: extracted.length,
+        codePreview: extracted.slice(0, 500)
+      })
+      return extracted
+    }
   } catch (error) {
+    lastError = error instanceof Error ? error : new Error(String(error))
     if (error instanceof OpenAI.APIError) {
       logger.error('AI 修改 API 错误', {
         concept,
@@ -120,8 +158,14 @@ export async function generateEditedManimCode(
     } else {
       logger.error('AI 修改失败，未知错误', { concept, error: String(error) })
     }
-    return ''
   }
+
+  logger.warn('AI 修改最终失败', {
+    concept,
+    attempts: MAX_CONTENT_ATTEMPTS,
+    reason: lastError?.message
+  })
+  return ''
 }
 
 export function isCodeEditAvailable(): boolean {

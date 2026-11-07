@@ -40,6 +40,7 @@ Requested change: {{instructions}}
 - End with `### END ###`
 - Use `from manimgx import *`
 - Keep `MainScene` unless true 3D is required
+- Define `construct` directly in that class and keep all animation and drawing inside it; never use an empty base class plus a subclass, because the runner selects the class by name and an empty shell renders a black scene
 {{/if}}
 {{#if isImage}}
 - Output only `YON_IMAGE` anchor blocks

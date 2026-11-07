@@ -39,6 +39,7 @@ Output format:
 - End with `### END ###`
 - Use `from manimgx import *`
 - Use `MainScene` as the main class unless true 3D is required
+- Define `construct` directly in that class and keep all animation and drawing inside it; never use an empty base class plus a subclass, because the runner selects the class by name and an empty shell renders a black scene
 - On-screen text follows the user locale: all Chinese in Chinese mode, all English in English mode
 {{/if}}
 

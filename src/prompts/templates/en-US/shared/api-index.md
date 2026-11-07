@@ -23,3 +23,13 @@
 - Dollar signs: inside `Typst`, math must be wrapped in `$...$`; `MathTypst` adds the `$` signs, so pass the body without them.
   Wrong: `MathTypst("$x^2$")` (the extra `$` are rendered)
   Right: `MathTypst("x^2")`, `Typst("面积为 $x^2$")`
+
+## 3D
+
+`ThreeDScene` (sets `three_d=True`): `set_camera_orientation(phi, theta, gamma, zoom, focal_distance, frame_center)`, `move_camera(..., run_time=)`, `begin_ambient_camera_rotation(rate=, about="theta")`, `add_fixed_in_frame_mobjects(*mobs)`.
+
+3D mobjects: `Cone(base_radius, height, direction=Z_AXIS, show_base=False)`, `Cylinder(radius, height, direction=Z_AXIS)`, `Sphere(center, radius)`, `Surface(func, u_range, v_range, resolution)`, `Cube(side_length)`, `Prism(dimensions)`, `Line3D(start, end, thickness)`, `Arrow3D(start, end)`, `Dot3D(point)`, `Torus(major_radius, minor_radius)`, `ThreeDAxes(x_range, y_range, z_range)`, `Tetrahedron/Octahedron/Icosahedron/Dodecahedron(edge_length)`, `Polyhedron(vertex_coords, faces_list)`, `ConvexHull3D(*points)`.
+
+Lights: `AmbientLight`, `SunLight`, `PointLight`, `SpotLight`, `EnvironmentLight`.
+
+Not available in manimgx: `ThreeDCamera`, `add_fixed_orientation_mobjects`, `Vector3D` as a class.
