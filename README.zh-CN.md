@@ -1,71 +1,33 @@
-简体中文 | [English](https://github.com/Wing900/ManimCat/blob/main/README.md)
+简体中文 | [English](README.md)
 
 <div align="center">
 
-<!-- 顶部装饰线 - 统一为深灰色调 -->
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=455A64&height=120&section=header" />
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=455A64&height=120&section=header" alt="" />
 
-<br>
+<p><img src="public/logo.svg" width="200" alt="ManimCat Logo" /></p>
+<p><img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Paw%20Prints.png" width="40" alt="paws" /></p>
 
-<img src="public/logo.svg" width="200" alt="ManimCat Logo" />
+<h1><img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=40&duration=3000&pause=1000&color=455A64&center=true&vCenter=true&width=435&lines=ManimCat+%F0%9F%90%BE" width="435" alt="ManimCat" /></h1>
 
-<!-- 装饰：猫咪足迹 -->
-<div style="opacity: 0.3; margin: 20px 0;">
-  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Animals/Paw%20Prints.png" width="40" alt="paws" />
-</div>
+<p>∫ &nbsp; ∑ &nbsp; ∂ &nbsp; ∞</p>
 
-<h1>
-  <picture>
-    <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=40&duration=3000&pause=1000&color=455A64&center=true&vCenter=true&width=435&lines=ManimCat+%F0%9F%90%BE" alt="ManimCat" />
-  </picture>
-</h1>
+<p><strong>面向数学可视化创作的双模式 AI 工作台</strong></p>
+<p>同时支持直接生成工作流与基于 Agent 的 Studio 协作，并由 ManimGX 与 matplotlib 双引擎支撑</p>
 
-<!-- 装饰：数学符号分隔 -->
-<p align="center">
-  <span style="font-family: monospace; font-size: 24px; color: #90A4AE;">
-    ∫ &nbsp; ∑ &nbsp; ∂ &nbsp; ∞
-  </span>
+<p>◆ &nbsp; ◆ &nbsp; ◆</p>
+
+<p>
+<img src="https://img.shields.io/badge/ManimGX-0.1.1-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimGX" />
+<img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
+<img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
+<img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=for-the-badge" alt="License" />
 </p>
 
-<p align="center">
-  <strong>面向数学可视化创作的双模式 AI 工作台</strong>
-</p>
+<p><a href="#项目简介"><strong>项目简介</strong></a> &nbsp;·&nbsp; <a href="#样例"><strong>样例</strong></a> &nbsp;·&nbsp; <a href="#快速开始"><strong>快速开始</strong></a> &nbsp;·&nbsp; <a href="#技术"><strong>技术</strong></a> &nbsp;·&nbsp; <a href="#部署"><strong>部署</strong></a> &nbsp;·&nbsp; <a href="#与原项目的关系"><strong>与原项目的关系</strong></a> &nbsp;·&nbsp; <a href="#开源与版权声明"><strong>版权</strong></a> &nbsp;·&nbsp; <a href="#维护说明"><strong>维护</strong></a></p>
 
-<p align="center">
-  同时支持直接生成工作流与基于 Agent 的 Studio 协作，并由 ManimGX 与 matplotlib 双引擎支撑
-</p>
-
-<!-- 装饰：几何点阵分隔 -->
-<div style="margin: 30px 0;">
-  <span style="color: #CFD8DC; font-size: 20px;">◆ &nbsp; ◆ &nbsp; ◆</span>
-</div>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/ManimGX-0.1.1-455A64?style=for-the-badge&logo=python&logoColor=white" alt="ManimGX" />
-  <img src="https://img.shields.io/badge/React-19.2.0-455A64?style=for-the-badge&logo=react&logoColor=white" alt="React" />
-  <img src="https://img.shields.io/badge/Node.js-18+-455A64?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=for-the-badge" alt="License" />
-</p>
-
-<p align="center" style="font-size: 18px;">
-  <a href="#项目简介"><strong>项目简介</strong></a> •
-  <a href="#样例"><strong>样例</strong></a> •
-  <a href="#快速开始"><strong>快速开始</strong></a> •
-  <a href="#技术"><strong>技术</strong></a> •
-  <a href="#部署"><strong>部署</strong></a> •
-  <a href="#与原项目的关系"><strong>与原项目的关系</strong></a> •
-  <a href="#开源与版权声明"><strong>版权</strong></a> •
-  <a href="#维护说明"><strong>维护</strong></a>
-</p>
-
-<br>
-
-<!-- 底部装饰线 - 统一为深灰色调 -->
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=455A64&height=100&section=footer" />
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=455A64&height=100&section=footer" alt="" />
 
 </div>
-
-<br>
 
 ## 项目简介
 
@@ -317,7 +279,7 @@ Agent 模式不是 Workflow 的附属页面，而是一套独立的 Studio runti
 - 基于 Server-Sent Events 的实时事件流：文本增量、工具调用、渲染状态
 - 两个工作区：Plot Studio（matplotlib 静态图）已可用但仍属早期；Manim Studio 更早期
 
-##  开源与版权声明 
+##  开源与版权声明
 
 本项目当前版本以 **AGPL-3.0-or-later** 授权，全文见 `LICENSE`。
 
@@ -368,8 +330,3 @@ ManimCat 早期版本包含 `manim-video-generator`（MIT）的代码。历史 C
 - [academa-labs/manimgx](https://github.com/academa-labs/manimgx)
 - [Linux.do](https://linux.do)
 - [阿里云百炼](https://bailian.console.aliyun.com)
-
-
-
-
-
