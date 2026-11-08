@@ -1241,7 +1241,7 @@ describe('cinema workspace', () => {
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
       selection: { [CINEMA_TEST_SESSION_ID]: CINEMA_TEST_SCENE_B },
-      deferIndexRead: true,
+      deferGatewayReadsFrom: 0,
     })
     await renderWorkspace(harness)
     await flush()
@@ -1252,7 +1252,7 @@ describe('cinema workspace', () => {
     expect(harness.selectionStore.entries.get(CINEMA_TEST_SESSION_ID)).toBe(CINEMA_TEST_SCENE_B)
 
     await act(async () => {
-      harness.indexReads[0].resolve(harness.buildSessionSnapshot(CINEMA_TEST_SESSION_ID))
+      harness.gatewayReads[0].resolve(harness.buildSessionSnapshot(CINEMA_TEST_SESSION_ID))
       await Promise.resolve()
     })
     await flush()
@@ -1265,27 +1265,28 @@ describe('cinema workspace', () => {
     const harness = createHarness({
       history: [CINEMA_TEST_SESSION_ID],
       selection: { [CINEMA_TEST_SESSION_ID]: CINEMA_TEST_SCENE_C },
-      deferIndexRead: true,
+      deferGatewayReadsFrom: 0,
     })
     await renderWorkspace(harness)
     await flush()
 
     await act(async () => {
-      harness.indexReads[0].reject(new TypeError('Failed to fetch'))
+      harness.gatewayReads[0].reject(new TypeError('Failed to fetch'))
       await Promise.resolve()
     })
     await flush()
 
-    expect(screen.getByText('The scene list could not be read.')).toBeInTheDocument()
+    // An unreadable Session is never read as an empty one: no Scene is created, no choice is written.
+    expect(harness.calls.createScene).toEqual([])
     expect(harness.selectionStore.writes).toEqual([])
     expect(harness.selectionStore.entries.get(CINEMA_TEST_SESSION_ID)).toBe(CINEMA_TEST_SCENE_C)
 
-    fireEvent.click(screen.getByText('Reload scenes'))
+    fireEvent.click(screen.getByText('Reconnect'))
     await flush()
-    expect(harness.indexReads.length).toBe(2)
+    expect(harness.gatewayReads.length).toBe(2)
 
     await act(async () => {
-      harness.indexReads[1].resolve(harness.buildSessionSnapshot(CINEMA_TEST_SESSION_ID))
+      harness.gatewayReads[1].resolve(harness.buildSessionSnapshot(CINEMA_TEST_SESSION_ID))
       await Promise.resolve()
     })
     await flush()
@@ -1331,13 +1332,13 @@ describe('cinema workspace', () => {
     fireEvent.change(composer(), { target: { value: 'keep me' } })
     await flush()
 
-    fireEvent.click(screen.getByText('Session 2'))
+    fireEvent.click(screen.getByText('Session 1'))
     await flush()
 
     // The stage belongs to the destination, which has no Scene yet, so it reports the pending read and
     // nothing of the Session being left is on screen or actionable. The text typed earlier still belongs
     // to that Session's own Scene draft (covered by the per-Scene draft spec), not to this composer.
-    expect(screen.getByText('Loading conversation history…')).toBeInTheDocument()
+    expect(screen.getByText('Opening conversation…')).toBeInTheDocument()
     expect(screen.getByText('A session switch is in progress; one moment.')).toBeInTheDocument()
     expect(composer().value).toBe('')
     expect(screen.getByLabelText('Send')).toBeDisabled()
@@ -1358,7 +1359,7 @@ describe('cinema workspace', () => {
     })
     await flush()
 
-    expect(screen.queryByText('Loading conversation history…')).toBeNull()
+    expect(screen.queryByText('Opening conversation…')).toBeNull()
     fireEvent.change(composer(), { target: { value: 'draw for b' } })
     await flush()
     fireEvent.click(screen.getByLabelText('Send'))
@@ -1550,12 +1551,13 @@ describe('cinema workspace', () => {
 
   // ---------------------------------------------------------------- correction F1
   it('issues exactly one index read while the index is deferred, however much the UI re-renders', async () => {
-    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID], deferIndexRead: true })
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID], deferGatewayReadsFrom: 0 })
     await renderWorkspace(harness)
     await flush()
 
-    expect(harness.indexReads.length).toBe(1)
-    expect(harness.sessionReadCounts.controller).toBe(1)
+    // The gateway owns the one Session read; the controller never adds a second one for the index.
+    expect(harness.gatewayReads.length).toBe(1)
+    expect(harness.sessionReadCounts.controller).toBe(0)
     expect(harness.sessionReadCounts.gateway).toBe(1)
 
     // Unrelated re-renders and interactions: sidebar collapse/expand, typing, opening and closing the
@@ -1568,13 +1570,13 @@ describe('cinema workspace', () => {
     fireEvent.click(screen.getByLabelText('Expand session list'))
     await flush()
 
-    expect(harness.indexReads.length).toBe(1)
-    expect(harness.sessionReadCounts.controller).toBe(1)
+    expect(harness.gatewayReads.length).toBe(1)
+    expect(harness.sessionReadCounts.controller).toBe(0)
     expect(harness.sessionReadCounts.gateway).toBe(1)
 
     // The single in-flight read still settles the selection when it finally answers.
     await act(async () => {
-      harness.indexReads[0].resolve(harness.buildSessionSnapshot(CINEMA_TEST_SESSION_ID))
+      harness.gatewayReads[0].resolve(harness.buildSessionSnapshot(CINEMA_TEST_SESSION_ID))
       await Promise.resolve()
     })
     await flush()
@@ -1586,7 +1588,8 @@ describe('cinema workspace', () => {
     const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID] })
     await renderWorkspace(harness)
     await flush()
-    expect(harness.sessionReadCounts.controller).toBe(1)
+    // The gateway's snapshot is the index: the controller issues no read of its own.
+    expect(harness.sessionReadCounts.controller).toBe(0)
     expect(harness.sessionReadCounts.gateway).toBe(1)
 
     const settled = { ...harness.sessionReadCounts }
@@ -1621,36 +1624,35 @@ describe('cinema workspace', () => {
   })
 
   it('adds exactly one read per explicit retry and never a chain', async () => {
-    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID], deferIndexRead: true })
+    const harness = createHarness({ history: [CINEMA_TEST_SESSION_ID], deferGatewayReadsFrom: 0 })
     await renderWorkspace(harness)
     await flush()
-    expect(harness.indexReads.length).toBe(1)
+    expect(harness.gatewayReads.length).toBe(1)
 
     await act(async () => {
-      harness.indexReads[0].reject(new TypeError('Failed to fetch'))
+      harness.gatewayReads[0].reject(new TypeError('Failed to fetch'))
       await Promise.resolve()
     })
     await flush()
-    expect(harness.sessionReadCounts.controller).toBe(1)
+    expect(harness.sessionReadCounts.gateway).toBe(1)
 
-    fireEvent.click(screen.getByText('Reload scenes'))
+    fireEvent.click(screen.getByText('Reconnect'))
     await flush()
-    expect(harness.indexReads.length).toBe(2)
-    expect(harness.sessionReadCounts.controller).toBe(2)
+    expect(harness.gatewayReads.length).toBe(2)
+    expect(harness.sessionReadCounts.gateway).toBe(2)
 
-    // Fixture correction 11C5-H3: a retry is only meaningful once the previous read has settled. The
-    // in-flight read is rejected first, so the second retry measures its own read instead of chaining
-    // onto a request that is still open.
+    // A retry is only meaningful once the previous read has settled. The in-flight read is rejected
+    // first, so the next retry measures its own read instead of chaining onto an open request.
     await act(async () => {
-      harness.indexReads[1].reject(new TypeError('Failed to fetch'))
+      harness.gatewayReads[1].reject(new TypeError('Failed to fetch'))
       await Promise.resolve()
     })
     await flush()
 
-    fireEvent.click(screen.getByText('Reload scenes'))
+    fireEvent.click(screen.getByText('Reconnect'))
     await flush()
-    expect(harness.indexReads.length).toBe(3)
-    expect(harness.sessionReadCounts.controller).toBe(3)
+    expect(harness.gatewayReads.length).toBe(3)
+    expect(harness.sessionReadCounts.gateway).toBe(3)
   })
 
   it('writes the applied decision back and clears the stored id of a genuinely empty index', async () => {

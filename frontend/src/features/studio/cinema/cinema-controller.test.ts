@@ -367,7 +367,9 @@ describe('cached scene navigation', () => {
     await flush()
     harness.controller.selectScene(CINEMA_TEST_SCENE_A)
     expect(harness.subscriptions).toHaveLength(1)
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    // One immediate read on selection and one recovery read on connection; the repeated selection
+    // adds neither.
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
     harness.controller.dispose()
   })
 
@@ -375,7 +377,9 @@ describe('cached scene navigation', () => {
     const refresh = createDeferred<StudioSceneSnapshot>()
     let visits = 0
     const harness = createHarness({ getSceneSnapshot: (sessionId, sceneId) => {
-      if (sceneId === CINEMA_TEST_SCENE_A && ++visits > 1) return refresh.promise
+      // The first visit owns an immediate read and a recovery read; the deferred refresh belongs to
+      // the revisit, which re-reads an already ready Scene.
+      if (sceneId === CINEMA_TEST_SCENE_A && ++visits > 2) return refresh.promise
       return Promise.resolve(createTestSceneSnapshot(sessionId, sceneId, {
         messages: [assistantMessage(sessionId, sceneId, 'cached content')],
       }))
@@ -754,10 +758,10 @@ describe('studio cinema controller', () => {
     const harness = createHarness({
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
-        if (reads === 2) {
+        if (reads === 3) {
           return hung.promise
         }
-        if (reads === 3) {
+        if (reads === 4) {
           return createTestSceneSnapshot(sessionId, sceneId, {
             renders: [createTestRender(sceneId, 'render_new', { status: 'queued' })],
           })
@@ -771,7 +775,7 @@ describe('studio cinema controller', () => {
     const stream = await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_A)
     await harness.scheduler.fire()
     await flush()
-    expect(reads).toBe(2)
+    expect(reads).toBe(3)
 
     // A newer authoritative read needs a real reconnect: the disconnect closes the epoch and the next
     // `connected` opens a recovery window whose read owns a newer revision.
@@ -779,7 +783,7 @@ describe('studio cinema controller', () => {
     await flush()
     stream.emitStatus({ state: 'connected', attempt: 2 })
     await flush()
-    expect(reads).toBe(3)
+    expect(reads).toBe(4)
 
     hung.resolve(
       createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, {
@@ -1372,8 +1376,9 @@ describe('studio cinema controller', () => {
     stream.emit(createTestFrame('studio.connected', { timestamp: 1700 }))
     await flush()
 
-    // Both signals describe the same connection: one window, one read.
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    // Both signals describe the same connection: one window, one read, on top of the immediate read
+    // that selection already started.
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
   })
 
   it('runs a fresh recovery on every reconnection', async () => {
@@ -1381,15 +1386,15 @@ describe('studio cinema controller', () => {
     await seedScenes(harness, [CINEMA_TEST_SCENE_A])
 
     const stream = await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_A)
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
 
     stream.emitStatus({ state: 'reconnecting', attempt: 1 })
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
 
     stream.emitStatus({ state: 'connected', attempt: 1 })
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).snapshotStatus).toBe('ready')
   })
 
@@ -1424,8 +1429,8 @@ describe('studio cinema controller', () => {
     const stream = lastSubscription(harness)
     stream.emitStatus({ state: 'connected', attempt: 0 })
     await flush()
-    // The first recovery read of this Scene is genuinely in flight.
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    // The immediate read of this Scene is genuinely in flight, and the recovery read already answered.
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
 
     // A new epoch starts a newer read. A recovery read never joins: it owns the revision its window
     // will verify, so an older one answering late can only be superseded.
@@ -1433,7 +1438,7 @@ describe('studio cinema controller', () => {
     await flush()
     stream.emitStatus({ state: 'connected', attempt: 1 })
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).messages.map((message) => message.id)).toEqual([
       'message_new',
     ])
@@ -1468,7 +1473,11 @@ describe('studio cinema controller', () => {
     const harness = createHarness({
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
+        // The immediate read of selection answers at once; the recovery read opens the window.
         if (reads === 1) {
+          return createTestSceneSnapshot(sessionId, sceneId)
+        }
+        if (reads === 2) {
           return firstSnapshot.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId, {
@@ -1508,7 +1517,7 @@ describe('studio cinema controller', () => {
     // A terminal Run is a determinable checkpoint: one authoritative read converges the Scene.
     stream.emit(createTestRunFrame(createTestRun(CINEMA_TEST_SCENE_A, 'run_buffered', 'completed')))
     await flush()
-    expect(reads).toBe(2)
+    expect(reads).toBe(3)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).convergencePending).toBe(false)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).runs[0]?.status).toBe('completed')
   })
@@ -1521,9 +1530,12 @@ describe('studio cinema controller', () => {
       getSceneSnapshot: async (sessionId, sceneId) => {
         snapshotReads += 1
         if (snapshotReads === 1) {
-          return firstSnapshot.promise
+          return createTestSceneSnapshot(sessionId, sceneId)
         }
         if (snapshotReads === 2) {
+          return firstSnapshot.promise
+        }
+        if (snapshotReads === 3) {
           return secondSnapshot.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId)
@@ -1542,7 +1554,7 @@ describe('studio cinema controller', () => {
     firstSnapshot.resolve(createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A))
     await flush()
     // The overflow triggered exactly one bounded follow-up read.
-    expect(snapshotReads).toBe(2)
+    expect(snapshotReads).toBe(3)
 
     // Events lost while the second read is in flight must not be silently dropped while the client
     // claims to be in sync: a discarded delta and a second overflow keep the convergence pending.
@@ -1554,7 +1566,7 @@ describe('studio cinema controller', () => {
     await flush()
 
     const record = sceneRecord(harness, CINEMA_TEST_SCENE_A)
-    expect(snapshotReads).toBe(2)
+    expect(snapshotReads).toBe(3)
     expect(record.resyncedAt).toBe(1_700_000_000_000)
     expect(record.feedback?.code).toBe('stream_resync')
     expect(record.convergencePending).toBe(true)
@@ -1630,7 +1642,7 @@ describe('studio cinema controller', () => {
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).messages).toHaveLength(0)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_B).messages).toHaveLength(0)
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).streamState).toBe('connected')
-    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A])
+    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A, CINEMA_TEST_SCENE_A])
   })
 
   it('never rewrites a run outcome when the connection drops', async () => {
@@ -1663,7 +1675,7 @@ describe('studio cinema controller', () => {
     stream.emit(createTestTextFrame(CINEMA_TEST_SCENE_A, 'after dispose'))
     await flush()
     expect(harness.controller.getState()).toBe(before)
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
   })
 
   it('aborts the in-flight request and stays reusable after a detach', async () => {
@@ -1854,7 +1866,7 @@ describe('studio cinema controller', () => {
     const stream = lastSubscription(harness)
     stream.emitStatus({ state: 'connected', attempt: 0 })
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
 
     // The connection drops before the snapshot answers, and no new epoch connected yet.
     stream.emitStatus({ state: 'disconnected', attempt: 0 })
@@ -1889,7 +1901,7 @@ describe('studio cinema controller', () => {
     // Selection moves to B, which has not connected yet: A's read belongs to a view that is gone.
     harness.controller.selectScene(CINEMA_TEST_SCENE_B)
     await flush()
-    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A])
+    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A, CINEMA_TEST_SCENE_A, CINEMA_TEST_SCENE_B])
 
     recoveryA.resolve(
       createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, {
@@ -1927,7 +1939,7 @@ describe('studio cinema controller', () => {
     stream.emitStatus({ state: 'reconnecting', attempt: 1 })
     stream.emitStatus({ state: 'connected', attempt: 1 })
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
 
     firstEpoch.resolve(
       createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, {
@@ -1996,10 +2008,11 @@ describe('studio cinema controller', () => {
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
         if (reads === 1) {
+          return createTestSceneSnapshot(sessionId, sceneId)
+        }
+        if (reads === 2) {
           return firstSnapshot.promise
         }
-        void sessionId
-        void sceneId
         throw new TypeError('Failed to fetch')
       },
     })
@@ -2019,11 +2032,12 @@ describe('studio cinema controller', () => {
 
     // The loss of the first window survives the failed second read, and the bounded policy holds:
     // exactly two reads happened and no further one is scheduled.
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
     const record = sceneRecord(harness, CINEMA_TEST_SCENE_A)
     expect(record.convergencePending).toBe(true)
     expect(record.resyncedAt).toBe(1_700_000_000_000)
-    expect(record.snapshotStatus).toBe('error')
+    // A failed background read never invalidates the last authoritative read.
+    expect(record.snapshotStatus).toBe('ready')
   })
 
   it('keeps the pending convergence when text arrived while the checkpoint read was in flight', async () => {
@@ -2034,9 +2048,12 @@ describe('studio cinema controller', () => {
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
         if (reads === 1) {
-          return firstSnapshot.promise
+          return createTestSceneSnapshot(sessionId, sceneId)
         }
         if (reads === 2) {
+          return firstSnapshot.promise
+        }
+        if (reads === 3) {
           return checkpointSnapshot.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId)
@@ -2058,7 +2075,7 @@ describe('studio cinema controller', () => {
     // flight cannot be covered by the snapshot it returns, because the snapshot replaces the list.
     stream.emit(createTestRunFrame(createTestRun(CINEMA_TEST_SCENE_A, 'run_checkpoint', 'completed')))
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
 
     stream.emit(createTestTextFrame(CINEMA_TEST_SCENE_A, 'arrived during the read'))
     checkpointSnapshot.resolve(
@@ -2069,7 +2086,7 @@ describe('studio cinema controller', () => {
     await flush()
 
     expect(sceneRecord(harness, CINEMA_TEST_SCENE_A).convergencePending).toBe(true)
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
   })
 
   it('starts one bounded refresh while the selected Scene has an unfinished Manim render', async () => {
@@ -2107,7 +2124,9 @@ describe('studio cinema controller', () => {
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
         return createTestSceneSnapshot(sessionId, sceneId, {
-          renders: [createTestRender(sceneId, 'render_1', { status: reads === 1 ? 'queued' : 'completed' })],
+          // The immediate read and the recovery read both see the render as queued; only the tick
+          // that the loop schedules afterwards observes it finished.
+          renders: [createTestRender(sceneId, 'render_1', { status: reads <= 2 ? 'queued' : 'completed' })],
         })
       },
     })
@@ -2121,7 +2140,11 @@ describe('studio cinema controller', () => {
     await harness.scheduler.fire()
 
     // One additional authoritative read of exactly this Scene, and nothing to wait for afterwards.
-    expect(harness.calls.getSceneSnapshot).toEqual([CINEMA_TEST_SCENE_A, CINEMA_TEST_SCENE_A])
+    expect(harness.calls.getSceneSnapshot).toEqual([
+      CINEMA_TEST_SCENE_A,
+      CINEMA_TEST_SCENE_A,
+      CINEMA_TEST_SCENE_A,
+    ])
     const record = sceneRecord(harness, CINEMA_TEST_SCENE_A)
     expect(record.renderRefresh.status).toBe('idle')
     // One read happened, but the wait is over: the counter resets, which is exactly what gives the
@@ -2258,7 +2281,7 @@ describe('studio cinema controller', () => {
     expect(record.renderRefresh.status).toBe('paused')
     expect(record.renderRefresh.pauseReason).toBe('budget')
     expect(harness.scheduler.pendingCount()).toBe(0)
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1 + STUDIO_CINEMA_RENDER_REFRESH_MAX_COUNT)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2 + STUDIO_CINEMA_RENDER_REFRESH_MAX_COUNT)
 
     // The manual recovery grants a fresh budget.
     expect(harness.controller.resumeSceneRenderRefresh(CINEMA_TEST_SCENE_A)).toBe(true)
@@ -2272,7 +2295,8 @@ describe('studio cinema controller', () => {
     const harness = createHarness({
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
-        if (reads === 1) {
+        // The recovery read is the one that stays in flight; the immediate read of selection answers.
+        if (reads === 2) {
           return recovery.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId)
@@ -2295,19 +2319,19 @@ describe('studio cinema controller', () => {
     stream.emitStatus({ state: 'connected', attempt: 0 })
     await flush()
     // The recovery read of this Scene is genuinely in flight.
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
 
     const reconcile = harness.controller.reconcileScene(CINEMA_TEST_SCENE_A)
     await harness.scheduler.fire()
 
     // The refresh tick and the manual reconcile both joined the read that was already running.
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
 
     recovery.resolve(createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A))
     await flush()
 
     await expect(reconcile).resolves.toBe('ok')
-    expect(harness.calls.getSceneSnapshot).toHaveLength(1)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
     // One read served three callers, and the loop is still alive because the render is unfinished.
     const record = sceneRecord(harness, CINEMA_TEST_SCENE_A)
     expect(record.renderRefresh.refreshes).toBe(1)
@@ -2321,7 +2345,8 @@ describe('studio cinema controller', () => {
     const harness = createHarness({
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
-        if (reads === 2) {
+        // The tick the loop schedules is the read that hangs; both reads of the open answer.
+        if (reads === 3) {
           return hung.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId, {
@@ -2336,7 +2361,7 @@ describe('studio cinema controller', () => {
 
     await harness.scheduler.fire()
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
 
     // Three scheduling pressures while the tick is in flight: a live event, another render frame and a
     // manual reconciliation. None may start a second tick, because the cycle's single slot is taken.
@@ -2350,7 +2375,7 @@ describe('studio cinema controller', () => {
     void harness.controller.reconcileScene(CINEMA_TEST_SCENE_A)
     await flush()
     expect(harness.scheduler.pendingCount()).toBe(0)
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
 
     hung.resolve(
       createTestSceneSnapshot(CINEMA_TEST_SESSION_ID, CINEMA_TEST_SCENE_A, {
@@ -2364,7 +2389,7 @@ describe('studio cinema controller', () => {
     expect(record.renderRefresh.refreshes).toBe(1)
     expect(record.renderRefresh.consecutiveFailures).toBe(0)
     expect(record.renderRefresh.status).toBe('active')
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
     expect(harness.scheduler.pendingCount()).toBe(1)
   })
 
@@ -2459,7 +2484,8 @@ describe('studio cinema controller', () => {
     const harness = createHarness({
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
-        if (reads === 2) {
+        // The hung read is the first visit's tick, which the revisit replaces.
+        if (reads === 3) {
           return first.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId, {
@@ -2473,7 +2499,7 @@ describe('studio cinema controller', () => {
 
     await harness.scheduler.fire()
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
 
     // Away and back: same Scene, different visit, therefore a different cycle.
     harness.controller.selectScene(CINEMA_TEST_SCENE_B)
@@ -2506,7 +2532,8 @@ describe('studio cinema controller', () => {
     const harness = createHarness({
       getSceneSnapshot: async (sessionId, sceneId) => {
         reads += 1
-        if (reads === 2) {
+        // The tick is the read that hangs; both reads of the open answer.
+        if (reads === 3) {
           return hung.promise
         }
         return createTestSceneSnapshot(sessionId, sceneId, {
@@ -2518,7 +2545,7 @@ describe('studio cinema controller', () => {
     const stream = await selectSceneAndConnect(harness, CINEMA_TEST_SCENE_A)
     await harness.scheduler.fire()
     await flush()
-    expect(harness.calls.getSceneSnapshot).toHaveLength(2)
+    expect(harness.calls.getSceneSnapshot).toHaveLength(3)
 
     // 11C7-B2: a newer authoritative read needs a real reconnect. `disconnected` closes the stream
     // epoch and the next `connected` opens the recovery window whose read owns a newer revision;

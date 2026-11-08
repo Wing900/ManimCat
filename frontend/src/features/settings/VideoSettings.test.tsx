@@ -22,7 +22,8 @@ function renderSettings(videoConfig: VideoConfig, onUpdate = vi.fn()) {
 
 describe('VideoSettings narration', () => {
   it('keeps voice and rate hidden while narration is off, then enables it', () => {
-    const onUpdate = renderSettings(baseVideo)
+    // Narration is on by default, so the "off" case has to say so explicitly.
+    const onUpdate = renderSettings({ ...baseVideo, narration: { ...DEFAULT_NARRATION, enabled: false } })
 
     expect(screen.queryByText('Voice')).not.toBeInTheDocument()
     expect(screen.queryByText('Speech Rate')).not.toBeInTheDocument()

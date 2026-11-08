@@ -14,6 +14,13 @@ import type {
 import { createLocalFirstStudioPorts } from './local-first-ports'
 import type { LocalScene, LocalSession, LocalStudioStore } from './local-studio-store'
 
+/** Lets the journal's queued writes and the callbacks chained after them drain. */
+async function flush(): Promise<void> {
+  for (let index = 0; index < 24; index += 1) {
+    await Promise.resolve()
+  }
+}
+
 const STAMP = '2026-01-01T00:00:00.000Z'
 const PROJECT_ID = 'manimcat-studio'
 
@@ -199,7 +206,14 @@ function createFakeStore() {
       })
     },
     async appendMessage(message: StudioSceneMessage) {
-      messages.push(message)
+      // The IndexedDB store writes with `put`, keyed by message id, so a repeated upsert replaces the
+      // record instead of duplicating it.
+      const existing = messages.findIndex((candidate) => candidate.id === message.id)
+      if (existing >= 0) {
+        messages.splice(existing, 1, message)
+      } else {
+        messages.push(message)
+      }
     },
     async listMessages(sessionId: string, sceneId: string) {
       return sortedMessages(sessionId).filter((message) => message.sceneId === sceneId)
@@ -268,6 +282,9 @@ describe('the client shape of the Studio ports', () => {
     connection.onEvent({ type: 'assistant.text', properties: { sessionId: 'sess_srv_1',
       sceneId: 'scene_srv_2', runId: 'run_1', messageId: 'msg_1', text: 'done',
     } })
+    // A conversation event reaches the UI only after its message is durable, so the journal write has
+    // to settle before the frame is observable.
+    await flush()
     expect(received).toMatchObject([
       { properties: { sessionId: session.id, run: { sessionId: session.id, sceneId: scene.id } } },
       { properties: { sessionId: session.id, sceneId: scene.id, text: 'done' } },
@@ -328,9 +345,18 @@ describe('the client shape of the Studio ports', () => {
     expect(snapshot.scene.id).toBe('scene_1')
     expect((await store.getSession('sess_mem_1'))?.serverSessionId).toBe('sess_srv_4')
     expect((await store.getScene('sess_mem_1', 'scene_1'))?.serverSceneId).toBe('scene_srv_5')
-    // The durable transcript holds only what the browser has confirmed. The message of the Run that
-    // never reported an outcome is still held in memory, so it is not lost — it rides the next seed.
-    expect(snapshot.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual(['earlier'])
+    // The message of a Run that never reported an outcome is durable the moment it is sent, so a
+    // reopened Scene shows it too instead of silently dropping what the user typed, and it rides the
+    // next seed as context.
+    expect(snapshot.messages.map((message) => (message.role === 'user' ? message.text : ''))).toEqual([
+      'earlier',
+      'draw a circle',
+    ])
+    expect(
+      (await store.listSessionMessages('sess_mem_1')).map((message) =>
+        message.role === 'user' ? message.text : '',
+      ),
+    ).toEqual(['earlier', 'draw a circle'])
 
     // The retry used the new binding rather than the dead one…
     const nextRun = await ports.sceneApi.createSceneRun('sess_mem_1', 'scene_1', { inputText: 'again' })
@@ -395,11 +421,10 @@ describe('the client shape of the Studio ports', () => {
       { role: 'user', text: 'what did we do' },
       { role: 'assistant', text: 'a circle' },
     ])
-    // The submitted message is held in memory until its Run reports an outcome, so the durable
-    // transcript still ends with the reply it follows (a reload cannot show it twice), while the next
-    // Run already carries it as context.
+    // The submitted message is written as it is sent, so the durable transcript already ends with it;
+    // a reload shows the conversation exactly as it stands, and the next Run carries it as context.
     const recorded = await store.listSessionMessages(session.id)
-    expect(recorded.at(-1)).toMatchObject({ id: 'msg_local_2', role: 'assistant' })
+    expect(recorded.at(-1)).toMatchObject({ role: 'user', text: 'and now' })
     await ports.sceneApi.createSceneRun(session.id, scene.id, { inputText: 'and again' })
     expect(runs.at(-1)?.input.conversation).toEqual([
       { role: 'user', text: 'what did we do' },

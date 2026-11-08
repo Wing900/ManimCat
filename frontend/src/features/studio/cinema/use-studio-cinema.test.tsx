@@ -127,6 +127,12 @@ describe('useStudioCinema binding', () => {
     })
     await flush()
 
+    // The workspace owns the cold index read; the binding only refreshes an index that already exists.
+    await act(async () => {
+      await result.current.controller.loadSceneIndex()
+    })
+    await flush()
+
     // The replayed setup re-armed the same instance instead of finding a disposed controller, and the
     // recovery read of the new binding was the one that landed.
     const controller = result.current.controller
@@ -181,6 +187,12 @@ describe('useStudioCinema binding', () => {
     )
     await flush()
 
+    // The workspace owns the cold index read; the binding only refreshes an index that already exists.
+    await act(async () => {
+      await result.current.controller.loadSceneIndex()
+    })
+    await flush()
+
     const controller = result.current.controller
     act(() => {
       controller.selectScene(CINEMA_TEST_SCENE_A)
@@ -216,6 +228,13 @@ describe('useStudioCinema binding', () => {
       { wrapper: StrictWrapper, initialProps: { session: createSession(CINEMA_TEST_SESSION_ID) } },
     )
     await flush()
+
+    // The workspace owns the cold index read; the binding only refreshes an index that already exists.
+    await act(async () => {
+      await result.current.controller.loadSceneIndex()
+    })
+    await flush()
+
     const controller = result.current.controller
     act(() => {
       controller.selectScene(CINEMA_TEST_SCENE_A)
@@ -225,6 +244,10 @@ describe('useStudioCinema binding', () => {
     expect(harness.calls.createScene).toHaveLength(0)
 
     rerender({ session: createSession('session_other') })
+    await flush()
+    await act(async () => {
+      await result.current.controller.loadSceneIndex()
+    })
     await flush()
 
     expect(result.current.controller).toBe(controller)
@@ -249,6 +272,12 @@ describe('useStudioCinema binding', () => {
     )
     await flush()
 
+    // The workspace owns the cold index read; the binding only refreshes an index that already exists.
+    await act(async () => {
+      await result.current.controller.loadSceneIndex()
+    })
+    await flush()
+
     const first = result.current.controller
     act(() => {
       first.dispose()
@@ -256,6 +285,11 @@ describe('useStudioCinema binding', () => {
     expect(first.isDisposed()).toBe(true)
 
     rerender()
+    await flush()
+    // The replacement controller starts empty, so the index has to be read again for it.
+    await act(async () => {
+      await result.current.controller.loadSceneIndex()
+    })
     await flush()
 
     // A terminal controller is never re-entered: a fresh instance takes over and is bound again.
