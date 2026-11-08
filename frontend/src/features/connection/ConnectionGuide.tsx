@@ -6,7 +6,7 @@ import { ConnectionChoice } from './ConnectionChoice'
 import { CatKeyForm } from './CatKeyForm'
 import { ByokForm } from './ByokForm'
 
-type GuideStep = 'choice' | ConnectionMode
+export type GuideStep = 'choice' | ConnectionMode
 
 /** 主界面先自己待一会儿，这一屏再浮上来。 */
 const GUIDE_APPEAR_DELAY_MS = 2_000
@@ -24,6 +24,10 @@ interface ConnectionGuideProps {
   onDismiss: () => void
   /** 验证成功后由 App 负责保存；连接要等退场动画结束才落盘，避免弹窗被立刻卸载。 */
   onSaved?: (connection: ConnectionSettings) => void
+  /** 从「连接失效」的小提示点进来时，直接落在对应表单上，少点一次。 */
+  initialStep?: GuideStep
+  /** 用户刚点了「整理」或某条提示：别让他等那两秒留白。 */
+  immediate?: boolean
 }
 
 /**
@@ -37,18 +41,18 @@ interface ConnectionGuideProps {
  * screen washes in over it. App decides *whether* to mount this at all — only App can see that a
  * closing settings page has finished sliding away.
  */
-export function ConnectionGuide({ onDismiss, onSaved }: ConnectionGuideProps) {
+export function ConnectionGuide({ onDismiss, onSaved, initialStep = 'choice', immediate = false }: ConnectionGuideProps) {
   const { t } = useI18n()
   const connection = useConnection()
-  const [step, setStep] = useState<GuideStep>('choice')
+  const [step, setStep] = useState<GuideStep>(initialStep)
   const [shown, setShown] = useState(false)
   const [closing, setClosing] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setShown(true), GUIDE_APPEAR_DELAY_MS)
+    const timer = window.setTimeout(() => setShown(true), immediate ? 0 : GUIDE_APPEAR_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [immediate])
 
   useEffect(() => {
     return () => {

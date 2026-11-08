@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { generateProblemFraming } from '../../../infrastructure/api/api';
+import { classifyConnectionError, type ConnectionIssue } from '../../connection/connection-errors';
 import type { OutputMode, ProblemFramingPlan, Quality, ReferenceImage } from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n/index';
 import { loadPrompts } from '../../prompts/hooks/usePrompts';
@@ -32,7 +33,13 @@ interface UseProblemFramingResult {
   reset: () => void;
 }
 
-export function useProblemFraming(): UseProblemFramingResult {
+interface UseProblemFramingOptions {
+  /** A rejected/missing credential is not a generation failure: hand it to the caller and stay quiet. */
+  onConnectionIssue?: (issue: ConnectionIssue) => void;
+}
+
+export function useProblemFraming(options: UseProblemFramingOptions = {}): UseProblemFramingResult {
+  const { onConnectionIssue } = options;
   const { locale, t } = useI18n();
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [plan, setPlan] = useState<ProblemFramingPlan | null>(null);
@@ -41,6 +48,15 @@ export function useProblemFraming(): UseProblemFramingResult {
   const [feedbackHistory, setFeedbackHistory] = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const requestSequenceRef = useRef(0);
+
+  const reportConnectionIssue = useCallback((err: unknown) => {
+    const issue = classifyConnectionError(err instanceof Error ? err.message : '');
+    if (!issue) return false;
+    onConnectionIssue?.(issue);
+    setStatus('idle');
+    setError(null);
+    return true;
+  }, [onConnectionIssue]);
 
   const callPlanner = useCallback(async (
     request: GenerationDraft,
@@ -84,10 +100,11 @@ export function useProblemFraming(): UseProblemFramingResult {
       if (requestId !== requestSequenceRef.current || (err instanceof Error && err.name === 'AbortError')) {
         return;
       }
+      if (reportConnectionIssue(err)) return;
       setStatus('error');
       setError(err instanceof Error ? err.message : t('generation.problemFramingFailed'));
     }
-  }, [callPlanner, t]);
+  }, [callPlanner, reportConnectionIssue, t]);
 
   const refinePlan = useCallback(async ({ feedback }: RefinePlanOptions) => {
     if (!draft) {
@@ -110,10 +127,11 @@ export function useProblemFraming(): UseProblemFramingResult {
       if (requestId !== requestSequenceRef.current || (err instanceof Error && err.name === 'AbortError')) {
         return;
       }
+      if (reportConnectionIssue(err)) return;
       setStatus('error');
       setError(err instanceof Error ? err.message : t('generation.problemFramingFailed'));
     }
-  }, [callPlanner, draft, feedbackHistory, plan, t]);
+  }, [callPlanner, draft, feedbackHistory, plan, reportConnectionIssue, t]);
 
   const retryPlan = useCallback(async () => {
     if (!draft) return;
@@ -131,10 +149,11 @@ export function useProblemFraming(): UseProblemFramingResult {
       if (requestId !== requestSequenceRef.current || (err instanceof Error && err.name === 'AbortError')) {
         return;
       }
+      if (reportConnectionIssue(err)) return;
       setStatus('error');
       setError(err instanceof Error ? err.message : t('generation.problemFramingFailed'));
     }
-  }, [callPlanner, draft, feedbackHistory, t]);
+  }, [callPlanner, draft, feedbackHistory, reportConnectionIssue, t]);
 
   const updatePlan = useCallback((nextPlan: ProblemFramingPlan) => {
     setPlan(nextPlan);

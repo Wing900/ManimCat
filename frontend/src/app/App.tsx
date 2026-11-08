@@ -1,5 +1,5 @@
 import type { StudioKind } from '../features/studio/protocol/studio-agent-types';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { JobResult, OutputMode, Quality, ReferenceImage, VideoConfig } from '../shared/types/api';
 import { useGeneration } from '../features/workflow/hooks/useGeneration';
 import { useProblemFraming } from '../features/workflow/hooks/useProblemFraming';
@@ -7,7 +7,8 @@ import { useGame2048 } from '../features/workflow/hooks/useGame2048';
 import { useTabTitle } from '../shared/hooks/useTabTitle';
 import { AiModifyModal } from '../features/workflow/components/AiModifyModal';
 import { DonationModal } from '../features/donation/DonationModal';
-import { ConnectionGuide } from '../features/connection/ConnectionGuide';
+import { ConnectionGuide, type GuideStep } from '../features/connection/ConnectionGuide';
+import type { ConnectionIssue } from '../features/connection/connection-errors';
 import { hasConnection } from '../features/connection/connection-types';
 import { loadStudioDataMode } from '../infrastructure/api/runtime-config';
 import { loadSettings } from '../infrastructure/storage/settings';
@@ -36,9 +37,16 @@ function createClassicRenderCacheKey(): string {
 
 function App() {
   const { status, result, error, jobId, stage, stageHistory, submittedAt, generate, renderWithCode, modifyWithAI, reset, cancel, cancelAndReset } = useGeneration();
-  const problemFraming = useProblemFraming();
-  const game = useGame2048();
+  const [guideForced, setGuideForced] = useState(false);
+  const [guideStep, setGuideStep] = useState<GuideStep>('choice');
   const connection = useConnection();
+  // 两种连接问题都用弹窗：没配就从选择页开始，配过但被拒就直接落到对应的表单上。
+  const handleConnectionIssue = useCallback((issue: ConnectionIssue) => {
+    setGuideStep(issue === 'invalid' ? (connection.activeMode ?? 'choice') : 'choice');
+    setGuideForced(true);
+  }, [connection.activeMode]);
+  const problemFraming = useProblemFraming({ onConnectionIssue: handleConnectionIssue });
+  const game = useGame2048();
   useTabTitle(status, stage);
 
   const [overlay, setOverlay] = useState<'settings' | 'prompts' | null>(null);
@@ -198,6 +206,11 @@ function App() {
     outputMode: OutputMode;
     referenceImages?: ReferenceImage[];
   }) => {
+    if (!hasConnection(connection)) {
+      setGuideStep('choice');
+      setGuideForced(true);
+      return;
+    }
     setLastCompletedResult(null);
     setConcept(data.concept);
     setProblemAdjustment('');
@@ -215,6 +228,11 @@ function App() {
   };
 
   const handleProblemRetry = () => {
+    if (!hasConnection(connection)) {
+      setGuideStep('choice');
+      setGuideForced(true);
+      return;
+    }
     if (!problemAdjustment.trim()) {
       return;
     }
@@ -222,6 +240,11 @@ function App() {
   };
 
   const handleProblemInitialRetry = () => {
+    if (!hasConnection(connection)) {
+      setGuideStep('choice');
+      setGuideForced(true);
+      return;
+    }
     void problemFraming.retryPlan();
   };
 
@@ -295,8 +318,13 @@ function App() {
   const displayResult = result ?? lastCompletedResult;
 
   // 引导页只在「没有连接、没被叉掉过、也没有别的页浮在上面」时出现。最后一条就是「先回主界面才弹」。
-  const showGuide = !hasConnection(connection) && !connection.dismissed && overlay === null;
-  const dismissGuide = () => saveConnection({ ...loadConnection(), dismissed: true });
+  // 引导页只在「没有连接、没被叉掉过、也没有别的页浮在上面」时自己浮出来；
+  // 从提示条点「去设置」时无视这三条，用户已经明确要它了。
+  const showGuide = guideForced || (!hasConnection(connection) && !connection.dismissed && overlay === null);
+  const dismissGuide = () => {
+    setGuideForced(false);
+    saveConnection({ ...loadConnection(), dismissed: true });
+  };
 
   const renderScreen = (name: Screen) => {
     if (name === 'classic') {
@@ -417,10 +445,16 @@ function App() {
 
       {showGuide && (
         <ConnectionGuide
+          initialStep={guideStep}
+          immediate={guideForced}
           onDismiss={dismissGuide}
-          onSaved={(next) => saveConnection({ ...next, dismissed: true })}
+          onSaved={(next) => {
+            setGuideForced(false);
+            saveConnection({ ...next, dismissed: true });
+          }}
         />
       )}
+
     </div>
   );
 }

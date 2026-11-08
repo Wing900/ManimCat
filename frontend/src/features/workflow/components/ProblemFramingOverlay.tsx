@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ProblemFramingPlan } from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n';
 import { ProblemPlanEditor } from './ProblemPlanEditor';
@@ -42,6 +42,53 @@ function WaitingPaws() {
   );
 }
 
+/** 错误只是一个通知：小卡片、全文可见、可复制。不拿整屏挡住用户。 */
+function ProblemErrorCard({ error, onRetry, onClose }: {
+  error: string | null;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const detail = error || t('problem.initialErrorDescription');
+  const detailRef = useRef<HTMLPreElement | null>(null);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(detail);
+    } catch {
+      // 没有剪贴板权限时退回手动选中，至少不挡路。
+      const node = detailRef.current;
+      if (node) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+    {/* 和 AiModifyModal 一套语汇：沉浸遮罩 + 宽圆角纸面。 */}
+    <div className="absolute inset-0 bg-bg-primary/60 backdrop-blur-md" />
+    <section role="alertdialog" aria-modal="true" aria-label={t('problem.initialErrorTitle')} className="animate-modal-pop-in relative w-full max-w-md rounded-[2.5rem] border border-border/5 bg-bg-secondary p-8 shadow-2xl">
+      <div className="mb-5 flex items-center gap-3">
+        <div className="h-2 w-2 rounded-full bg-accent-rgb/40" />
+        <h2 className="text-lg font-medium tracking-tight text-text-primary">{t('problem.initialErrorTitle')}</h2>
+      </div>
+      <pre ref={detailRef} className="max-h-40 select-text overflow-auto whitespace-pre-wrap break-words rounded-2xl bg-bg-primary/60 p-4 font-mono text-xs leading-relaxed text-text-secondary">{detail}</pre>
+      <div className="mt-6 flex gap-3">
+        <button type="button" onClick={onClose} className="flex-1 rounded-2xl bg-bg-primary/50 py-3 text-sm text-text-secondary transition-all duration-200 ease-ui hover:bg-bg-tertiary hover:text-text-primary active:scale-95">{t('common.close')}</button>
+        <button type="button" onClick={copy} className="flex-1 rounded-2xl bg-bg-primary/50 py-3 text-sm text-text-secondary transition-all duration-200 ease-ui hover:bg-bg-tertiary hover:text-text-primary active:scale-95">{copied ? t('common.copied') : t('common.copy')}</button>
+        <button type="button" onClick={onRetry} className="flex-1 rounded-2xl bg-text-primary py-3 text-sm font-medium text-bg-primary shadow-lg transition-all duration-200 ease-ui hover:bg-accent-hover-rgb active:scale-95">{t('problem.retry')}</button>
+      </div>
+    </section>
+  </div>;
+}
+
 export function ProblemFramingOverlay(props: ProblemFramingOverlayProps) {
   return props.open ? <ProblemFramingOverlayContent {...props} /> : null;
 }
@@ -55,6 +102,10 @@ function ProblemFramingOverlayContent({ status, plan, error, adjustment, generat
   const statusKey = status === 'loading'
     ? plan ? 'problem.status.refining' : 'problem.status.loading'
     : status === 'ready' ? 'problem.status.ready' : 'problem.status.error';
+  // 失败且手里还没有任何规划卡：只是一个错误通知，不该占满一屏。
+  if (status === 'error' && !plan) {
+    return <ProblemErrorCard error={error} onRetry={onInitialRetry} onClose={onClose} />;
+  }
   return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-bg-primary/75 p-3 backdrop-blur-sm sm:p-8">
     <section role="dialog" aria-modal="true" aria-label={t('problem.badge')} className="relative flex h-[min(88dvh,900px)] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border border-bg-tertiary/40 bg-bg-secondary shadow-xl">
       {status === 'loading' && <WaitingPaws />}
