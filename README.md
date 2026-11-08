@@ -53,7 +53,7 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
   <a href="#quick-start"><strong>Quick Start</strong></a> •
   <a href="#technology"><strong>Technology</strong></a> •
   <a href="#deployment"><strong>Deployment</strong></a> •
-  <a href="#major-additions"><strong>Additions</strong></a> •
+  <a href="#relationship-to-the-original-project"><strong>Relationship</strong></a> •
   <a href="#license-and-copyright"><strong>License</strong></a> •
   <a href="#maintenance-notes"><strong>Maintenance</strong></a>
 </p>
@@ -71,14 +71,14 @@ English | [简体中文](https://github.com/Wing900/ManimCat/blob/main/README.zh
 
 I am happy to introduce my new project, ManimCat. It is, after all, a cat.
 
-Built on top of [manim-video-generator](https://github.com/rohitg00/manim-video-generator), ManimCat is now a much broader AI-assisted creation system for math teaching visuals rather than just a single generation flow.
+ManimCat started from the direction of [manim-video-generator](https://github.com/rohitg00/manim-video-generator) and has since been **completely rewritten**; no code from it remains. It is now a full AI-assisted creation system for math teaching visuals rather than a single generation flow.
 
 It is designed for classroom explanation, worked-example breakdowns, and visual reasoning tasks. You can use natural language to generate, modify, rerender, and organize both animated and static teaching visuals with `video` and `image` outputs.
 
 The project is now organized around three clear axes: `dual-mode`, `dual-engine`, and `dual-studio`.
 
 - `Workflow Mode` is for direct generation and rendering when you want fast outputs
-- `Agent Mode` is for Studio-based collaborative work with longer-lived sessions, task state, review, and iteration
+- `Agent Mode` is for Studio-based collaborative work with longer-lived sessions, task state, review, and iteration (in development)
 - `ManimGX` is used for animation and timeline-based mathematical storytelling
 - `matplotlib` is used in Plot Studio for static math visuals, charts, and teaching figures
 - `Plot Studio` is the more mature Studio path today for static visual work and iterative editing
@@ -86,30 +86,30 @@ The project is now organized around three clear axes: `dual-mode`, `dual-engine`
 
 ### Interface
 
-#### UI
+#### Main flow
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/5abd29f6-adcb-4047-b85c-aba1fa0808a5" width="40%" alt="ManimCat UI screenshot 1" />
-  <img src="https://github.com/user-attachments/assets/d18d0f27-15b4-4c59-8a4b-a8b8fb553020" width="40%" alt="ManimCat UI screenshot 2" />
+  <img src="https://github.com/user-attachments/assets/6254cd17-d886-49ba-8c59-71c69e995253" width="46%" alt="Home: describe the animation, pick resolution and video / image output" />
+  <img src="https://github.com/user-attachments/assets/312a7966-2417-4526-a3cb-5125a0889000" width="46%" alt="Planning card: the question, the one-line answer, and the step-by-step plan" />
 </div>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/2c70886f-c381-4995-8ca4-2d0db1974829" width="40%" alt="ManimCat UI screenshot 3" />
-  <img src="https://github.com/user-attachments/assets/ce3718e8-4bc4-44db-87fb-3fb486eed144" width="40%" alt="ManimCat UI screenshot 4" />
+  <img src="https://github.com/user-attachments/assets/3ad5e084-c365-4ee1-89a4-9170c606586c" width="46%" alt="Generating: progress, status, and the 2048 game link" />
+  <img src="https://github.com/user-attachments/assets/9dbae977-337b-44d2-a3bb-62bc763cee4f" width="46%" alt="Result: preview, download, AI edits, and regeneration" />
 </div>
 
-#### Workflow
+#### Agent mode
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/b831caaf-10fe-4238-8998-d574f42af524" width="46%" alt="ManimCat Workflow screenshot 1" />
-  <img src="https://github.com/user-attachments/assets/30583571-f038-4c7b-9362-c988a896d374" width="46%" alt="ManimCat Workflow screenshot 2" />
+  <img src="https://github.com/user-attachments/assets/faa343ca-4424-402f-a805-1f9aab2d3e20" width="46%" alt="Manim Studio: per-scene conversation with live preview and iterative edits" />
+  <img src="https://github.com/user-attachments/assets/1378de9d-eb0c-431e-a81b-b18613eab5f8" width="46%" alt="Manim Studio: read, search, write and render tool calls as they run" />
 </div>
 
-#### Plot Studio
+#### Settings and prompts
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/0812b601-b896-4137-8e20-a2d4b6feadb9" width="46%" alt="ManimCat Plot Studio screenshot 1" />
-  <img src="https://github.com/user-attachments/assets/99ae423f-4b15-431d-8e21-30a6b6171616" width="46%" alt="ManimCat Plot Studio screenshot 2" />
+  <img src="https://github.com/user-attachments/assets/2eb6cbfd-52b4-4150-932c-258f68de8ed6" width="46%" alt="AI connection: CatKey or your own API" />
+  <img src="https://github.com/user-attachments/assets/644642ae-d78a-46a2-957e-7f7f8b5c5cad" width="46%" alt="Prompt templates: inspect and override System / User prompts per role" />
 </div>
 
 ## Examples
@@ -120,8 +120,8 @@ The project is now organized around three clear axes: `dual-mode`, `dual-engine`
 
 <br>
 
-<a href="https://github.com/user-attachments/assets/38dba3ba-e29f-458d-b8ea-baf10cade4f1">
-  <video src="https://github.com/user-attachments/assets/38dba3ba-e29f-458d-b8ea-baf10cade4f1" width="85%" autoplay loop muted playsinline>
+<a href="https://github.com/user-attachments/assets/f7e5050a-b49b-488f-b036-216b20044181">
+  <video src="https://github.com/user-attachments/assets/f7e5050a-b49b-488f-b036-216b20044181" width="85%" autoplay loop muted playsinline>
   </video>
 </a>
 
@@ -153,11 +153,12 @@ For local rendering, create a Python 3.13+ virtual environment, install dependen
 
 - Product structure: Workflow mode for direct generation, Agent mode for Studio-based collaborative work
 - Visual engines: ManimGX for animation, `matplotlib` for Plot Studio static figures
-- Backend: Express + TypeScript, Bull + Redis, OpenAI-compatible upstream routing, Studio agent runtime, optional Supabase history storage
-- Frontend: React 19, Vite, Tailwind CSS, classic generator UI, Studio workspace shell, Plot Studio minimal workspace UI
+- Backend: Express + TypeScript, Bull + Redis, OpenAI-compatible upstream routing, Studio agent runtime, optional Supabase persistence (CatKey validation, usage records, Studio sessions)
+- Frontend: React 19, Vite, Tailwind CSS, classic generator UI, Studio workspace shell, Plot Studio minimal workspace UI, canvas (canvas 2D + perfect-freehand)
 - Agent state model: session / run / task / work / result lifecycle for longer-lived studio interactions
 - Realtime layer: polling for Workflow jobs, Server-Sent Events for Agent sessions, permission requests, and task updates
-- Rendering runtime: Python 3.14, ManimGX 0.1.1, `matplotlib`, `ffmpeg`; ManimGX bundles fonts and typesetting
+- Rendering runtime: Python 3.14, ManimGX 0.1.1 (Typst typesetting), `matplotlib` 3.10.8, `ffmpeg`, `edge-tts` 7.3.1; ManimGX bundles fonts and typesetting
+- Retrieval: `onnxruntime-web` + MiniLM local embeddings for Manim / matplotlib API context
 - Deployment: Docker / Docker Compose, Hugging Face Spaces
 
 ### Workflow Mode
@@ -241,64 +242,63 @@ Before syncing to Spaces, commit the changes to publish on `main`, then run:
 ./scripts/sync-space.ps1
 ```
 
+A `docker-compose.yml` is also provided: Compose runs Redis as its own service and starts the app with `node dist/server.js`; set the host port with `MANIMCAT_PUBLISHED_PORT`, and `--scale` for multiple replicas.
+
 On Linux/macOS, run `bash scripts/sync-space.sh`. By default, the script publishes committed `main` to the `space` and `space-show` remotes, overwriting their remote `main`; check the remote URLs first. It injects Space metadata. Uncommitted changes are excluded from the deployment snapshot.
 
 Deployment notes:
 
 - Without persistent storage, treat container videos, workspaces, and Redis data as temporary: rebuilds may remove them. Database-backed sessions do not preserve video files.
 - Run `npm audit --omit=dev` and address security findings before public deployment. After startup, check `/health`, then verify a real model request and video playback.
-- Local Docker checks covered the web UI, Manim, LaTeX, Chinese text, Matplotlib, and MiniLM inference. HF hosting, CatKey, and Supabase integration still require verification after deployment.
+- Local Docker checks covered the web UI, Manim (Typst typesetting, no external TeX), Chinese text, Matplotlib, MiniLM inference, Edge TTS synthesis, and subtitle burn-in. HF hosting, CatKey, and Supabase integration still require verification after deployment.
 
-## Major Additions
+## Relationship to the Original Project
 
-This project is a substantial rework built on top of the original foundation. The main additions I personally designed and implemented are:
+This project has been **completely rewritten** and no longer inherits any code from [manim-video-generator](https://github.com/rohitg00/manim-video-generator).
 
-### Generation and Rendering
+The code and the approach are now completely different, but I am still grateful to the original author for the initial idea and the code prototype.
 
-- Added a dedicated image workflow alongside video generation
-- Added `YON_IMAGE` anchor-based segmented rendering for multi-image outputs
-- Added two-stage AI generation: a concept designer produces a scene design, then a code generator writes the Manim code
-- Added AI-driven code retry: when a render fails, the error is fed back to the model to regenerate and re-render automatically
-- Added rerender-from-code and AI-assisted modify-and-render flows
-- Added stage timing breakdown shared by both image and video jobs
-- Added background music mixing for rendered videos
-- Added render-failure event collection and export for debugging and reliability work
+## Shipped: Workflow Mode
 
-### Product and Interface
+Workflow mode is the current main path: describe what you want in natural language and get a playable video or a usable image.
 
-- Rebuilt the frontend as a separate React + TypeScript + Vite application
-- Added problem framing before generation to help structure user requests
-- Added reference image upload support
-- Added a unified workspace for generation history and usage views
-- Added a usage metrics dashboard with daily charts, success rates, and timing breakdowns
-- Added a prompt template manager for viewing and overriding system prompts per role
-- Added dark / light theme toggle
-- Added a waiting-state 2048 mini-game
-- Added a refreshed visual style, settings panels, and provider configuration flows
+### Generation pipeline
 
-### Infrastructure and Routing
+- Natural language → editable planning card → Manim code → render; planning failures can be retried, including format-repair retries
+- Two-stage generation: a concept designer produces the scene plan, a code generator produces the code
+- Render failures are fed back to the model automatically; re-rendering from existing code, AI-assisted edits, cancellation, and stage timings are supported
+- Video and image output, with `YON_IMAGE` anchor chunking for multi-image runs
+- Reference images: upload, or draw them on the canvas (freehand, shapes, function plots)
 
-- Reworked the backend around Express + Bull + Redis
-- Added retry, timeout, cancellation, and status-query flows
-- Added support for third-party OpenAI-compatible APIs and custom provider configuration
-- Added server-side upstream routing by ManimCat key
-- Kept optional multi-profile frontend provider rotation for local use
-- Added optional Supabase-backed persistent history storage
+### Canvas
 
-### Studio Agent
+- Freehand drawing (perfect-freehand strokes), eraser, selection
+- Shapes: circle, ellipse, line segment, arrow, rectangle, triangle, polyline polygon, text
+- Function plots: expression plus x / y ranges with live preview
+- Undo / redo, multi-page documents, export whole pages as 1600×900 reference images
 
-- Added a separate Agent Mode driven by a Studio runtime rather than the classic one-shot generation flow
-- Defined the long-lived Studio state model around session / run / task / work / result
-- Added builder, designer, and reviewer roles inside the Studio agent system
-- Added workspace tools, render tools, local skills, and subagent orchestration
-- Added Server-Sent Events for live Studio updates plus permission request / reply handling
-- Added Studio review, pipeline, work, and permission panels in the frontend
+### Narration and subtitles
 
-### Plot Studio and Manim Studio
+- Edge TTS synthesis aligned to sentence-level cues
+- Soft subtitle track; optional burned-in hard subtitles on download
+- Re-renders reuse the published audio track instead of synthesizing again
 
-- Added two distinct Studio workspaces: Plot Studio for `matplotlib`-based static visuals and Manim Studio for animation-oriented workflows
-- Added Plot Studio output history browsing, work reordering, and a minimal split workspace layout
-- Established the dual-engine product direction: Manim for animated mathematical storytelling, `matplotlib` for static teaching figures and charts
+### Workspace
+
+- Pre-generation planning and prompt template management (including narration prompts)
+- CatKey / BYOK connection flows; failures jump straight back to the matching form
+- Light / dark themes, a 2048 game for long waits, and a stage-timing panel
+
+## In Development: Agent Mode
+
+Agent mode is not an add-on to Workflow; it is a separate Studio runtime that is still under development.
+
+The goal here is to think about and explore a way of *making* mathematical animation, not merely rendering out a single video.
+
+- Long-lived state model built around Session / Scene / Run / Render
+- A single builder agent with a workspace toolset (read, write, edit, glob, grep, ls, API search) and two render tools (manim / matplotlib)
+- Server-Sent Events streaming text deltas, tool calls, and render status
+- Two workspaces: Plot Studio (matplotlib static figures) is usable but early; Manim Studio is earlier still
 
 ## License and Copyright
 
@@ -341,7 +341,7 @@ If this project gave you useful ideas or helped you in some way, that is already
 
 - [rohitg00/manim-video-generator](https://github.com/rohitg00/manim-video-generator)
 - [anomalyco/opencode](https://github.com/anomalyco/opencode)
-- [academa-labs/manimgx](https://github.com/academa-labs/manimgx) — animation engine and Manim-compatible API
+- [academa-labs/manimgx](https://github.com/academa-labs/manimgx)
 - [Linux.do](https://linux.do)
 - [Alibaba Cloud Bailian](https://bailian.console.aliyun.com)
 

@@ -53,7 +53,7 @@
   <a href="#快速开始"><strong>快速开始</strong></a> •
   <a href="#技术"><strong>技术</strong></a> •
   <a href="#部署"><strong>部署</strong></a> •
-  <a href="#在原项目基础上的主要扩展"><strong>主要扩展</strong></a> •
+  <a href="#与原项目的关系"><strong>与原项目的关系</strong></a> •
   <a href="#开源与版权声明"><strong>版权</strong></a> •
   <a href="#维护说明"><strong>维护</strong></a>
 </p>
@@ -71,14 +71,14 @@
 
 很荣幸在这里介绍我的新项目ManimCat，它是~一只猫~
 
-本项目基于 [manim-video-generator](https://github.com/rohitg00/manim-video-generator) 进行了大幅重构与再开发，现在已经不只是单一生成流程，而是一个更完整的 AI 数学教学可视化创作系统。
+本项目最初以 [manim-video-generator](https://github.com/rohitg00/manim-video-generator) 的方向为起点，现已**完全重写**，不再包含它的任何代码。今天它是一个完整的 AI 数学教学可视化创作系统，而不只是一条生成流程。
 
 它面向课堂讲解、例题拆解与数形结合表达等场景，用户可以通过自然语言生成、修改、重渲染并组织动画与静态两类教学可视化内容，支持 `video` 与 `image` 两种输出。
 
 项目现在可以从三个维度理解：`双模式`、`双引擎`、`双 Studio`。
 
 - `Workflow Mode` 用于直接生成与渲染，适合快速产出
-- `Agent Mode` 用于基于 Studio 的协作式创作、审阅、任务跟踪与迭代
+- `Agent Mode` 用于基于 Studio 的协作式创作、审阅、任务跟踪与迭代（开发中）
 - `ManimGX` 负责动画、镜头与时间线驱动的数学叙事
 - `matplotlib` 负责 Plot Studio 中的静态数学图像、函数图、图表与教学插图
 - `Plot Studio` 是目前更成熟的 Studio 路径，主要面向静态可视化与迭代编辑
@@ -86,30 +86,30 @@
 
 ### 界面
 
-#### UI 界面
+#### 主流程
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/5abd29f6-adcb-4047-b85c-aba1fa0808a5" width="40%" alt="ManimCat UI 界面截图 1" />
-  <img src="https://github.com/user-attachments/assets/d18d0f27-15b4-4c59-8a4b-a8b8fb553020" width="40%" alt="ManimCat UI 界面截图 2" />
+  <img src="https://github.com/user-attachments/assets/6254cd17-d886-49ba-8c59-71c69e995253" width="46%" alt="主界面：输入自然语言，选择分辨率与视频 / 图片输出" />
+  <img src="https://github.com/user-attachments/assets/312a7966-2417-4526-a3cb-5125a0889000" width="46%" alt="规划卡：生成前先整理本片问题、一句话答案与分步讲解" />
 </div>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/2c70886f-c381-4995-8ca4-2d0db1974829" width="40%" alt="ManimCat UI 界面截图 3" />
-  <img src="https://github.com/user-attachments/assets/ce3718e8-4bc4-44db-87fb-3fb486eed144" width="40%" alt="ManimCat UI 界面截图 4" />
+  <img src="https://github.com/user-attachments/assets/3ad5e084-c365-4ee1-89a4-9170c606586c" width="46%" alt="生成中：等待态、进度与 2048 小游戏入口" />
+  <img src="https://github.com/user-attachments/assets/9dbae977-337b-44d2-a3bb-62bc763cee4f" width="46%" alt="结果页：预览、下载视频、AI 修改与重新生成" />
 </div>
 
-#### Workflow 界面
+#### Agent 模式
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/b831caaf-10fe-4238-8998-d574f42af524" width="46%" alt="ManimCat Workflow 界面截图 1" />
-  <img src="https://github.com/user-attachments/assets/30583571-f038-4c7b-9362-c988a896d374" width="46%" alt="ManimCat Workflow 界面截图 2" />
+  <img src="https://github.com/user-attachments/assets/faa343ca-4424-402f-a805-1f9aab2d3e20" width="46%" alt="Manim Studio：分场景对话、实时预览与逐轮修改" />
+  <img src="https://github.com/user-attachments/assets/1378de9d-eb0c-431e-a81b-b18613eab5f8" width="46%" alt="Manim Studio：读取、检索、写入、渲染等工具调用的执行过程" />
 </div>
 
-#### Plot Studio 界面
+#### 设置与提示词
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/0812b601-b896-4137-8e20-a2d4b6feadb9" width="46%" alt="ManimCat Plot Studio 界面截图 1" />
-  <img src="https://github.com/user-attachments/assets/99ae423f-4b15-431d-8e21-30a6b6171616" width="46%" alt="ManimCat Plot Studio 界面截图 2" />
+  <img src="https://github.com/user-attachments/assets/2eb6cbfd-52b4-4150-932c-258f68de8ed6" width="46%" alt="AI 连接：CatKey 或使用自己的 API" />
+  <img src="https://github.com/user-attachments/assets/644642ae-d78a-46a2-957e-7f7f8b5c5cad" width="46%" alt="提示词模板：按角色查看与覆盖 System / User 提示词" />
 </div>
 
 ## 样例
@@ -120,8 +120,8 @@
 
 <br>
 
-<a href="https://github.com/user-attachments/assets/38dba3ba-e29f-458d-b8ea-baf10cade4f1">
-  <video src="https://github.com/user-attachments/assets/38dba3ba-e29f-458d-b8ea-baf10cade4f1" width="85%" autoplay loop muted playsinline>
+<a href="https://github.com/user-attachments/assets/f7e5050a-b49b-488f-b036-216b20044181">
+  <video src="https://github.com/user-attachments/assets/f7e5050a-b49b-488f-b036-216b20044181" width="85%" autoplay loop muted playsinline>
   </video>
 </a>
 
@@ -155,11 +155,12 @@ ManimGX 使用原生 Typst 排版，本地渲染无需安装外部 TeX。Typst �
 
 - 产品结构：Workflow 模式用于直接生成，Agent 模式用于 Studio 协作式工作流
 - 图形引擎：ManimGX 用于动画，`matplotlib` 用于 Plot Studio 静态图像
-- 后端：Express + TypeScript、Bull + Redis、兼容 OpenAI 的上游路由、Studio Agent 运行时、可选 Supabase 历史记录
-- 前端：React 19、Vite、Tailwind CSS、经典生成界面、Studio 工作台界面、Plot Studio 极简工作区 UI
+- 后端：Express + TypeScript、Bull + Redis、兼容 OpenAI 的上游路由、Studio Agent 运行时、可选 Supabase 持久化（CatKey 校验、用量记录、Studio 会话）
+- 前端：React 19、Vite、Tailwind CSS、经典生成界面、Studio 工作台界面、Plot Studio 极简工作区 UI、画布（canvas 2D + perfect-freehand）
 - Agent 状态模型：围绕 session / run / task / work / result 组织长生命周期 Studio 交互
 - 实时层：Workflow 任务使用轮询，Agent 会话使用 Server-Sent Events 推送事件、权限请求与任务更新
-- 渲染运行时：Python 3.14、ManimGX 0.1.1、`matplotlib`、`ffmpeg`；ManimGX 内置字体与排版组件
+- 渲染运行时：Python 3.14、ManimGX 0.1.1（Typst 排版）、`matplotlib` 3.10.8、`ffmpeg`、`edge-tts` 7.3.1；ManimGX 内置字体与排版组件
+- 检索：`onnxruntime-web` + MiniLM 本地向量检索，为 Manim / matplotlib API 提供上下文
 - 部署：Docker / Docker Compose、Hugging Face Spaces
 
 ### Workflow Mode
@@ -237,6 +238,8 @@ flowchart LR
 
 BYOK 用户在页面设置自己的上游。若需要服务端保存 Studio 会话，使用 `STUDIO_DATA_MODE=server`、`ENABLE_STUDIO_DB=true`，并配置 Supabase 和对应表结构；多副本部署还需要共享 Redis 与可访问的渲染文件存储。
 
+仓库另外提供 `docker-compose.yml`：Redis 作为独立服务，应用以 `node dist/server.js` 启动，宿主端口用 `MANIMCAT_PUBLISHED_PORT` 指定，支持 `--scale` 多副本。
+
 同步到 Space 前，先将需要发布的改动提交到 `main`，再运行：
 
 ```powershell
@@ -249,57 +252,55 @@ Linux/macOS 可运行 `bash scripts/sync-space.sh`。脚本默认发布已提交
 
 - 未配置持久存储时，将容器中的视频、工作区和 Redis 数据视为临时数据，重建后可能丢失；数据库保存会话不等于保存视频文件。
 - 上线前运行 `npm audit --omit=dev` 并处理安全告警。启动后检查 `/health`，再验证真实模型调用与视频播放。
-- 本地 Docker 已验证网页、Manim、LaTeX、中文、Matplotlib 和 MiniLM 推理；HF 线上运行、CatKey 与 Supabase 联调仍需部署后验证。
+- 本地 Docker 已验证网页、Manim（Typst 排版，无外部 TeX 依赖）、中文、Matplotlib、MiniLM 推理、Edge TTS 合成与字幕烧录；HF 线上运行、CatKey 与 Supabase 联调仍需部署后验证。
 
-## 在原项目基础上的主要扩展
+## 与原项目的关系
 
-这个项目是在原始基础上做的大幅重构与再开发。以下是我本人新增和重构的核心能力：
+本项目已经**完全重写**，不再继承 [manim-video-generator](https://github.com/rohitg00/manim-video-generator) 的任何代码。
 
-### 生成与渲染
+虽然代码和思路上都已经完全面目一新，但依然感谢原作者提供的思路和代码雏形。
 
-- 在视频生成之外，新增了独立的图片工作流
-- 新增 `YON_IMAGE` 锚点分块渲染，支持多图输出
-- 新增两阶段 AI 生成架构：概念设计者生成场景方案，再由代码生成者产出 Manim 代码
-- 新增 AI 驱动的代码重试：渲染失败后自动将错误反馈给模型，重新生成并再次渲染
-- 新增基于现有代码的重渲染，以及 AI 辅助修改后再渲染
-- 新增图片与视频共用的阶段耗时统计
-- 新增渲染失败事件采集与导出能力，便于排错和稳定性改进
+## 已经可用：Workflow 模式
 
-### 产品与界面
+Workflow 模式是当前的主路径：输入自然语言，直接产出可播放的视频或可用的图片。
 
-- 将前端重建为独立的 React + TypeScript + Vite 应用
-- 新增生成前的问题规划能力，帮助整理用户请求
-- 新增参考图上传能力
-- 新增统一的工作空间页面，整合生成历史与用量视图
-- 新增用量仪表盘，提供每日调用量、成功率与耗时趋势图表
-- 新增提示词模板管理，可按角色查看和覆盖系统提示词
-- 新增暗色 / 亮色主题切换
-- 新增长等待过程中的 2048 小游戏
-- 新增整体视觉风格、设置面板与 provider 配置流程
+### 生成流水线
 
-### 基础设施与路由
+- 自然语言 → 可编辑规划卡 → Manim 代码 → 渲染；规划卡生成失败可重试，并带格式修复重试
+- 两阶段生成：概念设计者产出场景方案，代码生成者产出代码
+- 渲染失败自动把错误回喂模型并重新生成；支持基于现有代码重渲染、AI 修改后再渲染、取消与阶段耗时统计
+- 视频与图片双输出，图片支持 `YON_IMAGE` 锚点分块多图
+- 参考图：上传，或用画布绘制（手绘、基础图形、函数图像）
 
-- 将后端重构为 Express + Bull + Redis 架构
-- 新增重试、超时、取消与状态查询链路
-- 新增对第三方 OpenAI-compatible API 与自定义 provider 的支持
-- 新增按 ManimCat key 的服务端上游路由能力
-- 保留并扩展前端多 profile provider 轮询能力，便于本地使用
-- 新增可选的 Supabase 持久化历史记录存储
+### 画布
 
-### Studio Agent
+- 手绘（perfect-freehand 笔锋）、橡皮、选择
+- 基础图形：圆、椭圆、线段、箭头、矩形、三角形、连线多边形、文字
+- 函数图像：输入表达式与 x / y 区间，实时预览
+- 撤销 / 重做、多页管理、整页导出为 1600×900 参考图
 
-- 新增独立的 Agent Mode，它不再只是经典生成流程的附属页面，而是单独的 Studio runtime 工作模式
-- 定义了围绕 session、run、task、work、result 的长生命周期 Studio 状态模型
-- 新增 builder、designer、reviewer 三种 Studio agent 角色
-- 新增工作区工具、渲染工具、本地 skills 与子代理编排能力
-- 新增基于 Server-Sent Events 的 Studio 实时更新，以及权限请求 / 回复链路
-- 新增 Studio 前端中的 review、pipeline、work、permission 等面板
+### 旁白与字幕
 
-### Plot Studio 与 Manim Studio
+- Edge TTS 合成，按 cue（句级时间点）对时
+- 软字幕轨；下载视频时可选择烧录硬字幕
+- 重渲染复用已发布的音轨，避免重复合成
 
-- 新增两个明确分化的 Studio 工作区：Plot Studio 面向 `matplotlib` 静态可视化，Manim Studio 面向动画工作流
-- 新增 Plot Studio 的历史产物浏览、工作项重排与极简分栏工作区布局
-- 明确形成双引擎产品方向：Manim 负责动态数学叙事，`matplotlib` 负责静态教学图像与图表
+### 工作台
+
+- 生成前问题规划、提示词模板管理（含旁白提示词）
+- CatKey / BYOK 两种连接方式；失效时直接跳回对应配置
+- 暗色 / 亮色主题、长等待时的 2048 小游戏、阶段耗时面板
+
+## 正在开发：Agent 模式
+
+Agent 模式不是 Workflow 的附属页面，而是一套独立的 Studio runtime，仍在开发中。
+
+我们希望在这里思考与探索一种数学动画的制作模式，而不仅仅是一次性地渲染出一段视频。
+
+- 围绕 Session / Scene / Run / Render 的长生命周期状态模型
+- 单一 builder agent，配一组工作区工具（读、写、编辑、glob、grep、ls、API 检索）与 manim / matplotlib 两个渲染工具
+- 基于 Server-Sent Events 的实时事件流：文本增量、工具调用、渲染状态
+- 两个工作区：Plot Studio（matplotlib 静态图）已可用但仍属早期；Manim Studio 更早期
 
 ##  开源与版权声明 
 
@@ -349,7 +350,7 @@ ManimCat 早期版本包含 `manim-video-generator`（MIT）的代码。历史 C
 
 - [rohitg00/manim-video-generator](https://github.com/rohitg00/manim-video-generator)
 - [anomalyco/opencode](https://github.com/anomalyco/opencode)
-- [academa-labs/manimgx](https://github.com/academa-labs/manimgx) — 动画引擎与 Manim 兼容 API
+- [academa-labs/manimgx](https://github.com/academa-labs/manimgx)
 - [Linux.do](https://linux.do)
 - [阿里云百炼](https://bailian.console.aliyun.com)
 
