@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useI18n } from '../../../shared/i18n/index'
 import { uploadReferenceImage } from '../../../infrastructure/api/api'
 import type { ReferenceImage } from '../../../shared/types/api'
-import { MAX_IMAGE_SIZE, MAX_IMAGES } from '../../workflow/input-form/constants'
+import { MAX_IMAGE_SIZE } from '../../workflow/input-form/constants'
 import { debugStudioMessages } from '../agent-response/debug'
 import { createComposerImageAttachment, extractNameFromUrl } from './attachments'
 import type { StudioComposerAttachment } from './types'
@@ -26,7 +26,7 @@ export function useStudioComposerAttachments(): UseStudioComposerAttachmentsResu
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const appendUploadedAttachment = useCallback((attachment: StudioComposerAttachment) => {
-    setAttachments((current) => appendWithinLimit(current, [attachment]))
+    setAttachments((current) => [...current, attachment])
     setAttachmentError(null)
   }, [])
 
@@ -48,32 +48,20 @@ export function useStudioComposerAttachments(): UseStudioComposerAttachmentsResu
       return []
     }
 
-    const remaining = MAX_IMAGES - attachments.length
-    if (remaining <= 0) {
-      setAttachmentError(t('reference.limit', { count: MAX_IMAGES }))
-      debugStudioMessages('composer-image-files-rejected', {
-        reason: 'limit-reached',
-        maxImages: MAX_IMAGES,
-      })
-      return []
-    }
-
-    const toAdd = fileArray.slice(0, remaining)
     debugStudioMessages('composer-image-files-queued', {
-      queuedCount: toAdd.length,
-      remainingSlots: remaining,
-      names: toAdd.map((file) => file.name),
+      queuedCount: fileArray.length,
+      names: fileArray.map((file) => file.name),
     })
 
     try {
-      for (const file of toAdd) {
+      for (const file of fileArray) {
         if (file.size > MAX_IMAGE_SIZE) {
           throw new Error(t('reference.maxSize', { size: MAX_IMAGE_SIZE / 1024 / 1024 }))
         }
       }
 
       const uploadedAttachments = await Promise.all(
-        toAdd.map(async (file) => {
+        fileArray.map(async (file) => {
           debugStudioMessages('composer-image-upload-start', {
             name: file.name,
             type: file.type,
@@ -95,7 +83,7 @@ export function useStudioComposerAttachments(): UseStudioComposerAttachmentsResu
         }),
       )
 
-      setAttachments((current) => appendWithinLimit(current, uploadedAttachments))
+      setAttachments((current) => [...current, ...uploadedAttachments])
       debugStudioMessages('composer-image-attachments-appended', {
         attachmentCount: uploadedAttachments.length,
         names: uploadedAttachments.map((attachment) => attachment.name),
@@ -120,7 +108,7 @@ export function useStudioComposerAttachments(): UseStudioComposerAttachmentsResu
       name: extractNameFromUrl(image.url),
       detail: image.detail,
     }))
-    setAttachments((current) => appendWithinLimit(current, nextAttachments))
+    setAttachments((current) => [...current, ...nextAttachments])
     setAttachmentError(null)
     return nextAttachments
   }, [])
@@ -151,15 +139,4 @@ export function useStudioComposerAttachments(): UseStudioComposerAttachmentsResu
     retainAttachments,
     clearAttachments,
   }
-}
-
-function appendWithinLimit(
-  current: StudioComposerAttachment[],
-  incoming: StudioComposerAttachment[],
-): StudioComposerAttachment[] {
-  if (incoming.length === 0) {
-    return current
-  }
-
-  return [...current, ...incoming].slice(0, MAX_IMAGES)
 }

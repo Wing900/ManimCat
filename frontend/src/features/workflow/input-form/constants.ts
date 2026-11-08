@@ -1,6 +1,5 @@
 import type { Quality } from '../../../shared/types/api';
 
-export const MAX_IMAGES = 3;
 export const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
 
 export const QUALITY_OPTIONS: Array<{ value: Quality; label: string; desc: string }> = [

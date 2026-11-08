@@ -1,5 +1,5 @@
 import type { OutputMode, Quality } from '../../../shared/types/api';
-import { MAX_IMAGES, QUALITY_OPTIONS } from './constants';
+import { QUALITY_OPTIONS } from './constants';
 import { useI18n } from '../../../shared/i18n/index';
 
 interface FormToolbarProps {
@@ -37,19 +37,19 @@ export function FormToolbar({
           multiple
           className="hidden"
           onChange={(e) => e.target.files && onUploadFiles(e.target.files)}
-          disabled={loading || imageCount >= MAX_IMAGES}
+          disabled={loading}
         />
         <button
           type="button"
           onClick={onOpenImageMode}
-          disabled={loading || imageCount >= MAX_IMAGES}
+          disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-normal text-text-secondary hover:text-text-primary bg-bg-tertiary/30 hover:bg-bg-tertiary/40 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           {imageCount > 0
-            ? t('form.referenceImagesCount', { count: imageCount, max: MAX_IMAGES })
+            ? t('form.referenceImagesCount', { count: imageCount })
             : t('form.referenceImages')}
         </button>
       </div>

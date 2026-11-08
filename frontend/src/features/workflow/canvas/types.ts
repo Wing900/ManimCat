@@ -1,20 +1,10 @@
-export type ToolMode = 'select' | 'pen' | 'eraser';
-
-export interface Point {
-  x: number;
-  y: number;
-}
-
-export interface StrokeObject {
-  id: string;
-  color: string;
-  width: number;
-  points: Point[];
-}
+import type { CanvasObject } from './objects/types';
+export type { Point, StrokeObject, CanvasObject, ShapeKind } from './objects/types';
+export type ToolMode = 'select' | 'pen' | 'eraser' | 'shape';
 
 export interface CanvasPage {
   id: string;
-  strokes: StrokeObject[];
+  objects: CanvasObject[];
 }
 
 export interface PreviewImage {

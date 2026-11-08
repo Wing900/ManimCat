@@ -49,14 +49,14 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     >
       <div className="flex flex-col items-center gap-1.5">
         {icon}
-        {!isToolbarCollapsed && <span className="text-[8px] font-bold uppercase tracking-[0.2em]">{label}</span>}
+        {!isToolbarCollapsed && <span className="text-[11px] font-medium leading-none">{label}</span>}
       </div>
     </button>
   );
 
   return (
     <div className="relative pointer-events-auto">
-      <div className={`flex flex-col gap-3 rounded-[32px] border border-border/5 bg-bg-secondary/40 p-2.5 shadow-2xl backdrop-blur-xl transition-all ${isToolbarCollapsed ? 'w-[68px]' : 'w-[96px]'}`}>
+      <div className={`flex flex-col gap-3 rounded-[2.5rem] border border-border/5 bg-bg-secondary/40 p-2.5 shadow-2xl backdrop-blur-xl transition-all ${isToolbarCollapsed ? 'w-[68px]' : 'w-[96px]'}`}>
         <button
           type="button"
           onClick={onToggleCollapse}
@@ -71,36 +71,47 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
         <div className="flex flex-col gap-2">
           {renderToolButton('select', t('canvas.tool.select'), (
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 3l12 7-5 2 2 5-2 1-2-5-5 2V3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z" />
             </svg>
           ))}
           {renderToolButton('pen', t('canvas.tool.pen'), (
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m15 5 4 4" />
+            </svg>
+          ))}
+          {renderToolButton('shape', t('canvas.tool.shapes'), (
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="5.5" r="3.5" />
+              <rect x="2" y="14" width="7" height="7" rx="0.5" />
+              <path d="m18.5 14 3.5 7h-7Z" />
             </svg>
           ))}
           {renderToolButton('eraser', t('canvas.tool.eraser'), (
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 14a5 5 0 11-10 0 5 5 0 0110 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M19 14H9" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M22 21H7" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m5 11 9 9" />
             </svg>
           ))}
 
           <button
             type="button"
             onClick={onToggleBrushSettings}
+            disabled={tool === 'eraser'}
             className={`flex h-12 ${isToolbarCollapsed ? 'w-12' : 'w-16'} items-center justify-center rounded-2xl transition-all duration-300 ${
               isBrushSettingsOpen
                 ? 'bg-accent text-white shadow-lg shadow-accent/25 scale-[1.05]'
-                : 'bg-bg-primary/40 text-text-secondary hover:text-text-primary hover:bg-bg-primary/80'
+                : 'bg-bg-primary/40 text-text-secondary hover:text-text-primary hover:bg-bg-primary/80 disabled:opacity-40'
             }`}
             title={t('canvas.tool.brushSettings')}
           >
             <div className="flex flex-col items-center gap-1.5">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 7h16M7 12h10M10 17h4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 2v4M8 10v4M16 18v4" />
               </svg>
-              {!isToolbarCollapsed && <span className="text-[8px] font-bold uppercase tracking-[0.2em]">{t('canvas.tool.brushSettings')}</span>}
+              {!isToolbarCollapsed && <span className="text-[11px] font-medium leading-none">{t('canvas.tool.brushSettings')}</span>}
             </div>
           </button>
         </div>
@@ -116,9 +127,10 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
           >
             <div className="flex flex-col items-center gap-1.5">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 7h12M9 7V5h6v2m-7 4v6m4-6v6m4-6v6M7 7l1 12h8l1-12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 11v6M14 11v6" />
               </svg>
-              {!isToolbarCollapsed && <span className="text-[8px] font-bold uppercase tracking-[0.2em]">{t('canvas.tool.deletePage')}</span>}
+              {!isToolbarCollapsed && <span className="text-[11px] font-medium leading-none">{t('canvas.tool.deletePage')}</span>}
             </div>
           </button>
 
@@ -132,15 +144,15 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 5v14m-7-7h14" />
               </svg>
-              {!isToolbarCollapsed && <span className="text-[8px] font-bold uppercase tracking-[0.2em]">{t('canvas.tool.addPage')}</span>}
+              {!isToolbarCollapsed && <span className="text-[11px] font-medium leading-none">{t('canvas.tool.addPage')}</span>}
             </div>
           </button>
         </div>
       </div>
 
-      {tool === 'pen' && isBrushSettingsOpen && (
-        <div className="absolute left-[calc(100%+16px)] top-0 w-48 rounded-[28px] border border-border/5 bg-bg-secondary/80 p-5 shadow-2xl backdrop-blur-xl animate-fade-in-soft">
-          <div className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary/40">{t('canvas.color')}</div>
+      {tool !== 'eraser' && isBrushSettingsOpen && (
+        <div className="absolute left-[calc(100%+16px)] top-0 w-44 rounded-[28px] border border-border/5 bg-bg-secondary/80 p-5 shadow-2xl backdrop-blur-xl animate-fade-in-soft">
+          <div className="mb-3.5 text-[11px] font-medium text-text-secondary/50">{t('canvas.color')}</div>
           <div className="grid grid-cols-4 gap-2.5">
             {COLOR_PRESETS.map((preset) => (
               <button
@@ -163,7 +175,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
             <span className="font-mono text-[10px] text-text-secondary/40 uppercase tracking-tighter">{color}</span>
           </div>
 
-          <div className="mt-8 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-text-secondary/40">{t('canvas.stroke')}</div>
+          <div className="mt-7 mb-3.5 text-[11px] font-medium text-text-secondary/50">{t('canvas.stroke')}</div>
           <input
             type="range"
             min={2}
@@ -172,10 +184,10 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
             onChange={(event) => onChangeStrokeWidth(Number(event.target.value))}
             className="w-full accent-accent"
           />
-          <div className="mt-3 flex items-center justify-between font-mono text-[9px] uppercase tracking-widest text-text-secondary/40">
-            <span>Thin</span>
+          <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-text-secondary/40">
+            <span>{t('canvas.strokeThin')}</span>
             <span>{strokeWidth}px</span>
-            <span>Thick</span>
+            <span>{t('canvas.strokeThick')}</span>
           </div>
         </div>
       )}

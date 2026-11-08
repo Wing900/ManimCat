@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReferenceImage } from '../../../shared/types/api';
-import { MAX_IMAGE_SIZE, MAX_IMAGES } from './constants';
+import { MAX_IMAGE_SIZE } from './constants';
 import { uploadReferenceImage } from '../../../infrastructure/api/api';
 import { useI18n } from '../../../shared/i18n/index';
 
@@ -41,23 +41,15 @@ export function useReferenceImages(options: UseReferenceImagesOptions = {}): Use
         return;
       }
 
-      const remaining = MAX_IMAGES - images.length;
-      if (remaining <= 0) {
-        setImageError(t('reference.limit', { count: MAX_IMAGES }));
-        return;
-      }
-
-      const toAdd = fileArray.slice(0, remaining);
-
       try {
-        for (const file of toAdd) {
+        for (const file of fileArray) {
           if (file.size > MAX_IMAGE_SIZE) {
             throw new Error(t('reference.maxSize', { size: MAX_IMAGE_SIZE / 1024 / 1024 }));
           }
         }
 
         const newImages: ReferenceImage[] = await Promise.all(
-          toAdd.map(async (file) => {
+          fileArray.map(async (file) => {
             const uploaded = await uploadReferenceImage(file);
             return {
               url: uploaded.url,
@@ -70,7 +62,7 @@ export function useReferenceImages(options: UseReferenceImagesOptions = {}): Use
         setImageError(err instanceof Error ? err.message : t('reference.processFailed'));
       }
     },
-    [images.length, t]
+    [t]
   );
 
   const removeImage = useCallback((index: number) => {
@@ -82,7 +74,7 @@ export function useReferenceImages(options: UseReferenceImagesOptions = {}): Use
     if (nextImages.length === 0) {
       return;
     }
-    setImages((prev) => [...prev, ...nextImages].slice(0, MAX_IMAGES));
+    setImages((prev) => [...prev, ...nextImages]);
     setImageError(null);
   }, []);
 

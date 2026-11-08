@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import type { ReferenceImage } from '../../types'
 
-const MAX_REFERENCE_IMAGES = 3
 const MAX_REFERENCE_IMAGE_URL_LENGTH = 2_000_000
 
 export const referenceImageSchema = z
@@ -26,7 +25,6 @@ export const referenceImageSchema = z
 
 export const referenceImagesSchema = z
   .array(referenceImageSchema)
-  .max(MAX_REFERENCE_IMAGES, `At most ${MAX_REFERENCE_IMAGES} reference images are allowed`)
   .optional()
 
 export function sanitizeReferenceImages(images?: ReferenceImage[]): ReferenceImage[] | undefined {

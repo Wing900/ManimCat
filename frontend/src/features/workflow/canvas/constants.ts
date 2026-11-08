@@ -1,7 +1,9 @@
 import type { CanvasPage } from './types';
 
 export const CANVAS_EXPORT_WIDTH = 1600;
-export const CANVAS_EXPORT_HEIGHT = 1000;
+export const CANVAS_EXPORT_HEIGHT = 900;
+// 纸在亮暗两色下都保持这张暖白：线条接近黑色，且这张图会原样送给模型。
+export const CANVAS_PAPER_COLOR = '#fffefb';
 export const DEFAULT_COLOR = '#1d1d1f';
 export const DEFAULT_WIDTH = 6;
 export const ERASER_RADIUS = 24;
@@ -10,6 +12,6 @@ export const COLOR_PRESETS = ['#1d1d1f', '#ffffff', '#ff3b30', '#ff9500', '#ffcc
 export function createPage(): CanvasPage {
   return {
     id: crypto.randomUUID(),
-    strokes: [],
+    objects: [],
   };
 }
