@@ -86,31 +86,46 @@
 
 ### 界面
 
-#### 主流程
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/6254cd17-d886-49ba-8c59-71c69e995253" width="100%" alt="主界面" />
+</div>
+<p align="center"><sub>描述需求，选择分辨率与输出类型。</sub></p>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/6254cd17-d886-49ba-8c59-71c69e995253" width="46%" alt="主界面：输入自然语言，选择分辨率与视频 / 图片输出" />
-  <img src="https://github.com/user-attachments/assets/312a7966-2417-4526-a3cb-5125a0889000" width="46%" alt="规划卡：生成前先整理本片问题、一句话答案与分步讲解" />
+  <img src="https://github.com/user-attachments/assets/312a7966-2417-4526-a3cb-5125a0889000" width="100%" alt="规划卡" />
 </div>
+<p align="center"><sub>生成前整理问题、答案与讲解结构。</sub></p>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/3ad5e084-c365-4ee1-89a4-9170c606586c" width="46%" alt="生成中：等待态、进度与 2048 小游戏入口" />
-  <img src="https://github.com/user-attachments/assets/9dbae977-337b-44d2-a3bb-62bc763cee4f" width="46%" alt="结果页：预览、下载视频、AI 修改与重新生成" />
+  <img src="https://github.com/user-attachments/assets/3ad5e084-c365-4ee1-89a4-9170c606586c" width="100%" alt="生成中" />
 </div>
+<p align="center"><sub>渲染进度与状态。</sub></p>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/9dbae977-337b-44d2-a3bb-62bc763cee4f" width="100%" alt="结果页" />
+</div>
+<p align="center"><sub>预览、下载、修改与重新生成。</sub></p>
 
 #### Agent 模式
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/faa343ca-4424-402f-a805-1f9aab2d3e20" width="46%" alt="Manim Studio：分场景对话、实时预览与逐轮修改" />
-  <img src="https://github.com/user-attachments/assets/1378de9d-eb0c-431e-a81b-b18613eab5f8" width="46%" alt="Manim Studio：读取、检索、写入、渲染等工具调用的执行过程" />
-</div>
-
-#### 设置与提示词
+分场景对话，工具调用全程可见。
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/2eb6cbfd-52b4-4150-932c-258f68de8ed6" width="46%" alt="AI 连接：CatKey 或使用自己的 API" />
-  <img src="https://github.com/user-attachments/assets/644642ae-d78a-46a2-957e-7f7f8b5c5cad" width="46%" alt="提示词模板：按角色查看与覆盖 System / User 提示词" />
+  <img src="https://github.com/user-attachments/assets/faa343ca-4424-402f-a805-1f9aab2d3e20" width="46%" alt="Manim Studio 对话" />
+  <img src="https://github.com/user-attachments/assets/1378de9d-eb0c-431e-a81b-b18613eab5f8" width="46%" alt="Manim Studio 工具调用" />
 </div>
+
+<details>
+<summary>设置与提示词</summary>
+
+<br />
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/2eb6cbfd-52b4-4150-932c-258f68de8ed6" width="46%" alt="AI 连接" />
+  <img src="https://github.com/user-attachments/assets/644642ae-d78a-46a2-957e-7f7f8b5c5cad" width="46%" alt="提示词模板" />
+</div>
+
+</details>
 
 ## 样例
 

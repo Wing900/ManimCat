@@ -86,31 +86,46 @@ The project is now organized around three clear axes: `dual-mode`, `dual-engine`
 
 ### Interface
 
-#### Main flow
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/6254cd17-d886-49ba-8c59-71c69e995253" width="100%" alt="Home" />
+</div>
+<p align="center"><sub>Describe what you want, then pick a resolution and output type.</sub></p>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/6254cd17-d886-49ba-8c59-71c69e995253" width="46%" alt="Home: describe the animation, pick resolution and video / image output" />
-  <img src="https://github.com/user-attachments/assets/312a7966-2417-4526-a3cb-5125a0889000" width="46%" alt="Planning card: the question, the one-line answer, and the step-by-step plan" />
+  <img src="https://github.com/user-attachments/assets/312a7966-2417-4526-a3cb-5125a0889000" width="100%" alt="Planning card" />
 </div>
+<p align="center"><sub>Settle the question, the answer, and the structure before generating.</sub></p>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/3ad5e084-c365-4ee1-89a4-9170c606586c" width="46%" alt="Generating: progress, status, and the 2048 game link" />
-  <img src="https://github.com/user-attachments/assets/9dbae977-337b-44d2-a3bb-62bc763cee4f" width="46%" alt="Result: preview, download, AI edits, and regeneration" />
+  <img src="https://github.com/user-attachments/assets/3ad5e084-c365-4ee1-89a4-9170c606586c" width="100%" alt="Generating" />
 </div>
+<p align="center"><sub>Render progress and status.</sub></p>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/9dbae977-337b-44d2-a3bb-62bc763cee4f" width="100%" alt="Result" />
+</div>
+<p align="center"><sub>Preview, download, modify, or regenerate.</sub></p>
 
 #### Agent mode
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/faa343ca-4424-402f-a805-1f9aab2d3e20" width="46%" alt="Manim Studio: per-scene conversation with live preview and iterative edits" />
-  <img src="https://github.com/user-attachments/assets/1378de9d-eb0c-431e-a81b-b18613eab5f8" width="46%" alt="Manim Studio: read, search, write and render tool calls as they run" />
-</div>
-
-#### Settings and prompts
+Per-scene conversation, with every tool call in view.
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/2eb6cbfd-52b4-4150-932c-258f68de8ed6" width="46%" alt="AI connection: CatKey or your own API" />
-  <img src="https://github.com/user-attachments/assets/644642ae-d78a-46a2-957e-7f7f8b5c5cad" width="46%" alt="Prompt templates: inspect and override System / User prompts per role" />
+  <img src="https://github.com/user-attachments/assets/faa343ca-4424-402f-a805-1f9aab2d3e20" width="46%" alt="Manim Studio conversation" />
+  <img src="https://github.com/user-attachments/assets/1378de9d-eb0c-431e-a81b-b18613eab5f8" width="46%" alt="Manim Studio tool calls" />
 </div>
+
+<details>
+<summary>Settings and prompts</summary>
+
+<br />
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/2eb6cbfd-52b4-4150-932c-258f68de8ed6" width="46%" alt="AI connection" />
+  <img src="https://github.com/user-attachments/assets/644642ae-d78a-46a2-957e-7f7f8b5c5cad" width="46%" alt="Prompt templates" />
+</div>
+
+</details>
 
 ## Examples
 
