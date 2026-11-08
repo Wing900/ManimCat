@@ -13,12 +13,13 @@ interface ResultSectionProps {
   code: string;
   outputMode: OutputMode;
   videoUrl: string;
+  hardsubUrl?: string;
   imageUrls: string[];
   renderQuality: string;
   quality?: Quality;
   frameRate?: number;
   onCodeChange?: (code: string) => void;
-  onRerender?: (quality?: Quality, frameRate?: number) => void;
+  onRerender?: (quality?: Quality, frameRate?: number, burnSubtitles?: boolean) => void;
   onAiModify?: () => void;
   onNewContent?: () => void;
   isBusy?: boolean;
@@ -28,6 +29,7 @@ export const ResultSection = memo(function ResultSection({
   code,
   outputMode,
   videoUrl,
+  hardsubUrl,
   imageUrls,
   renderQuality,
   quality,
@@ -67,6 +69,7 @@ export const ResultSection = memo(function ResultSection({
       {/* 主操作区 */}
       <ResultActions
         videoUrl={videoUrl}
+        hardsubUrl={hardsubUrl}
         quality={effectiveQuality}
         frameRate={frameRate}
         outputMode={outputMode}

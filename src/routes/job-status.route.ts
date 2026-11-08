@@ -80,6 +80,7 @@ router.get(
         stage_started_at: stageStartedAt,
         output_mode: result.data.outputMode || 'video',
         video_url: result.data.videoUrl ?? null,
+        hardsub_url: result.data.hardsubUrl ?? null,
         image_urls: result.data.imageUrls,
         image_count: result.data.imageCount,
         code: result.data.code,

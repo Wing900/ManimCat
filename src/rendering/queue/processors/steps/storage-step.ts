@@ -30,6 +30,7 @@ export async function storeResult(
     generationType,
     quality,
     videoUrl,
+    hardsubUrl,
     imageUrls,
     imageCount,
     workspaceVideoPath,
@@ -46,6 +47,7 @@ export async function storeResult(
     data: {
       outputMode,
       videoUrl,
+      hardsubUrl,
       imageUrls,
       imageCount,
       workspaceVideoPath,

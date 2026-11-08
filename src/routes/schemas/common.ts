@@ -71,5 +71,6 @@ export const videoConfigSchema = z.object({
   quality: qualitySchema.optional(),
   frameRate: z.number().int().min(1).max(120).optional(),
   timeout: z.number().optional(),
-  narration: narrationConfigSchema.optional()
+  narration: narrationConfigSchema.optional(),
+  burnSubtitles: z.boolean().optional()
 })

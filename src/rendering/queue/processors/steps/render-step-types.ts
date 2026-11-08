@@ -10,6 +10,7 @@ export interface RenderResult {
   generationType: string
   quality: string
   videoUrl?: string
+  hardsubUrl?: string
   imageUrls?: string[]
   imageCount?: number
   workspaceVideoPath?: string

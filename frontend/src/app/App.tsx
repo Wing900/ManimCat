@@ -247,19 +247,22 @@ function App() {
     problemFraming.reset();
   };
 
-  const handleRerender = (quality?: Quality, frameRate?: number) => {
+  const handleRerender = (quality?: Quality, frameRate?: number, burnSubtitles = false) => {
     const code = currentCode.trim() || result?.code?.trim() || lastCompletedResult?.code?.trim() || '';
     if (!lastRequest || !code) {
       return;
     }
 
     const baseVideoConfig = lastRequest.videoConfig ?? loadSettings().video;
+    const { burnSubtitles: _previousBurn, ...cleanBase } = baseVideoConfig;
     const nextQuality = quality ?? lastRequest.quality;
-    const nextFrameRate = frameRate ?? baseVideoConfig.frameRate;
-    const videoConfig = { ...baseVideoConfig, quality: nextQuality, frameRate: nextFrameRate };
-    const nextRequest = { ...lastRequest, quality: nextQuality, videoConfig };
-    setLastRequest(nextRequest);
-    renderWithCode({ ...nextRequest, code });
+    const nextFrameRate = frameRate ?? cleanBase.frameRate;
+    const videoConfig = { ...cleanBase, quality: nextQuality, frameRate: nextFrameRate };
+    // Burning is a per-download choice, not a sticky setting: the request carries it,
+    // while the request remembered for later rerenders stays clean.
+    const requestVideoConfig = burnSubtitles ? { ...videoConfig, burnSubtitles: true } : videoConfig;
+    setLastRequest({ ...lastRequest, quality: nextQuality, videoConfig });
+    renderWithCode({ ...lastRequest, quality: nextQuality, videoConfig: requestVideoConfig, code });
   };
 
   const handleAiModifySubmit = (instructions: string) => {

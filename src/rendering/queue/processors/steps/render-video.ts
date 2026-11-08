@@ -11,6 +11,7 @@ import {
   resolveNarrationWorkspace
 } from '../../../manim/narration-mixer'
 import { publishNarrationForReuse } from '../../../manim/narration-reuse'
+import { burnSubtitles } from '../../../manim/hardsub'
 import { ensureJobNotCancelled } from '../../../job/job-cancel'
 import { isJobCancelled } from '../../../job/job-cancel-store'
 import { storeJobStage } from '../../../../infrastructure/redis/job/redis-job-state-store'
@@ -267,6 +268,29 @@ export async function renderVideo(
     fs.copyFileSync(subtitleVttPath, path.join(outputDir, `${jobId}.vtt`))
   }
 
+  // Optional burn-in for downloads: preview keeps the soft track, the burned file is
+  // a separate artifact. A failure degrades to the normal video, never fails the job.
+  let hardsubUrl: string | undefined
+  const vttInOutput = path.join(outputDir, `${jobId}.vtt`)
+  if (videoConfig?.burnSubtitles === true && fs.existsSync(vttInOutput)) {
+    const burnStart = performance.now()
+    try {
+      await burnSubtitles({
+        directory: outputDir,
+        videoBasename: outputFilename,
+        subtitleBasename: `${jobId}.vtt`,
+        outputBasename: `${jobId}-hardsub.mp4`
+      })
+      timings.hardsub = (timings.hardsub || 0) + (performance.now() - burnStart)
+      hardsubUrl = `/videos/${jobId}-hardsub.mp4`
+    } catch (error) {
+      logger.warn('Subtitle burn failed; delivering the video without burned captions', {
+        jobId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
   const workspaceVideoPath = writeVideoIntoWorkspace(workspaceDirectory, jobId, outputPath, workspaceOutputDirectory)
 
   return {
@@ -279,6 +303,7 @@ export async function renderVideo(
     generationType,
     quality,
     videoUrl: `/videos/${outputFilename}`,
+    hardsubUrl,
     workspaceVideoPath,
     renderPeakMemoryMB: lastRenderPeakMemoryMB
   }

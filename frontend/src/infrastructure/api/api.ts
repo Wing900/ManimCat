@@ -10,6 +10,7 @@ import type {
   ProblemFramingResponse
 } from '../../shared/types/api';
 import { loadSettings } from '../storage/settings';
+import { deriveSubtitleUrl, videoJobId } from '../../shared/media/subtitle-url';
 import { getConnectionHeaders, withConnectionProvider } from '../../features/connection/connection-request';
 import { localizeApiMessage, translate } from '../../shared/i18n/runtime';
 
@@ -189,4 +190,38 @@ export async function cancelJob(jobId: string): Promise<void> {
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response, translate('api.cancelFailed')));
   }
+}
+
+/** HEAD the VTT sidecar: the web player derives it from the video URL. */
+export async function hasSubtitleSidecar(videoUrl: string): Promise<boolean> {
+  const subtitleUrl = deriveSubtitleUrl(videoUrl)
+  if (!subtitleUrl) {
+    return false;
+  }
+  try {
+    const response = await fetch(subtitleUrl, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Ask the backend to paint the VTT onto the picture; returns the burned MP4 URL. */
+export async function requestBurnedVideo(videoUrl: string): Promise<string> {
+  const jobId = videoJobId(videoUrl);
+  if (!jobId) {
+    throw new Error(translate('result.burnFailed'));
+  }
+  const response = await fetch(`${API_BASE}/videos/${encodeURIComponent(jobId)}/hardsub`, {
+    method: 'POST',
+    headers: { 'x-client-id': getClientId() },
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response, translate('result.burnFailed')));
+  }
+  const payload = (await response.json()) as { url?: unknown };
+  if (typeof payload.url !== 'string' || !payload.url) {
+    throw new Error(translate('result.burnFailed'));
+  }
+  return payload.url;
 }

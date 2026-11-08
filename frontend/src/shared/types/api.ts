@@ -57,6 +57,8 @@ export interface VideoConfig {
   timeout?: number;
   /** 旁白配音 */
   narration?: NarrationConfig;
+  /** 下载时把字幕烧录进画面（单独产出，预览不受影响） */
+  burnSubtitles?: boolean;
 }
 
 /** 本地产品设置。连接凭据不再放这里，见 features/connection 的 manimcat_connection。 */
@@ -215,6 +217,7 @@ export interface JobResult {
   attempt?: number;
   output_mode?: OutputMode;
   video_url?: string | null;
+  hardsub_url?: string | null;
   image_urls?: string[];
   image_count?: number;
   code?: string;

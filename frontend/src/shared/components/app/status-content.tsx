@@ -29,7 +29,7 @@ interface StatusContentProps {
   lastRequest: LastRequest | null;
   onSubmit: (data: LastRequest) => void;
   onCodeChange: (code: string) => void;
-  onRerender: (quality?: Quality, frameRate?: number) => void;
+  onRerender: (quality?: Quality, frameRate?: number, burnSubtitles?: boolean) => void;
   onAiModifyOpen: () => void;
   onResetAll: () => void;
   onBackToHome: () => void;
@@ -201,7 +201,7 @@ interface ResultContentProps {
   lastRequest: LastRequest | null;
   isBusy: boolean;
   onCodeChange: (code: string) => void;
-  onRerender: (quality?: Quality, frameRate?: number) => void;
+  onRerender: (quality?: Quality, frameRate?: number, burnSubtitles?: boolean) => void;
   onAiModifyOpen: () => void;
   onResetAll: () => void;
 }
@@ -227,6 +227,7 @@ function ResultContent({
         code={currentCode || result.code || ''}
         outputMode={result.output_mode || lastRequest?.outputMode || 'video'}
         videoUrl={result.video_url || ''}
+        hardsubUrl={result.hardsub_url || undefined}
         imageUrls={result.image_urls || []}
         renderQuality={result.render_quality || ''}
         quality={lastRequest?.quality}

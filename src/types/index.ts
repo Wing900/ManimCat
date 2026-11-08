@@ -19,6 +19,8 @@ export interface VideoConfig {
   timeout?: number
   /** Opt-in narration. The workflow generates and muxes it automatically. */
   narration?: NarrationConfig
+  /** Burn captions into a separate download artifact instead of only muxing a track. */
+  burnSubtitles?: boolean
 }
 
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed'
@@ -148,6 +150,7 @@ export interface CompletedJobResult {
   data: {
     outputMode: OutputMode
     videoUrl?: string
+    hardsubUrl?: string
     imageUrls?: string[]
     imageCount?: number
     workspaceVideoPath?: string
