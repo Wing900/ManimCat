@@ -24,6 +24,9 @@ export interface ManimGxInvocation {
 
 /** Build the runner argv. Paths are already expressed in the sandbox namespace. */
 export function buildManimGxInvocation(options: ManimGxInvocationOptions): ManimGxInvocation {
+  if (Boolean(options.narrationManifestPath) !== Boolean(options.narrationSyncReportPath)) {
+    throw new Error('ManimGX narration requires both a manifest and a sync report path')
+  }
   const resolution = RESOLUTIONS[options.quality] ?? RESOLUTIONS.medium
 
   return {

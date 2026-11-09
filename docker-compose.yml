@@ -27,6 +27,9 @@ services:
       args:
         - NODE_ENV=production
     image: manimcat:latest
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./config/docker/render-sandbox-seccomp.json
     # Compose provides the shared Redis service. Bypass the image's Hugging Face
     # single-container launcher, which owns an embedded localhost Redis instance.
     command: ["node", "dist/server.js"]

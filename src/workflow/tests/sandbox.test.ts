@@ -13,6 +13,7 @@ import {
   resolvePythonRuntime,
   stageNarrationForSandbox,
 } from '../../rendering/sandbox'
+import { buildManimGxInvocation } from '../../rendering/manim/manimgx-runtime'
 import { executeMatplotlibRender } from '../../rendering/matplotlib/matplotlib-executor'
 import { executeManimCommand } from '../../utils/manim-executor'
 
@@ -23,6 +24,20 @@ const requireIntegration = process.env.MANIMCAT_REQUIRE_SANDBOX_TESTS === '1'
 function writeFile(filePath: string, contents: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, contents)
+}
+
+/** Windows without Developer Mode cannot create symlinks; Linux CI still exercises them. */
+function tryCreateFileSymlink(target: string, link: string): boolean {
+  try {
+    fs.symlinkSync(target, link, 'file')
+    return true
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'EPERM' || code === 'EACCES' || code === 'ENOSYS' || code === 'UNKNOWN') {
+      return false
+    }
+    throw error
+  }
 }
 
 function makeSandboxDirectories(root: string): {
@@ -106,6 +121,17 @@ test('sandbox invocation has mandatory namespaces, no host root, and an explicit
       assert.equal(invocation.env.HOME, '/work/home')
       assert.ok(!invocation.args.some((value) => value.includes('must-not-leak')))
       assert.equal(invocation.spawnEnv.MANIMCAT_SANDBOX_TEST_SECRET, undefined)
+
+      // Runner files may only be mounted under their dedicated directory.
+      assert.throws(
+        () => buildSandboxInvocation({
+          label: 'unsafe-runner-destination',
+          executable: '/usr/bin/python3',
+          cwd: '/',
+          readOnlyFiles: [{ source: runner, destination: '/etc/passwd' }],
+        }, '/usr/bin/bwrap'),
+        /Unsafe sandbox runner file destination/i
+      )
     } finally {
       if (previousSecret === undefined) {
         delete process.env.MANIMCAT_SANDBOX_TEST_SECRET
@@ -168,9 +194,20 @@ test('runtime mounts validate symlink targets and still support venv executable 
     const venv = path.join(root, 'venv')
     const venvBin = path.join(venv, 'bin')
     fs.mkdirSync(venvBin, { recursive: true })
-    writeFile(path.join(venv, 'pyvenv.cfg'), 'home = /usr/bin\n')
+    const basePython = fs.realpathSync(resolvePythonRuntime({ envName: 'MANIMGX_PYTHON' }).executable)
+    writeFile(path.join(venv, 'pyvenv.cfg'), `home = ${path.dirname(basePython)}\n`)
     const venvPython = path.join(venvBin, 'python')
-    fs.symlinkSync('/usr/bin/python3', venvPython)
+    fs.symlinkSync(basePython, venvPython)
+
+    assert.throws(
+      () => buildSandboxInvocation({
+        label: 'sensitive-runtime',
+        executable: '/usr/bin/python3',
+        cwd: '/',
+        runtimeDirectories: ['/etc'],
+      }, '/usr/bin/bwrap'),
+      /unsafe runtime mount/i
+    )
 
     const runtime = resolvePythonRuntime({ explicit: venvPython })
     assert.equal(runtime.executable, venvPython)
@@ -190,7 +227,7 @@ test('runtime mounts validate symlink targets and still support venv executable 
   }
 })
 
-test('artifact publication accepts only regular non-symlink files', () => {
+test('artifact publication accepts only regular, single-link non-symlink files', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-artifacts-'))
   try {
     const output = path.join(root, 'output')
@@ -199,20 +236,30 @@ test('artifact publication accepts only regular non-symlink files', () => {
     writeFile(regularPng, 'png-bytes')
     assert.deepEqual(listPngArtifacts(output), [regularPng])
 
-    const linkedPng = path.join(output, 'plot_2.png')
-    fs.symlinkSync('/etc/passwd', linkedPng)
-    assert.throws(() => listPngArtifacts(output), /symlink/i)
+    const hardPng = path.join(output, 'plot_2.png')
+    fs.linkSync(regularPng, hardPng)
+    assert.throws(() => listPngArtifacts(output), /hard link/i)
+    fs.rmSync(hardPng)
 
-    const linkedVideo = path.join(root, 'output.mp4')
-    fs.symlinkSync('/usr/bin/true', linkedVideo)
-    assert.throws(() => assertRegularNonSymlinkFile(linkedVideo, 'Manim output'), /symlink/i)
-    assert.throws(
-      () => copyVerifiedRegularFile(linkedVideo, path.join(root, 'published.mp4')),
-      /symlink/i
-    )
+    const outside = path.join(root, 'outside.txt')
+    writeFile(outside, 'outside')
+    const linkedPng = path.join(output, 'plot_2.png')
+    if (tryCreateFileSymlink(outside, linkedPng)) {
+      assert.throws(() => listPngArtifacts(output), /symlink/i)
+      fs.rmSync(linkedPng)
+
+      const linkedVideo = path.join(root, 'output.mp4')
+      fs.symlinkSync(outside, linkedVideo)
+      assert.throws(() => assertRegularNonSymlinkFile(linkedVideo, 'Manim output'), /symlink/i)
+      assert.throws(
+        () => copyVerifiedRegularFile(linkedVideo, path.join(root, 'published.mp4')),
+        /symlink/i
+      )
+    } else {
+      t.diagnostic('symlink creation is not permitted on this host; Linux CI covers symlink rejection')
+    }
 
     // Even if a symlink is swapped in after the first check, O_NOFOLLOW refuses it.
-    fs.rmSync(linkedPng)
     const safeTarget = path.join(root, 'published.png')
     copyVerifiedRegularFile(regularPng, safeTarget)
     assert.equal(fs.readFileSync(safeTarget, 'utf8'), 'png-bytes')
@@ -221,7 +268,7 @@ test('artifact publication accepts only regular non-symlink files', () => {
   }
 })
 
-test('narration staging rewrites parent paths and rejects symlinked audio', () => {
+test('narration staging rewrites parent paths, contains sources, and tolerates missing segment audio', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-narration-'))
   try {
     const narrationDirectory = path.join(root, 'workspace', 'narration')
@@ -252,27 +299,80 @@ test('narration staging rewrites parent paths and rejects symlinked audio', () =
     assert.equal(stagedText.includes(root), false)
     const document = JSON.parse(stagedText) as {
       audioPath: string
-      segments: Array<{ audioPath: string }>
+      segments: Array<{ audioPath?: string }>
     }
     assert.ok(document.audioPath.startsWith('/input/narration/'))
-    assert.ok(document.segments[0].audioPath.startsWith('/input/narration/'))
+    assert.ok(document.segments[0].audioPath?.startsWith('/input/narration/'))
 
-    const linkedAudio = path.join(narrationDirectory, 'linked.wav')
-    fs.symlinkSync('/etc/passwd', linkedAudio)
+    // A reused manifest may outlive its segment files. The runtime never reads
+    // them, so a missing segment file must not fail the render.
+    fs.rmSync(segmentPath)
+    stageNarrationForSandbox({ inputDirectory, manifestPath })
+    const withoutSegment = JSON.parse(
+      fs.readFileSync(path.join(inputDirectory, 'narration', 'manifest.json'), 'utf8')
+    ) as { segments: Array<{ audioPath?: string }> }
+    assert.equal(withoutSegment.segments[0].audioPath, undefined)
+
+    // A manifest must not be able to copy an arbitrary host file into /input.
+    const outsideAudio = path.join(root, 'outside.wav')
+    writeFile(outsideAudio, 'outside')
     writeFile(manifestPath, JSON.stringify({
       version: 1,
-      audioPath: linkedAudio,
+      audioPath: outsideAudio,
       duration: 1,
-      segments: [{ id: 's1', start: 0, duration: 1, audioPath: linkedAudio, cues: {} }],
+      segments: [],
       cues: {},
     }))
     assert.throws(
       () => stageNarrationForSandbox({ inputDirectory, manifestPath }),
-      /symlink/i
+      /inside the narration manifest directory/i
     )
+
+    const linkedAudio = path.join(narrationDirectory, 'linked.wav')
+    if (tryCreateFileSymlink(outsideAudio, linkedAudio)) {
+      writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        audioPath: linkedAudio,
+        duration: 1,
+        segments: [],
+        cues: {},
+      }))
+      assert.throws(
+        () => stageNarrationForSandbox({ inputDirectory, manifestPath }),
+        /symlink/i
+      )
+    } else {
+      t.diagnostic('symlink creation is not permitted on this host; Linux CI covers symlink rejection')
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('ManimGX invocation keeps narration manifest and sync report paired', () => {
+  const base = {
+    python: '/usr/bin/python3',
+    codeFile: '/input/scene.py',
+    outputPath: '/output/output.mp4',
+    quality: 'low',
+    frameRate: 30,
+    format: 'mp4' as const,
+  }
+  assert.throws(
+    () => buildManimGxInvocation({ ...base, narrationManifestPath: '/input/narration/manifest.json' }),
+    /both a manifest and a sync report/i
+  )
+  assert.throws(
+    () => buildManimGxInvocation({ ...base, narrationSyncReportPath: '/output/sync-report.json' }),
+    /both a manifest and a sync report/i
+  )
+  const invocation = buildManimGxInvocation({
+    ...base,
+    narrationManifestPath: '/input/narration/manifest.json',
+    narrationSyncReportPath: '/output/sync-report.json',
+  })
+  assert.ok(invocation.args.includes('--narration=/input/narration/manifest.json'))
+  assert.ok(invocation.args.includes('--sync-report=/output/sync-report.json'))
 })
 
 test('sandbox blocks host files, secrets, host processes, network and other tasks', {

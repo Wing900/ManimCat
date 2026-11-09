@@ -31,6 +31,7 @@ ENV HOME=/home/node
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 ENV NODE_ENV=production
+ENV MANIMCAT_TINI_PROCESS_GROUP=1
 
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Retries=3 update -qq \
@@ -48,6 +49,8 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
         libstdc++6 \
         mesa-vulkan-drivers \
         redis-server \
+        tini \
+        util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -f
 
@@ -84,6 +87,15 @@ EXPOSE 7860
 
 # Drop root for the server process and every renderer it spawns.
 USER node
+
+# A private outer user/mount/PID namespace gives bubblewrap a writable,
+# namespace-local proc sysctl tree for --disable-userns. The host UID remains
+# node; no host capabilities or global sysctl changes are needed. Docker must
+# use config/docker/render-sandbox-seccomp.json (wired into docker-compose.yml).
+# tini is container PID 1 and forwards Docker stop to the child's process group;
+# unshare alone ignores SIGTERM as PID 1 and would force a SIGKILL timeout.
+# Kill the child namespace when the launcher exits, including during shutdown.
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/bin/unshare", "--user", "--map-root-user", "--mount", "--mount-proc", "--propagation", "private", "--pid", "--fork", "--kill-child=KILL", "--"]
 
 # Probe /health on the configured PORT. timeout/start-period are short enough that a wedged
 # container is restarted instead of kept on life support.

@@ -14,6 +14,8 @@ const O_NOFOLLOW = fs.constants.O_NOFOLLOW ?? 0
 
 export interface VerifyFileOptions {
   allowEmpty?: boolean
+  /** Reject hard links as well as symlinks. Sandbox artifacts are always new files. */
+  rejectHardLinks?: boolean
 }
 
 export function assertRegularNonSymlinkFile(
@@ -35,6 +37,9 @@ export function assertRegularNonSymlinkFile(
   }
   if (!options.allowEmpty && stat.size === 0) {
     throw new Error(`${label} is empty: ${candidate}`)
+  }
+  if (options.rejectHardLinks && stat.nlink > 1) {
+    throw new Error(`${label} must not be a hard link: ${candidate}`)
   }
   return stat
 }
@@ -61,6 +66,9 @@ export function copyVerifiedRegularFile(
     }
     if (!options.allowEmpty && stat.size === 0) {
       throw new Error(`Sandbox artifact is empty: ${source}`)
+    }
+    if (options.rejectHardLinks && stat.nlink > 1) {
+      throw new Error(`Sandbox artifact must not be a hard link: ${source}`)
     }
 
     fs.mkdirSync(path.dirname(target), { recursive: true })
@@ -108,7 +116,7 @@ export function listPngArtifacts(outputDirectory: string): string[] {
   for (const entry of entries) {
     if (!entry.name.toLowerCase().endsWith('.png')) continue
     const candidate = path.join(outputDirectory, entry.name)
-    assertRegularNonSymlinkFile(candidate, 'Matplotlib PNG artifact')
+    assertRegularNonSymlinkFile(candidate, 'Matplotlib PNG artifact', { rejectHardLinks: true })
     artifacts.push(candidate)
   }
 
@@ -121,7 +129,7 @@ export function publishPngArtifacts(sources: readonly string[], targetDirectory:
   fs.mkdirSync(targetDirectory, { recursive: true })
   return sources.map((source) => {
     const target = path.join(targetDirectory, path.basename(source))
-    copyVerifiedRegularFile(source, target)
+    copyVerifiedRegularFile(source, target, { rejectHardLinks: true })
     return target
   })
 }

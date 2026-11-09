@@ -121,7 +121,7 @@ npm run dev
 
 ManimGX 使用原生 Typst 排版，本地渲染无需安装外部 TeX。Typst 支持在同一表达式中混排中文与数学符号。
 
-本地运行时请创建 Python 3.13+ 虚拟环境，运行 `python -m pip install -r requirements.txt` 安装依赖，再将 `MANIMGX_PYTHON` 设置为该环境的 Python 可执行文件路径，供应用调用渲染器。
+本地运行时请创建 Python 3.13+ 虚拟环境，运行 `python -m pip install -r requirements.txt` 安装依赖，再将 `MANIMGX_PYTHON` 设置为该环境的 Python 可执行文件路径，供应用调用渲染器。后端要求 Linux 和 Bubblewrap；隔离能力不可用时启动失败。Windows/macOS 开发环境请使用满足下方运行要求的 Linux 容器。
 
 如果你直接用 Docker 镜像部署，也可以从 `wingflow/manimcat` 开始，而不是自行本地构建。
 
@@ -199,6 +199,14 @@ flowchart LR
 ```
 
 ## 部署
+
+### 渲染隔离运行要求
+
+ManimGX 与 Matplotlib 提交代码统一通过 Bubblewrap 执行，隔离失败时拒绝执行。Docker 镜像使用 `tini -g` 转发停机信号，并通过 `unshare` 创建私有 User / Mount / PID Namespace，使 `--disable-userns` 仅修改私有命名空间中的设置；宿主机 UID 保持为 `node`（1000）。
+
+请使用仓库的 Docker Compose 配置：它同时设置 `no-new-privileges` 与 `config/docker/render-sandbox-seccomp.json`。直接执行 `docker run` 时，也需传入 `--security-opt no-new-privileges:true` 和 `--security-opt seccomp=<该配置文件路径>`。默认 Docker 策略、部分 AppArmor 策略及部分 Hugging Face Spaces 环境会阻止必要的 namespace 操作，此时镜像启动失败；禁止通过特权容器、全局关闭安全策略或 unconfined 配置绕过。
+
+Seccomp Profile 基于 Docker v28 默认配置，运行环境需使用兼容的 Docker/libseccomp；启用 AppArmor 的宿主机还需允许所需操作的受限策略。渲染进程无网络，仅能访问只读运行库、输入及任务私有输出。本次隔离未新增 CPU、内存、磁盘或进程数量配额，请在容器或宿主机配置资源限制。
 
 ### Hugging Face Spaces（Docker）
 

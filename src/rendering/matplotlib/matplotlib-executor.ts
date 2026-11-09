@@ -42,17 +42,22 @@ function createPrivateSandbox(rootDirectory: string): PrivateSandbox {
     workDirectory: join(rootDirectory, 'work'),
     outputDirectory: join(rootDirectory, 'output'),
   }
-  for (const directory of [
-    sandbox.inputDirectory,
-    sandbox.workDirectory,
-    sandbox.outputDirectory,
-    join(sandbox.workDirectory, 'home'),
-    join(sandbox.workDirectory, '.cache'),
-    join(sandbox.workDirectory, '.config'),
-    join(sandbox.workDirectory, '.local', 'share'),
-    join(sandbox.workDirectory, 'mplconfig'),
-  ]) {
-    fs.mkdirSync(directory, { recursive: true })
+  try {
+    for (const directory of [
+      sandbox.inputDirectory,
+      sandbox.workDirectory,
+      sandbox.outputDirectory,
+      join(sandbox.workDirectory, 'home'),
+      join(sandbox.workDirectory, '.cache'),
+      join(sandbox.workDirectory, '.config'),
+      join(sandbox.workDirectory, '.local', 'share'),
+      join(sandbox.workDirectory, 'mplconfig'),
+    ]) {
+      fs.mkdirSync(directory, { recursive: true })
+    }
+  } catch (error) {
+    fs.rmSync(rootDirectory, { recursive: true, force: true })
+    throw error
   }
   return sandbox
 }
@@ -158,12 +163,17 @@ function runSandboxedPython(
     let finished = false
     let aborted = false
     let killTimer: NodeJS.Timeout | undefined
+    let forceSettleTimer: NodeJS.Timeout | undefined
 
     const cleanup = () => {
       signal?.removeEventListener('abort', handleAbort)
       if (killTimer) {
         clearTimeout(killTimer)
         killTimer = undefined
+      }
+      if (forceSettleTimer) {
+        clearTimeout(forceSettleTimer)
+        forceSettleTimer = undefined
       }
     }
 
@@ -182,15 +192,23 @@ function runSandboxedPython(
     }
 
     const handleAbort = () => {
+      if (finished || aborted) return
       aborted = true
       terminateSandboxProcess(child, 'SIGTERM')
       killTimer = setTimeout(() => {
         if (!finished) terminateSandboxProcess(child, 'SIGKILL')
       }, 2000)
       killTimer.unref?.()
+      // A process stuck in uninterruptible I/O can ignore SIGKILL. Reject with a
+      // bounded fallback instead of leaving the Studio run pending forever.
+      forceSettleTimer = setTimeout(() => {
+        settleReject(new StudioRunCancelledError(readAbortReason(signal)))
+      }, 5000)
+      forceSettleTimer.unref?.()
     }
 
     signal?.addEventListener('abort', handleAbort, { once: true })
+    if (signal?.aborted) handleAbort()
 
     child.stdout?.on('data', (chunk) => {
       stdout += String(chunk)
@@ -203,9 +221,8 @@ function runSandboxedPython(
     })
     child.on('close', (code) => {
       if (finished) return
-      // The sandbox owns a PID namespace; kill any lingering group member before
-      // the caller scans or publishes the private output directory.
-      terminateSandboxProcess(child)
+      // bwrap has exited and its PID namespace is gone; do not signal the old
+      // process group because that PID/PGID may now belong to another process.
       if (aborted) {
         settleReject(new StudioRunCancelledError(readAbortReason(signal)))
         return

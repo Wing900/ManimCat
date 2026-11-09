@@ -39,6 +39,8 @@ const HOST_ENV_ALLOWLIST = [
 ] as const
 
 const FORBIDDEN_RUNTIME_DIRECTORIES = ['/app', '/data', '/home', '/root', '/tmp']
+/** Never accept a runtime mount rooted at kernel/configuration trees. */
+const SENSITIVE_RUNTIME_ROOTS = ['/etc', '/proc', '/sys', '/dev', '/run', '/boot']
 
 export interface SandboxReadOnlyFile {
   source: string
@@ -133,6 +135,9 @@ function isForbiddenRuntimeDirectory(directory: string): boolean {
 
   for (const forbidden of FORBIDDEN_RUNTIME_DIRECTORIES) {
     if (resolved === forbidden) return true
+  }
+  for (const sensitiveRoot of SENSITIVE_RUNTIME_ROOTS) {
+    if (resolved === sensitiveRoot || resolved.startsWith(`${sensitiveRoot}${path.sep}`)) return true
   }
   // A bare home directory would expose far more than the requested runtime.
   // Exact subdirectories such as /app/.venv remain valid: the parent is never mounted.
@@ -333,8 +338,15 @@ export function buildSandboxInvocation(
 
   for (const file of input.readOnlyFiles ?? []) {
     const source = path.resolve(file.source)
-    if (!file.destination.startsWith('/') || file.destination === '/') {
-      throw new SandboxUnavailableError(`Unsafe sandbox file destination: ${file.destination}`)
+    const destination = path.posix.normalize(file.destination)
+    // Runner files are only allowed in their dedicated read-only directory. This
+    // prevents a caller mistake from shadowing /etc, /usr or another trusted tree.
+    if (
+      destination !== file.destination ||
+      !destination.startsWith('/runner/') ||
+      destination.includes('/../')
+    ) {
+      throw new SandboxUnavailableError(`Unsafe sandbox runner file destination: ${file.destination}`)
     }
     let stat: fs.Stats
     try {
@@ -345,7 +357,8 @@ export function buildSandboxInvocation(
     if (stat.isSymbolicLink() || !stat.isFile()) {
       throw new SandboxUnavailableError(`Sandbox runner file must be a regular file: ${source}`)
     }
-    appendReadOnlyMount(args, source, file.destination, false)
+    const realSource = fs.realpathSync(source)
+    appendReadOnlyMount(args, realSource, destination, false)
   }
 
   const env = buildChildEnvironment(input)

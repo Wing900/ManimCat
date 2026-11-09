@@ -21,7 +21,8 @@ interface StagedManifestSegment {
   id: unknown
   start: unknown
   duration: unknown
-  audioPath: string
+  /** Omitted when the (unused) segment file was unavailable or unsafe to stage. */
+  audioPath?: string
   cues: unknown
 }
 
@@ -45,9 +46,17 @@ function resolveSourcePath(value: string, manifestDirectory: string): string {
   return path.isAbsolute(value) ? path.resolve(value) : path.resolve(manifestDirectory, value)
 }
 
+function isInsideDirectory(directory: string, candidate: string): boolean {
+  const relative = path.relative(directory, candidate)
+  return relative === '' ||
+    (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+}
+
 /**
- * Stage narration.wav + all segment WAVs and rewrite the manifest to /input
- * paths. Every source must be a regular non-symlink file.
+ * Stage the narration audio and any available segment audio, then rewrite the
+ * manifest to /input paths. The required top-level audio must be a regular,
+ * non-symlink file inside the manifest directory. Segment audio is unused by the
+ * current runtime and is staged only when it is safe and still present.
  */
 export function stageNarrationForSandbox(options: {
   inputDirectory: string
@@ -57,19 +66,33 @@ export function stageNarrationForSandbox(options: {
   const sourceManifestPath = path.resolve(options.manifestPath)
   const manifest = readManifest(sourceManifestPath)
   const sourceDirectory = path.dirname(sourceManifestPath)
+  // Canonicalise the manifest directory so a relative path or a symlinked parent
+  // cannot make an outside host file look contained.
+  const sourceDirectoryReal = fs.realpathSync(sourceDirectory)
   const narrationDirectory = path.join(options.inputDirectory, 'narration')
   fs.mkdirSync(narrationDirectory, { recursive: true })
 
   const copied = new Map<string, string>()
   let audioIndex = 0
 
-  const stageAudio = (value: unknown, label: string): string => {
+  const stageAudio = (value: unknown, label: string, required: boolean): string | undefined => {
     if (typeof value !== 'string' || !value.trim()) {
       throw new Error(`${label} must be a non-empty path`)
     }
-    const source = resolveSourcePath(value, sourceDirectory)
-    assertRegularNonSymlinkFile(source, label)
+    const source = resolveSourcePath(value, sourceDirectoryReal)
+    try {
+      assertRegularNonSymlinkFile(source, label)
+    } catch (error) {
+      if (required) throw error
+      return undefined
+    }
     const realSource = fs.realpathSync(source)
+    if (!isInsideDirectory(sourceDirectoryReal, realSource)) {
+      if (required) {
+        throw new Error(`${label} must stay inside the narration manifest directory: ${source}`)
+      }
+      return undefined
+    }
     const existing = copied.get(realSource)
     if (existing) return existing
 
@@ -93,19 +116,28 @@ export function stageNarrationForSandbox(options: {
       throw new Error(`Narration manifest segments[${index}] must be an object`)
     }
     const segment = raw as Record<string, unknown>
-    const audioPath = stageAudio(segment.audioPath, `segments[${index}].audioPath`)
+    const rawAudio = segment.audioPath
+    if (rawAudio !== undefined && rawAudio !== null && typeof rawAudio !== 'string') {
+      throw new Error(`segments[${index}].audioPath must be a non-empty path`)
+    }
+    // The current runtime derives every cue from start/duration/cues and never
+    // reads segment audio. Stage it only when it is a safe local file; a reused
+    // manifest whose segment files were cleaned must still be renderable.
+    const audioPath = rawAudio
+      ? stageAudio(rawAudio, `segments[${index}].audioPath`, false)
+      : undefined
     return {
       id: segment.id,
       start: segment.start,
       duration: segment.duration,
-      audioPath,
+      ...(audioPath ? { audioPath } : {}),
       cues: segment.cues,
     }
   })
 
   const staged = {
     version: 1,
-    audioPath: stageAudio(manifest.audioPath, 'audioPath'),
+    audioPath: stageAudio(manifest.audioPath, 'audioPath', true),
     duration: manifest.duration,
     segments,
     cues: manifest.cues,

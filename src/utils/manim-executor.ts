@@ -9,7 +9,6 @@ import {
   resolvePythonRuntime,
   spawnSandboxedProcess,
   stageNarrationForSandbox,
-  terminateSandboxProcess,
   type SandboxInvocationInput
 } from '../rendering/sandbox'
 import {
@@ -171,14 +170,20 @@ function publishManimArtifacts(
   jobId: string
 ): void {
   const sandboxOutput = path.join(prepared.outputDirectory, `output.${format}`)
-  assertRegularNonSymlinkFile(sandboxOutput, 'Manim output artifact')
-  copyVerifiedRegularFile(sandboxOutput, prepared.hostOutputPath)
+  assertRegularNonSymlinkFile(sandboxOutput, 'Manim output artifact', { rejectHardLinks: true })
+  copyVerifiedRegularFile(sandboxOutput, prepared.hostOutputPath, { rejectHardLinks: true })
 
   if (prepared.hostSyncReportPath && prepared.sandboxSyncReportPath) {
     const sandboxReport = path.join(prepared.outputDirectory, 'sync-report.json')
     try {
-      assertRegularNonSymlinkFile(sandboxReport, 'Narration sync report', { allowEmpty: true })
-      copyVerifiedRegularFile(sandboxReport, prepared.hostSyncReportPath, { allowEmpty: true })
+      assertRegularNonSymlinkFile(sandboxReport, 'Narration sync report', {
+        allowEmpty: true,
+        rejectHardLinks: true,
+      })
+      copyVerifiedRegularFile(sandboxReport, prepared.hostSyncReportPath, {
+        allowEmpty: true,
+        rejectHardLinks: true,
+      })
     } catch (error) {
       // The report is diagnostic; a render must not succeed with a fabricated report.
       logger.warn(`Job ${jobId}: narration sync report was not exported`, {
@@ -288,7 +293,12 @@ export function executeManimCommand(
         cancellationReadPending = true
         try {
           const cancelled = await options.isCancelled!()
-          if (cancelled && !settled) cancelManimProcess(normalizedOptions.jobId)
+          if (cancelled && !settled) {
+            // Mark the local process cancelled and also arm the bounded fallback,
+            // so a process that ignores termination cannot hang the worker forever.
+            cancelManimProcess(normalizedOptions.jobId)
+            requestTermination({ kind: 'cancelled' })
+          }
         } catch (error) {
           logger.warn('Unable to read render cancellation marker', { jobId: normalizedOptions.jobId, error: String(error) })
         } finally {
@@ -344,10 +354,9 @@ export function executeManimCommand(
         return
       }
 
-      // bwrap owns a PID namespace, but explicitly reap its process group before
-      // any output is exported so a background child cannot keep writing artifacts.
-      terminateSandboxProcess(proc)
-
+      // bwrap has already exited: its PID namespace is gone, so there is no
+      // surviving child to reap. Do not signal the old process group here; the
+      // PID/PGID may have been reused by an unrelated process.
       if (code === 0) {
         try {
           publishManimArtifacts(prepared, normalizedOptions.format, normalizedOptions.jobId)
