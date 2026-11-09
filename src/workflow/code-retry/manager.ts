@@ -6,7 +6,7 @@ import type {
   RetryManagerResult,
   RetryCheckpoint
 } from './types'
-import type { OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
+import type { OutputMode, PromptOverrides, ProblemFramingPlan, ReferenceImage } from '../../types'
 import { extractErrorContext, extractErrorMessage, getErrorType } from './utils'
 import { retryCodeGeneration } from './code-generation'
 import { JobCancelledError } from '../../shared/errors/errors'
@@ -21,9 +21,11 @@ export function createRetryContext(
   sceneDesign: string,
   promptOverrides?: PromptOverrides,
   outputMode: OutputMode = 'video',
-  problemPlan?: ProblemFramingPlan
+  problemPlan?: ProblemFramingPlan,
+  referenceImages?: ReferenceImage[]
 ): CodeRetryContext {
   return {
+    referenceImages,
     problemPlan,
     concept,
     sceneDesign,

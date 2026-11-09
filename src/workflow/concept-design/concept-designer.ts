@@ -121,6 +121,7 @@ export async function generateTwoStageAIManimCode(
     problemPlan,
     client,
     concept,
+    referenceImages,
     outputMode,
     sceneDesign,
     model,
@@ -140,6 +141,7 @@ export async function generateTwoStageAIManimCode(
         const plan = await generateNarrationStage({
           client,
           model,
+          originalInput: { concept, referenceImages },
           cuePlan: cuePlan!,
           promptOverrides,
           config: narration!.config,

@@ -1,6 +1,7 @@
 import { createLogger } from '../../shared/logging/logger'
 import type { ApiCatalogPackage, ApiRagService } from '../../knowledge/api-rag'
-import type { ChatMessage, CodePatchSet, RetryCheckpoint } from './types'
+import type { CodePatchSet, RetryCheckpoint } from './types'
+import type OpenAI from 'openai'
 import { parseCodeRetryAction } from './action-parser'
 
 const logger = createLogger('CodeRetrySession')
@@ -11,11 +12,11 @@ interface RepairTurnResult {
 }
 
 interface RepairSessionOptions {
-  messages: ChatMessage[]
+  messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
   /** The same process-wide service the Studio Builder tool uses. */
   apiRagService: ApiRagService
   packageName: ApiCatalogPackage
-  requestTurn: (messages: ChatMessage[], turn: number) => Promise<RepairTurnResult>
+  requestTurn: (messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], turn: number) => Promise<RepairTurnResult>
   concept: string
   attempt: number
   onCheckpoint?: RetryCheckpoint

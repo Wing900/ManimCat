@@ -1,7 +1,8 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
 import { getRoleUserPrompt, getRoleSystemPrompt } from '../../prompts'
-import type { OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
+import type { ConceptInput, OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
+import { buildVisionUserMessage } from '../generation/multimodal-input'
 import { formatProblemFramingPlan } from '../generation/request-preparation'
 import {
   buildCompletionDiagnostics,
@@ -28,9 +29,8 @@ function repairInstruction(reason: string): string {
   ].join('\n\n')
 }
 
-interface CodeFromDesignStageParams {
+interface CodeFromDesignStageParams extends ConceptInput {
   client: OpenAI
-  concept: string
   problemPlan?: ProblemFramingPlan
   outputMode: OutputMode
   sceneDesign: string
@@ -86,7 +86,7 @@ export async function generateCodeFromDesignStage(params: CodeFromDesignStagePar
     // Content retry: let AI re-emit on malformed output (max 2 attempts)
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: 'user', content: buildVisionUserMessage(userPrompt, params.referenceImages) }
     ]
     let lastError: Error | undefined
     const queueContentRepair = (contentAttempt: number, content: string, reason: string): boolean => {

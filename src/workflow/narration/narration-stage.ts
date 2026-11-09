@@ -13,6 +13,8 @@ import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastruc
 import { createChatCompletionText } from '../openai-stream'
 import { buildNarrationInput } from './narration-input'
 import type { CuePlan, NarrationConfig, NarrationPlan, NarrationPlanSegment } from './types'
+import type { ConceptInput } from '../../types'
+import { buildVisionUserMessage } from '../generation/multimodal-input'
 
 const logger = createLogger('NarrationStage')
 
@@ -25,6 +27,7 @@ export interface NarrationStageParams {
   client: OpenAI
   model: string
   cuePlan: CuePlan
+  originalInput?: ConceptInput
   config: NarrationConfig
   onCheckpoint?: () => Promise<void>
   /**
@@ -207,7 +210,13 @@ export async function generateNarrationStage(
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: prompt.system },
-    { role: 'user', content: prompt.user }
+    {
+      role: 'user',
+      content: buildVisionUserMessage(
+        params.originalInput ? `Original user task:\n${params.originalInput.concept}\n\n${prompt.user}` : prompt.user,
+        params.originalInput?.referenceImages
+      )
+    }
   ]
 
   logger.info('开始旁白生成', {

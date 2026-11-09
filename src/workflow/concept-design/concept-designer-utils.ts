@@ -1,7 +1,9 @@
 import OpenAI from 'openai'
 import crypto from 'crypto'
 import { getSharedModule } from '../../prompts'
-import type { PromptOverrides, ReferenceImage, VisionImageDetail } from '../../types'
+import type { PromptOverrides } from '../../types'
+
+export { buildVisionUserMessage } from '../generation/multimodal-input'
 
 export function generateUniqueSeed(concept: string): string {
   const timestamp = Date.now()
@@ -23,31 +25,6 @@ export function applyPromptTemplate(
     output = output.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value || '')
   }
   return output
-}
-
-export function buildVisionUserMessage(
-  userPrompt: string,
-  referenceImages?: ReferenceImage[]
-):
-  | string
-  | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail: VisionImageDetail } }> {
-  if (!referenceImages || referenceImages.length === 0) {
-    return userPrompt
-  }
-
-  return [
-    {
-      type: 'text',
-      text: `${userPrompt}\n\n你还会收到参考图片。请根据图片中显示的对象、结构和关系来设计动画。`
-    },
-    ...referenceImages.map((image) => ({
-      type: 'image_url' as const,
-      image_url: {
-        url: image.url,
-        detail: image.detail || 'auto'
-      }
-    }))
-  ]
 }
 
 export function shouldRetryWithoutImages(error: unknown): boolean {

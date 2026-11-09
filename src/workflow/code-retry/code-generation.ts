@@ -2,7 +2,8 @@ import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
 import { cleanManimCode } from '../../utils/manim-code-cleaner'
 import { getClient } from './client'
-import type { ChatMessage, CodeRetryContext, RetryCheckpoint } from './types'
+import type { CodeRetryContext, RetryCheckpoint } from './types'
+import { buildVisionUserMessage } from '../generation/multimodal-input'
 import { buildRetryPrompt, getCodeRetrySystemPrompt } from './prompt-builder'
 import { dedupeSharedBlocksInMessages } from '../prompt-dedup'
 import { createChatCompletionText } from '../openai-stream'
@@ -60,13 +61,15 @@ export async function retryCodeGeneration(
       candidates: automaticResults.map((result) => result.candidates.length)
     })
 
-    const requestMessages: ChatMessage[] = dedupeSharedBlocksInMessages(
+    const requestMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = dedupeSharedBlocksInMessages(
       [
         { role: 'system', content: getCodeRetrySystemPrompt(context.promptOverrides) },
         { role: 'user', content: `${retryPrompt}${automaticApiContext}` }
       ],
       context.promptOverrides
-    )
+    ).map((message) => message.role === 'user'
+      ? { role: 'user', content: buildVisionUserMessage(message.content, context.referenceImages) }
+      : message)
 
     const session = await runRepairSession({
       messages: requestMessages,

@@ -15,6 +15,12 @@ export interface ReferenceImage {
   detail?: VisionImageDetail;
 }
 
+/** Original user input, including every attached reference image. */
+export interface ConceptInput {
+  concept: string;
+  referenceImages?: ReferenceImage[];
+}
+
 export interface CustomApiConfig {
   apiUrl: string;
   apiKey: string;
@@ -123,13 +129,10 @@ export interface JobTokenUsageSummary {
 }
 
 /** 生成请求 */
-export interface GenerateRequest {
-  concept: string;
+export interface GenerateRequest extends ConceptInput {
   problemPlan?: ProblemFramingPlan;
   outputMode: OutputMode;
   quality?: Quality;
-  /** 参考图片 */
-  referenceImages?: ReferenceImage[];
   /** 预生成的代码（使用自定义 AI 时） */
   code?: string;
   /** 视频配置 */
@@ -163,13 +166,11 @@ export interface ProblemFramingPlan {
   specialCases?: string;
 }
 
-export interface ProblemFramingRequest {
-  concept: string;
+export interface ProblemFramingRequest extends ConceptInput {
   feedback?: string;
   feedbackHistory?: string[];
   locale?: PromptLocale;
   currentPlan?: ProblemFramingPlan;
-  referenceImages?: ReferenceImage[];
   promptOverrides?: PromptOverrides;
   customApiConfig?: CustomApiConfig;
 }
@@ -180,8 +181,7 @@ export interface ProblemFramingResponse {
 }
 
 /** AI 修改请求 */
-export interface ModifyRequest {
-  concept: string;
+export interface ModifyRequest extends ConceptInput {
   outputMode: OutputMode;
   quality?: Quality;
   instructions: string;

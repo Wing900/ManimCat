@@ -40,6 +40,7 @@ export async function handlePreGeneratedCode(
     code: preGeneratedCode,
     usedAI: false,
     generationType: 'custom-api',
+    referenceImages: jobData.referenceImages,
     narration: reusedNarration
   }
 

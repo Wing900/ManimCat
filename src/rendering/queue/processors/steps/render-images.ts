@@ -313,6 +313,7 @@ export async function renderImages(
 
   const { finalCode } = await executeRenderWithRetry({
     problemPlan: codeResult.problemPlan,
+    referenceImages: codeResult.referenceImages,
     concept,
     outputMode: 'image',
     sceneDesign,

@@ -39,6 +39,7 @@ export interface GenerationResult {
   generationType: string
   sceneDesign?: string
   problemPlan?: ProblemFramingPlan
+  referenceImages?: ReferenceImage[]
   narration?: NarrationAssets
 }
 
@@ -134,6 +135,7 @@ export async function generateCode(
           generationType: 'two-stage-ai',
           sceneDesign: result.sceneDesign,
           problemPlan,
+          referenceImages,
           narration: result.narration
         }
       }
@@ -157,7 +159,7 @@ export async function generateCode(
 
   if (code) {
     logger.info('Using pre-generated code', { jobId, length: code.length })
-    return { code, usedAI: false, generationType: analysisType, problemPlan }
+    return { code, usedAI: false, generationType: analysisType, problemPlan, referenceImages }
   }
 
   throw new Error('No renderable code was generated')

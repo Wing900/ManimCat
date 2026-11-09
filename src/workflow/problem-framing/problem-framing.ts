@@ -3,12 +3,11 @@ import { createChatCompletionText } from '../openai-stream'
 import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
 import { createLogger } from '../../shared/logging/logger'
 import { getRoleSystemPrompt, getRoleUserPrompt } from '../../prompts'
-import { buildVisionUserMessage, shouldRetryWithoutImages } from '../concept-design/concept-designer-utils'
-import type { CustomApiConfig, PromptLocale, PromptOverrides, ReferenceImage } from '../../types'
+import { buildVisionUserMessage } from '../generation/multimodal-input'
+import type { ConceptInput, CustomApiConfig, PromptLocale, PromptOverrides } from '../../types'
 import { ServiceUnavailableError } from '../../shared/errors/errors'
 import { ProblemFramingFormatError, type ProblemFramingPlan } from './parser'
 import { parseProblemFramingWithRepair } from './format-repair'
-import { executeProblemFramingWithImageFallback } from './retry'
 
 const logger = createLogger('ProblemFraming')
 
@@ -19,12 +18,10 @@ const FORMAT_REPAIR_INPUT_LIMIT = 16_000
 
 export type { ProblemFramingPlan } from './parser'
 
-interface ProblemFramingParams {
-  concept: string
+interface ProblemFramingParams extends ConceptInput {
   feedback?: string
   feedbackHistory?: string[]
   currentPlan?: ProblemFramingPlan
-  referenceImages?: ReferenceImage[]
   customApiConfig: CustomApiConfig
   locale?: PromptLocale
   promptOverrides?: PromptOverrides
@@ -60,32 +57,19 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
     promptOverrides
   )
 
-  const response = await executeProblemFramingWithImageFallback({
-    hasReferenceImages: Boolean(params.referenceImages?.length),
-    execute: (useImages) => createChatCompletionText(
-      client,
-      {
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: useImages ? buildVisionUserMessage(userPrompt, params.referenceImages) : userPrompt }
-        ],
-        temperature: PLANNER_TEMPERATURE,
-        ...buildCompletionParams(PLANNER_MAX_TOKENS, 'PROBLEM_FRAMING', client)
-      },
-      {
-        fallbackToNonStream: true,
-        usageLabel: useImages ? 'problem-framing' : 'problem-framing-text-fallback'
-      }
-    ),
-    shouldRetryWithoutImages,
-    onImageFallback: (error) => {
-      logger.warn('Problem framing model does not support reference images, retrying with text only', {
-        concept: params.concept,
-        error: error instanceof Error ? error.message : String(error)
-      })
-    }
-  })
+  const response = await createChatCompletionText(
+    client,
+    {
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: buildVisionUserMessage(userPrompt, params.referenceImages) }
+      ],
+      temperature: PLANNER_TEMPERATURE,
+      ...buildCompletionParams(PLANNER_MAX_TOKENS, 'PROBLEM_FRAMING', client)
+    },
+    { fallbackToNonStream: true, usageLabel: 'problem-framing' }
+  )
 
   let plan: ProblemFramingPlan
   try {
@@ -112,6 +96,7 @@ export async function generateProblemFramingPlan(params: ProblemFramingParams): 
                   ? 'Repair formatting only; preserve every decision. Output one complete plan with mode/headline/summary/question/answer/audience/background_rules/selected_route/alternative_routes/out_of_scope/special_cases/visual_motif/designer_hint, and 3–12 repeated step blocks with phase/title/content. phase is background, phenomenon, derivation, or closing. Never truncate later steps or erase fields. No other text.'
                   : '只修复格式，保留全部决定。输出完整plan，包含mode/headline/summary/question/answer/audience/background_rules/selected_route/alternative_routes/out_of_scope/special_cases/visual_motif/designer_hint，以及3–12个含phase/title/content的step；phase为background、phenomenon、derivation或closing。不得截掉后续步骤或删字段，标签外零文字。',
               },
+              { role: 'user', content: buildVisionUserMessage(userPrompt, params.referenceImages) },
               {
                 role: 'user',
                 content: `Parser error: ${error}\n\nModel output:\n${content.slice(0, FORMAT_REPAIR_INPUT_LIMIT)}`,

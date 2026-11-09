@@ -86,6 +86,12 @@ export interface ReferenceImage {
   detail?: VisionImageDetail
 }
 
+/** Text and attached images together form the original user input. */
+export interface ConceptInput {
+  concept: string
+  referenceImages?: ReferenceImage[]
+}
+
 export interface ProblemFramingStep {
   title: string
   content: string
@@ -112,11 +118,9 @@ export interface ProblemFramingPlan {
 /**
  * Queue payload for a render job.
  */
-export interface VideoJobData {
+export interface VideoJobData extends ConceptInput {
   jobId: string
-  concept: string
   problemPlan?: ProblemFramingPlan
-  referenceImages?: ReferenceImage[]
   quality: VideoQuality
   outputMode: OutputMode
   timestamp: string
@@ -222,10 +226,8 @@ export interface ConceptCacheData {
   createdAt: number
 }
 
-export interface GenerateRequest {
-  concept: string
+export interface GenerateRequest extends ConceptInput {
   problemPlan?: ProblemFramingPlan
-  referenceImages?: ReferenceImage[]
   quality?: VideoQuality
   outputMode: OutputMode
   promptOverrides?: PromptOverrides
@@ -233,8 +235,7 @@ export interface GenerateRequest {
   renderCacheKey?: string
 }
 
-export interface ModifyRequest {
-  concept: string
+export interface ModifyRequest extends ConceptInput {
   quality?: VideoQuality
   instructions: string
   code: string

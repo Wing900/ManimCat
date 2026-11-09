@@ -1,7 +1,8 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
 import { generateCodeEditPrompt, getRoleSystemPrompt, getSharedModule } from '../../prompts'
-import type { CustomApiConfig, OutputMode, PromptOverrides } from '../../types'
+import type { CustomApiConfig, OutputMode, PromptOverrides, ReferenceImage } from '../../types'
+import { buildVisionUserMessage } from '../generation/multimodal-input'
 import { createCustomOpenAIClient } from '../../infrastructure/ai-provider/provider-client-factory'
 import { createChatCompletionText } from '../openai-stream'
 import { buildCompletionParams, readMaxCompletionTokens } from '../../infrastructure/ai-provider/completion-policy'
@@ -65,7 +66,8 @@ export async function generateEditedManimCode(
   code: string,
   outputMode: OutputMode,
   customApiConfig?: CustomApiConfig,
-  promptOverrides?: PromptOverrides
+  promptOverrides?: PromptOverrides,
+  referenceImages?: ReferenceImage[]
 ): Promise<string> {
   if (!customApiConfig) {
     throw new Error('No upstream AI is configured for this request')
@@ -91,7 +93,7 @@ export async function generateEditedManimCode(
     // Content retry: let AI re-emit on malformed output (max 2 attempts)
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: 'user', content: buildVisionUserMessage(userPrompt, referenceImages) }
     ]
     const queueContentRepair = (contentAttempt: number, content: string, reason: string): boolean => {
       if (contentAttempt >= MAX_CONTENT_ATTEMPTS) return false

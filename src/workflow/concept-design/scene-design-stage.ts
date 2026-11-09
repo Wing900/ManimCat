@@ -1,18 +1,17 @@
 import OpenAI from 'openai'
 import { createLogger } from '../../shared/logging/logger'
 import { getRoleUserPrompt, getRoleSystemPrompt } from '../../prompts'
-import type { OutputMode, PromptOverrides, ReferenceImage, ProblemFramingPlan } from '../../types'
+import type { ConceptInput, OutputMode, PromptOverrides, ProblemFramingPlan } from '../../types'
 import { formatProblemFramingPlan } from '../generation/request-preparation'
 import {
   buildCompletionDiagnostics,
-  buildVisionUserMessage,
   cleanDesignText,
   extractDesignFromResponse,
   generateUniqueSeed,
-  normalizeMessageContent,
-  shouldRetryWithoutImages
+  normalizeMessageContent
 } from './concept-designer-utils'
 import { createChatCompletionText } from '../openai-stream'
+import { buildVisionUserMessage } from '../generation/multimodal-input'
 import { buildCompletionParams } from '../../infrastructure/ai-provider/completion-policy'
 import { JobCancelledError } from '../../shared/errors/errors'
 import { NarrationCuePlanError, parseCuePlan } from '../narration/cue-plan'
@@ -30,14 +29,12 @@ function repairInstruction(reason: string): string {
   ].join('\n\n')
 }
 
-interface SceneDesignStageParams {
+interface SceneDesignStageParams extends ConceptInput {
   client: OpenAI
-  concept: string
   problemPlan?: ProblemFramingPlan
   outputMode: OutputMode
   model: string
   promptOverrides?: PromptOverrides
-  referenceImages?: ReferenceImage[]
   designerTemperature: number
   designerMaxTokens: number
   /** Enables the extra <cue_plan> block for Workflow video narration. */
@@ -95,56 +92,22 @@ export async function generateSceneDesignStage(params: SceneDesignStageParams): 
       let fallbackResponse: OpenAI.Chat.Completions.ChatCompletion | undefined
       if (onCheckpoint) await onCheckpoint()
 
-      try {
-        const completion = await createChatCompletionText(
-          client,
-          {
-            model,
-            messages,
-            temperature: designerTemperature,
-            ...buildCompletionParams(designerMaxTokens, 'DESIGNER', client)
-          },
-          {
-            fallbackToNonStream: true,
-            usageLabel: attempt === 1 ? 'scene-design' : 'scene-design-repair'
-          }
-        )
-        content = completion.content
-        mode = completion.mode
-        fallbackResponse = completion.response
-      } catch (error) {
-        if (referenceImages && referenceImages.length > 0 && shouldRetryWithoutImages(error)) {
-          logger.warn('模型不支持图片输入，使用纯文本重试', {
-            concept,
-            seed,
-            attempt,
-            error: error instanceof Error ? error.message : String(error)
-          })
-          const textMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-            ...messages.slice(2)
-          ]
-          const completion = await createChatCompletionText(
-            client,
-            {
-              model,
-              messages: textMessages,
-              temperature: designerTemperature,
-              ...buildCompletionParams(designerMaxTokens, 'DESIGNER', client)
-            },
-            {
-              fallbackToNonStream: true,
-              usageLabel: attempt === 1 ? 'scene-design-text-fallback' : 'scene-design-text-fallback-repair'
-            }
-          )
-          content = completion.content
-          mode = completion.mode
-          fallbackResponse = completion.response
-        } else {
-          throw error
+      const completion = await createChatCompletionText(
+        client,
+        {
+          model,
+          messages,
+          temperature: designerTemperature,
+          ...buildCompletionParams(designerMaxTokens, 'DESIGNER', client)
+        },
+        {
+          fallbackToNonStream: true,
+          usageLabel: attempt === 1 ? 'scene-design' : 'scene-design-repair'
         }
-      }
+      )
+      content = completion.content
+      mode = completion.mode
+      fallbackResponse = completion.response
       if (onCheckpoint) await onCheckpoint()
 
       const normalizedContent = normalizeMessageContent(content)

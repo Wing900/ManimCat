@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from 'react';
 import type { ReferenceImage } from '../../../shared/types/api';
 import { MAX_IMAGE_SIZE } from './constants';
 import { uploadReferenceImage } from '../../../infrastructure/api/api';
 import { useI18n } from '../../../shared/i18n/index';
+import { getWorkflowDraft, updateWorkflowDraft, useWorkflowDraft } from './workflow-draft';
 
 interface UseReferenceImagesResult {
   images: ReferenceImage[];
@@ -26,7 +27,11 @@ interface UseReferenceImagesOptions {
 export function useReferenceImages(options: UseReferenceImagesOptions = {}): UseReferenceImagesResult {
   const { enablePasteListener = true } = options;
   const { t } = useI18n();
-  const [images, setImages] = useState<ReferenceImage[]>([]);
+  const { referenceImages: images } = useWorkflowDraft();
+  const setImages = useCallback((change: SetStateAction<ReferenceImage[]>) => {
+    const previous = getWorkflowDraft().referenceImages;
+    updateWorkflowDraft({ referenceImages: typeof change === 'function' ? change(previous) : change });
+  }, []);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,27 +53,30 @@ export function useReferenceImages(options: UseReferenceImagesOptions = {}): Use
           }
         }
 
-        const newImages: ReferenceImage[] = await Promise.all(
+        const uploads = await Promise.allSettled(
           fileArray.map(async (file) => {
             const uploaded = await uploadReferenceImage(file);
             return {
               url: uploaded.url,
-              detail: 'low',
+              detail: 'low' as const,
             };
           })
         );
+        const newImages = uploads.flatMap((upload) => upload.status === 'fulfilled' ? [upload.value] : []);
         setImages((prev) => [...prev, ...newImages]);
+        const failed = uploads.find((upload) => upload.status === 'rejected');
+        if (failed?.status === 'rejected') throw failed.reason;
       } catch (err) {
         setImageError(err instanceof Error ? err.message : t('reference.processFailed'));
       }
     },
-    [t]
+    [t, setImages]
   );
 
   const removeImage = useCallback((index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
     setImageError(null);
-  }, []);
+  }, [setImages]);
 
   const appendImages = useCallback((nextImages: ReferenceImage[]) => {
     if (nextImages.length === 0) {
@@ -76,7 +84,7 @@ export function useReferenceImages(options: UseReferenceImagesOptions = {}): Use
     }
     setImages((prev) => [...prev, ...nextImages]);
     setImageError(null);
-  }, []);
+  }, [setImages]);
 
   const handlePaste = useCallback(
     async (e: ClipboardEvent) => {

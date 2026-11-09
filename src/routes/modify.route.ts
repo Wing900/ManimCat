@@ -27,12 +27,14 @@ import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
 import { deleteJobAccess, storeJobAccess } from '../rendering/job/job-access-store'
 import { buildClassicRenderCacheKey } from '../utils/render-cache-workspace'
+import { referenceImagesSchema, sanitizeReferenceImages } from './helpers/reference-images'
 
 const router = express.Router()
 const logger = createLogger('ModifyRoute')
 
 const bodySchema = z.object({
   concept: z.string().min(1, '概念不能为空'),
+  referenceImages: referenceImagesSchema,
   outputMode: z.enum(['video', 'image']),
   quality: qualitySchema.optional().default('high'),
   instructions: z.string().min(1, '修改意见不能为空'),
@@ -45,7 +47,8 @@ const bodySchema = z.object({
 
 async function handleModifyRequest(req: express.Request, res: express.Response) {
   const parsed = bodySchema.parse(req.body)
-  const { concept, outputMode, quality, instructions, code, promptOverrides, videoConfig, renderCacheKey } = parsed
+  const { concept, referenceImages, outputMode, quality, instructions, code, promptOverrides, videoConfig, renderCacheKey } = parsed
+  const sanitizedReferenceImages = sanitizeReferenceImages(referenceImages)
   const accessContext = requireAccessContext(res)
   const effectiveCustomApiConfig = requireProviderConfig(accessContext)
 
@@ -97,6 +100,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
       {
         jobId,
         concept: sanitizedConcept,
+        referenceImages: sanitizedReferenceImages,
         outputMode,
         quality,
         editCode: code,

@@ -207,6 +207,7 @@ export async function renderVideo(
   if (onStageUpdate) await onStageUpdate()
 
   const retryResult = await executeRenderWithRetry({
+    referenceImages: codeResult.referenceImages,
     problemPlan: codeResult.problemPlan,
     concept,
     outputMode: 'video',

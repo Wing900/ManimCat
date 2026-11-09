@@ -75,7 +75,8 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
     editCode,
     outputMode,
     data.customApiConfig,
-    promptOverrides
+    promptOverrides,
+    data.referenceImages
   )
   timings.edit = performance.now() - editStart
 
@@ -95,6 +96,7 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
     code: editedCode,
     usedAI: true,
     generationType: 'ai-edit' as const,
+    referenceImages: data.referenceImages,
     narration: reusedNarration
   }
 

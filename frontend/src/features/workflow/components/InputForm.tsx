@@ -3,10 +3,10 @@
 import type { StudioKind } from '../../studio/protocol/studio-agent-types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { OutputMode, Quality, ReferenceImage } from '../../../shared/types/api';
-import { loadSettings } from '../../../infrastructure/storage/settings';
 import { FormToolbar } from '../input-form/form-toolbar';
 import { ReferenceImageList } from '../input-form/reference-image-list';
 import { useReferenceImages } from '../input-form/use-reference-images';
+import { updateWorkflowDraft, useWorkflowDraft } from '../input-form/workflow-draft';
 import { useI18n } from '../../../shared/i18n/index';
 import { ImageInputModeModal } from './ImageInputModeModal';
 import { CanvasWorkspaceModal } from '../canvas/CanvasWorkspaceModal';
@@ -33,8 +33,9 @@ const TRIGGER_DELAY_MS = 1200;
 export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubmit, loading }: InputFormProps) {
   const { t } = useI18n();
   const [localError, setLocalError] = useState<string | null>(null);
-  const [quality, setQuality] = useState<Quality>(loadSettings().video.quality);
-  const [outputMode, setOutputMode] = useState<OutputMode>('video');
+  const { quality, outputMode } = useWorkflowDraft();
+  const setQuality = (quality: Quality) => updateWorkflowDraft({ quality });
+  const setOutputMode = (outputMode: OutputMode) => updateWorkflowDraft({ outputMode });
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [isImageModeOpen, setIsImageModeOpen] = useState(false);
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);

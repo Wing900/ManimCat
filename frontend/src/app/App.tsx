@@ -18,6 +18,7 @@ import { PromptSettings } from '../features/prompts/PromptSettings';
 import { StudioPage } from './routes/StudioPage';
 import { Game2048Page } from '../features/workflow/pages/Game2048Page';
 import { StudioShell } from '../features/studio/StudioShell';
+import { clearWorkflowDraft, updateWorkflowDraft, useWorkflowDraft } from '../features/workflow/input-form/workflow-draft';
 
 type Screen = 'classic' | 'manim-studio' | 'plot-studio' | 'game';
 
@@ -54,7 +55,8 @@ function App() {
   const [donationOpen, setDonationOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
   const [currentCode, setCurrentCode] = useState('');
-  const [concept, setConcept] = useState('');
+  const { concept } = useWorkflowDraft();
+  const setConcept = useCallback((concept: string) => updateWorkflowDraft({ concept }), []);
   const [lastCompletedResult, setLastCompletedResult] = useState<JobResult | null>(null);
   const [screen, setScreen] = useState<Screen>('classic');
   const [exitSliding, setExitSliding] = useState(false);
@@ -120,7 +122,7 @@ function App() {
   const resetAll = () => {
     reset();
     setCurrentCode('');
-    setConcept('');
+    clearWorkflowDraft();
     setLastRequest(null);
     setAiModifyOpen(false);
     setLastCompletedResult(null);
@@ -298,6 +300,7 @@ function App() {
     setCurrentCode('');
     modifyWithAI({
       concept: lastRequest.concept,
+      referenceImages: lastRequest.referenceImages,
       outputMode: lastRequest.outputMode,
       quality: lastRequest.quality,
       instructions,
