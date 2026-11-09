@@ -57,8 +57,8 @@ triangle.png
 !static/gifs/README.md
 !LICENSE_POLICY.en.md
 !LICENSE_POLICY.md
-!THIRD_PARTY_NOTICES.md
-!THIRD_PARTY_NOTICES.zh-CN.md
+!docs/legal/THIRD_PARTY_NOTICES.md
+!docs/legal/THIRD_PARTY_NOTICES.zh-CN.md
 !DEPLOYMENT.md
 !DEPLOYMENT.zh-CN.md
 !CLA.md

@@ -215,6 +215,8 @@ flowchart LR
 
 BYOK 用户在页面设置自己的上游。若需要服务端保存 Studio 会话，使用 `STUDIO_DATA_MODE=server`、`ENABLE_STUDIO_DB=true`，并配置 Supabase 和对应表结构；多副本部署还需要共享 Redis 与可访问的渲染文件存储。
 
+生产环境模板位于 [`config/deploy/production.env.example`](config/deploy/production.env.example)。使用 Compose 时，可复制为本地 `.env` 并补齐所需配置；复制模板不会自动配置 Space Settings。
+
 仓库另外提供 `docker-compose.yml`：Redis 作为独立服务，应用以 `node dist/server.js` 启动，宿主端口用 `MANIMCAT_PUBLISHED_PORT` 指定，支持 `--scale` 多副本。
 
 同步到 Space 前，先将需要发布的改动提交到 `main`，再运行：
@@ -283,13 +285,23 @@ Agent 模式不是 Workflow 的附属页面，而是一套独立的 Studio runti
 
 本项目当前版本以 **AGPL-3.0-or-later** 授权，全文见 `LICENSE`。
 
-*   第三方来源与归属说明见 `THIRD_PARTY_NOTICES.md`。
-*   中文版第三方来源与归属说明见 `THIRD_PARTY_NOTICES.zh-CN.md`。
+*   第三方来源与归属说明见 [THIRD_PARTY_NOTICES.md](docs/legal/THIRD_PARTY_NOTICES.md)。
+*   中文版第三方来源与归属说明见 [THIRD_PARTY_NOTICES.zh-CN.md](docs/legal/THIRD_PARTY_NOTICES.zh-CN.md)。
 *   贡献说明见 `CONTRIBUTING.md`。
 
 ### 历史版本
 
 ManimCat 早期版本包含 `manim-video-generator`（MIT）的代码。历史 Commit 与历史发布继续受当时发布的许可条款约束。当前版本已删除或独立重写对应实现。
+
+## 目录结构
+
+- `src/`、`frontend/`：后端与前端源码
+- `config/typescript/`：测试编译配置；共享的 `tsconfig.json` 保留在根目录
+- `config/deploy/`：部署配置示例
+- `scripts/deploy/`：容器启动脚本
+- `scripts/`：Space 发布与目录数据构建工具
+- `docs/legal/`：第三方声明
+- 根目录：依赖清单、构建与部署入口、README、许可证和贡献指南
 
 ## 维护说明
 

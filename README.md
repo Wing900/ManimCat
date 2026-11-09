@@ -219,6 +219,8 @@ Before syncing to Spaces, commit the changes to publish on `main`, then run:
 ./scripts/sync-space.ps1
 ```
 
+The production environment template is [`config/deploy/production.env.example`](config/deploy/production.env.example). For Compose, copy it to a local `.env` and fill in the required values; copying the file alone does not configure Space Settings.
+
 A `docker-compose.yml` is also provided: Compose runs Redis as its own service and starts the app with `node dist/server.js`; set the host port with `MANIMCAT_PUBLISHED_PORT`, and `--scale` for multiple replicas.
 
 On Linux/macOS, run `bash scripts/sync-space.sh`. By default, the script publishes committed `main` to the `space` and `space-show` remotes, overwriting their remote `main`; check the remote URLs first. It injects Space metadata. Uncommitted changes are excluded from the deployment snapshot.
@@ -281,13 +283,23 @@ The goal here is to think about and explore a way of *making* mathematical anima
 
 The current version of this repository is licensed under **AGPL-3.0-or-later**. See `LICENSE` for the full text.
 
-- Third-party attribution and notices: `THIRD_PARTY_NOTICES.md`
-- Chinese third-party notices: `THIRD_PARTY_NOTICES.zh-CN.md`
+- Third-party attribution and notices: [THIRD_PARTY_NOTICES.md](docs/legal/THIRD_PARTY_NOTICES.md)
+- Chinese third-party notices: [THIRD_PARTY_NOTICES.zh-CN.md](docs/legal/THIRD_PARTY_NOTICES.zh-CN.md)
 - Contribution guide: `CONTRIBUTING.md`
 
 ### Historical Versions
 
 ManimCat early versions included code from `manim-video-generator` (MIT). Historical commits and historical releases remain governed by the license terms that were published with those versions. The current version has removed or independently rewritten the corresponding implementations.
+
+## Repository Layout
+
+- `src/`, `frontend/`: backend and frontend source
+- `config/typescript/`: test compilation configurations; the shared `tsconfig.json` stays at the root
+- `config/deploy/`: deployment configuration examples
+- `scripts/deploy/`: container startup scripts
+- `scripts/`: Space publishing and catalog build tools
+- `docs/legal/`: third-party notices
+- Root files: package manifests, build/deployment entry points, READMEs, license, and contribution guide
 
 ## Maintenance Notes
 

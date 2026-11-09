@@ -64,7 +64,7 @@ COPY --from=node_builder /app/src/studio-agent/prompts/templates ./src/studio-ag
 COPY --from=node_builder /app/src/rendering/manim/manimgx-runner.py ./src/rendering/manim/manimgx-runner.py
 COPY --from=node_builder /app/src/rendering/manim/narration_runtime.py ./src/rendering/manim/narration_runtime.py
 COPY --from=node_builder /app/src/rendering/manim/edge_tts_worker.py ./src/rendering/manim/edge_tts_worker.py
-COPY start-with-redis-hf.cjs ./
+COPY scripts/deploy/start-with-redis-hf.cjs ./scripts/deploy/start-with-redis-hf.cjs
 
 RUN mkdir -p \
         /app/.studio-workspace \
@@ -89,4 +89,4 @@ USER node
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD node -e "const port=process.env.PORT||3000;const r=require('http').get('http://localhost:'+port+'/health',(x)=>process.exit(x.statusCode===200?0:1));r.on('error',()=>process.exit(1));"
 
-CMD ["node", "start-with-redis-hf.cjs"]
+CMD ["node", "scripts/deploy/start-with-redis-hf.cjs"]

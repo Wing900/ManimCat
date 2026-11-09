@@ -1,6 +1,6 @@
 {
   "name": "manim-cat",
-  "version": "2.0.0",
+  "version": "2.0.0-beta.1",
   "description": "ManimCat - AI-powered mathematical animation generator",
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -16,9 +16,9 @@
     "start": "node dist/server.js",
     "test": "npm run test:frontend && npm run test:workflow && npm run test:access && npm run test:studio-agent",
     "test:frontend": "cd frontend && npm run test",
-    "test:workflow": "tsc -p tsconfig.workflow-tests.json && node -e \"require('fs').writeFileSync('dist-workflow-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node --test dist-workflow-tests/src/workflow/tests/*.test.js",
-    "test:access": "tsc -p tsconfig.access-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/access/tests/run-tests.js",
-    "test:studio-agent": "tsc -p tsconfig.studio-agent-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/studio-agent/tests/run-tests.js && node dist-tests/src/studio-agent/tests/reasoning-content.run.js"
+    "test:workflow": "tsc -p config/typescript/tsconfig.workflow-tests.json && node -e \"require('fs').writeFileSync('dist-workflow-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node --test dist-workflow-tests/src/workflow/tests/*.test.js",
+    "test:access": "tsc -p config/typescript/tsconfig.access-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/access/tests/run-tests.js",
+    "test:studio-agent": "tsc -p config/typescript/tsconfig.studio-agent-tests.json && node -e \"require('fs').mkdirSync('dist-tests', { recursive: true }); require('fs').writeFileSync('dist-tests/package.json', JSON.stringify({ type: 'commonjs' }))\" && node dist-tests/src/studio-agent/tests/run-tests.js && node dist-tests/src/studio-agent/tests/reasoning-content.run.js"
   },
   "dependencies": {
     "@huggingface/tokenizers": "0.2.0",

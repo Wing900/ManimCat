@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "../../dist-tests",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": [
+    "../../src/studio-agent/**/*.ts",
+    "../../src/services/openai-client*.ts",
+    "../../src/services/openai-stream.ts",
+    "../../src/config/**/*.ts",
+    "../../src/render-failure/**/*.ts",
+    "../../src/utils/**/*.ts",
+    "../../src/types/**/*.ts",
+    "../../src/database/**/*.ts",
+    "../../src/prompts/**/*.ts",
+    "../../src/middlewares/**/*.ts",
+    "../../src/routes/helpers/**/*.ts"
+  ]
+}

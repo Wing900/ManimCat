@@ -14,6 +14,7 @@ frontend/build/
 .env.*.local
 .env.development
 .env.production
+config/deploy/*.env.example
 
 # Generated videos (mounted as volume)
 public/videos/*.mp4
