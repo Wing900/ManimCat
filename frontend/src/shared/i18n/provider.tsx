@@ -1,34 +1,39 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Locale } from './messages';
 import { I18nContext, type I18nContextValue } from './context';
 import { setCurrentLocale, translate } from './runtime';
 import { syncNarrationVoiceToLocale } from '../../infrastructure/storage/settings';
-
-const STORAGE_KEY = 'manimcat_locale';
-const DEFAULT_LOCALE: Locale = 'en-US';
-
-function resolveInitialLocale(): Locale {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LOCALE;
-  }
-
-  const savedLocale = window.localStorage.getItem(STORAGE_KEY);
-  if (savedLocale === 'zh-CN' || savedLocale === 'en-US') {
-    return savedLocale;
-  }
-  return DEFAULT_LOCALE;
-}
+import { loadVisitorCountry } from '../../infrastructure/api/visitor-country';
+import { readLocalePreference, resolveBrowserLocale, saveLocalePreference } from './locale-preference';
 
 export function I18nProvider({ children }: { children: ReactNode }) {
+  const [savedLocale] = useState(readLocalePreference);
+  const hasManualPreference = useRef(savedLocale !== null);
   const [locale, setLocaleState] = useState<Locale>(() => {
-    const initialLocale = resolveInitialLocale();
+    const initialLocale = savedLocale ?? resolveBrowserLocale();
     setCurrentLocale(initialLocale);
     return initialLocale;
   });
 
+  const setLocale = useCallback((nextLocale: Locale) => {
+    hasManualPreference.current = true;
+    saveLocalePreference(nextLocale);
+    setLocaleState(nextLocale);
+  }, []);
+
+  useEffect(() => {
+    if (hasManualPreference.current) return;
+    const controller = new AbortController();
+    void loadVisitorCountry(controller.signal).then((country) => {
+      // An in-flight detection must never overwrite a subsequent manual choice.
+      if (controller.signal.aborted || hasManualPreference.current || !country) return;
+      setLocaleState(country === 'CN' ? 'zh-CN' : 'en-US');
+    });
+    return () => controller.abort();
+  }, []);
+
   useEffect(() => {
     setCurrentLocale(locale);
-    window.localStorage.setItem(STORAGE_KEY, locale);
     document.documentElement.lang = locale;
     // Keep the spoken language aligned with the interface language, including on
     // first load: a stored voice from the other language is replaced by this
@@ -38,10 +43,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<I18nContextValue>(() => ({
     locale,
-    setLocale: setLocaleState,
-    toggleLocale: () => setLocaleState((prev) => (prev === 'zh-CN' ? 'en-US' : 'zh-CN')),
+    setLocale,
+    toggleLocale: () => setLocale(locale === 'zh-CN' ? 'en-US' : 'zh-CN'),
     t: (key, params) => translate(key, params, locale),
-  }), [locale]);
+  }), [locale, setLocale]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
