@@ -112,12 +112,21 @@ function cleanup() {
 
 function setupSignalHandlers(nodeApp) {
   const signals = ['SIGINT', 'SIGTERM', 'SIGQUIT']
+  // The image's tini -g forwards Docker stop to this process group, so the
+  // Node app already receives the same signal. Forwarding it again makes the
+  // server run shutdown twice (the second server.close() fails). Let the app
+  // own its shutdown and keep the launcher alive only to clean up Redis.
+  const groupSignalOwnsChild = process.env.MANIMCAT_TINI_PROCESS_GROUP === '1'
 
   signals.forEach((signal) => {
     process.on(signal, () => {
       console.log(`Received ${signal}, shutting down gracefully...`)
 
       if (nodeApp) {
+        if (groupSignalOwnsChild) {
+          console.log('tini is signalling the process group; waiting for the Node app')
+          return
+        }
         nodeApp.kill(signal)
       } else {
         cleanup()

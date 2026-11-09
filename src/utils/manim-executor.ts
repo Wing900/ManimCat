@@ -1,7 +1,16 @@
-import { spawn } from 'child_process'
 import fs from 'node:fs'
+import path from 'node:path'
 import { createLogger } from '../shared/logging/logger'
-import { buildManimGxCommand } from '../rendering/manim/manimgx-runtime'
+import { buildManimGxInvocation } from '../rendering/manim/manimgx-runtime'
+import {
+  assertRegularNonSymlinkFile,
+  assertSandboxAvailable,
+  copyVerifiedRegularFile,
+  resolvePythonRuntime,
+  spawnSandboxedProcess,
+  stageNarrationForSandbox,
+  type SandboxInvocationInput
+} from '../rendering/sandbox'
 import {
   registerManimProcess,
   cancelManimProcess,
@@ -48,28 +57,180 @@ export interface ManimExecuteOptions {
   isCancelled?: () => Promise<boolean>
 }
 
+interface PreparedManimSandbox {
+  rootDirectory: string
+  outputDirectory: string
+  hostOutputPath: string
+  hostSyncReportPath?: string
+  sandboxSyncReportPath?: string
+  invocation: SandboxInvocationInput
+}
+
+function prepareManimSandbox(
+  codeFile: string,
+  options: ReturnType<typeof normalizeExecuteOptions>
+): PreparedManimSandbox {
+  assertSandboxAvailable()
+  const runtime = resolvePythonRuntime({ envName: 'MANIMGX_PYTHON' })
+  const rootDirectory = path.join(options.tempDir, 'sandbox')
+  const inputDirectory = path.join(rootDirectory, 'input')
+  const workDirectory = path.join(rootDirectory, 'work')
+  const outputDirectory = path.join(rootDirectory, 'output')
+
+  try {
+    fs.rmSync(rootDirectory, { recursive: true, force: true })
+    for (const directory of [
+      inputDirectory,
+      workDirectory,
+      outputDirectory,
+      path.join(workDirectory, 'home'),
+      path.join(workDirectory, '.cache'),
+      path.join(workDirectory, '.config'),
+      path.join(workDirectory, '.local', 'share'),
+    ]) {
+      fs.mkdirSync(directory, { recursive: true })
+    }
+
+    copyVerifiedRegularFile(codeFile, path.join(inputDirectory, 'scene.py'))
+
+    const hostOutputPath = path.resolve(options.mediaDir, `output.${options.format}`)
+    const hostSyncReportPath = options.narrationSyncReportPath
+      ? path.resolve(options.narrationSyncReportPath)
+      : undefined
+    fs.rmSync(hostOutputPath, { force: true })
+    if (hostSyncReportPath) {
+      fs.rmSync(hostSyncReportPath, { force: true })
+    }
+
+    if (options.narrationSyncReportPath && !options.narrationManifestPath) {
+      throw new Error('A narration sync report requires a narration manifest')
+    }
+
+    const stagedNarration = options.narrationManifestPath
+      ? stageNarrationForSandbox({
+          inputDirectory,
+          manifestPath: options.narrationManifestPath,
+          syncReportPath: options.narrationSyncReportPath,
+        })
+      : undefined
+
+    const invocation = buildManimGxInvocation({
+      python: runtime.executable,
+      codeFile: '/input/scene.py',
+      outputPath: `/output/output.${options.format}`,
+      quality: options.quality,
+      frameRate: options.frameRate,
+      format: options.format,
+      sceneName: options.sceneName,
+      narrationManifestPath: stagedNarration?.manifestPath,
+      narrationSyncReportPath: stagedNarration?.syncReportPath,
+    })
+
+    return {
+      rootDirectory,
+      outputDirectory,
+      hostOutputPath,
+      hostSyncReportPath,
+      sandboxSyncReportPath: stagedNarration?.syncReportPath,
+      invocation: {
+        label: `manim-${options.jobId}`,
+        executable: invocation.python,
+        args: invocation.args,
+        cwd: '/work',
+        inputDirectory,
+        workDirectory,
+        outputDirectory,
+        runtimeDirectories: runtime.mountDirectories,
+        pathEntries: runtime.pathEntries,
+        readOnlyFiles: [
+          {
+            source: path.resolve('src/rendering/manim/manimgx-runner.py'),
+            destination: '/runner/manimgx-runner.py',
+          },
+          {
+            source: path.resolve('src/rendering/manim/narration_runtime.py'),
+            destination: '/runner/narration_runtime.py',
+          },
+        ],
+        env: {
+          MPLCONFIGDIR: '/work/.config/matplotlib',
+        },
+      },
+    }
+  } catch (error) {
+    // Never leak a partially staged sandbox if any setup step fails.
+    fs.rmSync(rootDirectory, { recursive: true, force: true })
+    throw error
+  }
+}
+
+function publishManimArtifacts(
+  prepared: PreparedManimSandbox,
+  format: 'mp4' | 'png',
+  jobId: string
+): void {
+  const sandboxOutput = path.join(prepared.outputDirectory, `output.${format}`)
+  assertRegularNonSymlinkFile(sandboxOutput, 'Manim output artifact', { rejectHardLinks: true })
+  copyVerifiedRegularFile(sandboxOutput, prepared.hostOutputPath, { rejectHardLinks: true })
+
+  if (prepared.hostSyncReportPath && prepared.sandboxSyncReportPath) {
+    const sandboxReport = path.join(prepared.outputDirectory, 'sync-report.json')
+    try {
+      assertRegularNonSymlinkFile(sandboxReport, 'Narration sync report', {
+        allowEmpty: true,
+        rejectHardLinks: true,
+      })
+      copyVerifiedRegularFile(sandboxReport, prepared.hostSyncReportPath, {
+        allowEmpty: true,
+        rejectHardLinks: true,
+      })
+    } catch (error) {
+      // The report is diagnostic; a render must not succeed with a fabricated report.
+      logger.warn(`Job ${jobId}: narration sync report was not exported`, {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+}
+
 export function executeManimCommand(
   codeFile: string,
   options: ManimExecuteOptions
 ): Promise<ManimExecutionResult> {
   const normalizedOptions = normalizeExecuteOptions(options)
-  const { command, args, outputPath } = buildManimGxCommand(codeFile, normalizedOptions)
+  const state = createExecutionState()
 
-  logger.info(`Job ${normalizedOptions.jobId}: starting ManimGX process`, {
-    command: `${command} ${args.join(' ')}`,
-    cwd: normalizedOptions.tempDir
+  let prepared: PreparedManimSandbox
+  try {
+    prepared = prepareManimSandbox(codeFile, normalizedOptions)
+  } catch (error) {
+    fs.rmSync(path.join(normalizedOptions.tempDir, 'sandbox'), { recursive: true, force: true })
+    const message = error instanceof Error ? error.message : String(error)
+    logger.error(`Job ${normalizedOptions.jobId}: render sandbox refused to start`, {
+      error: message,
+    })
+    return Promise.resolve(buildResult(false, state, message))
+  }
+
+  logger.info(`Job ${normalizedOptions.jobId}: starting sandboxed ManimGX process`, {
+    runtime: prepared.invocation.executable,
+    args: (prepared.invocation.args ?? []).join(' '),
+    cwd: prepared.invocation.cwd,
   })
 
   return new Promise((resolve) => {
     const startTime = Date.now()
-    const state = createExecutionState()
     const processGroup = process.platform !== 'win32'
-    const proc = spawn(command, args, {
-      cwd: normalizedOptions.tempDir,
-      detached: processGroup,
-      windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
-    })
+    let proc: ReturnType<typeof spawnSandboxedProcess>
+    try {
+      proc = spawnSandboxedProcess(prepared.invocation)
+    } catch (error) {
+      fs.rmSync(prepared.rootDirectory, { recursive: true, force: true })
+      const message = error instanceof Error ? error.message : String(error)
+      logger.error(`Job ${normalizedOptions.jobId}: sandbox failed to start`, { error: message })
+      resolve(buildResult(false, state, message))
+      return
+    }
 
     registerManimProcess(normalizedOptions.jobId, proc, processGroup)
 
@@ -79,6 +240,13 @@ export function executeManimCommand(
     let fatalErrorDetected = false
     let cancellationTimer: NodeJS.Timeout | null = null
     let cancellationReadPending = false
+
+    type TerminationReason =
+      | { kind: 'timeout'; message: string }
+      | { kind: 'fatal' }
+      | { kind: 'cancelled' }
+    let terminationReason: TerminationReason | null = null
+    let forceSettleTimer: NodeJS.Timeout | null = null
 
     const settle = (result: ManimExecutionResult): void => {
       if (settled) {
@@ -91,8 +259,31 @@ export function executeManimCommand(
       }
       clearInterval(memoryMonitor)
       if (cancellationTimer) clearInterval(cancellationTimer)
+      if (forceSettleTimer) clearTimeout(forceSettleTimer)
       unregisterManimProcess(normalizedOptions.jobId)
+      fs.rmSync(prepared.rootDirectory, { recursive: true, force: true })
       resolve(result)
+    }
+
+    const terminationResult = (
+      reason: TerminationReason,
+      exitCode?: number
+    ): ManimExecutionResult => {
+      if (reason.kind === 'timeout') return buildResult(false, state, reason.message, exitCode)
+      if (reason.kind === 'cancelled') return buildResult(false, state, 'Job cancelled', exitCode)
+      return buildResult(false, state, undefined, exitCode)
+    }
+
+    const requestTermination = (reason: TerminationReason): void => {
+      if (settled || terminationReason) return
+      terminationReason = reason
+      terminateManimProcess(normalizedOptions.jobId)
+      // Do not remove the mounted /work and /output trees while bwrap or its
+      // descendants are still alive. Wait for close, with a bounded fallback.
+      forceSettleTimer = setTimeout(() => {
+        if (!settled) settle(terminationResult(reason))
+      }, 5_000)
+      forceSettleTimer.unref?.()
     }
 
     // A different API replica cannot kill this local process directly. Read the durable marker.
@@ -102,7 +293,12 @@ export function executeManimCommand(
         cancellationReadPending = true
         try {
           const cancelled = await options.isCancelled!()
-          if (cancelled && !settled) cancelManimProcess(normalizedOptions.jobId)
+          if (cancelled && !settled) {
+            // Mark the local process cancelled and also arm the bounded fallback,
+            // so a process that ignores termination cannot hang the worker forever.
+            cancelManimProcess(normalizedOptions.jobId)
+            requestTermination({ kind: 'cancelled' })
+          }
         } catch (error) {
           logger.warn('Unable to read render cancellation marker', { jobId: normalizedOptions.jobId, error: String(error) })
         } finally {
@@ -113,11 +309,11 @@ export function executeManimCommand(
       void checkCancellation()
     }
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout?.on('data', (data) => {
       handleStdoutData(state, normalizedOptions.jobId, data.toString())
     })
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr?.on('data', (data) => {
       handleStderrData(state, normalizedOptions.jobId, data.toString())
       if (!fatalErrorDetected && FATAL_MANIM_ERROR_PATTERN.test(state.stderr.slice(-16_000))) {
         fatalErrorDetected = true
@@ -125,8 +321,7 @@ export function executeManimCommand(
           peakMemoryMB: state.peakMemoryMB,
           stderrPreview: state.stderr.slice(-1000),
         })
-        terminateManimProcess(normalizedOptions.jobId)
-        settle(buildResult(false, state))
+        requestTermination({ kind: 'fatal' })
       }
     })
 
@@ -137,15 +332,10 @@ export function executeManimCommand(
         peakMemoryMB: state.peakMemoryMB
       })
 
-      terminateManimProcess(normalizedOptions.jobId)
-
-      settle(
-        buildResult(
-          false,
-          state,
-          state.stderr || `Manim render timeout (${Math.round(normalizedOptions.timeoutMs / 1000)} seconds)`
-        )
-      )
+      requestTermination({
+        kind: 'timeout',
+        message: state.stderr || `Manim render timeout (${Math.round(normalizedOptions.timeoutMs / 1000)} seconds)`,
+      })
     }, normalizedOptions.timeoutMs)
 
     proc.on('close', (code) => {
@@ -153,24 +343,30 @@ export function executeManimCommand(
       const elapsed = elapsedSeconds(startTime)
       const cancelled = wasManimProcessCancelled(normalizedOptions.jobId)
 
-      if (cancelled) {
+      if (cancelled || terminationReason?.kind === 'cancelled') {
         logger.warn(`Job ${normalizedOptions.jobId}: Manim cancelled`, { elapsed: `${elapsed}s` })
         settle(buildResult(false, state, 'Job cancelled', code ?? undefined))
         return
       }
 
+      if (terminationReason) {
+        settle(terminationResult(terminationReason, code ?? undefined))
+        return
+      }
+
+      // bwrap has already exited: its PID namespace is gone, so there is no
+      // surviving child to reap. Do not signal the old process group here; the
+      // PID/PGID may have been reused by an unrelated process.
       if (code === 0) {
-        let hasOutput = false
         try {
-          const output = fs.statSync(outputPath)
-          hasOutput = output.isFile() && output.size > 0
-        } catch {
-          // A missing artifact must become a render failure, not an uncaught callback error.
-        }
-        if (!hasOutput) {
-          settle(buildResult(false, state, `ManimGX completed without output: ${outputPath}`, code))
+          publishManimArtifacts(prepared, normalizedOptions.format, normalizedOptions.jobId)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          logger.error(`Job ${normalizedOptions.jobId}: sandbox output rejected`, { error: message })
+          settle(buildResult(false, state, message, code))
           return
         }
+
         logger.info(`Job ${normalizedOptions.jobId}: manim completed`, {
           elapsed: `${elapsed}s`,
           exitCode: code,
@@ -178,7 +374,7 @@ export function executeManimCommand(
           stderrLength: state.stderr.length,
           peakMemoryMB: state.peakMemoryMB
         })
-        settle({ ...buildResult(true, state, undefined, code), outputPath })
+        settle({ ...buildResult(true, state, undefined, code), outputPath: prepared.hostOutputPath })
         return
       }
 
@@ -197,9 +393,14 @@ export function executeManimCommand(
       const elapsed = elapsedSeconds(startTime)
       const cancelled = wasManimProcessCancelled(normalizedOptions.jobId)
 
-      if (cancelled) {
+      if (cancelled || terminationReason?.kind === 'cancelled') {
         logger.warn(`Job ${normalizedOptions.jobId}: Manim cancelled`, { elapsed: `${elapsed}s` })
-        settle(buildResult(false, state, 'Job cancelled'))
+        requestTermination({ kind: 'cancelled' })
+        return
+      }
+
+      if (terminationReason) {
+        // The close handler or bounded fallback owns the result.
         return
       }
 

@@ -31,10 +31,12 @@ ENV HOME=/home/node
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 ENV NODE_ENV=production
+ENV MANIMCAT_TINI_PROCESS_GROUP=1
 
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Retries=3 update -qq \
     && apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
+        bubblewrap \
         ca-certificates \
         ffmpeg \
         fontconfig \
@@ -47,6 +49,8 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
         libstdc++6 \
         mesa-vulkan-drivers \
         redis-server \
+        tini \
+        util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -f
 
@@ -73,9 +77,9 @@ RUN mkdir -p \
         /app/public/videos \
         /app/tmp \
         /data/redis \
-    # The render subprocess (ManimGX / python) runs as `node` and must not be able to write outside
-    # /app and /data/redis. Owning /app also means a sandboxed renderer cannot mutate /usr/local
-    # or /opt/venv, even before a proper sandbox is added.
+    # The render subprocess runs through bubblewrap, with only the exact render venv,
+    # system runtime, runner files and per-render staging mounted. /app itself is not
+    # visible to submitted code; this ownership only lets the server manage its own files.
     && chown -R node:node /app /data/redis
 
 ENV PORT=7860
@@ -83,6 +87,15 @@ EXPOSE 7860
 
 # Drop root for the server process and every renderer it spawns.
 USER node
+
+# A private outer user/mount/PID namespace gives bubblewrap a writable,
+# namespace-local proc sysctl tree for --disable-userns. The host UID remains
+# node; no host capabilities or global sysctl changes are needed. Docker must
+# use config/docker/render-sandbox-seccomp.json (wired into docker-compose.yml).
+# tini is container PID 1 and forwards Docker stop to the child's process group;
+# unshare alone ignores SIGTERM as PID 1 and would force a SIGKILL timeout.
+# Kill the child namespace when the launcher exits, including during shutdown.
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/bin/unshare", "--user", "--map-root-user", "--mount", "--mount-proc", "--propagation", "private", "--pid", "--fork", "--kill-child=KILL", "--"]
 
 # Probe /health on the configured PORT. timeout/start-period are short enough that a wedged
 # container is restarted instead of kept on life support.

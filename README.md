@@ -121,7 +121,7 @@ If you want a direct Docker deployment path, you can also start from the publish
 
 ManimGX uses native Typst typesetting, so local rendering needs no external TeX installation. Typst supports Chinese text and mathematics in the same expression.
 
-For local rendering, create a Python 3.13+ virtual environment, install dependencies with `python -m pip install -r requirements.txt`, then set `MANIMGX_PYTHON` to that environment's Python executable so the app can use the renderer.
+For local rendering, create a Python 3.13+ virtual environment, install dependencies with `python -m pip install -r requirements.txt`, then set `MANIMGX_PYTHON` to that environment's Python executable so the app can use the renderer. Rendering is Linux-only and requires `bubblewrap`; the server refuses to start if the sandbox cannot be created. See [Rendering sandbox requirements](#rendering-sandbox-requirements) below.
 
 
 ## Technology
@@ -198,9 +198,21 @@ flowchart LR
 
 ## Deployment
 
+### Rendering sandbox requirements
+
+All submitted ManimGX and Matplotlib code runs inside a mandatory Linux [bubblewrap](https://github.com/containers/bubblewrap) sandbox. There is no no-sandbox flag and no unsandboxed Python fallback; a missing capability fails server startup instead of serving unisolated renders.
+
+The container image starts through `tini` and a private outer user/mount/PID namespace, then starts the app. The host UID remains the unprivileged `node` user (mapped to root only inside that private user namespace), and no host capabilities or global sysctls are changed. This outer namespace is what lets bubblewrap's `--disable-userns` work against a namespace-local proc sysctl tree.
+
+Docker must allow the namespace and mount syscalls listed in `config/docker/render-sandbox-seccomp.json` and must use `no-new-privileges`. `docker-compose.yml` already supplies both. Running the image with Docker's default seccomp profile fails closed at startup. Do not work around that with `--privileged`, `seccomp=unconfined`, or `apparmor=unconfined`.
+
+The profile is based on the Docker v28 default, so use a current Docker/libseccomp runtime. The host or container runtime must permit unprivileged user namespaces; on AppArmor-enabled hosts a reviewed profile that permits the required namespaced mount/unshare operations may also be needed. Renderers receive no network, no host root or workspace, and only the selected read-only runtime trees plus private `/input`, `/work`, and `/output`. The sandbox adds no CPU, memory, disk, or process-count quotas; apply container or host limits.
+
+The image entrypoint is `tini -g -- unshare ...`, so Docker stop forwards SIGTERM to the app process group and Node can shut down gracefully. Allow Docker's stop timeout for that shutdown. `docker compose` is the supported direct Docker path; a direct `docker run` must add both `--security-opt no-new-privileges:true` and `--security-opt seccomp=<path-to-config/docker/render-sandbox-seccomp.json>`. A published image started without that profile will fail closed.
+
 ### Hugging Face Spaces (Docker)
 
-Use the repository's `Dockerfile`, listening on port `7860`. Its startup script launches embedded Redis; Docker Compose is not needed inside the Space.
+Use the repository's `Dockerfile`, listening on port `7860`. Its startup script launches embedded Redis; Docker Compose is not needed inside the Space. The Space runtime must permit the rendering sandbox requirements above (the seccomp profile and unprivileged user-namespace setup); if it does not, startup fails closed and rendering is unavailable. Compose on a Linux host is the reference deployment when the Space runtime cannot provide that policy.
 
 Configure environment variables in Space Settings. Store sensitive values in Secrets, never in the repository, Dockerfile, or frontend:
 
@@ -228,6 +240,7 @@ On Linux/macOS, run `bash scripts/sync-space.sh`. By default, the script publish
 Deployment notes:
 
 - Without persistent storage, treat container videos, workspaces, and Redis data as temporary: rebuilds may remove them. Database-backed sessions do not preserve video files.
+- Use the tracked Compose configuration for Docker: it supplies the required seccomp profile and `no-new-privileges`. Test `docker stop` with enough timeout for the app's graceful shutdown; `tini -g` forwards SIGTERM to the app process group.
 - Run `npm audit --omit=dev` and address security findings before public deployment. After startup, check `/health`, then verify a real model request and video playback.
 - Local Docker checks covered the web UI, Manim (Typst typesetting, no external TeX), Chinese text, Matplotlib, MiniLM inference, Edge TTS synthesis, and subtitle burn-in. HF hosting, CatKey, and Supabase integration still require verification after deployment.
 

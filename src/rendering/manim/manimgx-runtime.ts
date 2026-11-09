@@ -1,39 +1,48 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import type { NormalizedExecuteOptions } from '../../utils/manim-executor-runtime'
-
 const RESOLUTIONS: Record<string, { width: number; height: number }> = {
   low: { width: 854, height: 480 },
   medium: { width: 1280, height: 720 },
   high: { width: 1920, height: 1080 },
 }
 
-/** One command and one declared artifact for both video and still renders. */
-export function buildManimGxCommand(codeFile: string, options: NormalizedExecuteOptions): {
-  command: string
-  args: string[]
+export interface ManimGxInvocationOptions {
+  /** Interpreter resolved once by the caller so runtime selection is not repeated. */
+  python: string
+  codeFile: string
   outputPath: string
-} {
+  quality: string
+  frameRate: number
+  format: 'mp4' | 'png'
+  sceneName?: string
+  narrationManifestPath?: string
+  narrationSyncReportPath?: string
+}
+
+export interface ManimGxInvocation {
+  python: string
+  args: string[]
+}
+
+/** Build the runner argv. Paths are already expressed in the sandbox namespace. */
+export function buildManimGxInvocation(options: ManimGxInvocationOptions): ManimGxInvocation {
+  if (Boolean(options.narrationManifestPath) !== Boolean(options.narrationSyncReportPath)) {
+    throw new Error('ManimGX narration requires both a manifest and a sync report path')
+  }
   const resolution = RESOLUTIONS[options.quality] ?? RESOLUTIONS.medium
-  const localPython = path.resolve('.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python')
-  const command = process.env.MANIMGX_PYTHON?.trim() || (fs.existsSync(localPython) ? localPython : 'python')
-  const outputPath = path.resolve(options.mediaDir, `output.${options.format}`)
 
   return {
-    command,
-    outputPath,
+    python: options.python,
     args: [
       '-u',
-      path.resolve('src/rendering/manim/manimgx-runner.py'),
-      path.resolve(codeFile),
+      '/runner/manimgx-runner.py',
+      options.codeFile,
       ...(options.sceneName ? ['--scene', options.sceneName] : []),
-      '--output', outputPath,
+      '--output', options.outputPath,
       '--format', options.format,
       '--width', String(resolution.width),
       '--height', String(resolution.height),
       '--fps', String(options.frameRate),
-      ...(options.narrationManifestPath ? [`--narration=${path.resolve(options.narrationManifestPath)}`] : []),
-      ...(options.narrationSyncReportPath ? [`--sync-report=${path.resolve(options.narrationSyncReportPath)}`] : []),
+      ...(options.narrationManifestPath ? [`--narration=${options.narrationManifestPath}`] : []),
+      ...(options.narrationSyncReportPath ? [`--sync-report=${options.narrationSyncReportPath}`] : []),
     ],
   }
 }

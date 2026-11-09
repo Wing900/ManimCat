@@ -20,6 +20,7 @@ import { getApiRagService } from './knowledge/api-rag'
 import { setStudioTelemetry } from './studio-agent/infrastructure/telemetry/studio-telemetry'
 import { createStudioTelemetryAdapter } from './studio-agent/infrastructure/telemetry/studio-timing'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
+import { assertSandboxAvailable } from './rendering/sandbox'
 
 // 导入队列处理器以启动 worker
 import './rendering/queue/processors/video.processor'
@@ -58,6 +59,11 @@ async function cleanupResources(): Promise<void> {
 
 async function startServer(): Promise<void> {
   try {
+    // Rendering is only allowed through bubblewrap. Check the kernel/container
+    // capability before opening the listener so a server that cannot isolate
+    // submitted Python never accepts render traffic.
+    assertSandboxAvailable()
+
     // Subscribe to the Studio infrastructure before HTTP/SSE traffic is accepted, so no
     // client attaches to a replica that is not yet receiving cross-instance events and no Run
     // is admitted on a replica that cannot take a session lease. A configured Redis failure
