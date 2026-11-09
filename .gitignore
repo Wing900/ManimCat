@@ -53,6 +53,7 @@ triangle.png
 *.md
 !README.md
 !README.zh-CN.md
+!docs/rendering-sandbox.md
 !frontend/README.md
 !static/gifs/README.md
 !LICENSE_POLICY.en.md

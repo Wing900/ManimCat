@@ -1,8 +1,22 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import fs from 'node:fs'
 import { join } from 'node:path'
-import { spawn } from 'node:child_process'
 import { workspaceRenderOutputDirectory } from '../workspace-output-directory'
-import { StudioRunCancelledError, isStudioRunCancelledError, readAbortReason, throwIfStudioRunCancelled } from '../../studio-agent/runtime/execution/run-cancellation'
+import {
+  StudioRunCancelledError,
+  readAbortReason,
+  throwIfStudioRunCancelled
+} from '../../studio-agent/runtime/execution/run-cancellation'
+import {
+  assertSandboxAvailable,
+  copyVerifiedRegularFile,
+  listPngArtifacts,
+  publishPngArtifacts,
+  resolvePythonRuntime,
+  spawnSandboxedProcess,
+  terminateSandboxProcess,
+  type SandboxInvocationInput,
+} from '../sandbox'
 
 export interface MatplotlibExecutionResult {
   outputDir: string
@@ -13,6 +27,36 @@ export interface MatplotlibExecutionResult {
   stderr: string
 }
 
+interface PrivateSandbox {
+  rootDirectory: string
+  inputDirectory: string
+  workDirectory: string
+  outputDirectory: string
+}
+
+function createPrivateSandbox(rootDirectory: string): PrivateSandbox {
+  fs.rmSync(rootDirectory, { recursive: true, force: true })
+  const sandbox: PrivateSandbox = {
+    rootDirectory,
+    inputDirectory: join(rootDirectory, 'input'),
+    workDirectory: join(rootDirectory, 'work'),
+    outputDirectory: join(rootDirectory, 'output'),
+  }
+  for (const directory of [
+    sandbox.inputDirectory,
+    sandbox.workDirectory,
+    sandbox.outputDirectory,
+    join(sandbox.workDirectory, 'home'),
+    join(sandbox.workDirectory, '.cache'),
+    join(sandbox.workDirectory, '.config'),
+    join(sandbox.workDirectory, '.local', 'share'),
+    join(sandbox.workDirectory, 'mplconfig'),
+  ]) {
+    fs.mkdirSync(directory, { recursive: true })
+  }
+  return sandbox
+}
+
 export async function executeMatplotlibRender(input: {
   workspaceDirectory: string
   workspaceOutputDirectory?: string
@@ -21,73 +65,78 @@ export async function executeMatplotlibRender(input: {
   signal?: AbortSignal
 }): Promise<MatplotlibExecutionResult> {
   throwIfStudioRunCancelled(input.signal)
+  // Fail before writing or executing any submitted source.
+  assertSandboxAvailable()
+
   const outputDir = workspaceRenderOutputDirectory(input.workspaceDirectory, input.renderId, input.workspaceOutputDirectory)
-  const matplotlibConfigDir = join(input.workspaceDirectory, '.cache', 'matplotlib')
   await mkdir(outputDir, { recursive: true })
-  await mkdir(matplotlibConfigDir, { recursive: true })
 
   const sourcePath = join(outputDir, 'plot_script.py')
   const wrapperPath = join(outputDir, 'plot_executor.py')
   await writeFile(sourcePath, input.code, 'utf8')
   await writeFile(wrapperPath, buildExecutorScript(), 'utf8')
 
-  const { stdout, stderr } = await runPython(wrapperPath, [sourcePath, outputDir, matplotlibConfigDir], input.signal)
-  const parsedImagePaths = parseJsonLine(stdout, 'PLOT_OUTPUTS_JSON=') as string[] | undefined
-  const imagePaths = Array.isArray(parsedImagePaths) && parsedImagePaths.length > 0
-    ? parsedImagePaths
-    : await findPngOutputs(outputDir)
+  const sandbox = createPrivateSandbox(join(outputDir, '.sandbox'))
+  try {
+    copyVerifiedRegularFile(sourcePath, join(sandbox.inputDirectory, 'plot_script.py'))
+    copyVerifiedRegularFile(wrapperPath, join(sandbox.inputDirectory, 'plot_executor.py'))
 
-  if (imagePaths.length === 0) {
-    throw new Error(stderr.trim() || 'Matplotlib execution finished without producing any image output')
-  }
-
-  const imageDataUris = await Promise.all(imagePaths.map(async (imagePath) => {
-    const bytes = await readFile(imagePath)
-    return `data:image/png;base64,${bytes.toString('base64')}`
-  }))
-
-  return {
-    outputDir,
-    scriptPath: sourcePath,
-    imageDataUris,
-    imagePaths,
-    stdout,
-    stderr,
-  }
-}
-
-async function findPngOutputs(outputDir: string): Promise<string[]> {
-  const entries = await readdir(outputDir, { withFileTypes: true })
-  return entries
-    .filter((entry) => entry.isFile() && /\.png$/i.test(entry.name))
-    .map((entry) => join(outputDir, entry.name))
-    .sort((a, b) => a.localeCompare(b))
-}
-
-async function runPython(scriptPath: string, args: string[], signal?: AbortSignal): Promise<{ stdout: string; stderr: string }> {
-  const candidates = [
-    { command: 'python', args: [scriptPath, ...args], matplotlibConfigDirIndex: 2 },
-    { command: 'py', args: ['-3', scriptPath, ...args], matplotlibConfigDirIndex: 4 },
-  ]
-
-  const failures: string[] = []
-  for (const candidate of candidates) {
-    try {
-      return await spawnProcess(candidate.command, candidate.args, candidate.matplotlibConfigDirIndex, signal)
-    } catch (error) {
-      if (isStudioRunCancelledError(error)) throw error
-      const message = error instanceof Error ? error.message : String(error)
-      failures.push(`${candidate.command} failed: ${message}`)
+    // MATPLOTLIB_PYTHON is an optional override; otherwise share the configured
+    // ManimGX render runtime, then the normal .venv/PATH discovery.
+    const matplotlibPython = process.env.MATPLOTLIB_PYTHON?.trim()
+    const runtime = resolvePythonRuntime(
+      matplotlibPython ? { explicit: matplotlibPython } : { envName: 'MANIMGX_PYTHON' }
+    )
+    const invocation: SandboxInvocationInput = {
+      label: `matplotlib-${input.renderId}`,
+      executable: runtime.executable,
+      args: [
+        '-u',
+        '/input/plot_executor.py',
+        '/input/plot_script.py',
+        '/output',
+        '/work/mplconfig',
+      ],
+      cwd: '/work',
+      inputDirectory: sandbox.inputDirectory,
+      workDirectory: sandbox.workDirectory,
+      outputDirectory: sandbox.outputDirectory,
+      runtimeDirectories: runtime.mountDirectories,
+      pathEntries: runtime.pathEntries,
+      env: {
+        MPLCONFIGDIR: '/work/mplconfig',
+      },
     }
-  }
 
-  throw new Error(`Unable to execute Python for matplotlib render. ${failures.join(' | ')}`)
+    const { stdout, stderr } = await runSandboxedPython(invocation, input.signal)
+    const sandboxImages = listPngArtifacts(sandbox.outputDirectory)
+    if (sandboxImages.length === 0) {
+      throw new Error(stderr.trim() || 'Matplotlib execution finished without producing any image output')
+    }
+
+    // Only verified bytes from the private output are published. stdout is never
+    // parsed for paths, so a malicious script cannot select a host file to read.
+    const imagePaths = publishPngArtifacts(sandboxImages, outputDir)
+    const imageDataUris = await Promise.all(imagePaths.map(async (imagePath) => {
+      const bytes = await readFile(imagePath)
+      return `data:image/png;base64,${bytes.toString('base64')}`
+    }))
+
+    return {
+      outputDir,
+      scriptPath: sourcePath,
+      imageDataUris,
+      imagePaths,
+      stdout,
+      stderr,
+    }
+  } finally {
+    fs.rmSync(sandbox.rootDirectory, { recursive: true, force: true })
+  }
 }
 
-function spawnProcess(
-  command: string,
-  args: string[],
-  matplotlibConfigDirIndex: number,
+function runSandboxedPython(
+  invocation: SandboxInvocationInput,
   signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -96,58 +145,69 @@ function spawnProcess(
       return
     }
 
-    const matplotlibConfigDir = args[matplotlibConfigDirIndex]
-    const child = spawn(command, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        MPLCONFIGDIR: matplotlibConfigDir ?? process.env.MPLCONFIGDIR,
-      },
-    })
+    let child: ReturnType<typeof spawnSandboxedProcess>
+    try {
+      child = spawnSandboxedProcess(invocation)
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)))
+      return
+    }
+
     let stdout = ''
     let stderr = ''
     let finished = false
+    let aborted = false
+    let killTimer: NodeJS.Timeout | undefined
 
-    const cleanupAbort = () => {
+    const cleanup = () => {
       signal?.removeEventListener('abort', handleAbort)
+      if (killTimer) {
+        clearTimeout(killTimer)
+        killTimer = undefined
+      }
     }
 
     const settleReject = (error: Error) => {
-      if (finished) {
-        return
-      }
+      if (finished) return
       finished = true
-      cleanupAbort()
+      cleanup()
       reject(error)
     }
 
     const settleResolve = (value: { stdout: string; stderr: string }) => {
-      if (finished) {
-        return
-      }
+      if (finished) return
       finished = true
-      cleanupAbort()
+      cleanup()
       resolve(value)
     }
 
     const handleAbort = () => {
-      child.kill('SIGTERM')
-      settleReject(new StudioRunCancelledError(readAbortReason(signal)))
+      aborted = true
+      terminateSandboxProcess(child, 'SIGTERM')
+      killTimer = setTimeout(() => {
+        if (!finished) terminateSandboxProcess(child, 'SIGKILL')
+      }, 2000)
+      killTimer.unref?.()
     }
 
     signal?.addEventListener('abort', handleAbort, { once: true })
 
-    child.stdout.on('data', (chunk) => {
+    child.stdout?.on('data', (chunk) => {
       stdout += String(chunk)
     })
-    child.stderr.on('data', (chunk) => {
+    child.stderr?.on('data', (chunk) => {
       stderr += String(chunk)
     })
     child.on('error', (error) => {
       settleReject(error instanceof Error ? error : new Error(String(error)))
     })
     child.on('close', (code) => {
-      if (finished) {
+      if (finished) return
+      // The sandbox owns a PID namespace; kill any lingering group member before
+      // the caller scans or publishes the private output directory.
+      terminateSandboxProcess(child)
+      if (aborted) {
+        settleReject(new StudioRunCancelledError(readAbortReason(signal)))
         return
       }
       if (code === 0) {
@@ -160,18 +220,8 @@ function spawnProcess(
   })
 }
 
-function parseJsonLine(stdout: string, prefix: string): unknown {
-  const line = stdout.split(/\r?\n/).find((entry) => entry.startsWith(prefix))
-  if (!line) {
-    return undefined
-  }
-
-  return JSON.parse(line.slice(prefix.length))
-}
-
 function buildExecutorScript(): string {
   return [
-    'import json',
     'import os',
     'import sys',
     'import matplotlib',
@@ -210,7 +260,5 @@ function buildExecutorScript(): string {
     '',
     'if not outputs:',
     '    raise RuntimeError("No matplotlib figures or PNG outputs were produced by the script")',
-    '',
-    'print("PLOT_OUTPUTS_JSON=" + json.dumps(outputs, ensure_ascii=False))',
   ].join('\n')
 }

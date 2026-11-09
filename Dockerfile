@@ -35,6 +35,7 @@ ENV NODE_ENV=production
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Retries=3 update -qq \
     && apt-get -o Acquire::Retries=3 install --no-install-recommends -y \
+        bubblewrap \
         ca-certificates \
         ffmpeg \
         fontconfig \
@@ -73,9 +74,9 @@ RUN mkdir -p \
         /app/public/videos \
         /app/tmp \
         /data/redis \
-    # The render subprocess (ManimGX / python) runs as `node` and must not be able to write outside
-    # /app and /data/redis. Owning /app also means a sandboxed renderer cannot mutate /usr/local
-    # or /opt/venv, even before a proper sandbox is added.
+    # The render subprocess runs through bubblewrap, with only the exact render venv,
+    # system runtime, runner files and per-render staging mounted. /app itself is not
+    # visible to submitted code; this ownership only lets the server manage its own files.
     && chown -R node:node /app /data/redis
 
 ENV PORT=7860
