@@ -121,7 +121,7 @@ If you want a direct Docker deployment path, you can also start from the publish
 
 ManimGX uses native Typst typesetting, so local rendering needs no external TeX installation. Typst supports Chinese text and mathematics in the same expression.
 
-For local rendering, create a Python 3.13+ virtual environment, install dependencies with `python -m pip install -r requirements.txt`, then set `MANIMGX_PYTHON` to that environment's Python executable so the app can use the renderer. Rendering is Linux-only and requires `bubblewrap`; the server refuses to start if the sandbox cannot be created. See [Rendering sandbox requirements](#rendering-sandbox-requirements) below.
+For local rendering, create a Python 3.13+ virtual environment, install dependencies with `python -m pip install -r requirements.txt`, then set `MANIMGX_PYTHON` to that environment's Python executable so the app can use the renderer. Rendering is Linux-only and requires `bubblewrap`; the server refuses to start if the sandbox cannot be created, unless the explicit browser-only mode `MANIMCAT_CONTAINER_SANDBOX=disabled` is set. That mode still refuses server-side renders, which fail closed. See [Rendering sandbox requirements](#rendering-sandbox-requirements) below.
 
 
 ## Technology

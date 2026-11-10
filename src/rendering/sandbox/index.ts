@@ -1,6 +1,7 @@
 export {
   assertSandboxAvailable,
   buildSandboxInvocation,
+  isBrowserOnlyDeployment,
   probeSandboxSupport,
   resetSandboxProbeForTests,
   resolveSandboxBwrapPath,

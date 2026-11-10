@@ -20,7 +20,7 @@ import { getApiRagService } from './knowledge/api-rag'
 import { setStudioTelemetry } from './studio-agent/infrastructure/telemetry/studio-telemetry'
 import { createStudioTelemetryAdapter } from './studio-agent/infrastructure/telemetry/studio-timing'
 import { studioInfrastructureRuntime } from './studio-agent/runtime/runtime-service'
-import { assertSandboxAvailable } from './rendering/sandbox'
+import { assertSandboxAvailable, isBrowserOnlyDeployment } from './rendering/sandbox'
 
 // 导入队列处理器以启动 worker
 import './rendering/queue/processors/video.processor'
@@ -61,8 +61,16 @@ async function startServer(): Promise<void> {
   try {
     // Rendering is only allowed through bubblewrap. Check the kernel/container
     // capability before opening the listener so a server that cannot isolate
-    // submitted Python never accepts render traffic.
-    assertSandboxAvailable()
+    // submitted Python never accepts render traffic. Browser-only deployments,
+    // which skip the outer user namespace explicitly, keep every server render
+    // path fail-closed but do not require the startup probe to succeed.
+    if (isBrowserOnlyDeployment()) {
+      appLogger.warn(
+        'Browser-only deployment: container user namespace disabled; server-side rendering will fail closed.'
+      )
+    } else {
+      assertSandboxAvailable()
+    }
 
     // Subscribe to the Studio infrastructure before HTTP/SSE traffic is accepted, so no
     // client attaches to a replica that is not yet receiving cross-instance events and no Run

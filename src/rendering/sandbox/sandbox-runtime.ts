@@ -464,6 +464,15 @@ export function resetSandboxProbeForTests(): void {
   bwrapFlagSupport.clear()
 }
 
+/**
+ * Explicit browser-only deployment mode. The container entrypoint skips the outer
+ * user namespace; server-side render paths still fail closed because they require
+ * bubblewrap. This is never inferred from a failed sandbox probe.
+ */
+export function isBrowserOnlyDeployment(): boolean {
+  return process.env.MANIMCAT_CONTAINER_SANDBOX?.trim() === 'disabled'
+}
+
 export function assertSandboxAvailable(): string {
   const probe = probeSandboxSupport()
   if (!probe.available || !probe.bwrapPath) {
