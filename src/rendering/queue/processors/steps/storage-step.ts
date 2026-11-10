@@ -24,6 +24,8 @@ export async function storeResult(
   const {
     jobId,
     outputMode,
+    renderTarget,
+    browserRender,
     code,
     codeLanguage,
     usedAI,
@@ -46,6 +48,8 @@ export async function storeResult(
     status: 'completed',
     data: {
       outputMode,
+      renderTarget: renderTarget ?? 'cloud',
+      browserRender,
       videoUrl,
       hardsubUrl,
       imageUrls,

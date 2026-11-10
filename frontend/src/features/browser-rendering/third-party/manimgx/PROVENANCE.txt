@@ -1,0 +1,59 @@
+ManimGX browser player source provenance
+========================================
+
+Upstream project: manimgx
+Upstream package: manimgx@0.1.1 (npm), manimgx==0.1.1 (PyPI wheel)
+GitHub tag: v0.1.1
+GitHub commit: 0507708dc5d731478786de2f46ca8a1660d514d6
+License: MIT (see LICENSE in this directory)
+Upstream repository: https://github.com/academa-labs/manimgx
+Upstream browser source used: browser/src/player.ts, browser/src/director.ts,
+browser/src/protocol.ts, browser/src/engine.ts
+
+Vendored and adapted files in this module
+-----------------------------------------
+- engine/preview-player.ts
+  Adapted from browser/src/player.ts. Removed the custom element, source and
+  scene ownership, shadow DOM status channel and module-level page singleton.
+  Added explicit construction from an already-initialized engine, typed fatal
+  error reporting, deterministic dispose, seek/play/pause, and an honest
+  first-frame probe.
+- engine/director.worker.ts
+  Adapted from browser/src/director.ts and its embedded Python RUNNER.
+  Added SHA-256 verification of pinned wheels, self-hosted asset only installs,
+  CJK font installation before the first `import manimgx`, a build-time copy of
+  the native NarrationRuntime, the plays hook and narration WAV attachment,
+  one-shot engine handshake, run tokens and typed completion/error messages.
+- engine/worker-protocol.ts and engine/engine-types.ts
+  Adapted from browser/src/protocol.ts and browser/src/engine.ts, with the
+  internal page/worker protocol versioned separately.
+- assets and wheels are not vendored into Git. scripts/browser-rendering/
+  prepare-assets.mjs downloads fixed versions and verifies fixed SHA-256 digests
+  into the ignored frontend/browser-rendering-assets directory.
+
+Version pins
+------------
+- manimgx wheel: manimgx-0.1.1-cp313-abi3-pyemscripten_2026_0_wasm32.whl
+  SHA-256 ef8255890eeaa7281f15afe40c727b5df94199020003f5b698bf18aae94f92ae
+- manimgx-fonts: 2026.9.26.post1
+- manimgx-fonts-cjk: 2026.9.26.post1 (Noto Sans CJK, OFL-1.1)
+- Pyodide: 314.0.7 (emscripten_5_0_3, Python 3.14.2)
+- Native narration timing source: src/rendering/manim/narration_runtime.py at
+  the repository baseline; copied by the asset preparation script so there is
+  one timing implementation, not two.
+
+The ManimGX WebAssembly engine itself is not copied into this repository. It is
+loaded at runtime from the SHA-256 verified manimgx wheel by the vendored
+worker.
+
+Patched browser engine for clean image output
+---------------------------------------------
+The pinned wheel's browser engine exports Player/init only and composites the player
+face over the film. Browser image mode therefore builds the same upstream crate (tag
+v0.1.1, commit 0507708dc5d731478786de2f46ca8a1660d514d6) with a small patch that adds
+Player.render_image(width, height). The patch, its source/tool pins and its build
+recipe live in scripts/browser-rendering/engine-patch/ and
+scripts/browser-rendering/build-engine.mjs. The generated engine.js/engine_bg.wasm are
+ignored build outputs, recorded by SHA-256 in the prepared asset manifest, and served
+only from the isolated renderer origin. The wheel's embedded engine remains the video
+path; no existing video method or native runner/timing source was changed.

@@ -1,8 +1,8 @@
 import type { ComponentType, SVGProps } from 'react'
 import type { TranslationKey } from '../../shared/i18n/index'
-import { AiConnectionMark, VideoMark } from './settings-icons'
+import { AiConnectionMark, RenderMark, VideoMark } from './settings-icons'
 
-export type SettingsSection = 'ai' | 'video'
+export type SettingsSection = 'ai' | 'video' | 'rendering'
 
 export interface SettingsNavItem {
   id: SettingsSection
@@ -14,4 +14,5 @@ export interface SettingsNavItem {
 export const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
   { id: 'ai', labelKey: 'settings.nav.ai', icon: AiConnectionMark },
   { id: 'video', labelKey: 'settings.nav.video', icon: VideoMark },
+  { id: 'rendering', labelKey: 'settings.nav.rendering', icon: RenderMark },
 ]

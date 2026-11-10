@@ -10,6 +10,7 @@ import generateRouter from './generate.route'
 import modifyRouter from './modify.route'
 import jobStatusRouter from './job-status.route'
 import jobCancelRouter from './job-cancel.route'
+import browserRenderAssetsRouter from './browser-render-assets.route'
 import promptsRouter from './prompts.route'
 import healthRouter from './health.route'
 import metricsRouter from './metrics.route'
@@ -32,6 +33,7 @@ router.use('/api', generateRouter)
 router.use('/api', modifyRouter)
 router.use('/api', jobStatusRouter)
 router.use('/api', jobCancelRouter)
+router.use('/api', browserRenderAssetsRouter)
 router.use('/api', promptsRouter)
 router.use('/api', accessRouter)
 router.use('/api', aiModelsRouter)

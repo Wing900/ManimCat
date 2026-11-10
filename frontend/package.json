@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:browser-renderer": "node ../scripts/browser-rendering/dev.mjs",
+    "prepare:browser-renderer": "node ../scripts/browser-rendering/prepare-assets.mjs && node ../scripts/browser-rendering/build-engine.mjs",
+    "build:engine": "node ../scripts/browser-rendering/build-engine.mjs",
+    "build:browser-renderer": "node ../scripts/browser-rendering/build.mjs"
   },
   "dependencies": {
     "@types/react-syntax-highlighter": "^15.5.13",

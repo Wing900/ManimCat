@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useI18n } from '../../shared/i18n/index'
-import type { SettingsConfig, VideoConfig } from '../../shared/types/api'
+import type { SettingsConfig, VideoConfig, RenderTarget } from '../../shared/types/api'
 import { loadSettings, saveSettings } from '../../infrastructure/storage/settings'
 import { useSettingsAutosave } from '../../infrastructure/storage/use-settings-autosave'
 import { saveConnection, useConnection } from '../connection/connection-storage'
 import { SETTINGS_NAV_ITEMS, type SettingsSection } from './settings-navigation'
 import { AiConnectionSettings } from './AiConnectionSettings'
+import { RenderingSettings } from './RenderingSettings'
 import { VideoSettings } from './VideoSettings'
 
 interface SettingsPageProps {
@@ -36,6 +37,10 @@ export function SettingsPage({ exiting, onClose }: SettingsPageProps) {
 
   const updateVideo = (updates: Partial<VideoConfig>) => {
     setConfig((prev) => ({ ...prev, video: { ...prev.video, ...updates } }))
+  }
+
+  const updateRenderTarget = (target: RenderTarget) => {
+    setConfig((prev) => ({ ...prev, rendering: { target } }))
   }
 
   const handleClose = () => {
@@ -98,8 +103,13 @@ export function SettingsPage({ exiting, onClose }: SettingsPageProps) {
           <div key={section} className="panel-in mx-auto w-full max-w-xl px-8 py-10">
             {section === 'ai' ? (
               <AiConnectionSettings connection={connection} onSaved={saveConnection} onCleared={handleClose} />
-            ) : (
+            ) : section === 'video' ? (
               <VideoSettings videoConfig={config.video} onUpdate={updateVideo} />
+            ) : (
+              <RenderingSettings
+                target={config.rendering?.target ?? 'cloud'}
+                onChange={updateRenderTarget}
+              />
             )}
           </div>
         </main>

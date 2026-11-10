@@ -7,11 +7,12 @@ import { useModalTransition } from '../../../shared/hooks/useModalTransition';
 interface AiModifyModalProps {
   isOpen: boolean;
   loading?: boolean;
+  error?: string | null;
   onClose: () => void;
   onSubmit: (value: string) => void;
 }
 
-export function AiModifyModal({ isOpen, loading = false, onClose, onSubmit }: AiModifyModalProps) {
+export function AiModifyModal({ isOpen, loading = false, error = null, onClose, onSubmit }: AiModifyModalProps) {
   const { t } = useI18n();
   const { shouldRender, isExiting } = useModalTransition(isOpen);
   const [draft, setDraft] = useState('');
@@ -56,6 +57,12 @@ export function AiModifyModal({ isOpen, loading = false, onClose, onSubmit }: Ai
         <p className="text-text-secondary text-[15px] mb-8 leading-relaxed font-light">
           {t('aiModify.description')}
         </p>
+
+        {error ? (
+          <p role="alert" className="mb-5 rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-3 text-sm leading-relaxed text-red-700 dark:border-red-500/25 dark:bg-red-900/20 dark:text-red-300">
+            {error}
+          </p>
+        ) : null}
 
         <div className="relative mb-10 group">
           <textarea

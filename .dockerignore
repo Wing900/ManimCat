@@ -73,6 +73,8 @@ LICENSE
 *.md
 !src/prompts/templates/**/*.md
 !src/studio-agent/prompts/templates/**/*.md
+!frontend/src/features/browser-rendering/third-party/manimgx/LICENSE
+!scripts/browser-rendering/engine-patch/PROVENANCE.txt
 docs/
 
 # Docker files
@@ -103,5 +105,6 @@ static/gifs/
 .prettierrc
 .eslintrc*
 vite.config.ts
+!frontend/vite.config.ts
 tailwind.config.js
 postcss.config.js

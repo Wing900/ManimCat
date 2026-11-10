@@ -3,7 +3,8 @@ import {
   customApiConfigSchema,
   promptOverridesSchema,
   qualitySchema,
-  videoConfigSchema
+  videoConfigSchema,
+  renderTargetSchema
 } from './common'
 import { referenceImagesSchema } from '../helpers/reference-images'
 import { problemPlanSchema } from './problem-plan'
@@ -18,5 +19,6 @@ export const generateBodySchema = z.object({
   customApiConfig: customApiConfigSchema.optional(),
   promptOverrides: promptOverridesSchema.optional(),
   videoConfig: videoConfigSchema.optional(),
-  renderCacheKey: z.string().min(1).optional()
+  renderCacheKey: z.string().min(1).optional(),
+  renderTarget: renderTargetSchema.optional().default('cloud')
 })

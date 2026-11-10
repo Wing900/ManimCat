@@ -1,17 +1,19 @@
 import type { StudioKind } from '../features/studio/protocol/studio-agent-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { JobResult, OutputMode, Quality, ReferenceImage, VideoConfig } from '../shared/types/api';
+import type { JobResult, OutputMode, Quality, ReferenceImage, RenderTarget, VideoConfig } from '../shared/types/api';
 import { useGeneration } from '../features/workflow/hooks/useGeneration';
 import { useProblemFraming } from '../features/workflow/hooks/useProblemFraming';
 import { useGame2048 } from '../features/workflow/hooks/useGame2048';
 import { useTabTitle } from '../shared/hooks/useTabTitle';
+import { useI18n } from '../shared/i18n/index';
+import { preflightBrowserRender, type BrowserRenderPreflightResult } from '../features/browser-rendering';
 import { AiModifyModal } from '../features/workflow/components/AiModifyModal';
 import { DonationModal } from '../features/donation/DonationModal';
 import { ConnectionGuide, type GuideStep } from '../features/connection/ConnectionGuide';
 import type { ConnectionIssue } from '../features/connection/connection-errors';
 import { hasConnection } from '../features/connection/connection-types';
 import { loadStudioDataMode } from '../infrastructure/api/runtime-config';
-import { loadSettings } from '../infrastructure/storage/settings';
+import { loadSettings, resolveRenderTarget } from '../infrastructure/storage/settings';
 import { loadConnection, saveConnection, useConnection } from '../features/connection/connection-storage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { PromptSettings } from '../features/prompts/PromptSettings';
@@ -36,8 +38,14 @@ function createClassicRenderCacheKey(): string {
   return `classic-${crypto.randomUUID()}`;
 }
 
+type BrowserPreflightUi =
+  | { status: 'idle'; message: null }
+  | { status: 'checking'; message: null }
+  | { status: 'error'; message: string };
+
 function App() {
   const { status, result, error, jobId, stage, stageHistory, submittedAt, generate, renderWithCode, modifyWithAI, reset, cancel, cancelAndReset } = useGeneration();
+  const { t } = useI18n();
   const [guideForced, setGuideForced] = useState(false);
   const [guideStep, setGuideStep] = useState<GuideStep>('choice');
   const connection = useConnection();
@@ -54,9 +62,23 @@ function App() {
   const [overlayClosing, setOverlayClosing] = useState(false);
   const [donationOpen, setDonationOpen] = useState(false);
   const [aiModifyOpen, setAiModifyOpen] = useState(false);
+  const [aiModifyPreflightLoading, setAiModifyPreflightLoading] = useState(false);
+  const [aiModifyError, setAiModifyError] = useState<string | null>(null);
+  const aiModifyPreflightSeqRef = useRef(0);
   const [currentCode, setCurrentCode] = useState('');
   const { concept } = useWorkflowDraft();
-  const setConcept = useCallback((concept: string) => updateWorkflowDraft({ concept }), []);
+  const [browserPreflight, setBrowserPreflight] = useState<BrowserPreflightUi>({
+    status: 'idle',
+    message: null,
+  });
+  const setConcept = useCallback((concept: string) => {
+    updateWorkflowDraft({ concept });
+    setBrowserPreflight((previous) => previous.status === 'error'
+      ? { status: 'idle', message: null }
+      : previous);
+  }, []);
+  const pendingRenderTargetRef = useRef<RenderTarget>('cloud');
+  const preflightSequenceRef = useRef(0);
   const [lastCompletedResult, setLastCompletedResult] = useState<JobResult | null>(null);
   const [screen, setScreen] = useState<Screen>('classic');
   const [exitSliding, setExitSliding] = useState(false);
@@ -73,6 +95,7 @@ function App() {
     referenceImages?: ReferenceImage[];
     videoConfig?: VideoConfig;
     renderCacheKey: string;
+    renderTarget?: RenderTarget;
   } | null>(null);
 
   useEffect(() => {
@@ -125,11 +148,17 @@ function App() {
     clearWorkflowDraft();
     setLastRequest(null);
     setAiModifyOpen(false);
+    setAiModifyPreflightLoading(false);
+    setAiModifyError(null);
+    aiModifyPreflightSeqRef.current += 1;
     setLastCompletedResult(null);
     setScreen('classic');
     setActiveStudioKind('manim');
     setEntering(false);
     setProblemAdjustment('');
+    pendingRenderTargetRef.current = 'cloud';
+    preflightSequenceRef.current += 1;
+    setBrowserPreflight({ status: 'idle', message: null });
     if (transitionTimerRef.current) {
       window.clearTimeout(transitionTimerRef.current);
       transitionTimerRef.current = null;
@@ -202,6 +231,17 @@ function App() {
     }, PAGE_SLIDE_MS);
   };
 
+  const describePreflightFailure = useCallback((result: Extract<BrowserRenderPreflightResult, { ok: false }>): string => {
+    if (result.stage === 'config') {
+      if (result.reason === 'missing') return t('browser.preflight.configMissing');
+      if (result.reason === 'insecure-context' || result.reason === 'host-insecure') {
+        return t('browser.preflight.insecure');
+      }
+      return t('browser.preflight.configInvalid');
+    }
+    return t('browser.preflight.unsupported');
+  }, [t]);
+
   const handleSubmit = (data: {
     concept: string;
     quality: Quality;
@@ -213,13 +253,53 @@ function App() {
       setGuideForced(true);
       return;
     }
-    setLastCompletedResult(null);
-    setConcept(data.concept);
-    setProblemAdjustment('');
-    void problemFraming.startPlan({ request: data });
+
+    const requestedTarget = resolveRenderTarget(loadSettings());
+    const sequence = ++preflightSequenceRef.current;
+    setBrowserPreflight({ status: 'idle', message: null });
+
+    const begin = () => {
+      setLastCompletedResult(null);
+      setConcept(data.concept);
+      setProblemAdjustment('');
+      void problemFraming.startPlan({ request: data });
+    };
+
+    if (requestedTarget !== 'browser') {
+      pendingRenderTargetRef.current = 'cloud';
+      begin();
+      return;
+    }
+
+    setBrowserPreflight({ status: 'checking', message: null });
+    void (async () => {
+      try {
+        const preflight = await preflightBrowserRender();
+        if (sequence !== preflightSequenceRef.current) return;
+        if (!preflight.ok) {
+          setBrowserPreflight({
+            status: 'error',
+            message: describePreflightFailure(preflight),
+          });
+          return;
+        }
+        pendingRenderTargetRef.current = 'browser';
+        setBrowserPreflight({ status: 'idle', message: null });
+        begin();
+      } catch {
+        if (sequence !== preflightSequenceRef.current) return;
+        setBrowserPreflight({ status: 'error', message: t('browser.preflight.failed') });
+      }
+    })();
   };
 
   const handleBackToHome = () => {
+    preflightSequenceRef.current += 1;
+    pendingRenderTargetRef.current = 'cloud';
+    setBrowserPreflight({ status: 'idle', message: null });
+    setAiModifyPreflightLoading(false);
+    setAiModifyError(null);
+    aiModifyPreflightSeqRef.current += 1;
     if (status === 'processing' || status === 'cancelling') {
       cancelAndReset();
       return;
@@ -258,13 +338,14 @@ function App() {
     const problemPlan = problemFraming.plan;
     const renderCacheKey = createClassicRenderCacheKey();
     const videoConfig = { ...loadSettings().video };
+    const renderTarget = pendingRenderTargetRef.current;
     setLastCompletedResult(null);
-    setLastRequest({ ...draft, renderCacheKey, videoConfig });
+    setLastRequest({ ...draft, renderCacheKey, videoConfig, renderTarget });
     setConcept(draft.concept);
     setCurrentCode('');
     setProblemAdjustment('');
     problemFraming.reset();
-    generate({ ...draft, problemPlan, renderCacheKey, videoConfig });
+    generate({ ...draft, problemPlan, renderCacheKey, videoConfig, renderTarget });
   };
 
   const handleProblemClose = () => {
@@ -279,15 +360,24 @@ function App() {
     }
 
     const baseVideoConfig = lastRequest.videoConfig ?? loadSettings().video;
-    const { burnSubtitles: _previousBurn, ...cleanBase } = baseVideoConfig;
+    const cleanBase = { ...baseVideoConfig };
+    delete cleanBase.burnSubtitles;
     const nextQuality = quality ?? lastRequest.quality;
     const nextFrameRate = frameRate ?? cleanBase.frameRate;
     const videoConfig = { ...cleanBase, quality: nextQuality, frameRate: nextFrameRate };
     // Burning is a per-download choice, not a sticky setting: the request carries it,
     // while the request remembered for later rerenders stays clean.
     const requestVideoConfig = burnSubtitles ? { ...videoConfig, burnSubtitles: true } : videoConfig;
-    setLastRequest({ ...lastRequest, quality: nextQuality, videoConfig });
-    renderWithCode({ ...lastRequest, quality: nextQuality, videoConfig: requestVideoConfig, code });
+    const renderTarget = lastRequest.renderTarget ?? 'cloud';
+    setLastRequest({ ...lastRequest, quality: nextQuality, videoConfig, renderTarget });
+    renderWithCode({ ...lastRequest, quality: nextQuality, videoConfig: requestVideoConfig, code, renderTarget });
+  };
+
+  const handleOpenAiModify = () => {
+    aiModifyPreflightSeqRef.current += 1;
+    setAiModifyError(null);
+    setAiModifyPreflightLoading(false);
+    setAiModifyOpen(true);
   };
 
   const handleAiModifySubmit = (instructions: string) => {
@@ -296,18 +386,50 @@ function App() {
       return;
     }
 
-    setAiModifyOpen(false);
-    setCurrentCode('');
-    modifyWithAI({
-      concept: lastRequest.concept,
-      referenceImages: lastRequest.referenceImages,
-      outputMode: lastRequest.outputMode,
-      quality: lastRequest.quality,
-      instructions,
-      code,
-      videoConfig: lastRequest.videoConfig,
-      renderCacheKey: lastRequest.renderCacheKey,
-    });
+    const renderTarget = lastRequest.renderTarget ?? 'cloud';
+    const submit = () => {
+      setAiModifyOpen(false);
+      setAiModifyError(null);
+      setAiModifyPreflightLoading(false);
+      setCurrentCode('');
+      modifyWithAI({
+        concept: lastRequest.concept,
+        referenceImages: lastRequest.referenceImages,
+        outputMode: lastRequest.outputMode,
+        quality: lastRequest.quality,
+        instructions,
+        code,
+        videoConfig: lastRequest.videoConfig,
+        renderCacheKey: lastRequest.renderCacheKey,
+        renderTarget,
+      });
+    };
+
+    if (renderTarget !== 'browser') {
+      submit();
+      return;
+    }
+
+    const sequence = ++aiModifyPreflightSeqRef.current;
+    setAiModifyError(null);
+    setAiModifyPreflightLoading(true);
+    void (async () => {
+      try {
+        const preflight = await preflightBrowserRender();
+        if (sequence !== aiModifyPreflightSeqRef.current) return;
+        if (!preflight.ok) {
+          setAiModifyPreflightLoading(false);
+          setAiModifyError(describePreflightFailure(preflight));
+          return;
+        }
+        setAiModifyPreflightLoading(false);
+        submit();
+      } catch {
+        if (sequence !== aiModifyPreflightSeqRef.current) return;
+        setAiModifyPreflightLoading(false);
+        setAiModifyError(t('browser.preflight.failed'));
+      }
+    })();
   };
 
   const handleOpenGame = () => {
@@ -346,12 +468,14 @@ function App() {
             currentCode={currentCode || result?.code || ''}
             isBusy={isBusy}
             lastRequest={lastRequest}
+            browserPreflightStatus={browserPreflight.status}
+            browserPreflightMessage={browserPreflight.message}
             onConceptChange={setConcept}
             onSecretStudioOpen={handleOpenStudio}
             onSubmit={handleSubmit}
             onCodeChange={setCurrentCode}
             onRerender={handleRerender}
-            onAiModifyOpen={() => setAiModifyOpen(true)}
+            onAiModifyOpen={handleOpenAiModify}
             onResetAll={resetAll}
             onBackToHome={handleBackToHome}
             onCancel={cancel}
@@ -441,8 +565,14 @@ function App() {
       {overlay === 'prompts' && <PromptSettings exiting={overlayClosing} onClose={closeOverlay} />}
       <AiModifyModal
         isOpen={aiModifyOpen}
-        loading={isBusy}
-        onClose={() => setAiModifyOpen(false)}
+        loading={isBusy || aiModifyPreflightLoading}
+        error={aiModifyError}
+        onClose={() => {
+          aiModifyPreflightSeqRef.current += 1;
+          setAiModifyOpen(false);
+          setAiModifyPreflightLoading(false);
+          setAiModifyError(null);
+        }}
         onSubmit={handleAiModifySubmit}
       />
 

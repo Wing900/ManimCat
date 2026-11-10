@@ -1,10 +1,9 @@
 import { createLogger } from '../../../../shared/logging/logger'
 import type { GenerationResult } from './analysis-step'
 import type { OutputMode, VideoJobData } from '../../../../types'
-import { renderVideo } from './render-video'
-import { renderImages } from './render-images'
 import { resolveReusedNarrationForJob } from '../../../manim/narration-reuse'
 import type { RenderResult } from './render-step-types'
+import { renderOutput } from './render-output'
 
 const logger = createLogger('RenderStep')
 
@@ -44,43 +43,28 @@ export async function handlePreGeneratedCode(
     narration: reusedNarration
   }
 
-  const renderResult =
-    outputMode === 'image'
-      ? await renderImages(
-          jobId,
-          concept,
-          quality,
-          codeResult,
-          timings,
-          jobData.videoConfig,
-          jobData.customApiConfig,
-          jobData.promptOverrides,
-          undefined,
-          jobData.clientId,
-          jobData.workspaceDirectory,
-          jobData.renderCacheKey,
-          jobData.workspaceOutputDirectory
-        )
-      : await renderVideo(
-          jobId,
-          concept,
-          quality,
-          codeResult,
-          timings,
-          jobData.customApiConfig,
-          jobData.videoConfig,
-          jobData.promptOverrides,
-          undefined,
-          jobData.clientId,
-          jobData.workspaceDirectory,
-          jobData.renderCacheKey,
-          jobData.workspaceOutputDirectory,
-          jobData.sceneName
-        )
+  const renderResult = await renderOutput({
+    jobId,
+    concept,
+    quality,
+    outputMode,
+    renderTarget: jobData.renderTarget,
+    codeResult,
+    timings,
+    customApiConfig: jobData.customApiConfig,
+    videoConfig: jobData.videoConfig,
+    promptOverrides: jobData.promptOverrides,
+    clientId: jobData.clientId,
+    workspaceDirectory: jobData.workspaceDirectory,
+    renderCacheKey: jobData.renderCacheKey,
+    workspaceOutputDirectory: jobData.workspaceOutputDirectory,
+    sceneName: jobData.sceneName
+  })
 
   logger.info('Job completed (pre-generated code)', { jobId, outputMode, timings })
   return renderResult
 }
 
-export { renderVideo, renderImages }
+export { renderVideo } from './render-video'
+export { renderImages } from './render-images'
 

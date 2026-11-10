@@ -14,6 +14,8 @@ interface ResultActionsProps {
   frameRate?: number;
   outputMode: OutputMode;
   isBusy?: boolean;
+  /** Browser takes are preview-only; no MP4 or hardsub artifact exists. */
+  browserPreview?: boolean;
   onAiModify?: () => void;
   onNewContent?: () => void;
   onRerender?: (quality?: Quality, frameRate?: number, burnSubtitles?: boolean) => void;
@@ -57,6 +59,7 @@ export function ResultActions({
   frameRate,
   outputMode,
   isBusy = false,
+  browserPreview = false,
   onAiModify,
   onNewContent,
   onRerender
@@ -79,6 +82,9 @@ export function ResultActions({
   const canUpgrade = Boolean(onRerender) && quality !== 'high';
 
   useEffect(() => {
+    if (browserPreview || !videoUrl) {
+      return undefined;
+    }
     let cancelled = false;
     void hasSubtitleSidecar(videoUrl).then((exists) => {
       if (!cancelled) {
@@ -88,7 +94,7 @@ export function ResultActions({
     return () => {
       cancelled = true;
     };
-  }, [videoUrl]);
+  }, [browserPreview, videoUrl]);
 
   const closeDialog = () => {
     if (!burning) {
@@ -335,7 +341,9 @@ export function ResultActions({
         ) : (
           <>
             <p className="text-text-secondary text-[15px] mb-8 leading-relaxed font-light">
-              {t('result.newContentConfirmDescription')}
+              {browserPreview
+                ? t('result.newContentConfirmDescriptionBrowser')
+                : t('result.newContentConfirmDescription')}
             </p>
 
             <div className="flex gap-3">
@@ -365,7 +373,7 @@ export function ResultActions({
   return (
     <>
       <div className="mt-5 mb-3 flex flex-wrap items-center justify-center gap-4">
-        {outputMode === 'video' && (
+        {outputMode === 'video' && !browserPreview && (
           <button
             type="button"
             onClick={() => void openDownload()}

@@ -1,0 +1,32 @@
+ManimGX browser engine image-readback patch
+==========================================
+
+Upstream project: manimgx (academa-labs/manimgx)
+GitHub tag: v0.1.1
+GitHub commit: 0507708dc5d731478786de2f46ca8a1660d514d6
+License: MIT (see ../../../frontend/src/features/browser-rendering/third-party/manimgx/LICENSE)
+Source tarball SHA-256: 2637d63014ce10d16a092141e9436c3bf361dc2811bc688d02b2f1e221124de4
+Patch file: 0001-clean-image-readback.patch
+Patch scope: rust/engine/src/project.rs, rust/engine/src/player.rs, rust/engine/src/web.rs
+Build: scripts/browser-rendering/build-engine.mjs
+Docker image: rust:1.90-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f
+Rust: 1.90.0
+wasm-bindgen: 0.2.128
+Target: wasm32-unknown-unknown
+
+Why the patch exists
+--------------------
+The pinned engine's web.rs exports only `init` and `Player`. `Player.draw` composites the
+player face (controls, timeline, help, captions, status) over the film, and `film` only
+reports [width, height]. A canvas screenshot therefore cannot be a clean image and cannot be
+made clean by cropping without losing scene content.
+
+The patch adds `Player.render_image(width, height)`:
+- shows the finished take's closing frame (the frame recorded after `Scene.tear_down`);
+- encodes the take's film views at exactly the requested take size;
+- copies the film color texture into a dedicated MAP_READ buffer, never the surface;
+- maps that buffer asynchronously and returns raw RGBA bytes;
+- retries if the see-through lists overflowed, using the engine's existing overflow path.
+
+It changes no existing export, video draw path, native runner, sandbox or narration timing.
+The generated engine.js/engine_bg.wasm are build outputs and remain outside Git.

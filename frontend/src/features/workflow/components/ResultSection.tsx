@@ -4,14 +4,26 @@ import { memo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ImagePreview } from './ImagePreview';
 import { VideoPreview } from './VideoPreview';
+import { BrowserRenderPreview } from './BrowserRenderPreview';
+import { BrowserImageResult } from './BrowserImageResult';
 import { CodeModal } from './CodeModal';
 import { ResultActions } from './ResultActions';
-import type { OutputMode, Quality } from '../../../shared/types/api';
+import {
+  isBrowserImagePayload,
+  isBrowserVideoPayload,
+  type BrowserRenderPreparedPayload,
+  type OutputMode,
+  type Quality,
+  type RenderTarget,
+} from '../../../shared/types/api';
 import { useI18n } from '../../../shared/i18n/index';
 
 interface ResultSectionProps {
+  jobId?: string;
   code: string;
   outputMode: OutputMode;
+  renderTarget?: RenderTarget;
+  browserRender?: BrowserRenderPreparedPayload | null;
   videoUrl: string;
   hardsubUrl?: string;
   imageUrls: string[];
@@ -26,8 +38,11 @@ interface ResultSectionProps {
 }
 
 export const ResultSection = memo(function ResultSection({
+  jobId,
   code,
   outputMode,
+  renderTarget = 'cloud',
+  browserRender,
   videoUrl,
   hardsubUrl,
   imageUrls,
@@ -47,6 +62,8 @@ export const ResultSection = memo(function ResultSection({
       ? renderQuality
       : (quality ?? 'medium')
   );
+  const isBrowserTake = outputMode === 'video' && renderTarget === 'browser';
+  const isBrowserImage = outputMode === 'image' && renderTarget === 'browser';
 
   const heightBoundMaxWidth = 'min(48rem, max(0px, calc((100dvh - 12rem) * 16 / 9)))';
 
@@ -58,9 +75,35 @@ export const ResultSection = memo(function ResultSection({
       {/* 结果预览 */}
       <div className="w-full">
         {outputMode === 'image' ? (
-          <div className="h-[420px]">
-            <ImagePreview imageUrls={imageUrls} />
-          </div>
+          isBrowserImage ? (
+            isBrowserImagePayload(browserRender) && jobId ? (
+              <BrowserImageResult
+                jobId={jobId}
+                payload={browserRender}
+                renderTarget={renderTarget}
+              />
+            ) : (
+              <div className="rounded-2xl border border-red-200/60 bg-red-50/60 px-5 py-4 text-sm text-red-700">
+                {t('result.browser.payloadMissing')}
+              </div>
+            )
+          ) : (
+            <div className="h-[420px]">
+              <ImagePreview imageUrls={imageUrls} />
+            </div>
+          )
+        ) : isBrowserTake ? (
+          isBrowserVideoPayload(browserRender) && jobId ? (
+            <BrowserRenderPreview
+              jobId={jobId}
+              payload={browserRender}
+              renderTarget={renderTarget}
+            />
+          ) : (
+            <div className="rounded-2xl border border-red-200/60 bg-red-50/60 px-5 py-4 text-sm text-red-700">
+              {t('result.browser.payloadMissing')}
+            </div>
+          )
         ) : (
           <VideoPreview videoUrl={videoUrl} />
         )}
@@ -74,6 +117,7 @@ export const ResultSection = memo(function ResultSection({
         frameRate={frameRate}
         outputMode={outputMode}
         isBusy={isBusy}
+        browserPreview={isBrowserTake}
         onAiModify={onAiModify}
         onNewContent={onNewContent}
         onRerender={onRerender}

@@ -26,6 +26,8 @@ services:
       dockerfile: Dockerfile
       args:
         - NODE_ENV=production
+        - VITE_BROWSER_RENDERER_URL=${VITE_BROWSER_RENDERER_URL:-}
+        - BROWSER_RENDERER_MAIN_ORIGIN=${BROWSER_RENDERER_MAIN_ORIGIN:-}
     image: manimcat:latest
     security_opt:
       - no-new-privileges:true
@@ -98,6 +100,10 @@ services:
       - MANIMCAT_ROUTE_API_KEYS=${MANIMCAT_ROUTE_API_KEYS:-}
       - MANIMCAT_ROUTE_MODELS=${MANIMCAT_ROUTE_MODELS:-}
       - DISPLAY=:99
+      # Optional dedicated renderer hostname. Point this hostname at the same
+      # service and build VITE_BROWSER_RENDERER_URL as https://<host>/renderer.
+      - BROWSER_RENDERER_HOST=${BROWSER_RENDERER_HOST:-}
+      - BROWSER_RENDERER_MAIN_ORIGIN=${BROWSER_RENDERER_MAIN_ORIGIN:-}
     volumes:
       # Persist studio workspace sessions, generated code, and studio outputs
       - studio-workspace-data:/app/.studio-workspace

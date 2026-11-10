@@ -119,6 +119,7 @@ async function executeVideoJob(job: any): Promise<unknown> {
     jobId,
     concept,
     outputMode,
+    renderTarget: data.renderTarget ?? 'cloud',
     quality,
     hasPreGeneratedCode: !!preGeneratedCode,
     hasEditRequest: !!editInstructions,
@@ -241,6 +242,7 @@ async function executeVideoJob(job: any): Promise<unknown> {
         error: errorMessage,
         cancelReason,
         outputMode,
+        renderTarget: data.renderTarget ?? 'cloud',
         timings: normalizeTimings(timings),
         tokenUsage: getCurrentJobTokenUsage()
       }

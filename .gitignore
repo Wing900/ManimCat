@@ -94,3 +94,8 @@ dist-workflow-tests/
 /opencode-model-alias.patch
 /scripts/build_class_meeting_submission.ps1
 /scripts/build_october_reports.ps1
+
+# Browser renderer generated assets and isolated build
+frontend/browser-rendering-assets/
+frontend/dist-browser-renderer/
+public/browser-rendering/

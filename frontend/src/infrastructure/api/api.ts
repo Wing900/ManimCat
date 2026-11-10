@@ -13,8 +13,17 @@ import { loadSettings } from '../storage/settings';
 import { deriveSubtitleUrl, videoJobId } from '../../shared/media/subtitle-url';
 import { getConnectionHeaders, withConnectionProvider } from '../../features/connection/connection-request';
 import { localizeApiMessage, translate } from '../../shared/i18n/runtime';
+import {
+  createRequestDeadline,
+  readResponseBytesBounded,
+  RequestDeadlineError,
+  ResponseTooLargeError,
+} from './request-deadline';
 
 export const API_BASE = '/api';
+const MAX_BROWSER_NARRATION_BYTES = 64 * 1024 * 1024;
+const BROWSER_NARRATION_FETCH_TIMEOUT_MS = 60_000;
+const SAFE_NARRATION_SHA256 = /^[a-f0-9]{64}$/;
 
 /** 获取或生成浏览器端唯一标识，用于隔离历史记录 */
 function getClientId(): string {
@@ -179,6 +188,99 @@ export async function getJobStatus(jobId: string, signal?: AbortSignal): Promise
   }
 
   return response.json();
+}
+
+function toHex(value: ArrayBuffer): string {
+  return Array.from(new Uint8Array(value), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** The only browser narration asset URL the host will fetch for a job. */
+export function browserRenderNarrationPath(jobId: string, sha256: string): string {
+  if (!SAFE_NARRATION_SHA256.test(sha256)) {
+    throw new Error(translate('browser.narrationReferenceInvalid'));
+  }
+  return `${API_BASE}/jobs/${encodeURIComponent(jobId)}/browser-assets/narration-${sha256}.wav`;
+}
+
+async function discardResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // The body is no longer used; a stream that is already closed is fine.
+  }
+}
+
+/**
+ * Fetch the prepared WAV through the existing authenticated API boundary. The job
+ * access record and connection credential do the authorization; no path or token is
+ * accepted from the caller beyond the server-issued reference. The independent deadline
+ * covers both the response headers and the bounded body read, and composes the caller's
+ * unmount signal instead of replacing it.
+ */
+export async function fetchBrowserRenderNarration(
+  jobId: string,
+  audioUrl: string,
+  expectedBytes: number | undefined,
+  expectedSha256: string,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> {
+  const expectedUrl = browserRenderNarrationPath(jobId, expectedSha256);
+  if (audioUrl !== expectedUrl) {
+    throw new Error(translate('browser.narrationReferenceInvalid'));
+  }
+  const deadline = createRequestDeadline(signal, BROWSER_NARRATION_FETCH_TIMEOUT_MS);
+  let response: Response | null = null;
+  try {
+    response = await fetch(audioUrl, {
+      headers: { ...getConnectionHeaders(), 'x-client-id': getClientId() },
+      signal: deadline.signal,
+    });
+    if (deadline.timedOut()) throw new RequestDeadlineError();
+    if (!response.ok) {
+      await discardResponseBody(response);
+      throw new Error(translate('browser.narrationDownloadFailed'));
+    }
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().includes('audio/wav')) {
+      await discardResponseBody(response);
+      throw new Error(translate('browser.narrationDownloadFailed'));
+    }
+    const declared = Number(response.headers.get('content-length') ?? '0');
+    if (Number.isFinite(declared) && declared > MAX_BROWSER_NARRATION_BYTES) {
+      await discardResponseBody(response);
+      throw new ResponseTooLargeError();
+    }
+    const bytes = await readResponseBytesBounded(response, MAX_BROWSER_NARRATION_BYTES);
+    if (deadline.timedOut()) throw new RequestDeadlineError();
+    if (bytes.byteLength <= 0 || bytes.byteLength > MAX_BROWSER_NARRATION_BYTES) {
+      throw new ResponseTooLargeError();
+    }
+    if (expectedBytes !== undefined && bytes.byteLength !== expectedBytes) {
+      throw new Error(translate('browser.narrationDownloadFailed'));
+    }
+    if (!globalThis.crypto?.subtle) {
+      throw new Error(translate('browser.narrationIntegrityFailed'));
+    }
+    const actualSha256 = toHex(await crypto.subtle.digest('SHA-256', bytes));
+    if (deadline.timedOut()) throw new RequestDeadlineError();
+    if (actualSha256 !== expectedSha256) {
+      throw new Error(translate('browser.narrationIntegrityFailed'));
+    }
+    return bytes;
+  } catch (error) {
+    if (deadline.timedOut()) {
+      throw new Error(translate('browser.narrationTimedOut'));
+    }
+    if (error instanceof ResponseTooLargeError) {
+      throw new Error(translate('browser.narrationTooLarge'));
+    }
+    throw error;
+  } finally {
+    deadline.dispose();
+    if (deadline.timedOut() && response && !response.bodyUsed) {
+      await discardResponseBody(response);
+    }
+  }
 }
 
 export async function cancelJob(jobId: string): Promise<void> {

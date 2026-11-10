@@ -79,6 +79,8 @@ router.get(
         stage_history: stageHistory,
         stage_started_at: stageStartedAt,
         output_mode: result.data.outputMode || 'video',
+        render_target: result.data.renderTarget ?? 'cloud',
+        browser_render: result.data.browserRender ?? null,
         video_url: result.data.videoUrl ?? null,
         hardsub_url: result.data.hardsubUrl ?? null,
         image_urls: result.data.imageUrls,
@@ -109,6 +111,7 @@ router.get(
         error: result.data.error,
         details: result.data.details,
         cancel_reason: result.data.cancelReason,
+        render_target: result.data.renderTarget ?? 'cloud',
         timings: result.data.timings,
         token_usage: result.data.tokenUsage,
       })

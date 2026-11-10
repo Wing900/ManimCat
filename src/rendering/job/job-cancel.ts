@@ -10,7 +10,7 @@ import { getCancelReason, isJobCancelled, markJobCancelled } from './job-cancel-
 import { cancelManimProcess } from '../../utils/manim-process-registry'
 import { getJobResult, storeJobResult } from '../../infrastructure/redis/job/redis-job-result-store'
 import { deleteJobStage } from '../../infrastructure/redis/job/redis-job-state-store'
-import type { OutputMode } from '../../types'
+import type { OutputMode, RenderTarget } from '../../types'
 
 const logger = createLogger('JobCancel')
 
@@ -55,6 +55,7 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
 
   let jobState: string | null = null
   let outputMode: OutputMode | undefined
+  let renderTarget: RenderTarget | undefined
   const job = await videoQueue.getJob(jobId)
 
   if (job) {
@@ -62,6 +63,10 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
     const queueOutputMode = (job.data as { outputMode?: OutputMode } | undefined)?.outputMode
     if (queueOutputMode) {
       outputMode = queueOutputMode
+    }
+    const queueRenderTarget = (job.data as { renderTarget?: RenderTarget } | undefined)?.renderTarget
+    if (queueRenderTarget) {
+      renderTarget = queueRenderTarget
     }
 
     if (jobState === 'waiting' || jobState === 'delayed') {
@@ -77,7 +82,7 @@ export async function cancelJob(jobId: string): Promise<{ jobState: string | nul
 
   await storeJobResult(jobId, {
     status: 'failed',
-    data: { error: 'Job cancelled', cancelReason, outputMode }
+    data: { error: 'Job cancelled', cancelReason, outputMode, renderTarget: renderTarget ?? 'cloud' }
   })
 
   await deleteJobStage(jobId)

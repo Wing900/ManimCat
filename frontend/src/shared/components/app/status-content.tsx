@@ -27,6 +27,8 @@ interface StatusContentProps {
   currentCode: string;
   isBusy: boolean;
   lastRequest: LastRequest | null;
+  browserPreflightStatus?: 'idle' | 'checking' | 'error';
+  browserPreflightMessage?: string | null;
   onSubmit: (data: LastRequest) => void;
   onCodeChange: (code: string) => void;
   onRerender: (quality?: Quality, frameRate?: number, burnSubtitles?: boolean) => void;
@@ -66,6 +68,8 @@ export function StatusContent({
   currentCode,
   isBusy,
   lastRequest,
+  browserPreflightStatus = 'idle',
+  browserPreflightMessage = null,
   onSubmit,
   onCodeChange,
   onRerender,
@@ -85,7 +89,9 @@ export function StatusContent({
         onConceptChange={onConceptChange}
         onSecretStudioOpen={onSecretStudioOpen}
         onSubmit={onSubmit}
-        loading={false}
+        loading={browserPreflightStatus === 'checking'}
+        preflightStatus={browserPreflightStatus}
+        preflightMessage={browserPreflightMessage}
       />
     );
   }
@@ -224,8 +230,11 @@ function ResultContent({
       }}
     >
       <ResultSection
+        jobId={result.jobId}
         code={currentCode || result.code || ''}
         outputMode={result.output_mode || lastRequest?.outputMode || 'video'}
+        renderTarget={result.render_target ?? 'cloud'}
+        browserRender={result.browser_render ?? null}
         videoUrl={result.video_url || ''}
         hardsubUrl={result.hardsub_url || undefined}
         imageUrls={result.image_urls || []}

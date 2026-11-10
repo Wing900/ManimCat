@@ -1,0 +1,166 @@
+/* Styles moved from the former standalone browser-renderer.html. They load only on
+   the /renderer route, never with the main application's index.css. */
+
+:root {
+  color-scheme: dark;
+  --ink: #f4f1ea;
+  --muted: #b8b3aa;
+  --paper: #0b0d0f;
+  --line: #2a2f34;
+  --accent: #d9a441;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Noto Sans CJK SC',
+    'Microsoft YaHei', sans-serif;
+}
+
+#root {
+  position: fixed;
+  inset: 0;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+#stage canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  outline: none;
+  touch-action: pan-y;
+}
+
+#shield {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+  pointer-events: auto;
+}
+
+#shield[hidden] {
+  display: none;
+}
+
+#overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: min(26rem, calc(100% - 3rem));
+  max-width: min(44rem, calc(100% - 3rem));
+  max-height: calc(100% - 4rem);
+  overflow: auto;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: rgba(11, 13, 15, 0.9);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#overlay[hidden] {
+  display: none;
+}
+
+#overlay.error {
+  text-align: left;
+  border-color: #6b3a34;
+  color: var(--ink);
+  pointer-events: auto;
+}
+
+#overlay strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #ffb4a7;
+  font-size: 0.98rem;
+}
+
+#overlay .code {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+#overlay pre {
+  max-height: 14rem;
+  margin: 0.7rem 0 0;
+  padding: 0.6rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: #08090a;
+  color: #d6d2ca;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#badge {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.55rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(11, 13, 15, 0.72);
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#audio {
+  position: absolute;
+  left: 50%;
+  bottom: 1.15rem;
+  transform: translateX(-50%);
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: rgba(11, 13, 15, 0.92);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 3;
+}
+
+#audio:hover,
+#audio:focus-visible {
+  background: var(--accent);
+  color: #15110a;
+  outline: none;
+}
+
+#audio[hidden] {
+  display: none;
+}

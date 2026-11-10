@@ -21,7 +21,8 @@ import {
   customApiConfigSchema,
   promptOverridesSchema,
   qualitySchema,
-  videoConfigSchema
+  videoConfigSchema,
+  renderTargetSchema
 } from './schemas/common'
 import { resolveJobTimeoutMs } from '../utils/job-timeout'
 import { getRequestClientId } from '../utils/request-client-id'
@@ -42,12 +43,13 @@ const bodySchema = z.object({
   customApiConfig: customApiConfigSchema.optional(),
   promptOverrides: promptOverridesSchema.optional(),
   videoConfig: videoConfigSchema.optional(),
-  renderCacheKey: z.string().min(1).optional()
+  renderCacheKey: z.string().min(1).optional(),
+  renderTarget: renderTargetSchema.optional().default('cloud')
 })
 
 async function handleModifyRequest(req: express.Request, res: express.Response) {
   const parsed = bodySchema.parse(req.body)
-  const { concept, referenceImages, outputMode, quality, instructions, code, promptOverrides, videoConfig, renderCacheKey } = parsed
+  const { concept, referenceImages, outputMode, quality, instructions, code, promptOverrides, videoConfig, renderCacheKey, renderTarget } = parsed
   const sanitizedReferenceImages = sanitizeReferenceImages(referenceImages)
   const accessContext = requireAccessContext(res)
   const effectiveCustomApiConfig = requireProviderConfig(accessContext)
@@ -80,7 +82,8 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
     hasCustomApiConfig: !!effectiveCustomApiConfig,
     connectionMode: accessContext.mode,
     videoConfig,
-    renderCacheKey: stableRenderCacheKey
+    renderCacheKey: stableRenderCacheKey,
+    renderTarget
   })
 
   await storeJobStage(jobId, 'queued', {
@@ -111,6 +114,7 @@ async function handleModifyRequest(req: express.Request, res: express.Response) 
         videoConfig,
         clientId,
         renderCacheKey: stableRenderCacheKey,
+        renderTarget,
         timestamp: submittedAt
       },
       {

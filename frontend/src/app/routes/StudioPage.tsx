@@ -30,6 +30,8 @@ interface StudioPageProps {
   currentCode: string;
   isBusy: boolean;
   lastRequest: LastRequest | null;
+  browserPreflightStatus?: 'idle' | 'checking' | 'error';
+  browserPreflightMessage?: string | null;
   onConceptChange: (value: string) => void;
   onSecretStudioOpen?: (studioKind: StudioKind) => void;
   onSubmit: (data: LastRequest) => void;
@@ -69,6 +71,8 @@ export function StudioPage({
   currentCode,
   isBusy,
   lastRequest,
+  browserPreflightStatus = 'idle',
+  browserPreflightMessage = null,
   onConceptChange,
   onSecretStudioOpen,
   onSubmit,
@@ -131,6 +135,8 @@ export function StudioPage({
             currentCode={currentCode}
             isBusy={isBusy}
             lastRequest={lastRequest}
+            browserPreflightStatus={browserPreflightStatus}
+            browserPreflightMessage={browserPreflightMessage}
             onSubmit={onSubmit}
             onCodeChange={onCodeChange}
             onRerender={onRerender}

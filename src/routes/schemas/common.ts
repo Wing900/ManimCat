@@ -3,6 +3,8 @@ import { DEFAULT_NARRATION_CONFIG } from '../../workflow/narration/types'
 
 export const qualitySchema = z.enum(['low', 'medium', 'high'])
 
+export const renderTargetSchema = z.enum(['cloud', 'browser'])
+
 export const narrationConfigSchema = z.object({
   enabled: z.boolean().default(DEFAULT_NARRATION_CONFIG.enabled),
   voice: z.string().min(1).max(100).default(DEFAULT_NARRATION_CONFIG.voice),

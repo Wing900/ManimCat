@@ -7,19 +7,50 @@ ENV PATH=/opt/venv/bin:$PATH
 COPY requirements.txt /tmp/render-requirements.txt
 RUN pip install --no-cache-dir --only-binary=:all: -r /tmp/render-requirements.txt
 
+# Build the small ManimGX web adapter used for clean PNG readback. Keeping this in
+# its own pinned stage avoids Docker-in-Docker during the Node build and makes the
+# production image reproducible from a clean checkout.
+FROM rust:1.90-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f AS browser_engine_builder
+RUN apt-get update -qq \
+    && apt-get install --no-install-recommends -y ca-certificates curl patch \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /engine-src
+COPY scripts/browser-rendering/engine-patch/0001-clean-image-readback.patch /tmp/manimgx-clean-image.patch
+RUN curl --fail --location --retry 3 \
+      https://codeload.github.com/academa-labs/manimgx/tar.gz/0507708dc5d731478786de2f46ca8a1660d514d6 \
+      --output /tmp/manimgx.tar.gz \
+    && echo "2637d63014ce10d16a092141e9436c3bf361dc2811bc688d02b2f1e221124de4  /tmp/manimgx.tar.gz" | sha256sum --check --strict \
+    && tar -xzf /tmp/manimgx.tar.gz --strip-components=1 -C /engine-src \
+    && patch -p1 -i /tmp/manimgx-clean-image.patch \
+    && rustup target add wasm32-unknown-unknown \
+    && cargo build --manifest-path rust/engine/Cargo.toml --locked --lib --release \
+      --target wasm32-unknown-unknown --no-default-features --features web \
+      --target-dir /engine-src/rust/target \
+    && cargo install wasm-bindgen-cli --version 0.2.128 --locked \
+    && mkdir -p /browser-engine \
+    && wasm-bindgen --target web --out-dir /browser-engine --out-name engine \
+      --no-typescript --omit-default-module-path \
+      rust/target/wasm32-unknown-unknown/release/_engine.wasm
+
 # Compile both applications, then retain production Node dependencies only.
 FROM node:22-bookworm-slim AS node_builder
+ARG VITE_BROWSER_RENDERER_URL
+ARG BROWSER_RENDERER_MAIN_ORIGIN
+ENV VITE_BROWSER_RENDERER_URL=${VITE_BROWSER_RENDERER_URL}
+ENV BROWSER_RENDERER_MAIN_ORIGIN=${BROWSER_RENDERER_MAIN_ORIGIN}
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/package-lock.json ./frontend/
-COPY scripts/prune-onnxruntime-web.mjs ./scripts/
+COPY scripts ./scripts
 RUN npm ci \
     && npm --prefix frontend ci
 COPY tsconfig.json ./
 COPY frontend ./frontend
 COPY src ./src
 COPY data ./data
-RUN npm run build \
+COPY --from=browser_engine_builder /browser-engine /tmp/browser-engine
+RUN npm run build:backend \
+    && node scripts/browser-rendering/build.mjs --prebuilt-dir /tmp/browser-engine \
     && node scripts/prune-onnxruntime-web.mjs \
     && npm prune --omit=dev
 
@@ -62,6 +93,7 @@ COPY --from=node_builder /app/package.json ./package.json
 COPY --from=node_builder /app/node_modules ./node_modules
 COPY --from=node_builder /app/dist ./dist
 COPY --from=node_builder /app/public ./public
+COPY --from=node_builder /app/frontend/dist-browser-renderer ./renderer
 COPY --from=node_builder /app/data ./data
 COPY --from=node_builder /app/src/prompts/templates ./src/prompts/templates
 COPY --from=node_builder /app/src/studio-agent/prompts/templates ./src/studio-agent/prompts/templates

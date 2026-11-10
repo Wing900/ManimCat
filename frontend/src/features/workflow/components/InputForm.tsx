@@ -22,6 +22,8 @@ interface InputFormProps {
     referenceImages?: ReferenceImage[];
   }) => void;
   loading: boolean;
+  preflightStatus?: 'idle' | 'checking' | 'error';
+  preflightMessage?: string | null;
 }
 
 const STUDIO_KEYWORDS: Record<string, StudioKind> = {
@@ -30,7 +32,7 @@ const STUDIO_KEYWORDS: Record<string, StudioKind> = {
 };
 const TRIGGER_DELAY_MS = 1200;
 
-export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubmit, loading }: InputFormProps) {
+export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubmit, loading, preflightStatus = 'idle', preflightMessage = null }: InputFormProps) {
   const { t } = useI18n();
   const [localError, setLocalError] = useState<string | null>(null);
   const { quality, outputMode } = useWorkflowDraft();
@@ -184,6 +186,16 @@ export function InputForm({ concept, onConceptChange, onSecretStudioOpen, onSubm
         </button>
       </div>
     )}
+    {preflightStatus === 'checking' ? (
+      <p role="status" aria-live="polite" className="mb-3 text-center text-xs text-text-secondary/65">
+        {t('browser.preflight.checking')}
+      </p>
+    ) : null}
+    {preflightStatus === 'error' && preflightMessage ? (
+      <div role="alert" className="mb-3 rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-3 text-sm leading-relaxed text-red-700 dark:border-red-500/25 dark:bg-red-900/20 dark:text-red-300">
+        {preflightMessage}
+      </div>
+    ) : null}
     <form onSubmit={handleFormSubmit} className="space-y-6">
         <div
           className={`relative transition-all duration-200 ${isDragging ? 'scale-[1.02]' : ''}`}

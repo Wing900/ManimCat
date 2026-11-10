@@ -4,7 +4,8 @@ import { ensureJobNotCancelled } from '../../job/job-cancel'
 import { resolveNarrationConfig, resolveNarrationWorkspace } from '../../manim/narration-mixer'
 import { resolveReusedNarrationForJob } from '../../manim/narration-reuse'
 import { analyzeAndGenerate } from './steps/analysis-step'
-import { handlePreGeneratedCode, renderImages, renderVideo } from './steps/render-step'
+import { handlePreGeneratedCode } from './steps/render-step'
+import { renderOutput } from './steps/render-output'
 import { storeResult } from './steps/storage-step'
 import { storeProcessingStage } from './video-processor-utils'
 import type { StoreJobResultOutcome } from '../../job/job-types'
@@ -100,38 +101,24 @@ export async function runEditFlow(args: BaseFlowArgs): Promise<FlowResult> {
     narration: reusedNarration
   }
 
-  const renderResult =
-    outputMode === 'image'
-      ? await renderImages(
-          jobId,
-          concept,
-          quality,
-          generationResult,
-          timings,
-          data.videoConfig,
-          data.customApiConfig,
-          promptOverrides,
-          () => storeProcessingStage(jobId, 'rendering'),
-          data.clientId,
-          data.workspaceDirectory,
-          data.renderCacheKey,
-          data.workspaceOutputDirectory
-        )
-      : await renderVideo(
-          jobId,
-          concept,
-          quality,
-          generationResult,
-          timings,
-          data.customApiConfig,
-          data.videoConfig,
-          promptOverrides,
-          () => storeProcessingStage(jobId, 'rendering'),
-          data.clientId,
-          data.workspaceDirectory,
-          data.renderCacheKey,
-          data.workspaceOutputDirectory
-        )
+  const renderResult = await renderOutput({
+    jobId,
+    concept,
+    quality,
+    outputMode,
+    renderTarget: data.renderTarget,
+    codeResult: generationResult,
+    timings,
+    customApiConfig: data.customApiConfig,
+    videoConfig: data.videoConfig,
+    promptOverrides,
+    onStageUpdate: () => storeProcessingStage(jobId, 'rendering'),
+    clientId: data.clientId,
+    workspaceDirectory: data.workspaceDirectory,
+    renderCacheKey: data.renderCacheKey,
+    workspaceOutputDirectory: data.workspaceOutputDirectory,
+    sceneName: data.sceneName
+  })
 
   const storeStart = performance.now()
   const storeOutcome = await storeResult(renderResult, timings, data.clientId)
@@ -176,38 +163,24 @@ export async function runGenerationFlow(args: BaseFlowArgs): Promise<FlowResult>
   )
 
   await ensureJobNotCancelled(jobId, job)
-  const renderResult =
-    outputMode === 'image'
-      ? await renderImages(
-          jobId,
-          concept,
-          quality,
-          codeResult,
-          timings,
-          data.videoConfig,
-          data.customApiConfig,
-          promptOverrides,
-          () => storeProcessingStage(jobId, 'rendering'),
-          data.clientId,
-          data.workspaceDirectory,
-          data.renderCacheKey,
-          data.workspaceOutputDirectory
-        )
-      : await renderVideo(
-          jobId,
-          concept,
-          quality,
-          codeResult,
-          timings,
-          data.customApiConfig,
-          data.videoConfig,
-          promptOverrides,
-          () => storeProcessingStage(jobId, 'rendering'),
-          data.clientId,
-          data.workspaceDirectory,
-          data.renderCacheKey,
-          data.workspaceOutputDirectory
-        )
+  const renderResult = await renderOutput({
+    jobId,
+    concept,
+    quality,
+    outputMode,
+    renderTarget: data.renderTarget,
+    codeResult,
+    timings,
+    customApiConfig: data.customApiConfig,
+    videoConfig: data.videoConfig,
+    promptOverrides,
+    onStageUpdate: () => storeProcessingStage(jobId, 'rendering'),
+    clientId: data.clientId,
+    workspaceDirectory: data.workspaceDirectory,
+    renderCacheKey: data.renderCacheKey,
+    workspaceOutputDirectory: data.workspaceOutputDirectory,
+    sceneName: data.sceneName
+  })
 
   await ensureJobNotCancelled(jobId, job)
   const storeStart = performance.now()

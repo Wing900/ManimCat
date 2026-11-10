@@ -10,6 +10,71 @@ export type VideoQuality = 'low' | 'medium' | 'high'
 export type OutputMode = 'video' | 'image'
 export type PromptLocale = 'zh-CN' | 'en-US'
 
+/** Where the finished film is rendered. Cloud is the compatibility default. */
+export type RenderTarget = 'cloud' | 'browser'
+
+export interface BrowserRenderNarrationSegment {
+  id: string
+  /** Seconds from the start of the complete audio track. */
+  start: number
+  duration: number
+  /** Cue times in seconds relative to this segment's start. */
+  cues?: Record<string, number>
+}
+
+/**
+ * Portable narration timing. Unlike NarrationManifest it carries no audioPath and no
+ * server filesystem location; the WAV bytes travel through the authenticated job
+ * asset endpoint and the cue map travels inline.
+ */
+export interface PortableNarrationManifest {
+  version: 1
+  duration: number
+  cues: Record<string, number>
+  segments?: BrowserRenderNarrationSegment[]
+}
+
+export interface BrowserRenderNarrationPayload {
+  manifest: PortableNarrationManifest
+  /** Same-origin authenticated endpoint; contains no filesystem path or credential. */
+  audioUrl: string
+  mimeType: 'audio/wav'
+  byteLength: number
+  /** SHA-256 of the exact published bytes; also the immutable asset identity in audioUrl. */
+  sha256: string
+}
+
+/** One independent image-mode source block, already parsed and ordered by index. */
+export interface BrowserRenderImageBlock {
+  index: number
+  source: string
+}
+
+interface BrowserRenderPreparedBase {
+  frameRate: number
+  resolution: { width: number; height: number }
+  quality: VideoQuality
+}
+
+/** Video browser take: playable, optionally narrated, never an MP4 artifact. */
+export interface BrowserRenderVideoPreparedPayload extends BrowserRenderPreparedBase {
+  outputMode: 'video'
+  source: string
+  sceneName?: string
+  narration?: BrowserRenderNarrationPayload
+}
+
+/** Image browser result: ordered source blocks; never narration and never an MP4. */
+export interface BrowserRenderImagePreparedPayload extends BrowserRenderPreparedBase {
+  outputMode: 'image'
+  blocks: BrowserRenderImageBlock[]
+}
+
+/** Everything a browser-side runtime needs after server-side generation/narration. */
+export type BrowserRenderPreparedPayload =
+  | BrowserRenderVideoPreparedPayload
+  | BrowserRenderImagePreparedPayload
+
 /**
  * Video render configuration.
  */
@@ -144,6 +209,8 @@ export interface VideoJobData extends ConceptInput {
   workspaceDirectory?: string
   workspaceOutputDirectory?: string
   renderCacheKey?: string
+  /** Captured when the request is submitted; the worker never re-reads a global setting. */
+  renderTarget?: RenderTarget
 }
 
 /**
@@ -153,6 +220,7 @@ export interface CompletedJobResult {
   status: 'completed'
   data: {
     outputMode: OutputMode
+    renderTarget?: RenderTarget
     videoUrl?: string
     hardsubUrl?: string
     imageUrls?: string[]
@@ -167,6 +235,8 @@ export interface CompletedJobResult {
     renderPeakMemoryMB?: number
     timings?: JobTimings
     tokenUsage?: JobTokenUsageSummary
+    /** Present only for renderTarget === 'browser'; no MP4 is required or implied. */
+    browserRender?: BrowserRenderPreparedPayload
   }
   timestamp: number
 }
@@ -181,6 +251,7 @@ export interface FailedJobResult {
     details?: string
     cancelReason?: string
     outputMode?: OutputMode
+    renderTarget?: RenderTarget
     timings?: JobTimings
     tokenUsage?: JobTokenUsageSummary
   }
@@ -233,6 +304,7 @@ export interface GenerateRequest extends ConceptInput {
   promptOverrides?: PromptOverrides
   customApiConfig?: CustomApiConfig
   renderCacheKey?: string
+  renderTarget?: RenderTarget
 }
 
 export interface ModifyRequest extends ConceptInput {
@@ -243,6 +315,7 @@ export interface ModifyRequest extends ConceptInput {
   videoConfig?: VideoConfig
   customApiConfig?: CustomApiConfig
   renderCacheKey?: string
+  renderTarget?: RenderTarget
 }
 
 export interface GenerateResponse {
@@ -277,6 +350,8 @@ export interface JobStatusCompletedResponse {
   revision: number
   attempt: number
   output_mode: OutputMode
+  render_target?: RenderTarget
+  browser_render?: BrowserRenderPreparedPayload | null
   video_url?: string | null
   image_urls?: string[]
   image_count?: number
@@ -304,6 +379,7 @@ export interface JobStatusFailedResponse {
   error: string
   details?: string
   cancel_reason?: string
+  render_target?: RenderTarget
   timings?: JobTimings
   token_usage?: JobTokenUsageSummary
 }

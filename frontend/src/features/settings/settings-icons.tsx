@@ -53,6 +53,17 @@ export function VideoMark(props: IconProps) {
   )
 }
 
+/** Rendering: a graphics chip with clear pins and a central compute core. */
+export function RenderMark(props: IconProps) {
+  return (
+    <svg {...mark(props)}>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+      <rect x="9.5" y="9.5" width="5" height="5" rx="0.8" />
+      <path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3M18 9h3m-3 6h3" />
+    </svg>
+  )
+}
+
 /**
  * Clearing every AI setting: a bin — lid, handle, body.
  *

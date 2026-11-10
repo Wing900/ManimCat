@@ -24,8 +24,20 @@ import type { GenerationResult } from './analysis-step'
 import type { CustomApiConfig, PromptOverrides, VideoConfig } from '../../../../types'
 import type { RenderResult } from './render-step-types'
 import { executeRenderWithRetry } from './render-with-retry'
+import { parseImageCodeBlocks } from '../../../manim/image-code-blocks'
 
 const logger = createLogger('RenderImageStep')
+
+interface ImageRenderAttempt {
+  success: boolean
+  stderr: string
+  stdout: string
+  peakMemoryMB: number
+  imageUrls: string[]
+  outputPaths: string[]
+  exitCode?: number
+  failedCode?: string
+}
 
 function writeImagesIntoWorkspace(workspaceDirectory: string | undefined, jobId: string, sourceImagePaths: string[], versionDirectory?: string): string[] | undefined {
   if (!workspaceDirectory || sourceImagePaths.length === 0) {
@@ -41,51 +53,6 @@ function writeImagesIntoWorkspace(workspaceDirectory: string | undefined, jobId:
     fs.copyFileSync(sourcePath, workspaceImagePath)
     return workspaceImagePath
   })
-}
-
-interface ImageCodeBlock {
-  index: number
-  code: string
-}
-
-interface ImageRenderAttempt {
-  success: boolean
-  stderr: string
-  stdout: string
-  peakMemoryMB: number
-  imageUrls: string[]
-  outputPaths: string[]
-  exitCode?: number
-  failedCode?: string
-}
-
-function parseImageCodeBlocks(code: string): ImageCodeBlock[] {
-  const blocks: ImageCodeBlock[] = []
-  const blockRegex = /###\s*YON_IMAGE_(\d+)_START\s*###([\s\S]*?)###\s*YON_IMAGE_\1_END\s*###/g
-
-  let match: RegExpExecArray | null
-  while ((match = blockRegex.exec(code)) !== null) {
-    const index = parseInt(match[1], 10)
-    const blockCode = match[2].trim()
-    if (!Number.isFinite(index) || !blockCode) {
-      continue
-    }
-    blocks.push({ index, code: blockCode })
-  }
-
-  if (blocks.length === 0) {
-    throw new Error('No YON_IMAGE code blocks were found')
-  }
-
-  const remaining = code
-    .replace(/###\s*YON_IMAGE_(\d+)_START\s*###[\s\S]*?###\s*YON_IMAGE_\1_END\s*###/g, '')
-    .trim()
-  if (remaining.length > 0) {
-    throw new Error('Image mode only accepts code inside YON_IMAGE blocks')
-  }
-
-  blocks.sort((a, b) => a.index - b.index)
-  return blocks
 }
 
 function clearPreviousImages(outputDir: string, jobId: string): void {

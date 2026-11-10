@@ -1,4 +1,4 @@
-import type { NarrationConfig, SettingsConfig, VideoConfig } from '../../shared/types/api';
+import type { NarrationConfig, RenderTarget, RenderingConfig, SettingsConfig, VideoConfig } from '../../shared/types/api';
 
 const SETTINGS_KEY = 'manimcat_settings';
 const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
@@ -7,7 +7,9 @@ const SETTINGS_VERSION_KEY = 'manimcat_settings_version';
 // v7: the default quality moved from 1080p (high) to 720p (medium); frame rate stays 60.
 // v8: narration was introduced as opt-in (off by default).
 // v9: narration is on by default; v8 blobs are lifted to enabled, other settings are preserved.
-const SETTINGS_VERSION = '9';
+// v10: rendering location was introduced. Missing/invalid values migrate to cloud without
+// touching the existing video settings.
+const SETTINGS_VERSION = '10';
 
 /** Voice options offered by the settings UI. */
 export const NARRATION_VOICES = [
@@ -59,19 +61,37 @@ export function syncNarrationVoiceToLocale(locale: VoiceLocale): void {
   });
 }
 
+const DEFAULT_RENDERING: RenderingConfig = { target: 'browser' };
+
 export const DEFAULT_SETTINGS: SettingsConfig = {
   video: {
     quality: 'medium',
     frameRate: 60,
     timeout: 1200,
     narration: { ...DEFAULT_NARRATION }
-  }
+  },
+  rendering: { ...DEFAULT_RENDERING }
 };
 
 function createDefaultSettings(): SettingsConfig {
   return {
-    video: { ...DEFAULT_SETTINGS.video, narration: { ...DEFAULT_NARRATION } }
+    video: { ...DEFAULT_SETTINGS.video, narration: { ...DEFAULT_NARRATION } },
+    // First-time visitors start with local rendering. Existing saved preferences
+    // still pass through sanitizeRendering, which preserves an explicit cloud choice.
+    rendering: { ...DEFAULT_RENDERING }
   };
+}
+
+function isRenderTarget(value: unknown): value is RenderTarget {
+  return value === 'cloud' || value === 'browser';
+}
+
+function sanitizeRendering(raw: unknown): RenderingConfig {
+  if (!raw || typeof raw !== 'object') {
+    return { target: 'cloud' };
+  }
+  const target = (raw as { target?: unknown }).target;
+  return { target: isRenderTarget(target) ? target : 'cloud' };
 }
 
 function isNarrationVoice(value: unknown): value is (typeof NARRATION_VOICES)[number] {
@@ -100,7 +120,7 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
     return createDefaultSettings();
   }
 
-  const parsed = raw as { video?: Partial<VideoConfig> };
+  const parsed = raw as { video?: Partial<VideoConfig>; rendering?: unknown };
   const quality = parsed.video?.quality;
   const frameRate = parsed.video?.frameRate;
   const timeout = parsed.video?.timeout;
@@ -111,7 +131,8 @@ function sanitizeSettings(raw: unknown): SettingsConfig {
       frameRate: typeof frameRate === 'number' ? frameRate : DEFAULT_SETTINGS.video.frameRate,
       timeout: typeof timeout === 'number' ? timeout : DEFAULT_SETTINGS.video.timeout,
       narration: sanitizeNarration(parsed.video?.narration)
-    }
+    },
+    rendering: sanitizeRendering(parsed.rendering)
   };
 }
 
@@ -161,17 +182,21 @@ function migrateSettings(raw: unknown, fromVersion: string | null): SettingsConf
   // v8 -> v9: 旁白由「显式开启」改为默认开启。旧 blob 里的 enabled:false 是 v8 的默认值，
   // 无法与用户手动关闭区分，因此统一抬为 true；voice/rate 及 video 其余字段保持原值。
   if (isOlderThan(fromVersion, 9)) {
+    const currentNarration = sanitized.video.narration ?? DEFAULT_NARRATION;
     sanitized = {
       ...sanitized,
       video: {
         ...sanitized.video,
         narration: {
-          ...sanitized.video.narration,
+          ...currentNarration,
           enabled: true
         }
       }
     };
   }
+
+  // v9 -> v10: 渲染位置加入设置。sanitizeSettings 已把缺失/未知值落到 cloud，
+  // 这里不重写 video，保留用户已有的画质、帧率和旁白。
 
   return sanitized;
 }
@@ -204,4 +229,13 @@ export function saveSettings(settings: SettingsConfig): void {
   const sanitized = sanitizeSettings(settings);
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(sanitized));
   localStorage.setItem(SETTINGS_VERSION_KEY, SETTINGS_VERSION);
+}
+
+/** Resolve the product-level rendering target; missing data means cloud. */
+export function resolveRenderTarget(settings: SettingsConfig = loadSettings()): RenderTarget {
+  return settings.rendering?.target === 'browser' ? 'browser' : 'cloud';
+}
+
+export function loadRenderTarget(): RenderTarget {
+  return resolveRenderTarget(loadSettings());
 }

@@ -6,6 +6,9 @@ export type OutputMode = 'video' | 'image';
 export type PromptLocale = 'zh-CN' | 'en-US';
 export type ProblemFramingMode = 'clarify' | 'invent';
 
+/** 渲染位置。云端为兼容默认值；浏览器为 Workflow 视频的本地渲染目标。 */
+export type RenderTarget = 'cloud' | 'browser';
+
 /** 图片细节级别 */
 export type VisionImageDetail = 'auto' | 'low' | 'high';
 
@@ -68,8 +71,15 @@ export interface VideoConfig {
 }
 
 /** 本地产品设置。连接凭据不再放这里，见 features/connection 的 manimcat_connection。 */
+export interface RenderingConfig {
+  /** 云端仍是默认值；浏览器设置只影响 Workflow 视频。 */
+  target: RenderTarget;
+}
+
 export interface SettingsConfig {
   video: VideoConfig;
+  /** 旧 blob 可能没有这一节；loadSettings 会把它规范化为 cloud。 */
+  rendering?: RenderingConfig;
 }
 
 /** 任务状态 */
@@ -141,6 +151,8 @@ export interface GenerateRequest extends ConceptInput {
   promptOverrides?: PromptOverrides;
   customApiConfig?: CustomApiConfig;
   renderCacheKey?: string;
+  /** 提交时捕获的渲染位置，后台后续阶段只读这个值。 */
+  renderTarget?: RenderTarget;
 }
 
 export interface ProblemFramingStep {
@@ -190,6 +202,7 @@ export interface ModifyRequest extends ConceptInput {
   promptOverrides?: PromptOverrides;
   customApiConfig?: CustomApiConfig;
   renderCacheKey?: string;
+  renderTarget?: RenderTarget;
 }
 
 /** 生成响应 */
@@ -216,6 +229,9 @@ export interface JobResult {
   revision?: number;
   attempt?: number;
   output_mode?: OutputMode;
+  /** 云端任务返回媒体 URL；浏览器任务返回可移植 payload，二者不要混淆。 */
+  render_target?: RenderTarget;
+  browser_render?: BrowserRenderPreparedPayload | null;
   video_url?: string | null;
   hardsub_url?: string | null;
   image_urls?: string[];
@@ -240,6 +256,79 @@ export interface QueueStats {
   failed: number;
   delayed: number;
   total: number;
+}
+
+/** Browser-render DTO: paths stay on the server; the host receives a same-origin URL. */
+export interface BrowserRenderCueManifest {
+  version: 1;
+  duration: number;
+  cues: Record<string, number>;
+  segments?: Array<{
+    id: string;
+    start: number;
+    duration: number;
+    cues?: Record<string, number>;
+  }>;
+}
+
+export interface BrowserRenderNarrationPayload {
+  manifest: BrowserRenderCueManifest;
+  audioUrl: string;
+  mimeType: 'audio/wav';
+  byteLength: number;
+  /** SHA-256 of the exact published bytes; also the immutable asset identity in audioUrl. */
+  sha256: string;
+}
+
+/** One independent image-mode source block, already parsed and ordered by index. */
+export interface BrowserRenderImageBlock {
+  index: number;
+  source: string;
+}
+
+interface BrowserRenderPreparedBase {
+  frameRate: number;
+  resolution: { width: number; height: number };
+  quality: Quality;
+}
+
+/** Video browser take: playable, optionally narrated, never an MP4 artifact. */
+export interface BrowserRenderVideoPreparedPayload extends BrowserRenderPreparedBase {
+  /** Optional only for payloads stored before image output existed. */
+  outputMode?: 'video';
+  source: string;
+  sceneName?: string;
+  narration?: BrowserRenderNarrationPayload;
+}
+
+/** Image browser result: ordered source blocks; never narration and never an MP4. */
+export interface BrowserRenderImagePreparedPayload extends BrowserRenderPreparedBase {
+  outputMode: 'image';
+  blocks: BrowserRenderImageBlock[];
+}
+
+export type BrowserRenderPreparedPayload =
+  | BrowserRenderVideoPreparedPayload
+  | BrowserRenderImagePreparedPayload;
+
+export function isBrowserImagePayload(
+  payload: BrowserRenderPreparedPayload | null | undefined,
+): payload is BrowserRenderImagePreparedPayload {
+  return Boolean(
+    payload &&
+      payload.outputMode === 'image' &&
+      Array.isArray((payload as BrowserRenderImagePreparedPayload).blocks),
+  );
+}
+
+export function isBrowserVideoPayload(
+  payload: BrowserRenderPreparedPayload | null | undefined,
+): payload is BrowserRenderVideoPreparedPayload {
+  return Boolean(
+    payload &&
+      payload.outputMode !== 'image' &&
+      typeof (payload as BrowserRenderVideoPreparedPayload).source === 'string',
+  );
 }
 
 /** API 错误 */

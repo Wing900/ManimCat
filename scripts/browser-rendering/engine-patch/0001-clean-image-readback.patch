@@ -1,0 +1,152 @@
+--- orig/rust/engine/src/project.rs	2026-10-08 03:59:04.000000000 +0800
++++ src/rust/engine/src/project.rs	2026-11-10 14:54:10.968898000 +0800
+@@ -321,6 +321,17 @@
+     count: Count,
+ }
+ 
++/// A finished take's clean final frame, encoded into a dedicated readback buffer.
++/// The film's own texture is copied directly: the player's face (controls, timeline,
++/// help, status), letterboxing and surface scaling are not part of this path.
++pub(crate) struct ImageEncoding {
++    pub(crate) encoder: wgpu::CommandEncoder,
++    pub(crate) buffer: wgpu::Buffer,
++    pub(crate) pixels: u64,
++    pub(crate) padded: u32,
++    pub(crate) capacity: Option<u64>,
++}
++
+ impl Projector {
+     /// Take in the next bytes of the stream: the notes among them, each with its take's number.
+     pub(crate) fn feed(&mut self, chunk: &[u8]) -> Result<Vec<(u32, Note)>, String> {
+@@ -417,6 +428,47 @@
+         Ok(())
+     }
+ 
++    /// Encode the shown, finished take's final frame (the closing frame after `tear_down`)
++    /// at exactly `width` x `height`. The caller maps `buffer` and reads `pixels` bytes.
++    pub(crate) fn encode_image(&mut self, gpu: &mut Gpu, width: u32, height: u32) -> Result<ImageEncoding, String> {
++            // A completed take replaces the shown one; a failed one is dropped by `show`.
++            self.show(f64::INFINITY);
++            let Some(t) = self.shown.as_mut() else { return Err("the scene produced no take".into()) };
++            if !t.ended { return Err("the take has not ended".into()); }
++            if t.failed { return Err("the take ended after a scene failure".into()); }
++            if t.size != (width, height) {
++                return Err(format!("the take is {}x{}, not the requested {width}x{height}", t.size.0, t.size.1));
++            }
++            let Some(at) = t.shot(t.frame(f64::INFINITY)) else { return Err("the take has no recorded frames".into()); };
++            if (t.player.width, t.player.height) != (width, height) {
++                (t.player.width, t.player.height, t.player.targets) = (width, height, None);
++            }
++            let views = t.views(at)?;
++            let (mut encoder, _, composited) = t.player.encode(gpu, &views)?;
++            let padded = (width * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
++            let pixels = padded as u64 * height as u64;
++            let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
++                label: Some("image readback"),
++                size: pixels + crate::render::COUNT_BYTES,
++                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
++                mapped_at_creation: false,
++            });
++            let targets = t.player.targets.as_ref().expect("targets");
++            encoder.copy_texture_to_buffer(
++                wgpu::TexelCopyTextureInfo { texture: targets.frame.color.texture(), mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
++                wgpu::TexelCopyBufferInfo { buffer: &buffer, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(padded), rows_per_image: Some(height) } },
++                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
++            );
++            let capacity = if composited {
++                let lists = t.player.lists.as_ref().ok_or("the frame's see-through lists are missing")?;
++                encoder.copy_buffer_to_buffer(&lists.appended, 0, &buffer, pixels, Some(crate::render::COUNT_BYTES));
++                Some(lists.capacity)
++            } else {
++                None
++            };
++            Ok(ImageEncoding { encoder, buffer, pixels, padded, capacity })
++    }
++
+     /// The take shown at `time` seconds: the coming one replaces it once it has that moment, or
+     /// has ended short of it — unless its scene failed, and then it is dropped (the shown one
+     /// stays, and so the place). Returns its number (0: none yet).
+--- orig/rust/engine/src/player.rs	2026-10-08 03:59:04.000000000 +0800
++++ src/rust/engine/src/player.rs	2026-11-10 14:38:31.159904800 +0800
+@@ -983,6 +983,65 @@
+         }
+         Ok(())
+     }
++
++    /// Encode the finished take's clean final frame (after `tear_down`) and return its
++    /// RGBA bytes at exactly `width` x `height`. The film texture is read back directly;
++    /// no player face, timeline, help overlay, letterbox or surface scaling is composited.
++    #[cfg(feature = "web")]
++    pub(crate) async fn render_image(&mut self, width: u32, height: u32) -> Result<Vec<u8>, String> {
++        use wasm_bindgen::JsValue;
++
++        for _ in 0..4 {
++            let (buffer, pixels, padded, capacity) = with_gpu(|gpu| -> Result<_, String> {
++                let encoded = self.takes.encode_image(gpu, width, height)?;
++                let (buffer, pixels, padded, capacity) = (encoded.buffer, encoded.pixels, encoded.padded, encoded.capacity);
++                gpu.queue.submit(Some(encoded.encoder.finish()));
++                Ok((buffer, pixels, padded, capacity))
++            })??;
++
++            let slice = buffer.slice(..pixels + crate::render::COUNT_BYTES);
++            let promise = js_sys::Promise::new(&mut |resolve, reject| {
++                slice.map_async(wgpu::MapMode::Read, move |result| match result {
++                    Ok(()) => {
++                        let _ = resolve.call0(&JsValue::UNDEFINED);
++                    }
++                    Err(error) => {
++                        let _ = reject.call1(&JsValue::UNDEFINED, &JsValue::from_str(&error.to_string()));
++                    }
++                });
++            });
++            wasm_bindgen_futures::JsFuture::from(promise)
++                .await
++                .map_err(|error| format!("the image readback failed: {error:?}"))?;
++
++            let mapped = buffer
++                .slice(..pixels + crate::render::COUNT_BYTES)
++                .get_mapped_range()
++                .map_err(|error| error.to_string())?;
++            let overflowed = capacity.is_some_and(|capacity| {
++                let appended = crate::render::count(&mapped[pixels as usize..]);
++                with_gpu(|gpu| {
++                    self.takes.shown.as_mut().is_some_and(|t| t.player.overflowed(gpu, appended, capacity))
++                })
++                .unwrap_or(false)
++            });
++            if overflowed {
++                drop(mapped);
++                buffer.unmap();
++                continue;
++            }
++
++            let row = (width * 4) as usize;
++            let mut output = Vec::with_capacity(row * height as usize);
++            for line in mapped[..pixels as usize].chunks_exact(padded as usize) {
++                output.extend_from_slice(&line[..row]);
++            }
++            drop(mapped);
++            buffer.unmap();
++            return Ok(output);
++        }
++        Err("the image frame still overflowed its see-through lists".into())
++    }
+ }
+ 
+ #[cfg(test)]
+--- orig/rust/engine/src/web.rs	2026-10-08 03:59:04.000000000 +0800
++++ src/rust/engine/src/web.rs	2026-11-10 14:38:38.484222900 +0800
+@@ -203,4 +203,13 @@
+     pub fn film(&self) -> Option<Vec<u32>> {
+         self.player.film().map(|(w, h)| vec![w, h])
+     }
++
++    /// Render the finished take's final frame (the closing frame after `tear_down`) into
++    /// clean RGBA pixels at exactly `width` x `height`, as a promise. This copies the
++    /// film texture only: the player's controls, timeline, help, status, letterbox and
++    /// surface scaling never enter the image. The take must match the requested size.
++    pub async fn render_image(&mut self, width: u32, height: u32) -> Result<js_sys::Uint8Array, JsError> {
++        let pixels = self.player.render_image(width, height).await.map_err(error)?;
++        Ok(js_sys::Uint8Array::from(pixels.as_slice()))
++    }
+ }

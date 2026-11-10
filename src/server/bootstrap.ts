@@ -5,6 +5,7 @@ import { corsMiddleware } from '../http/middleware/cors'
 import { errorHandler } from '../http/middleware/error-response-handler'
 import { notFoundHandler } from '../http/middleware/not-found-handler'
 import routes from '../routes'
+import { browserRendererOriginMiddleware } from './browser-renderer-origin'
 
 interface LoggerLike {
   info(message: string, meta?: unknown): void
@@ -34,6 +35,20 @@ function requestLoggerFactory(logger: LoggerLike) {
 export async function initializeExpressApp(app: express.Express, logger: LoggerLike): Promise<void> {
   validateConfig()
   printConfig()
+
+  // Host-gated before every parser, API and main-site static route. The renderer
+  // origin can only read its immutable frontend artifact.
+  app.use(browserRendererOriginMiddleware())
+  app.use((req, res, next) => {
+    if (
+      req.path === '/renderer' ||
+      req.path === '/renderer/' ||
+      req.path === '/browser-renderer.html'
+    ) {
+      return res.sendStatus(404)
+    }
+    next()
+  })
 
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true, limit: '10mb' }))

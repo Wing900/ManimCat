@@ -45,7 +45,7 @@ function toPreview(value: string, maxLength = 240): string {
 async function handleGenerateRequest(req: express.Request, res: express.Response) {
   const parsed = generateBodySchema.parse(req.body)
 
-  const { concept, problemPlan, outputMode, quality, code, promptOverrides, videoConfig, referenceImages, renderCacheKey } = parsed
+  const { concept, problemPlan, outputMode, quality, code, promptOverrides, videoConfig, referenceImages, renderCacheKey, renderTarget } = parsed
   const accessContext = requireAccessContext(res)
   const effectiveCustomApiConfig = requireProviderConfig(accessContext)
 
@@ -74,6 +74,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
     conceptLength: queuedConcept.length,
     outputMode,
     quality,
+    renderTarget,
     hasProblemPlan: !!problemPlan,
     problemPlanPreview: problemPlan
       ? {
@@ -120,6 +121,7 @@ async function handleGenerateRequest(req: express.Request, res: express.Response
         videoConfig,
         clientId,
         renderCacheKey: stableRenderCacheKey,
+        renderTarget,
         timestamp: submittedAt
       },
       {
