@@ -101,6 +101,7 @@ COPY --from=node_builder /app/src/rendering/manim/manimgx-runner.py ./src/render
 COPY --from=node_builder /app/src/rendering/manim/narration_runtime.py ./src/rendering/manim/narration_runtime.py
 COPY --from=node_builder /app/src/rendering/manim/edge_tts_worker.py ./src/rendering/manim/edge_tts_worker.py
 COPY scripts/deploy/start-with-redis-hf.cjs ./scripts/deploy/start-with-redis-hf.cjs
+COPY scripts/deploy/container-entrypoint.sh ./scripts/deploy/container-entrypoint.sh
 
 RUN mkdir -p \
         /app/.studio-workspace \
@@ -112,6 +113,7 @@ RUN mkdir -p \
     # The render subprocess runs through bubblewrap, with only the exact render venv,
     # system runtime, runner files and per-render staging mounted. /app itself is not
     # visible to submitted code; this ownership only lets the server manage its own files.
+    && chmod 0755 ./scripts/deploy/container-entrypoint.sh \
     && chown -R node:node /app /data/redis
 
 ENV PORT=7860
@@ -127,7 +129,11 @@ USER node
 # tini is container PID 1 and forwards Docker stop to the child's process group;
 # unshare alone ignores SIGTERM as PID 1 and would force a SIGKILL timeout.
 # Kill the child namespace when the launcher exits, including during shutdown.
-ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/bin/unshare", "--user", "--map-root-user", "--mount", "--mount-proc", "--propagation", "private", "--pid", "--fork", "--kill-child=KILL", "--"]
+# Hosts that block unprivileged user namespaces (for example Hugging Face
+# Spaces) may set MANIMCAT_CONTAINER_SANDBOX=disabled to run browser-only. The
+# switch is explicit; server-side rendering still fails closed because bwrap
+# remains mandatory.
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/app/scripts/deploy/container-entrypoint.sh"]
 
 # Probe /health on the configured PORT. timeout/start-period are short enough that a wedged
 # container is restarted instead of kept on life support.

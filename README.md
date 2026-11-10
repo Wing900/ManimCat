@@ -214,10 +214,13 @@ The image entrypoint is `tini -g -- unshare ...`, so Docker stop forwards SIGTER
 
 Use the repository's `Dockerfile`, listening on port `7860`. Its startup script launches embedded Redis; Docker Compose is not needed inside the Space. The Space runtime must permit the rendering sandbox requirements above (the seccomp profile and unprivileged user-namespace setup); if it does not, startup fails closed and rendering is unavailable. Compose on a Linux host is the reference deployment when the Space runtime cannot provide that policy.
 
+Hosts that block unprivileged user namespaces, including the Hugging Face Spaces Docker runtime, can run browser-only by setting `MANIMCAT_CONTAINER_SANDBOX=disabled`. This explicitly skips the outer namespace. The server-side render sandbox remains mandatory and fails closed, so cloud rendering is unavailable in that mode; use a Linux host with the Compose security policy when server-side rendering is required.
+
 Configure environment variables in Space Settings. Store sensitive values in Secrets, never in the repository, Dockerfile, or frontend:
 
 | Configuration | Purpose |
 | --- | --- |
+| `MANIMCAT_CONTAINER_SANDBOX=disabled` | Browser-only Space deployment; skips the outer namespace. Server-side rendering remains unavailable because bubblewrap is still mandatory. |
 | `STUDIO_DATA_MODE=client` | Single-instance deployment with browser-owned sessions |
 | `STUDIO_EVENT_TRANSPORT=redis`, `STUDIO_RUN_COORDINATION=redis` | Event delivery and run coordination |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | CatKey validation and usage recording when CatKey is enabled; the Service Role Key stays server-side |

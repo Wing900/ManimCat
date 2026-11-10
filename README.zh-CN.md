@@ -212,10 +212,13 @@ Seccomp Profile 基于 Docker v28 默认配置，运行环境需使用兼容的 
 
 使用仓库的 `Dockerfile`，监听端口为 `7860`。容器启动脚本会启动内置 Redis，无需在 Space 中运行 Docker Compose。
 
+如果宿主机禁止非特权 user namespace（例如 Hugging Face Spaces 的 Docker 运行时），可设置 `MANIMCAT_CONTAINER_SANDBOX=disabled` 以 browser-only 模式启动。该开关显式跳过外层 user namespace；服务端渲染沙箱仍然强制存在并 fail-closed，因此 cloud rendering 不可用。需要服务端渲染时，请使用支持该 namespace 策略的 Linux 主机与 Compose 配置。
+
 在 Space 的 Settings 中配置环境变量；敏感值放入 Secrets，勿写入仓库、Dockerfile 或前端：
 
 | 配置 | 用途 |
 | --- | --- |
+| `MANIMCAT_CONTAINER_SANDBOX=disabled` | HF browser-only 部署：跳过外层 namespace；服务端渲染保持不可用 |
 | `STUDIO_DATA_MODE=client` | 单实例、浏览器保存会话的部署方式 |
 | `STUDIO_EVENT_TRANSPORT=redis`、`STUDIO_RUN_COORDINATION=redis` | 事件推送与运行协调 |
 | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` | 启用 CatKey 时校验密钥、记录用量；Service Role Key 仅供后端使用 |
