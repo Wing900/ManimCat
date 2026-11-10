@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from '../../../shared/i18n/index';
+import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { BrowserRenderError } from '../../browser-rendering';
 import type {
   BrowserRenderVideoPreparedPayload,
@@ -85,35 +86,25 @@ function BrowserRenderPreviewRun({
       ? t('browser.preflight.insecure')
       : t('result.browser.unsupported');
 
-  const statusText =
-    status === 'checking'
-      ? t('result.browser.preparing')
-      : status === 'mounting'
-        ? t('result.browser.mounting')
-        : status === 'starting'
-          ? t('result.browser.starting')
-          : status === 'rendering'
-            ? t('result.browser.rendering')
-            : status === 'ready'
-              ? t('result.browser.ready')
-              : null;
-
   return (
     <div className="w-full">
       <p className="mb-2 text-[11px] leading-relaxed text-text-secondary/55">
         {t('result.browser.prepared')}
       </p>
-      <div className="relative aspect-video w-full overflow-hidden rounded-md bg-black">
-        <div ref={containerRef} className="absolute inset-0" />
+      {loading ? (
+        <div className="animate-fade-in-soft rounded-2xl bg-bg-secondary/20 p-8">
+          <LoadingSpinner stage="rendering" jobId={jobId} />
+        </div>
+      ) : null}
 
-        {loading ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45">
-            <div className="flex items-center gap-3 rounded-full bg-black/55 px-4 py-2 text-xs text-white/80">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white/80" />
-              {statusText}
-            </div>
-          </div>
-        ) : null}
+      <div
+        className={
+          isReady || blocked
+            ? 'relative aspect-video w-full overflow-hidden rounded-md bg-black animate-fade-in-soft'
+            : 'pointer-events-none fixed left-[-20000px] top-0 h-[540px] w-[960px] overflow-hidden opacity-0'
+        }
+      >
+        <div ref={containerRef} className="absolute inset-0" />
 
         {blocked ? (
           <div className="absolute inset-0 flex items-center justify-center p-5">
@@ -159,9 +150,11 @@ function BrowserRenderPreviewRun({
         ) : null}
       </div>
 
-      <p className="mt-2 text-center text-[11px] leading-relaxed text-text-secondary/55">
-        {t('result.browser.previewOnly')}
-      </p>
+      {isReady ? (
+        <p className="mt-2 text-center text-[11px] leading-relaxed text-text-secondary/55">
+          {t('result.browser.previewOnly')}
+        </p>
+      ) : null}
 
       {isReady ? (
         <div className="mt-3 flex flex-col gap-2 rounded-xl bg-bg-secondary/35 px-4 py-3">

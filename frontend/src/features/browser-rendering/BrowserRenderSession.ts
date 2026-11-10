@@ -491,7 +491,25 @@ export class BrowserRenderSession {
     if (event.origin !== this.#rendererUrl.origin) return;
     const parsed = parseFrameMessage(event.data);
     if (!parsed.ok) {
-      this.#protocolError(`Renderer protocol violation: ${parsed.reason}`);
+      const record =
+        typeof event.data === 'object' && event.data !== null
+          ? (event.data as Record<string, unknown>)
+          : null;
+      const receivedVersion = record?.v;
+      const receivedType = typeof record?.type === 'string' ? record.type : undefined;
+      const detail =
+        `expected v=${BROWSER_RENDER_PROTOCOL_VERSION}, ` +
+        `received v=${String(receivedVersion)}, ` +
+        `type=${String(receivedType)}, origin=${event.origin}`;
+      console.error('[browser-rendering] protocol violation', {
+        reason: parsed.reason,
+        expected: BROWSER_RENDER_PROTOCOL_VERSION,
+        receivedVersion,
+        receivedType,
+        origin: event.origin,
+        iframe: this.#iframe?.src,
+      });
+      this.#protocolError(`Renderer protocol violation: ${parsed.reason} (${detail})`);
       return;
     }
     const message = parsed.value;

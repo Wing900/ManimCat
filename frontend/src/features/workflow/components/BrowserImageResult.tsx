@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from '../../../shared/i18n/index';
+import { LoadingSpinner } from '../../../shared/components/LoadingSpinner';
 import { BrowserRenderError } from '../../browser-rendering';
 import type {
   BrowserRenderImagePreparedPayload,
@@ -98,11 +99,11 @@ function BrowserImageResultRun({
       ) : null}
 
       {images.length === 0 && loading ? (
-        <div className="relative flex h-[420px] items-center justify-center rounded-2xl bg-bg-secondary/30">
-          <div className="flex max-w-sm flex-col items-center gap-3 rounded-full bg-black/55 px-5 py-3 text-center text-xs text-white/80">
-            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/25 border-t-white/80" />
-            <span>{statusText}</span>
-          </div>
+        <div className="animate-fade-in-soft rounded-2xl bg-bg-secondary/20 p-8">
+          <LoadingSpinner stage="rendering" jobId={jobId} />
+          <p className="mt-3 text-center text-[11px] leading-relaxed text-text-secondary/60">
+            {statusText}
+          </p>
         </div>
       ) : null}
 
