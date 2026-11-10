@@ -230,13 +230,13 @@ BYOK 用户在页面设置自己的上游。若需要服务端保存 Studio 会�
 
 仓库另外提供 `docker-compose.yml`：Redis 作为独立服务，应用以 `node dist/server.js` 启动，宿主端口用 `MANIMCAT_PUBLISHED_PORT` 指定，支持 `--scale` 多副本。
 
-同步到 Space 前，先将需要发布的改动提交到 `main`，再运行：
+同步到 Space 前，先将需要发布的改动提交到 `main`，再运行可移植发布脚本：
 
-```powershell
-./scripts/sync-space.ps1
+```bash
+bash scripts/sync-space.sh
 ```
 
-Linux/macOS 可运行 `bash scripts/sync-space.sh`。脚本默认发布已提交的 `main` 到 `space`、`space-show` 两个 remote，并覆盖其远端 `main`；请先核对 remote 地址。脚本会注入 Space 配置，未提交的改动不会进入发布快照。
+脚本默认发布已提交的 `main` 到 `space`、`space-show` 两个 remote，并覆盖其远端 `main`；请先核对 remote 地址。脚本会注入 Space 配置，未提交的改动不会进入发布快照。Windows 用户可使用本地的 PowerShell 发布脚本；该 `.ps1` 辅助脚本有意不纳入版本控制。
 
 部署注意：
 

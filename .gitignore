@@ -94,6 +94,8 @@ dist-workflow-tests/
 /opencode-model-alias.patch
 /scripts/build_class_meeting_submission.ps1
 /scripts/build_october_reports.ps1
+# Local-only Windows Space publisher; the portable shell publisher stays tracked.
+/scripts/sync-space.ps1
 
 # Browser renderer generated assets and isolated build
 frontend/browser-rendering-assets/

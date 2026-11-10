@@ -228,17 +228,17 @@ Configure environment variables in Space Settings. Store sensitive values in Sec
 
 BYOK users configure their upstream in the UI. For server-side Studio session persistence, set `STUDIO_DATA_MODE=server` and `ENABLE_STUDIO_DB=true`, and configure Supabase with the required tables. Multiple replicas also require shared Redis and accessible render-file storage.
 
-Before syncing to Spaces, commit the changes to publish on `main`, then run:
+Before syncing to Spaces, commit the changes to publish on `main`, then run the portable publisher:
 
-```powershell
-./scripts/sync-space.ps1
+```bash
+bash scripts/sync-space.sh
 ```
 
 The production environment template is [`config/deploy/production.env.example`](config/deploy/production.env.example). For Compose, copy it to a local `.env` and fill in the required values; copying the file alone does not configure Space Settings.
 
 A `docker-compose.yml` is also provided: Compose runs Redis as its own service and starts the app with `node dist/server.js`; set the host port with `MANIMCAT_PUBLISHED_PORT`, and `--scale` for multiple replicas.
 
-On Linux/macOS, run `bash scripts/sync-space.sh`. By default, the script publishes committed `main` to the `space` and `space-show` remotes, overwriting their remote `main`; check the remote URLs first. It injects Space metadata. Uncommitted changes are excluded from the deployment snapshot.
+The publisher publishes committed `main` to the `space` and `space-show` remotes by default, overwriting their remote `main`; check the remote URLs first. It injects Space metadata. Uncommitted changes are excluded from the deployment snapshot. Windows users can use a local copy of the PowerShell publisher; that helper is intentionally untracked.
 
 Deployment notes:
 
