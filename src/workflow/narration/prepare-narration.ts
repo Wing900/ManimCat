@@ -628,15 +628,24 @@ export async function prepareNarration(options: PrepareNarrationOptions): Promis
         aligned: aligned.length
       })
     }
+    const cueWarnings: string[] = []
     cueTimes.push(
       mapCueTimes(
         segment.parsed,
         aligned,
         audio.info.duration,
         segment.id,
-        EDGE_TTS_TICKS_PER_SECOND
+        EDGE_TTS_TICKS_PER_SECOND,
+        cueWarnings
       )
     )
+    if (cueWarnings.length > 0) {
+      logger.warn('Cue timing estimated without a following word boundary', {
+        segmentId: segment.id,
+        warnings: cueWarnings.slice(0, 8),
+        totalWarnings: cueWarnings.length
+      })
+    }
   }
 
   throwIfCancelled(options.signal)

@@ -279,15 +279,18 @@ function hasSpeechText(value: string): boolean {
  * Map cue markers to segment-relative seconds using real word boundaries.
  *
  * A marker inside a word belongs to that word; a marker between words belongs to
- * the next word. A marker in trailing punctuation belongs to the segment end. Any
- * other unmapped marker throws — zero would silently shift the whole cue plan.
+ * the next word. A marker in trailing punctuation belongs to the segment end. A
+ * marker after the last aligned boundary is estimated proportionally through the
+ * remaining text and reported; a marker with no aligned boundary at all throws,
+ * because zero would silently shift the whole cue plan.
  */
 export function mapCueTimes(
   parsed: ParsedSegmentText,
   aligned: readonly AlignedWordBoundary[],
   segmentDuration: number,
   segmentId: string,
-  tickRate = 10_000_000
+  tickRate = 10_000_000,
+  warnings: string[] = []
 ): Record<string, number> {
   if (tickRate !== 10_000_000) {
     throw new NarrationError(
@@ -320,6 +323,15 @@ export function mapCueTimes(
       const tail = parsed.cleanText.slice(marker.position)
       if (!hasSpeechText(tail)) {
         time = segmentDuration
+      } else if (aligned.length > 0) {
+        const last = aligned[aligned.length - 1]!
+        const tailStart = last.endChar
+        const tailLength = Math.max(1, parsed.cleanText.length - tailStart)
+        const ratio = Math.min(1, Math.max(0, (marker.position - tailStart) / tailLength))
+        time = last.endTime + ratio * Math.max(0, segmentDuration - last.endTime)
+        warnings.push(
+          `Cue [[${marker.id}]] in segment ${JSON.stringify(segmentId)} has no following word boundary; estimated at ${time.toFixed(3)}s`
+        )
       } else {
         throw new NarrationError(
           'CUE_UNMAPPED',

@@ -102,7 +102,7 @@ test('Edge offsets are converted from 100 ns ticks to seconds exactly', () => {
   )
 })
 
-test('malformed or unmappable cues fail loudly instead of mapping to zero', () => {
+test('malformed cues fail loudly; a trailing unmapped cue is estimated', () => {
   assert.throws(
     () => parseMarkedText('你好 [[bad id]]', 'seg-1'),
     (error: unknown) => error instanceof NarrationError && error.code === 'INVALID_MARKER'
@@ -128,6 +128,17 @@ test('malformed or unmappable cues fail loudly instead of mapping to zero', () =
   const tail = parseMarkedText('你好[[cue-1]]。', 'seg-1')
   const aligned = alignWordBoundaries(tail.cleanText, [boundary('你好', 0.3, 0.4)]).aligned
   assert.deepEqual(mapCueTimes(tail, aligned, 1.25, 'seg-1'), { 'cue-1': 1.25 })
+
+  // Edge can omit boundaries for a trailing mixed-language chunk. A cue after the
+  // last aligned word is estimated through the remaining text and reported rather
+  // than failing the whole narration.
+  const trailing = parseMarkedText('你好世界[[cue-1]]继续', 'seg-1')
+  const one = alignWordBoundaries(trailing.cleanText, [boundary('你好', 0.3, 0.4)]).aligned
+  const warnings: string[] = []
+  const mapped = mapCueTimes(trailing, one, 2, 'seg-1', 10_000_000, warnings)
+  assert.ok(Math.abs(mapped['cue-1'] - 1.48) < 1e-9)
+  assert.equal(warnings.length, 1)
+  assert.ok(warnings[0]?.includes('no following word boundary'))
 })
 
 test('duplicate cue ids are rejected by the plan parser and before TTS', async () => {
